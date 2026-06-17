@@ -1,0 +1,25 @@
+{
+  "skillName": "testing-audit",
+  "skillVersion": "1.0.0",
+  "runStartedAt": "2026-06-17T00:00:00Z",
+  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "repository": "AgenticProjectTemplate",
+  "mode": "static",
+  "withRun": false,
+  "noGraphify": true,
+  "graphifyRevision": null,
+  "testRunner": { "name": "jest", "version": "^29.7.0" },
+  "componentTestingLibrary": "@testing-library/react",
+  "endToEndFramework": "playwright",
+  "lintStack": "biome",
+  "thresholds": {
+    "priorityOneRatio": 70,
+    "testidRatio": 10,
+    "byRoleRatio": 50,
+    "userEventRatio": 80,
+    "snapshotLines": 100
+  },
+  "appliedFilters": { "include": null, "exclude": null },
+  "runnerExitStatus": null,
+  "notes": "Static-only run; graphify was not executed, so the components-without-tests check used per-folder heuristics and the implementation plan loses centrality-based prioritisation. Coverage figures are a static read of the committed coverage/coverage-final.json (two exercised files), not a fresh --with-run."
+}

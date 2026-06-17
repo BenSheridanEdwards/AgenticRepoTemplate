@@ -1,0 +1,33 @@
+{
+  "skillName": "architecture-audit",
+  "skillVersion": "1.0.0",
+  "runStartedAt": "2026-06-17T00:00:00Z",
+  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "repository": "AgenticProjectTemplate",
+  "gitCommit": "1623624be6fa3c415ddcc57c29b7a4a1d4de02e5",
+  "mode": "static-inspector",
+  "noGraphify": true,
+  "graphifyRevision": null,
+  "framework": "vite-react",
+  "pattern": {
+    "detected": "feature-folders",
+    "rationale": "src/features/<feature>/ slice with co-located view, hook, test and a barrel (index.ts); main.tsx + App.tsx compose above. Matches .agents/project/ARCHITECTURE.md.",
+    "overrideUsed": false
+  },
+  "thresholds": { "godModule": 30, "godComponent": 25, "fileSize": 400, "fanOut": 15 },
+  "filtersApplied": {
+    "layers": [
+      "module-boundaries",
+      "coupling-and-complexity",
+      "state-and-data-flow",
+      "convention-adherence"
+    ],
+    "include": [],
+    "exclude": []
+  },
+  "reducedContext": {
+    "noGraphify": true,
+    "reason": "graphify-out/graph.json absent; run was static-only. Graph-derived checks (no-circular-dependencies, no-god-module, no-god-component, component-fan-out-budget, no-orphaned-files) reported as 'missing' rather than 'present'.",
+    "recommendation": "Run /pre-audit-setup to build the knowledge graph, then re-run /architecture-audit for a full-confidence pass."
+  }
+}

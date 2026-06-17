@@ -1,0 +1,245 @@
+{
+  "skillVersion": "1.0.0",
+  "runStartedAt": "2026-06-17T00:00:00Z",
+  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "repository": "AgenticProjectTemplate",
+  "gitCommit": "1623624be6fa3c415ddcc57c29b7a4a1d4de02e5",
+  "mode": "static-inspector",
+  "noGraphify": true,
+  "framework": "vite-react",
+  "pattern": {
+    "detected": "feature-folders",
+    "rationale": "src/features/<feature>/ slice with co-located view (ThresholdCounter.tsx), hook (useThresholdCounter.ts), test (ThresholdCounter.test.tsx) and a barrel (index.ts); main.tsx + App.tsx compose above. Matches .agents/project/ARCHITECTURE.md.",
+    "overrideUsed": false
+  },
+  "thresholds": { "godModule": 30, "godComponent": 25, "fileSize": 400, "fanOut": 15 },
+  "snapshot": {
+    "graphifyPresent": false,
+    "godNodes": [],
+    "communities": [],
+    "moduleCount": 6,
+    "featureFolderCount": 1,
+    "edgeCount": null,
+    "fanInMean": null,
+    "fanInMedian": null,
+    "fanOutMean": null,
+    "fanOutMedian": null,
+    "directoryDepth": { "deepest": 3, "average": null },
+    "largestSourceFileLines": 52,
+    "stateManagement": "react-local-only",
+    "note": "Graph-derived metrics (god nodes, communities, fan-in/out, PageRank) not computed: graphify was not run (noGraphify). Also structurally trivial at 6 modules / 1 feature."
+  },
+  "summary": {
+    "moduleBoundaries": { "present": 2, "partial": 0, "missing": 2, "violation": 0 },
+    "couplingAndComplexity": { "present": 2, "partial": 0, "missing": 3, "violation": 0 },
+    "stateAndDataFlow": { "present": 4, "partial": 0, "missing": 1, "violation": 0 },
+    "conventionAdherence": { "present": 3, "partial": 1, "missing": 0, "violation": 0 }
+  },
+  "checks": [
+    {
+      "layer": "module-boundaries",
+      "check": "no-circular-dependencies",
+      "status": "missing",
+      "noGraphify": true,
+      "evidence": [
+        "src/main.tsx",
+        "src/App.tsx",
+        "src/features/threshold-counter/index.ts",
+        "src/features/threshold-counter/ThresholdCounter.tsx",
+        "src/features/threshold-counter/useThresholdCounter.ts"
+      ],
+      "expectation": "The dependency graph is acyclic; cycles detected by graphify.",
+      "gap": "Cycle detection requires the knowledge graph, which was not built. Static read shows a strict import tree with no back-edge; a cycle is structurally impossible across 6 modules, but this is asserted, not graph-proven.",
+      "remediation": "Run /pre-audit-setup to build graphify-out/graph.json, then re-run for a confirmed acyclic result."
+    },
+    {
+      "layer": "module-boundaries",
+      "check": "feature-single-entry-point",
+      "status": "present",
+      "evidence": ["src/features/threshold-counter/index.ts:1", "src/App.tsx:1"],
+      "expectation": "Each feature under src/features/ exposes a barrel (index.ts) and external imports go through it.",
+      "gap": "Holds, but for exactly one feature with one external consumer (App.tsx imports the barrel, not a deep path). Discipline at scale is unobserved.",
+      "remediation": "None now. Re-assess once a second feature exists; that is the first real test of feature isolation."
+    },
+    {
+      "layer": "module-boundaries",
+      "check": "no-deep-relative-imports",
+      "status": "present",
+      "evidence": [
+        "src/features/threshold-counter/ThresholdCounter.tsx:1",
+        "src/features/threshold-counter/index.ts:1",
+        "src/App.tsx:1"
+      ],
+      "expectation": "Relative imports go up at most two levels.",
+      "gap": "None. grep for ../../../ across src/ returns zero matches; all intra-feature imports are single-level siblings.",
+      "remediation": "None."
+    },
+    {
+      "layer": "module-boundaries",
+      "check": "no-back-imports-across-boundaries",
+      "status": "missing",
+      "evidence": ["src/features/"],
+      "expectation": "Sibling features import each other only through public entry points (feature-folders pattern).",
+      "gap": "Structural prerequisite absent: only one feature exists, so there are no sibling boundaries to cross. The rule is documented in .agents/project/ARCHITECTURE.md ('Features are islands') but is untested.",
+      "remediation": "None now. The invariant becomes testable when a second feature lands."
+    },
+    {
+      "layer": "module-boundaries",
+      "check": "cross-workspace-contracts",
+      "status": "missing",
+      "evidence": [],
+      "expectation": "Internal packages import only from each other's published entry points (monorepos only).",
+      "gap": "Not a monorepo: pnpm-workspace.yaml carries only allowBuilds; no packages/ directory or workspace globs. Skipped per SKILL.md.",
+      "remediation": "N/A."
+    },
+    {
+      "layer": "coupling-and-complexity",
+      "check": "no-god-module",
+      "status": "missing",
+      "noGraphify": true,
+      "thresholdApplied": 30,
+      "evidence": [],
+      "expectation": "No module has fan-in greater than 30.",
+      "gap": "Fan-in/PageRank are graph-derived and were not computed. With 6 modules the maximum possible fan-in is trivially small, so a god module cannot exist at this size.",
+      "remediation": "Re-run after /pre-audit-setup for a measured fan-in distribution."
+    },
+    {
+      "layer": "coupling-and-complexity",
+      "check": "no-god-component",
+      "status": "missing",
+      "noGraphify": true,
+      "thresholdApplied": 25,
+      "evidence": ["src/App.tsx:12"],
+      "expectation": "No React component is rendered by more than 25 parents.",
+      "gap": "Render-graph not built. ThresholdCounter has exactly one rendering parent (App.tsx), structurally far below threshold.",
+      "remediation": "Re-run after /pre-audit-setup."
+    },
+    {
+      "layer": "coupling-and-complexity",
+      "check": "file-size-budget",
+      "status": "present",
+      "thresholdApplied": 400,
+      "evidence": [
+        "src/features/threshold-counter/ThresholdCounter.test.tsx (52)",
+        "src/features/threshold-counter/useThresholdCounter.ts (47)",
+        "src/features/threshold-counter/ThresholdCounter.tsx (46)",
+        "src/App.tsx (15)",
+        "src/main.tsx (15)"
+      ],
+      "expectation": "No source file exceeds 400 lines.",
+      "gap": "None. Largest TS/TSX source is 52 lines; index.css (152) is not a TS source.",
+      "remediation": "None."
+    },
+    {
+      "layer": "coupling-and-complexity",
+      "check": "component-fan-out-budget",
+      "status": "missing",
+      "noGraphify": true,
+      "thresholdApplied": 15,
+      "evidence": ["src/features/threshold-counter/ThresholdCounter.tsx:1", "src/App.tsx:1"],
+      "expectation": "No component imports more than 15 modules.",
+      "gap": "Per-component import graph not built. Static read: ThresholdCounter.tsx imports 1 module, App.tsx imports 1 — both trivially under budget.",
+      "remediation": "Re-run after /pre-audit-setup."
+    },
+    {
+      "layer": "coupling-and-complexity",
+      "check": "no-orphaned-files",
+      "status": "missing",
+      "noGraphify": true,
+      "evidence": [],
+      "expectation": "Every source file is reachable from at least one entry point.",
+      "gap": "Reachability is a graph traversal and was not run. Static read: every src/ module is reachable from main.tsx; no orphans by inspection.",
+      "remediation": "Re-run after /pre-audit-setup to confirm against the graph."
+    },
+    {
+      "layer": "state-and-data-flow",
+      "check": "single-state-management-strategy",
+      "status": "present",
+      "evidence": ["package.json", "src/features/threshold-counter/useThresholdCounter.ts:1,38-44"],
+      "expectation": "Exactly one state-management strategy.",
+      "gap": "None. No state library in dependencies; state is React-local only (useState/useMemo/useCallback). Single coherent strategy.",
+      "remediation": "None. When global state is needed, pick one library and record it as an ADR per .agents/project/ARCHITECTURE.md."
+    },
+    {
+      "layer": "state-and-data-flow",
+      "check": "data-fetching-layer-separated",
+      "status": "missing",
+      "evidence": [],
+      "expectation": "Server state lives in a designated data-fetching layer, not component useEffect + fetch.",
+      "gap": "Structural prerequisite absent: no data fetching anywhere (grep for fetch(/axios/XMLHttpRequest in src/ returns zero). ARCHITECTURE.md deliberately defers a data layer.",
+      "remediation": "N/A now. When a data layer is added, give it its own boundary (e.g. src/shared/api) with a public surface."
+    },
+    {
+      "layer": "state-and-data-flow",
+      "check": "no-global-mutable-singletons",
+      "status": "present",
+      "evidence": ["src/features/threshold-counter/useThresholdCounter.ts:10-11"],
+      "expectation": "No top-level 'let' exports holding mutable state.",
+      "gap": "None. grep for 'export let' in src/ returns zero; module-level exports are const constants and pure functions/types.",
+      "remediation": "None."
+    },
+    {
+      "layer": "state-and-data-flow",
+      "check": "side-effects-isolated",
+      "status": "present",
+      "evidence": ["src/main.tsx:6-9"],
+      "expectation": "Components do not read/write localStorage, sessionStorage, document.cookie, or window.* directly.",
+      "gap": "None. grep across src/ returns zero matches. The one DOM access (document.getElementById('root')) is in main.tsx, the composition root, and fails loudly if #root is missing.",
+      "remediation": "None."
+    },
+    {
+      "layer": "state-and-data-flow",
+      "check": "server-client-distinction",
+      "status": "missing",
+      "evidence": [],
+      "expectation": "'use client' used deliberately (Next.js App Router only).",
+      "gap": "Not Next.js App Router (Vite-React). Directive does not apply. Skipped per SKILL.md.",
+      "remediation": "N/A."
+    },
+    {
+      "layer": "convention-adherence",
+      "check": "file-naming-consistency",
+      "status": "present",
+      "evidence": [
+        "src/features/threshold-counter/ThresholdCounter.tsx",
+        "src/features/threshold-counter/useThresholdCounter.ts",
+        "src/features/threshold-counter/ThresholdCounter.test.tsx",
+        ".agents/project/CONVENTIONS.md:7-16"
+      ],
+      "expectation": "Files match the dominant naming pattern for their kind.",
+      "gap": "None. Folder kebab-case, component PascalCase, hook useCamelCase same-name, test co-located <Name>.test.tsx, constants SCREAMING_SNAKE_CASE, types PascalCase. All match CONVENTIONS.md.",
+      "remediation": "None."
+    },
+    {
+      "layer": "convention-adherence",
+      "check": "directory-structure-consistency",
+      "status": "present",
+      "evidence": [".agents/project/ARCHITECTURE.md:12-24", "src/features/threshold-counter/"],
+      "expectation": "Directories of the same kind follow the same organisational convention.",
+      "gap": "The single feature folder matches the canonical four-file shape in ARCHITECTURE.md. No siblings to diverge yet, so consistency is satisfied trivially.",
+      "remediation": "None now; re-assess at >1 feature."
+    },
+    {
+      "layer": "convention-adherence",
+      "check": "index-barrels-consistent",
+      "status": "present",
+      "evidence": ["src/features/threshold-counter/index.ts:1"],
+      "expectation": "If barrels are used in any feature folder, they are used in every feature folder.",
+      "gap": "The one feature has a barrel; no second feature to be inconsistent with. Convention codified in ARCHITECTURE.md rule 3 and CONVENTIONS.md.",
+      "remediation": "None."
+    },
+    {
+      "layer": "convention-adherence",
+      "check": "public-api-documented",
+      "status": "partial",
+      "evidence": [
+        "src/features/threshold-counter/index.ts:1",
+        "src/features/threshold-counter/ThresholdCounter.tsx:3-7",
+        "src/features/threshold-counter/useThresholdCounter.ts:13-18"
+      ],
+      "expectation": "Each feature's index.ts has a documenting comment describing its public surface, or the folder has a README.md (soft check).",
+      "gap": "index.ts is a bare one-line re-export with no doc comment, and the folder has no README.md. The component and hook are well-documented, but the public surface (the barrel) itself is not.",
+      "remediation": "Add a 1-3 line doc comment to index.ts naming what the feature exposes and what stays private. Sets the template every future feature copies."
+    }
+  ]
+}

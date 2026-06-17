@@ -1,0 +1,98 @@
+{
+  "skillName": "agentic-audit",
+  "skillVersion": "1.0.0",
+  "runStartedAt": "2026-06-17T00:00:00Z",
+  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "repository": "BenSheridanEdwards/AgenticProjectTemplate",
+  "gitCommit": "1623624be6fa3c415ddcc57c29b7a4a1d4de02e5",
+  "mode": "static-only",
+  "noGraphify": true,
+  "graphifyRevision": null,
+  "projectShape": "deployable-application",
+  "aiSurfaceDetected": false,
+  "thresholds": {
+    "instructionMinLines": 25,
+    "instructionMaxLines": 400,
+    "permissionBroadness": 5,
+    "contextCoverage": 60
+  },
+  "detectedAgenticInstructionFiles": [
+    {
+      "path": "AGENTS.md",
+      "lines": 59,
+      "lastModified": "2026-06-17",
+      "toolFamily": "agents-md",
+      "primary": true
+    },
+    {
+      "path": "CLAUDE.md",
+      "lines": 47,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".agents/README.md",
+      "lines": 32,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".agents/project/ARCHITECTURE.md",
+      "lines": 66,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".agents/project/CONVENTIONS.md",
+      "lines": 56,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".agents/project/DEFINITION_OF_DONE.md",
+      "lines": 39,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".agents/project/TECH_STACK.md",
+      "lines": 36,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".agents/project/GLOSSARY.md",
+      "lines": 21,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".claude/skills/run-e2e-tests/SKILL.md",
+      "lines": 46,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    },
+    {
+      "path": ".claude/skills/write-unit-tests/SKILL.md",
+      "lines": 49,
+      "lastModified": "2026-06-17",
+      "toolFamily": "claude",
+      "primary": false
+    }
+  ],
+  "summary": {
+    "present": 25,
+    "partial": 1,
+    "missing": 0,
+    "violation": 1
+  },
+  "outputs": ["findings.md", "findings.json", "snapshot.md", "metadata.json"]
+}

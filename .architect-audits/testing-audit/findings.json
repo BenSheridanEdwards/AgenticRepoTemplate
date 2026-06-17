@@ -1,0 +1,450 @@
+{
+  "skillVersion": "1.0.0",
+  "runStartedAt": "2026-06-17T00:00:00Z",
+  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "repository": "AgenticProjectTemplate",
+  "testRunner": { "name": "jest", "version": "^29.7.0" },
+  "endToEndFramework": "playwright",
+  "withRun": false,
+  "noGraphify": true,
+  "graphifyRevision": null,
+  "thresholds": {
+    "priorityOneRatio": 70,
+    "testidRatio": 10,
+    "byRoleRatio": 50,
+    "userEventRatio": 80,
+    "snapshotLines": 100
+  },
+  "snapshot": {
+    "testFileCount": 1,
+    "e2eSpecFileCount": 2,
+    "testCount": 3,
+    "testCountIsStatic": true,
+    "queryDistribution": {
+      "totalQueries": 12,
+      "priorityOne": {
+        "ratio": 0.667,
+        "byRole": 0.667,
+        "byLabelText": 0.0,
+        "byPlaceholderText": 0.0,
+        "byText": 0.0,
+        "byDisplayValue": 0.0
+      },
+      "priorityTwo": { "ratio": 0.0, "byAltText": 0.0, "byTitle": 0.0 },
+      "priorityThree": { "ratio": 0.333, "byTestId": 0.333 }
+    },
+    "byRoleShareOfPriorityOne": 1.0,
+    "userEventRatio": 1.0,
+    "userEventCount": 6,
+    "fireEventCount": 0,
+    "containerQuerySelectorCount": 0,
+    "snapshots": { "count": 0, "averageLines": 0, "oversized": 0 },
+    "toHaveClassCount": 0,
+    "componentsWithoutTests": 1,
+    "coverage": {
+      "source": "committed coverage/coverage-final.json (two exercised files only; static read, not --with-run)",
+      "statements": 0.926,
+      "branches": 1.0,
+      "functions": 1.0,
+      "lines": null,
+      "collectCoverageFromExcludes": [
+        "src/**/*.d.ts",
+        "src/**/index.ts",
+        "src/main.tsx",
+        "src/App.tsx"
+      ]
+    },
+    "flakyPatternSignals": { "fixedWaits": 0, "orderingDependent": 0, "sharedMutableState": 0 }
+  },
+  "summary": {
+    "testRunnerAndTooling": { "present": 5, "partial": 2, "missing": 0, "violation": 1 },
+    "queryPriorityAndSelectorHygiene": { "present": 5, "partial": 1, "missing": 0, "violation": 1 },
+    "interactionAndAsyncPatterns": { "present": 8, "partial": 0, "missing": 0, "violation": 0 },
+    "testDesignAndCoverage": { "present": 3, "partial": 4, "missing": 0, "violation": 0 }
+  },
+  "checks": [
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "single-test-runner",
+      "status": "present",
+      "samples": [{ "path": "package.json", "line": 52, "match": "\"jest\": \"^29.7.0\"" }],
+      "evidence": "Jest only; no Vitest. Config at jest.config.ts.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "testing-library-react-installed",
+      "status": "present",
+      "samples": [
+        { "path": "package.json", "line": 43, "match": "@testing-library/react ^16.1.0" }
+      ],
+      "evidence": "RTL present in a React 19 project that ships tests.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "user-event-installed",
+      "status": "present",
+      "samples": [
+        { "path": "package.json", "line": 44, "match": "@testing-library/user-event ^14.5.2" }
+      ],
+      "evidence": "user-event installed and used in the suite.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "jest-dom-installed",
+      "status": "present",
+      "samples": [
+        { "path": "package.json", "line": 42, "match": "@testing-library/jest-dom ^6.6.3" }
+      ],
+      "evidence": "jest-dom installed.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "jest-dom-loaded-in-setup",
+      "status": "present",
+      "samples": [
+        { "path": "jest.setup.ts", "line": 3, "match": "import '@testing-library/jest-dom';" }
+      ],
+      "evidence": "Loaded via setupFilesAfterEnv (jest.config.ts:12); toHaveTextContent matchers used in the suite.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "coverage-thresholds-configured",
+      "status": "present",
+      "samples": [
+        {
+          "path": "jest.config.ts",
+          "line": 34,
+          "match": "coverageThreshold.global { branches:80, functions:80, lines:80, statements:80 }"
+        }
+      ],
+      "evidence": "Explicit 80% thresholds across all four metrics.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "eslint-testing-library-and-jest-dom-plugins",
+      "status": "partial",
+      "samples": [
+        { "path": "package.json", "line": 34, "match": "@biomejs/biome ^1.9.4 (no ESLint)" }
+      ],
+      "evidence": "Project lints with Biome, not ESLint; neither eslint-plugin-testing-library nor eslint-plugin-jest-dom is present.",
+      "gap": "Automated selector/async/matcher rules (no-node-access, prefer-screen-queries, prefer-find-by, no-wait-for-multiple-assertions) are unguarded by any linter. The current single test is clean, so the risk is latent for the next author.",
+      "remediation": "Adopt Biome equivalents where they exist or add a thin ESLint pass scoped to *.test.{ts,tsx} enabling the two plugins.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-runner-and-tooling",
+      "check": "end-to-end-framework-present",
+      "status": "present",
+      "samples": [{ "path": "package.json", "line": 38, "match": "@playwright/test ^1.49.1" }],
+      "evidence": "Playwright present; config and behaviour spec exist.",
+      "noGraphify": true
+    },
+    {
+      "layer": "query-priority-and-selector-hygiene",
+      "check": "query-distribution-favours-priority-one",
+      "status": "partial",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 14,
+          "match": "screen.getByTestId('count')"
+        },
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 21,
+          "match": "screen.getByRole('button', { name: /increase/i })"
+        }
+      ],
+      "totalCount": 12,
+      "evidence": "8/12 (66.7%) Priority 1; 4/12 (33.3%) getByTestId.",
+      "gap": "66.7% is 3.3 points below the 70% threshold, entirely due to four getByTestId('count') calls. Tiny denominator (12).",
+      "remediation": "The count renders visible text (ThresholdCounter.tsx:17-20); switch to an accessible query to reach 100% Priority 1.",
+      "noGraphify": true
+    },
+    {
+      "layer": "query-priority-and-selector-hygiene",
+      "check": "get-by-testid-is-rare",
+      "status": "violation",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 14,
+          "match": "screen.getByTestId('count')"
+        },
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 42,
+          "match": "screen.getByTestId('count')"
+        },
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 46,
+          "match": "screen.getByTestId('count')"
+        },
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 49,
+          "match": "screen.getByTestId('count')"
+        }
+      ],
+      "totalCount": 4,
+      "expectation": "At most 10% of all queries use getByTestId.",
+      "evidence": "4 of 12 queries (33.3%) use getByTestId('count') — over 3x the ceiling.",
+      "gap": "data-testid='count' (ThresholdCounter.tsx:17) is a non-accessible hook; the underlying <p> carries real visible text. Every count assertion bypasses the accessibility tree.",
+      "remediation": "Give the count an accessible name (role=status/labelled region, or assert via getByText/getByRole) and delete the data-testid. One-file change plus four test lines.",
+      "noGraphify": true
+    },
+    {
+      "layer": "query-priority-and-selector-hygiene",
+      "check": "no-container-queryselector",
+      "status": "present",
+      "samples": [],
+      "evidence": "Zero container/document.querySelector calls.",
+      "noGraphify": true
+    },
+    {
+      "layer": "query-priority-and-selector-hygiene",
+      "check": "queries-via-screen",
+      "status": "present",
+      "samples": [],
+      "evidence": "All 12 queries are screen.getBy*; render return never destructured.",
+      "noGraphify": true
+    },
+    {
+      "layer": "query-priority-and-selector-hygiene",
+      "check": "render-return-named-view",
+      "status": "present",
+      "samples": [],
+      "evidence": "Render return never captured; no wrapper antipattern.",
+      "noGraphify": true
+    },
+    {
+      "layer": "query-priority-and-selector-hygiene",
+      "check": "by-role-is-dominant-priority-one",
+      "status": "present",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 21,
+          "match": "getByRole('button', { name: /increase/i })"
+        }
+      ],
+      "evidence": "8/8 (100%) of Priority 1 queries are getByRole with a name option.",
+      "noGraphify": true
+    },
+    {
+      "layer": "query-priority-and-selector-hygiene",
+      "check": "no-redundant-aria-roles",
+      "status": "present",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 15,
+          "match": "getByRole('status')"
+        }
+      ],
+      "evidence": "getByRole('status') resolves the implicit live-region role of <output> (ThresholdCounter.tsx:25); no redundant [role=...] assertions.",
+      "noGraphify": true
+    },
+    {
+      "layer": "interaction-and-async-patterns",
+      "check": "user-event-preferred-over-fire-event",
+      "status": "present",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 24,
+          "match": "await user.click(increase)"
+        }
+      ],
+      "totalCount": 6,
+      "evidence": "6 userEvent calls, 0 fireEvent -> 100% (threshold 80%).",
+      "noGraphify": true
+    },
+    {
+      "layer": "interaction-and-async-patterns",
+      "check": "find-for-elements-not-yet-present",
+      "status": "present",
+      "samples": [],
+      "evidence": "Synchronous updates; no waitFor(() => getBy*()) misuse; findBy not needed.",
+      "noGraphify": true
+    },
+    {
+      "layer": "interaction-and-async-patterns",
+      "check": "query-only-for-absence",
+      "status": "present",
+      "samples": [],
+      "evidence": "No queryBy* usage.",
+      "noGraphify": true
+    },
+    {
+      "layer": "interaction-and-async-patterns",
+      "check": "waitfor-discipline",
+      "status": "present",
+      "samples": [],
+      "evidence": "No waitFor in the suite; none of the single-assertion / empty-callback / side-effect misuse patterns can occur.",
+      "noGraphify": true
+    },
+    {
+      "layer": "interaction-and-async-patterns",
+      "check": "no-unnecessary-act",
+      "status": "present",
+      "samples": [],
+      "evidence": "Zero hand-rolled act() wrappings.",
+      "noGraphify": true
+    },
+    {
+      "layer": "interaction-and-async-patterns",
+      "check": "no-manual-cleanup",
+      "status": "present",
+      "samples": [],
+      "evidence": "No cleanup import or call; Jest auto-cleanup relied upon.",
+      "noGraphify": true
+    },
+    {
+      "layer": "interaction-and-async-patterns",
+      "check": "assertions-are-explicit",
+      "status": "present",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 26,
+          "match": "expect(screen.getByRole('status')).toHaveTextContent('Approaching limit')"
+        }
+      ],
+      "evidence": "Every query feeds an explicit expect(...); no bare-query assertion lines.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "tests-describe-user-behaviour",
+      "status": "present",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 11,
+          "match": "it('starts healthy at zero')"
+        },
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 18,
+          "match": "it('warns as it approaches the limit, then reports capacity at the threshold')"
+        },
+        {
+          "path": "src/features/threshold-counter/ThresholdCounter.test.tsx",
+          "line": 34,
+          "match": "it('never decrements below zero and can be reset')"
+        }
+      ],
+      "evidence": "All names describe user-observable outcomes; none implementation-named. Promoted from soft partial to present.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "no-utility-class-assertions",
+      "status": "present",
+      "samples": [],
+      "evidence": "Zero toHaveClass assertions; E2E skill explicitly forbids CSS-class assertions (run-e2e-tests/SKILL.md:27-30).",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "snapshots-bounded-and-intentional",
+      "status": "present",
+      "samples": [],
+      "evidence": "Zero snapshot tests; suite avoids the snapshot smell entirely.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "coverage-thresholds-in-ci",
+      "status": "partial",
+      "samples": [
+        {
+          "path": "jest.config.ts",
+          "line": 27,
+          "match": "collectCoverageFrom excludes App.tsx, main.tsx, index.ts"
+        }
+      ],
+      "evidence": "80% thresholds set, but collectCoverageFrom (jest.config.ts:27-33) excludes App.tsx/main.tsx/index.ts; committed coverage covers only 2 files.",
+      "gap": "An 80% gate over a two-file surface is easy to keep green and misleads as the app grows. noGraphify means no centrality ranking of untested units.",
+      "remediation": "Re-include App.tsx (or cover it via E2E and document the exclusion), and revisit the exclude list per new top-level surface.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "coverage-enforced-in-ci",
+      "status": "partial",
+      "samples": [
+        {
+          "path": "package.json",
+          "line": 25,
+          "match": "\"verify\": \"... && pnpm test && ...\" (plain jest, no --coverage)"
+        },
+        { "path": "package.json", "line": 22, "match": "\"test:coverage\": \"jest --coverage\"" }
+      ],
+      "evidence": "coverageThreshold fails jest --coverage on regression, but pnpm verify runs plain jest without --coverage; no CI workflow found in this checkout.",
+      "gap": "The repo's own composite gate (verify) would not fail on a coverage drop; enforcement depends on an unobserved CI step.",
+      "remediation": "Point verify at test:coverage or add an explicit coverage CI job (one-line package.json:25 change).",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "critical-path-e2e",
+      "status": "present",
+      "samples": [
+        {
+          "path": "e2e/app.spec.ts",
+          "line": 9,
+          "match": "walks from healthy through warning to at-capacity, then resets"
+        }
+      ],
+      "evidence": "One full role-driven user journey. styleproof.spec.ts is a computed-style capture (inert without STYLEMAP_DIR), not behavioural coverage.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "no-flaky-pattern-signals",
+      "status": "present",
+      "samples": [],
+      "evidence": "Zero fixed waits; per-test render + userEvent.setup(); no shared mutable state; Playwright fullyParallel.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "mocking-at-module-boundaries",
+      "status": "present",
+      "samples": [],
+      "evidence": "No mocks; component tested as a real unit. No async/error paths exist to mock.",
+      "noGraphify": true
+    },
+    {
+      "layer": "test-design-and-coverage",
+      "check": "components-have-minimal-coverage",
+      "status": "partial",
+      "samples": [
+        {
+          "path": "src/features/threshold-counter/useThresholdCounter.ts",
+          "line": 19,
+          "match": "statusForCount: pure branchy rule, no direct unit test (only exercised through the component)"
+        },
+        {
+          "path": "src/features/threshold-counter/useThresholdCounter.ts",
+          "line": 37,
+          "match": "useThresholdCounter: no renderHook isolation test; reset-to-nonzero-initial path never exercised"
+        },
+        { "path": "src/App.tsx", "line": 3, "match": "App: no test, excluded from coverage" }
+      ],
+      "evidence": "Per-folder heuristic (noGraphify). The single feature component is tested, but the suite's surface is one happy path plus edges.",
+      "gap": "statusForCount (designed for isolation testing per its own docstring) has no direct test; the hook has no renderHook test; no error/async-path tests; no jest-axe a11y scan anywhere; App.tsx untested and excluded. The template sets no pattern beyond one synchronous feature.",
+      "remediation": "(a) Add a statusForCount table test (boundaries 0/3/4/7/8/9). (b) Add a renderHook test for useThresholdCounter covering reset to a non-zero initial. (c) Add jest-axe + one toHaveNoViolations assertion to lock in a11y.",
+      "noGraphify": true
+    }
+  ]
+}

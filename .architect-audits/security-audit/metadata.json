@@ -1,0 +1,20 @@
+{
+  "skillName": "security-audit",
+  "skillVersion": "1.0.0",
+  "runStartedAt": "2026-06-17T00:00:00Z",
+  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "repository": "BenSheridanEdwards/AgenticProjectTemplate",
+  "gitCommit": "1623624be6fa3c415ddcc57c29b7a4a1d4de02e5",
+  "mode": "static",
+  "framework": "vite-react",
+  "deploymentPlatform": "local-only",
+  "authLibrary": "none",
+  "sanitizationLibrary": "none",
+  "linter": "biome",
+  "withScan": false,
+  "scannersExecuted": [],
+  "noGraphify": true,
+  "graphifyRevision": null,
+  "graphifyNote": "Knowledge graph absent (static-only run). Layer 2 taint-flow analysis fell back to per-file pattern matching with reduced precision. Reduced context is immaterial here because the source contains zero HTML sinks, zero eval, and zero user-input flows.",
+  "appliedFilters": { "include": [], "exclude": [] }
+}

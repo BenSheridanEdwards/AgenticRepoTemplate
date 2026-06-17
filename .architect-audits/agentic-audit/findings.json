@@ -1,0 +1,437 @@
+{
+  "skillVersion": "1.0.0",
+  "runStartedAt": "2026-06-17T00:00:00Z",
+  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "repository": "BenSheridanEdwards/AgenticProjectTemplate",
+  "gitCommit": "1623624be6fa3c415ddcc57c29b7a4a1d4de02e5",
+  "mode": "static-only",
+  "noGraphify": true,
+  "projectShape": "deployable-application",
+  "aiSurfaceDetected": false,
+  "thresholds": {
+    "instructionMinLines": 25,
+    "instructionMaxLines": 400,
+    "permissionBroadness": 5,
+    "contextCoverage": 60
+  },
+  "snapshot": {
+    "agenticInstructionFiles": [
+      { "path": "AGENTS.md", "lines": 59, "lastModified": "2026-06-17", "toolFamily": "agents-md" },
+      { "path": "CLAUDE.md", "lines": 47, "lastModified": "2026-06-17", "toolFamily": "claude" },
+      {
+        "path": ".agents/README.md",
+        "lines": 32,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      },
+      {
+        "path": ".agents/project/ARCHITECTURE.md",
+        "lines": 66,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      },
+      {
+        "path": ".agents/project/CONVENTIONS.md",
+        "lines": 56,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      },
+      {
+        "path": ".agents/project/DEFINITION_OF_DONE.md",
+        "lines": 39,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      },
+      {
+        "path": ".agents/project/TECH_STACK.md",
+        "lines": 36,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      },
+      {
+        "path": ".agents/project/GLOSSARY.md",
+        "lines": 21,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      },
+      {
+        "path": ".claude/skills/run-e2e-tests/SKILL.md",
+        "lines": 46,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      },
+      {
+        "path": ".claude/skills/write-unit-tests/SKILL.md",
+        "lines": 49,
+        "lastModified": "2026-06-17",
+        "toolFamily": "claude"
+      }
+    ],
+    "primaryInstructionFile": "AGENTS.md",
+    "agenticInstructionLineTotal": 356,
+    "claudeDirPresent": true,
+    "settingsJson": {
+      "present": true,
+      "validJson": true,
+      "topLevelKeys": ["$schema", "permissions", "hooks"],
+      "permissionAllowCount": 19,
+      "permissionDenyCount": 2,
+      "denyEntries": ["Bash(git push:*)", "Bash(rm -rf:*)"]
+    },
+    "settingsLocalJson": { "present": false, "gitignored": false },
+    "hookCounts": { "PreToolUse": 1, "PostToolUse": 0, "Stop": 0, "Notification": 0 },
+    "mcpServerCount": 0,
+    "statusLineSet": false,
+    "modelOverrideSet": false,
+    "otherToolFamilies": {
+      "cursorRulesDirectory": false,
+      "cursorrulesLegacy": false,
+      "copilot": false,
+      "windsurf": false,
+      "aider": false
+    }
+  },
+  "summary": {
+    "projectContextCoverage": { "present": 7, "partial": 0, "missing": 0, "violation": 0 },
+    "operationalGuidanceAndConventions": {
+      "present": 6,
+      "partial": 0,
+      "missing": 0,
+      "violation": 0
+    },
+    "claudeCodeSettingsHygiene": { "present": 6, "partial": 0, "missing": 0, "violation": 1 },
+    "multiAgentConsistencyAndDrift": { "present": 6, "partial": 1, "missing": 0, "violation": 0 }
+  },
+  "checks": [
+    {
+      "layer": "project-context-coverage",
+      "check": "primary-instruction-file-present",
+      "status": "present",
+      "evidence": ["AGENTS.md", "CLAUDE.md"],
+      "samples": [],
+      "totalCount": 2,
+      "expectation": "At least one of CLAUDE.md, AGENTS.md, .cursorrules, or .cursor/rules/*.mdc exists at the repository root.",
+      "gap": "None. Both AGENTS.md (agents.md convention) and CLAUDE.md exist at the root, with a deliberate primary/secondary split.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "project-context-coverage",
+      "check": "primary-instruction-file-substantive",
+      "status": "present",
+      "evidence": ["AGENTS.md"],
+      "samples": [{ "file": "AGENTS.md", "lines": 59 }],
+      "totalCount": 1,
+      "expectation": "The primary file is at least 25 lines and has structure beyond a single bullet list.",
+      "gap": "None. AGENTS.md is 59 lines with headed sections (What this repo is, Run it, Golden rules, Where to look, Safety) plus a routing table.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "project-context-coverage",
+      "check": "primary-instruction-file-not-bloated",
+      "status": "present",
+      "evidence": ["AGENTS.md", "CLAUDE.md"],
+      "samples": [{ "file": "AGENTS.md", "lines": 59 }, { "file": "CLAUDE.md", "lines": 47 }],
+      "totalCount": 2,
+      "expectation": "The primary file is at most 400 lines; instruction files must not crowd out the user's problem in context.",
+      "gap": "None. Both root files are deliberately thin (59 and 47 lines) and delegate detail to .agents/, the documented single-source-of-truth pattern.",
+      "remediation": "No action. This thin-entrypoint + .agents/ detail split is a model design."
+    },
+    {
+      "layer": "project-context-coverage",
+      "check": "project-purpose-documented",
+      "status": "present",
+      "evidence": ["AGENTS.md:9-12", "CLAUDE.md:7-16", "package.json:description"],
+      "samples": [],
+      "totalCount": 3,
+      "expectation": "The instruction file states what the project is and who it is for in identifiable prose.",
+      "gap": "None. AGENTS.md 'What this repo is' states the purpose (a reference scaffold for agentic engineering; TypeScript+React is the runnable carrier). CLAUDE.md restates the two showcases.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "project-context-coverage",
+      "check": "tech-stack-documented",
+      "status": "present",
+      "evidence": [".agents/project/TECH_STACK.md", "AGENTS.md:9-12"],
+      "samples": [],
+      "totalCount": 2,
+      "expectation": "Names the primary framework, language, and runtime.",
+      "gap": "None. TECH_STACK.md gives a one-owner-per-concern table (TypeScript, React 19, Vite, Jest+RTL, Playwright, Biome) and Node >=20 is in AGENTS.md and package.json engines.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "project-context-coverage",
+      "check": "architectural-mental-model-documented",
+      "status": "present",
+      "evidence": [
+        ".agents/project/ARCHITECTURE.md",
+        "AGENTS.md:46 (routing table)",
+        "CLAUDE.md:42"
+      ],
+      "samples": [],
+      "totalCount": 3,
+      "expectation": "A brief architectural orientation: directory layout, dominant module pattern, or links to ARCHITECTURE.md.",
+      "gap": "None. ARCHITECTURE.md documents the feature-folder vertical-slice pattern with a directory tree, the view/hook/pure-logic split, and the index.ts public-surface rule. Both root files route to it.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "project-context-coverage",
+      "check": "domain-glossary-and-canonical-doc-links",
+      "status": "present",
+      "evidence": [
+        ".agents/project/GLOSSARY.md",
+        ".agents/README.md",
+        "AGENTS.md:43-52",
+        "README.md:50-54"
+      ],
+      "samples": [],
+      "totalCount": 4,
+      "expectation": "Domain glossary present where domain terminology is used; canonical human-facing docs are linked.",
+      "gap": "None. GLOSSARY.md defines the ubiquitous language (Feature, Public surface, Behaviour map, Quality gate, StyleProof modes). AGENTS.md/CLAUDE.md/.agents/README.md cross-link README, ARCHITECTURE.md, ADRs, templates. No CONTRIBUTING.md exists, so its absence from links is not a gap.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "operational-guidance-and-conventions",
+      "check": "build-test-run-commands-documented",
+      "status": "present",
+      "evidence": ["AGENTS.md:15-22"],
+      "samples": [],
+      "totalCount": 5,
+      "expectation": "Lists canonical install, dev-server, test, and build commands.",
+      "gap": "None. AGENTS.md 'Run it' block documents pnpm install / setup:agents / dev / verify / e2e; DEFINITION_OF_DONE.md and both skills add typecheck, check, fallow:audit, test:coverage. All resolve to real package.json scripts (verified in Layer 4).",
+      "remediation": "No action."
+    },
+    {
+      "layer": "operational-guidance-and-conventions",
+      "check": "code-style-and-naming-conventions-documented",
+      "status": "present",
+      "evidence": [".agents/project/CONVENTIONS.md"],
+      "samples": [],
+      "totalCount": 1,
+      "expectation": "States naming patterns, import-ordering, formatting, abbreviations policy.",
+      "gap": "None. CONVENTIONS.md is concrete and mechanical: kebab-case folders, PascalCase components, useCamelCase hooks, SCREAMING_SNAKE_CASE config constants, no-abbreviations rule, import-type rule, Biome-owned import ordering.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "operational-guidance-and-conventions",
+      "check": "commit-and-branching-conventions-documented",
+      "status": "present",
+      "evidence": [
+        ".agents/project/CONVENTIONS.md:52-56",
+        "AGENTS.md:35",
+        "commitlint.config.ts",
+        ".husky/commit-msg"
+      ],
+      "samples": [],
+      "totalCount": 4,
+      "expectation": "States the commit-message convention and any git add policy.",
+      "gap": "None. Conventional Commits is documented and enforced on commit-msg via commitlint. Subject form is specified (imperative mood, lower case, no trailing period). Branch-naming is not stated, but the commit convention is mechanically enforced.",
+      "remediation": "Optional: add a one-line branch-naming convention to CONVENTIONS.md for completeness."
+    },
+    {
+      "layer": "operational-guidance-and-conventions",
+      "check": "testing-philosophy-documented",
+      "status": "present",
+      "evidence": [
+        ".claude/skills/write-unit-tests/SKILL.md",
+        ".claude/skills/run-e2e-tests/SKILL.md",
+        ".agents/project/ARCHITECTURE.md:45-50",
+        ".agents/decisions/0003-behaviour-mapped-with-e2e.md"
+      ],
+      "samples": [],
+      "totalCount": 4,
+      "expectation": "States the testing convention: framework, query priority, behaviour-over-implementation, snapshot policy.",
+      "gap": "None. Tests exist; the convention is documented in depth: Jest + RTL behaviour-first with getByRole priority, userEvent over fireEvent, Playwright behaviour map as the contract, 80% coverage threshold, pure-logic-vs-hook test placement.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "operational-guidance-and-conventions",
+      "check": "do-and-do-not-guidance-present",
+      "status": "present",
+      "evidence": [
+        "AGENTS.md:24-59",
+        ".agents/README.md:25-31",
+        ".agents/project/TECH_STACK.md:24-28"
+      ],
+      "samples": [],
+      "totalCount": 3,
+      "expectation": "Explicit agent guidance with both positive ('prefer') and negative ('avoid') items.",
+      "gap": "None. AGENTS.md golden rules + Safety provide both: positive (read .agents first, copy templates, propose ADRs) and negative (never bypass gates / --no-verify, no second linter/test runner, do not weaken tsconfig/biome, never edit generated artefacts, do not commit secrets).",
+      "remediation": "No action."
+    },
+    {
+      "layer": "claude-code-settings-hygiene",
+      "check": "settings-json-valid-json",
+      "status": "present",
+      "evidence": [".claude/settings.json"],
+      "samples": [],
+      "totalCount": 1,
+      "expectation": "settings.json parses as JSON with no syntax errors.",
+      "gap": "None. Parses cleanly; also pins a $schema for editor validation.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "claude-code-settings-hygiene",
+      "check": "settings-local-json-gitignored",
+      "status": "violation",
+      "evidence": [".gitignore", ".claude/settings.json"],
+      "samples": [{ "missingIgnorePattern": ".claude/settings.local.json" }],
+      "totalCount": 1,
+      "expectation": ".gitignore (root or .claude/.gitignore) excludes settings.local.json so personal overrides never leak into the shared project.",
+      "gap": "Neither the root .gitignore nor a .claude/.gitignore excludes settings.local.json. No .claude/ pattern is present. settings.local.json does not exist yet, so nothing has leaked — but the moment a contributor adds personal overrides (a local model pin, extra allow patterns, an env value) the file is committable. For a template repo this is amplified: every consumer inherits the gap.",
+      "remediation": "Add `.claude/settings.local.json` to the root .gitignore (the file already has a 'Local env + editor noise' section that is the natural home). One line; zero blast radius."
+    },
+    {
+      "layer": "claude-code-settings-hygiene",
+      "check": "no-secrets-in-settings-json",
+      "status": "present",
+      "evidence": [".claude/settings.json"],
+      "samples": [],
+      "totalCount": 0,
+      "expectation": "settings.json contains no secret-shaped values or secret-named keys with concrete values.",
+      "gap": "None. The file holds only permission patterns and a hook command; no env block, no apiKey/token/secret/password keys, no sk-/ghp-/xoxb-/JWT/AWS-shaped strings.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "claude-code-settings-hygiene",
+      "check": "permissions-appropriately-scoped",
+      "status": "present",
+      "evidence": [".claude/settings.json:permissions.allow"],
+      "samples": [],
+      "totalCount": 0,
+      "expectation": "permissions.allow contains no over-broad patterns (Bash(*), Edit(*), Write(*), match-everything paths) beyond the threshold of 5.",
+      "gap": "None. All 19 allow entries are scoped to named pnpm scripts, scoped pnpm-exec tool invocations, or read-only git verbs (status, diff, log) plus `git add`. Zero broad patterns found.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "claude-code-settings-hygiene",
+      "check": "permissions-deny-non-empty-in-deployed-project",
+      "status": "present",
+      "evidence": [".claude/settings.json:permissions.deny"],
+      "samples": [{ "deny": "Bash(git push:*)" }, { "deny": "Bash(rm -rf:*)" }],
+      "totalCount": 2,
+      "expectation": "Deployable projects forbid destructive commands in permissions.deny.",
+      "gap": "None for the baseline (deny is non-empty and names destructive commands: force/any push and recursive delete). Coverage is intentionally minimal — it does not yet cover, e.g., `git reset --hard`, `git clean -fd`, or `git checkout --` mass-discard — but the layer only requires a non-empty deny list naming destructive commands.",
+      "remediation": "Optional hardening: extend deny with `Bash(git reset --hard:*)`, `Bash(git clean:*)`, and history-rewrite verbs."
+    },
+    {
+      "layer": "claude-code-settings-hygiene",
+      "check": "hooks-reference-scripts-that-exist",
+      "status": "present",
+      "evidence": [".claude/settings.json:hooks.PreToolUse", ".claude/hooks/block-gate-bypass.sh"],
+      "samples": [
+        {
+          "hook": "PreToolUse/Bash",
+          "script": ".claude/hooks/block-gate-bypass.sh",
+          "exists": true
+        }
+      ],
+      "totalCount": 1,
+      "expectation": "Every hook command invokes a script that exists in the repository.",
+      "gap": "None. The single PreToolUse(Bash) hook calls .claude/hooks/block-gate-bypass.sh, which exists, is a POSIX sh guard that blocks --no-verify with exit code 2, and matches the rule AGENTS.md/CLAUDE.md document.",
+      "remediation": "No action. The hook only inspects the raw input string for the literal `--no-verify`; it does not normalise quoting/spacing, so a deliberately obfuscated bypass could evade it — acceptable for a guard-rail, not a security boundary."
+    },
+    {
+      "layer": "claude-code-settings-hygiene",
+      "check": "env-and-mcp-and-overrides-clean",
+      "status": "present",
+      "evidence": [".claude/settings.json"],
+      "samples": [],
+      "totalCount": 0,
+      "expectation": "No secret-valued env entries; MCP-server entries auditable; statusLine/model overrides intentional and current.",
+      "gap": "None / not-applicable. No env block, no mcpServers block, no .mcp.json, no statusLine, no model override — nothing to leak and no stale model identifier to flag.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "multi-agent-consistency-and-drift",
+      "check": "single-source-of-truth-for-shared-rules",
+      "status": "present",
+      "evidence": ["CLAUDE.md:3", "AGENTS.md:6", ".agents/README.md:6-11"],
+      "samples": [],
+      "totalCount": 1,
+      "expectation": "When multiple instruction files exist, one is the source of truth and the others reference it.",
+      "gap": "None. CLAUDE.md opens 'Read AGENTS.md first' and declares it adds only the Claude layer. AGENTS.md notes CLAUDE.md sits on top of it. Both defer detail to .agents/, which README.md states is the single source of truth. No conflicting guidance found between the files.",
+      "remediation": "No action. This is the textbook single-source-of-truth arrangement."
+    },
+    {
+      "layer": "multi-agent-consistency-and-drift",
+      "check": "tech-stack-mentions-match-dependencies",
+      "status": "present",
+      "evidence": [".agents/project/TECH_STACK.md", "package.json"],
+      "samples": [],
+      "totalCount": 0,
+      "expectation": "Frameworks named in instruction files appear in package.json; no stale mentions.",
+      "gap": "None. React 19, Vite, Jest, RTL, Playwright, Biome, commitlint, husky, Fallow, StyleProof are all present as dependencies/devDependencies. No mention of removed tooling (no Vitest, ESLint, Prettier, Webpack mentions).",
+      "remediation": "No action."
+    },
+    {
+      "layer": "multi-agent-consistency-and-drift",
+      "check": "commands-match-package-json-scripts",
+      "status": "present",
+      "evidence": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".agents/project/DEFINITION_OF_DONE.md",
+        ".claude/skills/*/SKILL.md",
+        "package.json:scripts"
+      ],
+      "samples": [],
+      "totalCount": 0,
+      "expectation": "Every script-running command in instruction files references a script that exists in package.json.",
+      "gap": "None. All documented commands resolve: dev, build, typecheck, check, lint, format, fallow:audit, test, test:watch, test:coverage, e2e, e2e:install, verify, setup:agents. `pnpm install`, `pnpm exec …`, and `pnpm audit` are not-applicable (not custom scripts).",
+      "remediation": "No action."
+    },
+    {
+      "layer": "multi-agent-consistency-and-drift",
+      "check": "cross-references-resolve",
+      "status": "present",
+      "evidence": ["AGENTS.md", "CLAUDE.md", ".agents/README.md", ".agents/project/*", "README.md"],
+      "samples": [],
+      "totalCount": 0,
+      "expectation": "Internal references in instruction files point at files or directories that exist.",
+      "gap": "None. Every checked reference resolves on disk: the five .agents/project docs, .agents/decisions/, .agents/templates/ (all four template files), e2e/app.spec.ts, e2e/styleproof.spec.ts, src/features/threshold-counter, README.md, jest.config.ts, biome.json, tsconfig.json, jest.style-stub.cjs, and ADRs 0003/0004.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "multi-agent-consistency-and-drift",
+      "check": "no-retired-model-identifiers",
+      "status": "present",
+      "evidence": ["CLAUDE.md", "AGENTS.md", ".agents/", ".claude/"],
+      "samples": [],
+      "totalCount": 0,
+      "expectation": "Instruction files do not mention retired model IDs.",
+      "gap": "None. No model identifiers appear anywhere in the agentic corpus, so none are stale.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "multi-agent-consistency-and-drift",
+      "check": "instruction-file-freshness",
+      "status": "present",
+      "evidence": ["git log"],
+      "samples": [],
+      "totalCount": 1,
+      "expectation": "In an active project (commits in the last 90 days), at least one instruction file was modified within 180 days.",
+      "gap": "None. The project is active (latest commit 2026-06-17) and every instruction file was last modified 2026-06-17, well within the freshness window.",
+      "remediation": "No action."
+    },
+    {
+      "layer": "multi-agent-consistency-and-drift",
+      "check": "no-abbreviations-policy-self-compliance",
+      "status": "partial",
+      "evidence": [
+        ".agents/project/CONVENTIONS.md:14-16",
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".agents/project/*"
+      ],
+      "samples": [
+        { "file": ".agents/project/ARCHITECTURE.md", "token": "E2E" },
+        { "file": ".agents/project/DEFINITION_OF_DONE.md", "token": "E2E" },
+        { "file": "CLAUDE.md", "token": "E2E (skill name run-e2e-tests)" }
+      ],
+      "totalCount": 1,
+      "expectation": "When a 'no abbreviations' policy is declared, the instruction prose itself complies.",
+      "gap": "CONVENTIONS.md declares a no-abbreviations rule (scoped, by its own wording, to identifiers: 'count not cnt, request not req'). The instruction prose uses the established abbreviations E2E, CI, ADR, UI, and IO. These are widely-accepted domain acronyms rather than the lazy identifier abbreviations the rule targets, so this is a soft partial, not a violation — but a strict reading of a 'no abbreviations' banner invites the question.",
+      "remediation": "Either (a) scope the rule explicitly to identifiers in CONVENTIONS.md ('No abbreviations in names'), or (b) add a short allowlist of accepted acronyms (E2E, CI, CD, ADR, UI, IO, API). One sentence."
+    }
+  ]
+}
