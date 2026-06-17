@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -e
+
+# Pre-commit = the FAST gates, scoped to staged files, so the commit loop stays
+# tight. The slower behaviour suite runs on pre-push. See
+# `.agents/decisions/0002-quality-gates-as-code.md`.
+
+echo "› typecheck"
+pnpm typecheck
+
+echo "› biome (lint + format + imports, staged only)"
+pnpm exec biome check --staged --no-errors-on-unmatched .
+
+echo "› fallow (code intelligence: dead code, cycles, complexity)"
+pnpm fallow:audit

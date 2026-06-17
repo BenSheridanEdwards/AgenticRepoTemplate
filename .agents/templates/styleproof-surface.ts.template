@@ -1,0 +1,15 @@
+// TEMPLATE — add a surface to e2e/styleproof.spec.ts when a feature introduces
+// a new visual state worth certifying. StyleProof diffs the COMPUTED styles of
+// each surface (PR head vs base), so add one surface per distinct page state.
+
+{
+  key: '__feature-name__',
+  go: async (page) => {
+    await page.goto('/__route__');
+    await page.waitForLoadState('networkidle');
+    // Drive the surface to the exact state you want certified, e.g.:
+    // await page.getByRole('button', { name: '__action__' }).click();
+  },
+  // One viewport per @media band the surface responds to.
+  widths: [1280, 768, 390],
+}

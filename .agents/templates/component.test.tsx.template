@@ -1,0 +1,25 @@
+// TEMPLATE — copy to src/features/<feature-name>/<Feature>.test.tsx.
+// Assert on observable behaviour through the accessibility tree (roles, names,
+// live regions) — never on implementation detail. One `it` per behaviour.
+// See .claude/skills/write-unit-tests/SKILL.md.
+
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { __Feature__ } from './__Feature__';
+
+describe('__Feature__', () => {
+  it('__describes the default state a user sees__', () => {
+    render(<__Feature__ />);
+
+    expect(screen.getByRole('__role__', { name: /__accessible name__/i })).toBeInTheDocument();
+  });
+
+  it('__describes what happens after a user action__', async () => {
+    const user = userEvent.setup();
+    render(<__Feature__ />);
+
+    await user.click(screen.getByRole('button', { name: /__action__/i }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('__expected outcome__');
+  });
+});

@@ -1,0 +1,20 @@
+// TEMPLATE — add to e2e/app.spec.ts (or a new e2e/<feature>.spec.ts).
+// This is the BEHAVIOUR MAP: the product's contract from the user's point of
+// view. Drive the real UI; assert via the accessibility tree. Keep it about
+// WHAT the product does, not HOW it is built.
+// See .claude/skills/run-e2e-tests/SKILL.md.
+
+import { expect, test } from '@playwright/test';
+
+test.describe('__Feature__', () => {
+  test('__describes the user-visible journey__', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Arrange: assert the starting state the user lands on.
+    // 2. Act: drive the UI the way a user would (getByRole, click, fill).
+    await page.getByRole('button', { name: '__action__' }).click();
+
+    // 3. Assert: the user-visible outcome.
+    await expect(page.getByRole('status')).toHaveText('__expected outcome__');
+  });
+});

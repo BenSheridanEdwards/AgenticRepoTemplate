@@ -1,0 +1,66 @@
+name: StyleProof
+
+on: pull_request
+
+# The report comment, the report branch, and the StyleProof commit status all
+# need write access.
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: styleproof-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  styleproof:
+    name: Computed-style visual gate
+    runs-on: ubuntu-latest
+    env:
+      # Point Playwright at the production build we serve ourselves on :3000.
+      # With E2E_BASE_URL set, playwright.config.ts does NOT spawn its own
+      # server (see the config's `usesExternalServer`).
+      E2E_BASE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the base branch too
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # --- capture the BASE branch ---
+      - run: git checkout ${{ github.event.pull_request.base.sha }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Build and serve base
+        run: |
+          pnpm build
+          nohup pnpm preview > /tmp/preview-base.log 2>&1 &
+          npx --yes wait-on http://localhost:3000
+      - run: STYLEMAP_DIR=base pnpm exec playwright test e2e/styleproof.spec.ts
+
+      # --- capture the PR HEAD, replaying the base's recorded data so the diff
+      #     is code, not live-data drift ---
+      - run: git checkout ${{ github.event.pull_request.head.sha }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Build and serve head
+        run: |
+          pkill -f "vite preview" || true
+          pnpm build
+          nohup pnpm preview > /tmp/preview-head.log 2>&1 &
+          npx --yes wait-on http://localhost:3000
+      - run: STYLEMAP_DIR=head STYLEPROOF_REPLAY_FROM=__stylemaps__/base pnpm exec playwright test e2e/styleproof.spec.ts
+
+      # --- report + gate (review-gate mode: status stays red until each visual
+      #     change is approved via the styleproof-approve workflow) ---
+      - uses: BenSheridanEdwards/styleproof@v1
+        with:
+          baseline-dir: base
+          fresh-dir: head
+          require-approval: true

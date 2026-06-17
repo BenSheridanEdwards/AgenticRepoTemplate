@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test + coverage artefacts
+coverage/
+playwright-report/
+test-results/
+.swc/
+
+# StyleProof capture output (regenerated each run)
+__stylemaps__/
+
+# Local env + editor noise
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log

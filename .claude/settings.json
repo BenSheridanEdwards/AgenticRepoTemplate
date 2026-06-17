@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm build)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm check)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm format)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm e2e:*)",
+      "Bash(pnpm verify)",
+      "Bash(pnpm fallow:*)",
+      "Bash(pnpm exec biome:*)",
+      "Bash(pnpm exec fallow:*)",
+      "Bash(pnpm exec playwright:*)",
+      "Bash(pnpm exec commitlint:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": ["Bash(git push:*)", "Bash(rm -rf:*)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-gate-bypass.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
