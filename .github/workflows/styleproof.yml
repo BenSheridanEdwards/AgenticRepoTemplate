@@ -34,6 +34,9 @@ jobs:
           cache: pnpm
 
       # --- capture the BASE branch ---
+      # StyleProof registers its capture tests from inside the library, so
+      # Playwright attributes them to node_modules, not e2e/styleproof.spec.ts.
+      # Select them by title with --grep rather than by file path.
       - run: git checkout ${{ github.event.pull_request.base.sha }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
@@ -42,7 +45,7 @@ jobs:
           pnpm build
           nohup pnpm preview > /tmp/preview-base.log 2>&1 &
           npx --yes wait-on http://localhost:3000
-      - run: STYLEMAP_DIR=base pnpm exec playwright test e2e/styleproof.spec.ts
+      - run: STYLEMAP_DIR=base pnpm exec playwright test --grep "styleproof capture"
 
       # --- capture the PR HEAD, replaying the base's recorded data so the diff
       #     is code, not live-data drift ---
@@ -55,7 +58,7 @@ jobs:
           pnpm build
           nohup pnpm preview > /tmp/preview-head.log 2>&1 &
           npx --yes wait-on http://localhost:3000
-      - run: STYLEMAP_DIR=head STYLEPROOF_REPLAY_FROM=__stylemaps__/base pnpm exec playwright test e2e/styleproof.spec.ts
+      - run: STYLEMAP_DIR=head STYLEPROOF_REPLAY_FROM=__stylemaps__/base pnpm exec playwright test --grep "styleproof capture"
 
       # --- report + gate (review-gate mode: status stays red until each visual
       #     change is approved via the styleproof-approve workflow) ---
