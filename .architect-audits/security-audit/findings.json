@@ -1,17 +1,17 @@
 {
   "skillVersion": "1.0.0",
-  "runStartedAt": "2026-06-17T00:00:00Z",
-  "runFinishedAt": "2026-06-17T00:00:00Z",
+  "runStartedAt": "2026-06-17T12:00:00Z",
+  "runFinishedAt": "2026-06-17T12:00:00Z",
   "repository": "BenSheridanEdwards/AgenticProjectTemplate",
-  "gitCommit": "1623624be6fa3c415ddcc57c29b7a4a1d4de02e5",
+  "gitCommit": "f4c862b97f79738bbe04483f2d1f2f494f77037e",
   "framework": "vite-react",
   "deploymentPlatform": "local-only",
   "authLibrary": "none",
   "sanitizationLibrary": "none",
   "withScan": false,
   "scannersExecuted": [],
-  "noGraphify": true,
-  "graphifyNote": "graphify was not run; Layer 2 taint-flow analysis fell back to per-file pattern matching with reduced precision. The source has zero HTML sinks, so the precision loss is immaterial here.",
+  "graphEnriched": true,
+  "graphifyNote": "graphify-out/graph.json is present; Layer 2 taint-flow analysis is graph-informed. The source has zero HTML sinks, zero eval, and zero user-input flows, so the graph confirms rather than changes the clean Layer 2 result.",
   "snapshot": {
     "contentSecurityPolicy": { "detected": false, "source": null, "directives": [] },
     "securityHeaders": {
@@ -37,55 +37,72 @@
     "publicPrefixEnvVars": []
   },
   "summary": {
-    "authenticationAndSessions": {
-      "present": 0,
-      "partial": 1,
-      "missing": 0,
-      "violation": 0,
-      "notApplicable": 7
-    },
-    "inputHandlingAndXss": { "present": 7, "partial": 0, "missing": 0, "violation": 0 },
-    "transportHeadersAndCookies": {
-      "present": 1,
-      "partial": 1,
-      "missing": 6,
-      "violation": 0,
-      "notApplicable": 2
-    },
-    "secretsDataAndThirdParty": {
-      "present": 9,
-      "partial": 1,
-      "missing": 0,
-      "violation": 0,
-      "notApplicable": 3
-    }
+    "authenticationAndSessions": { "present": 0, "partial": 1, "missing": 0, "violation": 0, "notApplicable": 7 },
+    "inputHandlingAndXss": { "present": 7, "partial": 0, "missing": 0, "violation": 0, "notApplicable": 0 },
+    "transportHeadersAndCookies": { "present": 1, "partial": 1, "missing": 6, "violation": 0, "notApplicable": 2 },
+    "secretsDataAndThirdParty": { "present": 9, "partial": 1, "missing": 0, "violation": 0, "notApplicable": 1 }
+  },
+  "totals": { "present": 17, "partial": 3, "missing": 6, "violation": 0, "notApplicable": 10, "totalChecks": 36 },
+  "changeFromPriorRun": {
+    "priorRunStartedAt": "2026-06-17T00:00:00Z",
+    "priorGitCommit": "1623624be6fa3c415ddcc57c29b7a4a1d4de02e5",
+    "note": "Per-layer code baseline unchanged (already clean). The four supplemental repo-hardening gaps that were 'missing' in the prior run are now closed; a real high-severity tmp advisory was caught and fixed; this run is graph-enriched (prior was noGraphify). CSP + five response headers remain 'missing' (no deploy target).",
+    "closed": [
+      "supplemental.sast-codeql: missing -> present (.github/workflows/codeql.yml)",
+      "supplemental.dependabot: missing -> present (.github/dependabot.yml)",
+      "supplemental.security-policy: missing -> present (SECURITY.md)",
+      "supplemental.staged-secret-scan: missing -> present (scripts/secret-scan.sh via .husky/pre-commit)",
+      "supplemental.tmp-advisory: introduced fix -> tmp '>=0.2.6' override in pnpm-workspace.yaml (GHSA-ph9p-34f9-6g65)"
+    ],
+    "stillOpen": [
+      "transportHeadersAndCookies.content-security-policy-defined: missing (no CSP anywhere)",
+      "transportHeadersAndCookies.strict-transport-security-set: missing",
+      "transportHeadersAndCookies.frame-ancestors-restricted: missing",
+      "transportHeadersAndCookies.x-content-type-options-nosniff: missing",
+      "transportHeadersAndCookies.referrer-policy-set: missing",
+      "transportHeadersAndCookies.permissions-policy-set: missing"
+    ],
+    "stillOpenRootCause": "No deployment target. CSP and response security headers must be set at the deployment edge or in a framework headers() function; neither exists for this local-only template. Graded 'missing' (not 'violation') per the baseline."
   },
   "supplementalBaselineGaps": {
-    "note": "Hardening practices the prompt asked to grade that sit alongside but outside the four-layer per-check baseline. Reported here so they are visible without inflating the layer tallies.",
+    "note": "Hardening practices the prompt asked to grade that sit alongside but outside the four-layer per-check baseline. Reported here so they are visible without inflating the layer tallies. All four headline items closed since the prior run.",
     "items": [
       {
         "id": "supplemental.sast-codeql",
-        "status": "missing",
-        "evidence": "No CodeQL or other SAST workflow in .github/workflows/ (only ci.yml, styleproof.yml, styleproof-approve.yml). Biome is a style/correctness linter, not a security SAST.",
-        "remediation": "Add a github/codeql-action workflow on push + pull_request for javascript-typescript, or accept the gap as proportionate for a static demo."
+        "status": "present",
+        "evidence": ".github/workflows/codeql.yml runs github/codeql-action init+analyze for javascript-typescript on push (main), pull_request, and a weekly cron (0 6 * * 1). Least-privilege permissions (contents: read, security-events: write); cancel-in-progress concurrency.",
+        "priorStatus": "missing"
       },
       {
         "id": "supplemental.dependabot",
-        "status": "missing",
-        "evidence": "No .github/dependabot.yml. Dependency freshness relies solely on `pnpm audit --audit-level=high` in ci.yml's security job, which reports but does not open update PRs.",
-        "remediation": "Add .github/dependabot.yml with npm + github-actions ecosystems on a weekly schedule."
+        "status": "present",
+        "evidence": ".github/dependabot.yml configures npm and github-actions ecosystems on a weekly schedule; dev dependencies grouped into one PR; open-pull-requests-limit 10.",
+        "priorStatus": "missing"
       },
       {
         "id": "supplemental.security-policy",
-        "status": "missing",
-        "evidence": "No SECURITY.md or .github/SECURITY.md. No documented vulnerability-disclosure path.",
-        "remediation": "Add a SECURITY.md with a reporting contact and supported-versions note."
+        "status": "present",
+        "evidence": "SECURITY.md documents a private vulnerability-disclosure path (GitHub private advisory + email ben@codewalnut.com), a supported-versions note, and a summary of the automated controls.",
+        "priorStatus": "missing"
+      },
+      {
+        "id": "supplemental.staged-secret-scan",
+        "status": "present",
+        "evidence": "scripts/secret-scan.sh runs 'gitleaks protect --staged --redact' and is invoked from .husky/pre-commit. Degrades gracefully (install hint, exit 0) when gitleaks is absent locally; CI runs gitleaks over full history as the hard backstop. Closes the 'Missing Staged-Content Secret Scan' gap from the quality-gates run.",
+        "priorStatus": "missing"
+      },
+      {
+        "id": "supplemental.tmp-advisory",
+        "status": "fixed",
+        "evidence": "A real high-severity transitive advisory, tmp < 0.2.6 (GHSA-ph9p-34f9-6g65, path traversal) pulled via @lhci/cli -> inquirer -> external-editor, was caught by the CI 'pnpm audit --audit-level=high' gate and fixed by 'overrides: tmp: \">=0.2.6\"' in pnpm-workspace.yaml, pinned across the whole tree.",
+        "priorStatus": "n/a (not present in prior run)"
       },
       {
         "id": "supplemental.eslint-plugin-security",
         "status": "missing",
-        "evidence": "Linter is Biome; ESLint and the eslint-plugin-security / eslint-plugin-no-unsanitized / eslint-plugin-react-security family are absent, so `--with-scan` would find no recognised scanners.",
-        "remediation": "Either accept Biome as the linter and rely on the static baseline, or add ESLint + eslint-plugin-no-unsanitized purely as a CI guard against future dangerouslySetInnerHTML regressions."
+        "evidence": "Linter is Biome; ESLint and the eslint-plugin-security / eslint-plugin-no-unsanitized / eslint-plugin-react-security family are absent, so '--with-scan' would find no recognised scanners. CodeQL now provides the SAST coverage; an optional ESLint regression guard is recommended.",
+        "priorStatus": "missing",
+        "recoveryHint": "/preflight --audit=security --install"
       }
     ]
   },
@@ -95,12 +112,10 @@
       "check": "session-tokens-not-in-localstorage",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": [
-        "No localStorage/sessionStorage usage anywhere in src/. No auth library in dependencies. The app has no session concept."
-      ],
+      "evidence": ["No localStorage/sessionStorage usage anywhere in src/. No auth library in dependencies. The app has no session concept."],
       "samples": [],
       "expectation": "Long-lived session/auth tokens live in HttpOnly cookies, not localStorage/sessionStorage.",
-      "gap": "None — there are no tokens and no storage. The invariant cannot be violated.",
+      "gap": "None — there are no tokens and no storage.",
       "remediation": "No action. Re-run this check if/when authentication is introduced."
     },
     {
@@ -111,7 +126,7 @@
       "evidence": ["No auth flow, no logout, no server."],
       "samples": [],
       "expectation": "Logout calls a server endpoint, not just clearing local state.",
-      "gap": "None — no logout exists.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -119,10 +134,10 @@
       "check": "auth-state-server-derived",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": ["No auth state of any kind; no network calls in src/."],
+      "evidence": ["No auth state; no network calls in src/."],
       "samples": [],
-      "expectation": "\"Is the user logged in\" resolves against a server source of truth on each load.",
-      "gap": "None — no auth state exists.",
+      "expectation": "Auth state resolves against a server source of truth on navigation/load.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -130,12 +145,10 @@
       "check": "oauth-oidc-uses-pkce",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": [
-        "No OAuth/OIDC flow detected. Per baseline, skipped silently when no OAuth flow exists."
-      ],
+      "evidence": ["No OAuth flow detected (skipped silently per baseline)."],
       "samples": [],
-      "expectation": "Public browser clients use PKCE.",
-      "gap": "None — no OAuth flow.",
+      "expectation": "Public clients use PKCE.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -145,8 +158,8 @@
       "confidence": "high",
       "evidence": ["No OAuth flow detected."],
       "samples": [],
-      "expectation": "Every OAuth authorization request includes a validated CSRF-resistant state.",
-      "gap": "None — no OAuth flow.",
+      "expectation": "Every OAuth authorization request includes a validated state parameter.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -154,10 +167,10 @@
       "check": "oidc-uses-nonce",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": ["No OIDC flow detected. Skipped silently per baseline."],
+      "evidence": ["No OIDC flow detected (skipped silently per baseline)."],
       "samples": [],
       "expectation": "OIDC flows include a validated nonce.",
-      "gap": "None — no OIDC flow.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -165,12 +178,10 @@
       "check": "redirect-uris-explicitly-handled",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": [
-        "No router, no post-auth redirect, no ?next=/?returnTo= reflection. No router.push or window.location assignment from user input anywhere in src/."
-      ],
+      "evidence": ["No router, no ?next=/?returnTo= reflection, no router.push/window.location from input."],
       "samples": [],
       "expectation": "Post-auth redirect destinations are validated against an allowlist or restricted to relative paths.",
-      "gap": "None — no redirect logic exists.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -178,35 +189,29 @@
       "check": "server-side-authorization-referenced",
       "status": "partial",
       "confidence": "heuristic",
-      "evidence": [
-        "No role/permission checks anywhere — there is no authorization model. This is the soft check; it reports partial by design because the audit cannot confirm a server-side check exists, and here none is needed."
-      ],
+      "evidence": ["No role/permission model exists. Recorded partial only to honour the soft-check vocabulary; there is no authorization surface to gate."],
       "samples": [],
-      "expectation": "UI authorization checks are paired with server-enforced checks at the data layer.",
-      "gap": "Not a real gap for this demo — there is no authorization surface at all. Recorded as partial only to honour the soft-check vocabulary.",
-      "remediation": "No action while the app has no auth. If a backend and roles are added, ensure server-side enforcement accompanies any UI gating."
+      "expectation": "UI-only authorization checks are paired with server-enforced checks at the data-fetching layer.",
+      "gap": "None today; no authorization model.",
+      "remediation": "No action until auth is added."
     },
     {
       "layer": "input-handling-and-xss",
       "check": "dangerously-set-inner-html-only-with-sanitization",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "0 occurrences of dangerouslySetInnerHTML in src/ or index.html. The only dynamic UI content — the <output> live region in src/features/threshold-counter/ThresholdCounter.tsx:25 — renders a fixed-vocabulary status label through React's auto-escaping JSX, not via any HTML sink."
-      ],
+      "evidence": ["0 occurrences of dangerouslySetInnerHTML across src/ and index.html."],
       "samples": [],
-      "expectation": "Every dangerouslySetInnerHTML consumes trusted/sanitized content.",
-      "gap": "None — the sink is never used.",
-      "remediation": "Keep it that way. If user-supplied HTML is ever rendered, wrap it in DOMPurify."
+      "expectation": "Every dangerouslySetInnerHTML is sanitized or from a trusted server-rendered source.",
+      "gap": "None.",
+      "remediation": "No action."
     },
     {
       "layer": "input-handling-and-xss",
       "check": "no-eval-or-dynamic-code-execution",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "0 occurrences of eval, new Function, Function(...), or string-form setTimeout/setInterval in src/."
-      ],
+      "evidence": ["0 occurrences of eval, new Function, Function(...), or string-form setTimeout/setInterval."],
       "samples": [],
       "expectation": "No dynamic code execution in source.",
       "gap": "None.",
@@ -217,11 +222,9 @@
       "check": "no-raw-innerhtml-writes",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "0 occurrences of element.innerHTML/outerHTML assignment in src/. All DOM mutation goes through React."
-      ],
+      "evidence": ["0 raw innerHTML/outerHTML assignments. All DOM mutation goes through React."],
       "samples": [],
-      "expectation": "DOM mutations go through React, not raw innerHTML writes.",
+      "expectation": "DOM mutations go through React, not element.innerHTML = userInput.",
       "gap": "None.",
       "remediation": "No action."
     },
@@ -230,12 +233,10 @@
       "check": "url-href-src-validated",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "No user-controlled href/src/formAction in src/. The only <script src> (index.html:10) is a first-party module literal. No <a> tags with dynamic href exist."
-      ],
+      "evidence": ["No user-controlled href/src/formAction expressions. The one <script src> in index.html:10 is a first-party Vite module literal."],
       "samples": [],
-      "expectation": "User-controlled URLs in href/src/formAction are protocol-validated (http/https/relative only).",
-      "gap": "None — no dynamic URL attributes exist.",
+      "expectation": "User-controlled URLs in href/src/formAction allow only http/https/relative.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -243,12 +244,10 @@
       "check": "open-redirect-patterns-guarded",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "No redirect call sites (router.push, window.location.assign, etc.) in src/. No query-parameter reflection into navigation."
-      ],
+      "evidence": ["No redirect call sites (no router.push, window.location.assign, or location.href= from input)."],
       "samples": [],
-      "expectation": "Redirects never pass user-controlled URLs through unchecked.",
-      "gap": "None — no redirects exist.",
+      "expectation": "Redirects do not pass user-controlled URLs through unchecked.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -256,12 +255,10 @@
       "check": "markdown-rich-text-safe-pipeline",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "No Markdown or rich-text rendering library in the project. Skipped-silently per baseline; recorded as present because the invariant cannot be violated."
-      ],
+      "evidence": ["No Markdown/rich-text rendering library (no react-markdown, marked, remark/rehype, draft-js, slate, tiptap, quill)."],
       "samples": [],
-      "expectation": "Markdown/rich text renders with HTML disabled or sanitized.",
-      "gap": "None — no Markdown rendering exists.",
+      "expectation": "Markdown/rich-text uses a library that disallows HTML by default or sanitizes after.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -269,11 +266,9 @@
       "check": "no-bypassing-react-escaping",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "No React.createElement with raw HTML strings, no custom JSX runtime that disables escaping, no third-party render-unsafe components. Standard @vitejs/plugin-react JSX runtime."
-      ],
+      "evidence": ["Standard @vitejs/plugin-react JSX runtime; no raw-HTML React.createElement, no escaping-disabled custom runtime, no render-unsafe components."],
       "samples": [],
-      "expectation": "React's escaping is never bypassed.",
+      "expectation": "No bypass of React's auto-escaping.",
       "gap": "None.",
       "remediation": "No action."
     },
@@ -282,31 +277,21 @@
       "check": "https-enforced",
       "status": "partial",
       "confidence": "high",
-      "evidence": [
-        "No deployment configuration detected (local-only). Per the baseline, projects with no detected deployment config report partial rather than violation for this check. The only http:// literal (playwright.config.ts:12) is a localhost dev/test default, not production source."
-      ],
-      "samples": [
-        {
-          "path": "playwright.config.ts",
-          "line": 12,
-          "note": "http://localhost:5173 default — local dev/test only, not shipped"
-        }
-      ],
-      "expectation": "HTTP redirects to HTTPS at the edge, or an HSTS header is present.",
-      "gap": "Neither exists, but there is no deployment layer to host them. The hosting platform (when chosen) must own HTTPS enforcement.",
-      "remediation": "When this template is deployed, enforce HTTPS at the platform/edge and add the headers below via that platform's config (vercel.json headers, netlify.toml/_headers, or Cloudflare _headers)."
+      "evidence": ["No deployment config; per baseline this is partial (not violation) for local-only projects. The only http:// literal (playwright.config.ts:12) is a localhost test default, not shipped."],
+      "samples": [{ "path": "playwright.config.ts", "line": 12 }],
+      "expectation": "Deployed app redirects HTTP to HTTPS at the edge, or carries HSTS.",
+      "gap": "No HTTPS enforcement configured (no deploy target).",
+      "remediation": "Enforce HTTPS at the deployment edge once a host is chosen."
     },
     {
       "layer": "transport-headers-and-cookies",
       "check": "strict-transport-security-set",
       "status": "missing",
       "confidence": "high",
-      "evidence": [
-        "No HSTS header anywhere — no deployment config and no framework headers() to carry it."
-      ],
+      "evidence": ["No HSTS header source anywhere (no deployment config)."],
       "samples": [],
-      "expectation": "HSTS header with max-age >= 15768000; includeSubDomains and preload recommended.",
-      "gap": "Structural prerequisite (a header source) is absent.",
+      "expectation": "HSTS header with max-age >= 15768000; includeSubDomains recommended.",
+      "gap": "No HSTS header.",
       "remediation": "Add Strict-Transport-Security: max-age=31536000; includeSubDomains; preload at the deployment edge once a host is chosen."
     },
     {
@@ -314,38 +299,32 @@
       "check": "content-security-policy-defined",
       "status": "missing",
       "confidence": "high",
-      "evidence": [
-        "No CSP via response header (no deployment config) and no <meta http-equiv=\"Content-Security-Policy\"> in index.html (index.html:1-12). This is the single highest-leverage missing control: with no CSP, an injected script would face no defence-in-depth backstop."
-      ],
-      "samples": [{ "path": "index.html", "line": 3, "note": "<head> has no CSP meta tag" }],
+      "evidence": ["No CSP via response header (no deployment config) and no <meta http-equiv=\"Content-Security-Policy\"> in index.html (index.html:1-12). This is the single highest-leverage missing control."],
+      "samples": [{ "path": "index.html", "line": 3 }],
       "expectation": "A CSP is set via response header or <meta http-equiv>.",
-      "gap": "No CSP exists in any form.",
-      "remediation": "Add a strict CSP. Cheapest in-repo option: a <meta http-equiv=\"Content-Security-Policy\"> in index.html with default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'. Promote to a response header at the deployment edge for full coverage (meta cannot carry frame-ancestors or set HSTS)."
+      "gap": "No Content-Security-Policy anywhere.",
+      "remediation": "Cheapest in-repo stopgap: a <meta http-equiv=\"Content-Security-Policy\"> in index.html with default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'. Promote to a response header at the deployment edge for full coverage (meta cannot carry frame-ancestors or HSTS)."
     },
     {
       "layer": "transport-headers-and-cookies",
       "check": "content-security-policy-not-overly-permissive",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": [
-        "No CSP exists, so there is nothing to evaluate for permissiveness. Recorded as not-applicable rather than present to avoid implying a policy was reviewed."
-      ],
+      "evidence": ["No CSP exists to evaluate for permissiveness."],
       "samples": [],
-      "expectation": "CSP avoids unsafe-inline/unsafe-eval for script-src and avoids * sources.",
+      "expectation": "CSP avoids unsafe-inline/unsafe-eval for script-src and does not use * as a source.",
       "gap": "N/A until a CSP exists.",
-      "remediation": "When adding the CSP above, do not include unsafe-inline or unsafe-eval in script-src."
+      "remediation": "When adding the CSP, keep script-src to 'self' with no unsafe-inline/unsafe-eval."
     },
     {
       "layer": "transport-headers-and-cookies",
       "check": "frame-ancestors-restricted",
       "status": "missing",
       "confidence": "high",
-      "evidence": [
-        "No CSP frame-ancestors and no X-Frame-Options anywhere. The app can be framed by any origin — clickjacking is undefended."
-      ],
+      "evidence": ["No CSP frame-ancestors and no X-Frame-Options anywhere. The app can be framed by any origin — clickjacking is undefended."],
       "samples": [],
       "expectation": "CSP frame-ancestors set, or X-Frame-Options DENY/SAMEORIGIN.",
-      "gap": "Neither control exists.",
+      "gap": "No clickjacking protection.",
       "remediation": "Add frame-ancestors 'none' to the CSP (header form) or X-Frame-Options: DENY at the edge."
     },
     {
@@ -356,7 +335,7 @@
       "evidence": ["No X-Content-Type-Options header anywhere."],
       "samples": [],
       "expectation": "X-Content-Type-Options: nosniff is configured.",
-      "gap": "Header absent.",
+      "gap": "MIME-sniffing not disabled.",
       "remediation": "Add X-Content-Type-Options: nosniff at the deployment edge."
     },
     {
@@ -367,7 +346,7 @@
       "evidence": ["No Referrer-Policy header anywhere."],
       "samples": [],
       "expectation": "A non-default Referrer-Policy (strict-origin-when-cross-origin or stricter).",
-      "gap": "Header absent.",
+      "gap": "Referrer leakage not constrained.",
       "remediation": "Add Referrer-Policy: strict-origin-when-cross-origin at the deployment edge (or a <meta name=\"referrer\"> tag as a stopgap)."
     },
     {
@@ -378,7 +357,7 @@
       "evidence": ["No Permissions-Policy header anywhere."],
       "samples": [],
       "expectation": "A Permissions-Policy restricts dangerous features (geolocation, camera, microphone, payment, USB).",
-      "gap": "Header absent.",
+      "gap": "Powerful features not restricted.",
       "remediation": "Add Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=() at the deployment edge."
     },
     {
@@ -386,12 +365,10 @@
       "check": "cookies-secure-httponly-samesite",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": [
-        "No cookies are set by client code or any server adapter (no document.cookie, no auth library, no server). Nothing to flag."
-      ],
+      "evidence": ["No cookies are set anywhere (no document.cookie, no cookie helper, no server adapter)."],
       "samples": [],
-      "expectation": "Auth/session cookies carry Secure, HttpOnly, SameSite.",
-      "gap": "None — no cookies exist.",
+      "expectation": "Auth/session cookies carry Secure, HttpOnly, SameSite=Lax or stricter.",
+      "gap": "N/A — no cookies.",
       "remediation": "No action."
     },
     {
@@ -399,12 +376,10 @@
       "check": "no-mixed-content",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "No http:// asset or fetch URLs in production source. The single http:// literal (playwright.config.ts:12) is a localhost test default, excluded from the shipped bundle."
-      ],
+      "evidence": ["No http:// asset/fetch URLs in production source. The only http:// literal is a localhost test default in playwright.config.ts:12."],
       "samples": [],
-      "expectation": "Asset/fetch URLs use https:// or relative paths.",
-      "gap": "None in production source.",
+      "expectation": "Asset and fetch URLs use https:// or relative paths.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -412,29 +387,19 @@
       "check": "no-secrets-in-source",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "0 secret-format regex matches (AWS access keys, Stripe keys, Google API keys, GitHub tokens, JWT, PEM blocks) across tracked source. CI also runs gitleaks (.github/workflows/ci.yml:118-121) as a defence-in-depth backstop on every push/PR."
-      ],
+      "evidence": ["0 secret-format regex matches across tracked source. Defended at two layers now: gitleaks protect --staged on pre-commit (scripts/secret-scan.sh via .husky/pre-commit) and gitleaks/gitleaks-action@v3 over full history in CI (.github/workflows/ci.yml security job)."],
       "samples": [],
       "expectation": "No API keys, tokens, passwords, private keys, or signing secrets as string literals.",
       "gap": "None.",
-      "remediation": "No action. The gitleaks job keeps this enforced going forward."
+      "remediation": "No action."
     },
     {
       "layer": "secrets-data-and-third-party",
       "check": "env-files-git-ignored",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        ".gitignore:18-20 ignores .env and .env.* and re-includes !.env.example. git ls-files confirms only .env.example is tracked; it documents one non-secret CI knob (E2E_BASE_URL)."
-      ],
-      "samples": [
-        {
-          "path": ".gitignore",
-          "line": 18,
-          "note": ".env / .env.* ignored, .env.example allowlisted"
-        }
-      ],
+      "evidence": [".gitignore:27-29 ignores .env and .env.* and allowlists !.env.example. Only .env.example is tracked (git ls-files), and it documents a single non-secret CI knob (E2E_BASE_URL)."],
+      "samples": [{ "path": ".gitignore", "line": 27 }],
       "expectation": ".gitignore excludes .env, .env.local, .env.*.local.",
       "gap": "None.",
       "remediation": "No action."
@@ -444,12 +409,10 @@
       "check": "public-prefix-env-vars-actually-public",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "No VITE_*, NEXT_PUBLIC_*, or PUBLIC_* variables exist. The only process.env reads (playwright.config.ts, e2e/styleproof.spec.ts) are CI/test-time (CI, E2E_BASE_URL, STYLEMAP_DIR) and never inlined into the client bundle. .env.example documents no secret-shaped public var."
-      ],
+      "evidence": ["No VITE_*/NEXT_PUBLIC_*/PUBLIC_* variables exist. The only process.env reads are CI/test-time (process.env.CI, E2E_BASE_URL, STYLEMAP_DIR) in playwright.config.ts and e2e/styleproof.spec.ts — never bundled into client code."],
       "samples": [],
-      "expectation": "Public-prefixed env vars do not carry secret-shaped names/values.",
-      "gap": "None — no public-prefix vars are shipped.",
+      "expectation": "Public-prefixed vars do not carry secret content.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -457,25 +420,21 @@
       "check": "no-pii-in-url-paths-or-query",
       "status": "partial",
       "confidence": "heuristic",
-      "evidence": [
-        "No router and no link generation in src/, so no route/query parameters of any kind. Heuristic PII-by-parameter-name check has nothing to match. Reported partial per the soft-check vocabulary; no real exposure."
-      ],
+      "evidence": ["No router or URL parameters exist at all; nothing matches PII patterns. Reported partial per the soft-check vocabulary; no real exposure."],
       "samples": [],
-      "expectation": "URLs do not carry email/phone/gov-ID/token parameters.",
-      "gap": "None — no URL parameters exist.",
-      "remediation": "No action."
+      "expectation": "No email/phone/government-ID/token parameters in URLs.",
+      "gap": "None today.",
+      "remediation": "No action; re-check if routing with parameters is added."
     },
     {
       "layer": "secrets-data-and-third-party",
       "check": "no-pii-in-client-analytics",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "No analytics library (gtag, posthog, mixpanel, segment, amplitude, heap) in dependencies or source. No event payloads exist."
-      ],
+      "evidence": ["No analytics library (no gtag, posthog, mixpanel, segment, amplitude, heap)."],
       "samples": [],
-      "expectation": "Analytics payloads exclude PII fields.",
-      "gap": "None — no analytics.",
+      "expectation": "Analytics event payloads do not include PII fields.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -483,23 +442,21 @@
       "check": "subresource-integrity-on-external-scripts",
       "status": "not-applicable",
       "confidence": "high",
-      "evidence": [
-        "0 external <script> tags. The single script (index.html:10) is a first-party Vite module; SRI does not apply to bundler-managed first-party entry points."
-      ],
+      "evidence": ["0 external scripts. The one <script> in index.html:10 is a first-party Vite module; SRI does not apply to bundler-managed first-party modules."],
       "samples": [],
-      "expectation": "Non-first-party external scripts carry an integrity attribute.",
-      "gap": "None — no external scripts.",
-      "remediation": "No action. If a third-party CDN script is ever added, include an integrity hash."
+      "expectation": "External non-first-party <script> tags carry an integrity attribute.",
+      "gap": "N/A.",
+      "remediation": "No action."
     },
     {
       "layer": "secrets-data-and-third-party",
       "check": "third-party-iframes-sandboxed",
       "status": "present",
       "confidence": "high",
-      "evidence": ["0 <iframe> elements in source."],
+      "evidence": ["0 <iframe> elements."],
       "samples": [],
       "expectation": "Third-party iframes use the sandbox attribute.",
-      "gap": "None — no iframes.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -507,12 +464,10 @@
       "check": "postmessage-origin-validation",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "0 window.addEventListener('message', …) handlers and 0 postMessage calls in source."
-      ],
+      "evidence": ["0 window message handlers / postMessage usage."],
       "samples": [],
-      "expectation": "message handlers validate event.origin before acting on event.data.",
-      "gap": "None — no postMessage usage.",
+      "expectation": "message handlers check event.origin against an allowlist before acting on event.data.",
+      "gap": "None.",
       "remediation": "No action."
     },
     {
@@ -520,33 +475,31 @@
       "check": "target-blank-noopener",
       "status": "present",
       "confidence": "high",
-      "evidence": ["0 <a target=\"_blank\"> elements in source. No external links at all."],
+      "evidence": ["0 target=\"_blank\" links."],
       "samples": [],
-      "expectation": "target=\"_blank\" links carry rel=\"noopener noreferrer\".",
-      "gap": "None — no _blank links.",
-      "remediation": "No action. Add rel=\"noopener noreferrer\" to any future target=\"_blank\" link."
+      "expectation": "target=\"_blank\" links include rel=\"noopener noreferrer\".",
+      "gap": "None.",
+      "remediation": "No action."
     },
     {
       "layer": "secrets-data-and-third-party",
       "check": "no-console-logged-secrets",
       "status": "present",
       "confidence": "high",
-      "evidence": [
-        "0 console.* calls in src/. No tokens, env values, or request-header objects are logged."
-      ],
+      "evidence": ["0 console.* calls in src/ (and none in e2e/). No tokens, env values, or header objects logged."],
       "samples": [],
-      "expectation": "No auth tokens, env values, or full header objects passed to console.* or loggers.",
+      "expectation": "No auth tokens, env values, or request-header objects passed to console.* or loggers.",
       "gap": "None.",
       "remediation": "No action."
     },
     {
       "layer": "secrets-data-and-third-party",
-      "check": "weak-crypto-primitives-flagged",
+      "check": "weak-cryptographic-primitives-flagged",
       "status": "present",
       "confidence": "high",
-      "evidence": ["0 MD5/SHA-1/createHash usages in source. No cryptographic code at all."],
+      "evidence": ["No crypto code; no MD5 or SHA-1 usage in source."],
       "samples": [],
-      "expectation": "No MD5/SHA-1 in security-relevant code paths.",
+      "expectation": "No MD5/SHA-1 for security-relevant purposes.",
       "gap": "None.",
       "remediation": "No action."
     }

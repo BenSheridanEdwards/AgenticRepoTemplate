@@ -1,268 +1,135 @@
 # Quality gates audit report
 
-Static-only audit (no graphify graph — reduced context, every gate tagged
-`noGraphify: true`) of a Node + React frontend template graded strictly against
-the opinionated three-stage baseline. The repository has a genuinely strong,
-honest posture, but several baseline gates resolve as `misconfigured` or
-`missing` because the template uses `biome check --staged` directly instead of
-`lint-staged`, runs its full type check at pre-commit rather than staged-scoped,
-leaves type-check / full-lint / build-smoke out of pre-push, and omits four CI
-gates (bundle-size budget, accessibility, license compliance, Lighthouse CI).
-
-## Snapshot
+Graph-enriched audit (graphify output present — full context). Static-only
+inspection: no gate was executed, every status is resolved from files on disk
+against the opinionated three-stage baseline.
 
 - Repository: BenSheridanEdwards/AgenticProjectTemplate
-- Commit: `1623624be6fa3c415ddcc57c29b7a4a1d4de02e5`
+- Commit: `f4c862b97f79738bbe04483f2d1f2f494f77037e`
 - Ecosystem: node · Package manager: pnpm · Hook runner: husky
-- Graphify output present: no (static-only — reduced context)
-- Generated: 2026-06-17T00:00:00Z
+- Skill version: 1.0.0
+- Run: 2026-06-17T12:00:00Z
+- Graphify revision: `2026-06-17T21:27:26Z`
 
 ## Status tally
 
 | Stage | Present | Misconfigured | Missing |
 | --- | --- | --- | --- |
-| Pre-commit | 2 | 3 | 1 |
-| Pre-push | 2 | 0 | 3 |
-| Continuous integration | 5 | 0 | 4 |
+| Pre-commit | 3 | 3 | 0 |
+| Pre-push | 3 | 0 | 2 |
+| Continuous integration | 8 | 0 | 1 |
 
-## Top recommendations
+---
 
-1. **Add a staged-content secret scan to pre-commit**
-   - Why it matters: gitleaks runs only in CI, so a leaked credential is already
-     in local history (and pushable) before the server ever sees it.
-   - Smallest fix: add `gitleaks protect --staged --redact` as a step in
-     `.husky/pre-commit`.
-2. **Run type-check, full lint, and build smoke at pre-push**
-   - Why it matters: pre-push only runs tests + e2e, so a type error, lint
-     regression, or broken production build only surfaces in CI minutes later.
-   - Smallest fix: append `pnpm typecheck`, `pnpm check`, and `pnpm build` to
-     `.husky/pre-push`.
-3. **Add a CI accessibility gate to the user-facing app**
-   - Why it matters: this is a React UI template with zero automated a11y
-     coverage; accessibility regressions ship silently.
-   - Smallest fix: add `@axe-core/playwright` and assert `AxeBuilder` results in
-     the existing Playwright e2e run.
-4. **Add a bundle-size budget**
-   - Why it matters: nothing measures shipped size, so a heavy dependency can
-     bloat the bundle with no signal.
-   - Smallest fix: add `size-limit` + a `.size-limit.json` budget and a
-     `pnpm size-limit` CI step against `dist/`.
-5. **Add a license-compliance check (and consider Lighthouse CI)**
-   - Why it matters: a transitive copyleft/disallowed license can enter the tree
-     unflagged; a user-facing app also has no performance budget.
-   - Smallest fix: add `license-checker-rseidelsohn` with an allow-list as a CI
-     step; optionally add `@lhci/cli` + `lighthouserc.json` + `lhci autorun`.
+## Stage 1 — Pre-commit
 
-## Checks
+### hook-runner-installed — present
+Husky is installed and active.
+- Evidence: `.husky/` with `commit-msg`, `pre-commit`, `pre-push`; `package.json` `prepare: husky`; `husky@^9.1.7`.
 
-### Stage 1 — Pre-commit
+### staged-file-formatter — misconfigured
+Biome formats staged files, but via `biome check --staged`, not `lint-staged`.
+- Evidence: `@biomejs/biome@^1.9.4`; `biome.json` `formatter.enabled = true`; `.husky/pre-commit:12` runs `pnpm exec biome check --staged --no-errors-on-unmatched .`; no `lint-staged` block / `.lintstagedrc` anywhere.
+- Gap: the baseline `lint-staged configuration block` signal does not resolve; `biome check` reports but does not auto-fix formatting (no `--write`). Deliberate deviation.
+- Remediation: accept as intentional, or add a `lint-staged` block running `biome check --write`.
 
-#### hook-runner-installed — present
+### staged-file-linter — misconfigured
+Biome lints staged files, but via `biome check --staged`, not `lint-staged`.
+- Evidence: `@biomejs/biome@^1.9.4`; `biome.json` `linter.enabled = true` (recommended + `noUnusedImports` / `noUnusedVariables`); `.husky/pre-commit:12` runs `biome check --staged`; no `lint-staged` block.
+- Gap: lint runs on staged files (good) but `--write`/`--fix` is not passed; baseline `lint-staged` signal unresolved. Deliberate deviation.
+- Remediation: accept, or migrate to `lint-staged` with `biome check --write`.
 
-- Expectation: Husky or Lefthook is configured for the repository.
-- Evidence: `.husky/` with `commit-msg`, `pre-commit`, `pre-push`; `husky@^9.1.7`
-  devDependency; `package.json` `scripts.prepare = "husky"`.
-- Gap: None.
-- Remediation: No action.
+### type-check-on-staged-files — misconfigured
+A type check runs on commit, but over the whole project, not staged files.
+- Evidence: `typescript@^5.7.2`; `tsconfig.json`; `.husky/pre-commit:9` runs `pnpm typecheck` (`tsc --noEmit`), full-project, no `tsc-files` scoping.
+- Gap: stronger than nothing, but the baseline staged-scoping signal does not resolve, so misconfigured.
+- Remediation: keep the full check (stricter, fine for a small template), or add `tsc-files` to scope to staged files for a tighter loop.
 
-#### staged-file-formatter — misconfigured
+### commit-message-lint — present
+Conventional Commits enforced on commit-msg.
+- Evidence: `@commitlint/cli`, `@commitlint/config-conventional`, `@commitlint/types`; `commitlint.config.ts` (extends config-conventional, curated `type-enum`, `subject-case`); `.husky/commit-msg` runs `pnpm exec commitlint --edit "$1"`.
 
-- Expectation: Prettier or Biome formats staged files via lint-staged.
-- Evidence: `@biomejs/biome@^1.9.4`; `biome.json` `formatter.enabled = true`;
-  `.husky/pre-commit` runs `pnpm exec biome check --staged --no-errors-on-unmatched .`;
-  NO `lint-staged` block and no `.lintstagedrc`.
-- Gap: Formatting of staged files is done via `biome check --staged` invoked
-  directly, not via a lint-staged block, so the baseline's `lint-staged`
-  signal does not resolve. `biome check` without `--write` reports formatting
-  issues but does not auto-apply them on commit.
-- Remediation: Accept the direct `biome check --staged` approach as an
-  intentional simplification, or add a lint-staged block running
-  `biome check --write` so formatting is applied, not just reported.
+### secret-scan-on-staged-content — present  *(moved from MISSING)*
+Staged content is scanned for secrets before commit.
+- Evidence: `.husky/pre-commit:18` runs `pnpm secret-scan` → `scripts/secret-scan.sh` → `gitleaks protect --staged --redact --no-banner` (conditional on the gitleaks binary). CI security job runs `gitleaks/gitleaks-action@v3` over full history as an unconditional backstop.
+- Note: the local scan no-ops (exit 0) when gitleaks is not installed; CI is the hard floor. Consider bundling gitleaks into `setup:agents` to close the soft spot.
 
-#### staged-file-linter — misconfigured
+---
 
-- Expectation: ESLint or Biome lints staged files via lint-staged, with --fix
-  allowed.
-- Evidence: `@biomejs/biome@^1.9.4`; `biome.json` `linter.enabled = true`
-  (recommended + custom rules); `.husky/pre-commit` runs `biome check --staged`;
-  NO `lint-staged` block.
-- Gap: Lint of staged files runs through `biome check --staged` directly rather
-  than a lint-staged block, so the `lint-staged block invoking it` signal does
-  not resolve. `--write`/`--fix` is not passed, so fixable issues are reported,
-  not auto-applied.
-- Remediation: Treat the direct invocation as an intentional design, or migrate
-  to a lint-staged block with `biome check --write` for safe auto-fixes.
+## Stage 2 — Pre-push
 
-#### type-check-on-staged-files — misconfigured
+### pre-push-hook-configured — present
+- Evidence: `.husky/pre-push` present, executable, wired via husky.
 
-- Expectation: `tsc --noEmit` runs against staged TypeScript files.
-- Evidence: `typescript@^5.7.2`; `tsconfig.json` (`strict: true`, `noEmit: true`);
-  `.husky/pre-commit` runs `pnpm typecheck` = `tsc --noEmit` over the WHOLE
-  project; NO `tsc-files` / staged scoping.
-- Gap: A type check runs on every commit, but it is a full-project check, not
-  scoped to staged files. The intent (block type errors pre-commit) is met, but
-  the staged-scoping signal does not resolve.
-- Remediation: Acceptable for a small template (full typecheck is fast and
-  catches cross-file regressions a staged check would miss). For larger repos,
-  consider `tsc-files` in a lint-staged block.
+### full-type-check — missing
+- Evidence: `.husky/pre-push` runs only `pnpm test:coverage`, `pnpm build`, `pnpm e2e`. No `pnpm typecheck`.
+- Gap: type checking is owned by pre-commit (full `tsc --noEmit`) and CI (`ci.yml` quality job), not re-run on pre-push. Per the baseline the pre-push signal does not resolve.
+- Remediation: add `pnpm typecheck` to `.husky/pre-push` to make it a full CI mirror, or accept the split by design.
 
-#### commit-message-lint — present
+### full-lint — missing
+- Evidence: `.husky/pre-push` has no `biome check` / `eslint .`. Whole-repo lint runs only in CI (`ci.yml` quality job, `pnpm check`).
+- Gap: only staged-scoped lint runs locally (pre-commit); whole-repo lint is CI-only.
+- Remediation: add `pnpm check` to `.husky/pre-push`, or accept CI ownership.
 
-- Expectation: commitlint enforces Conventional Commits on the subject line.
-- Evidence: `@commitlint/cli@^19.6.1` + `@commitlint/config-conventional@^19.6.0`;
-  `commitlint.config.ts` extends config-conventional with `type-enum` and
-  `subject-case` rules; `.husky/commit-msg` runs `pnpm exec commitlint --edit "$1"`.
-- Gap: None. Squash-merge PR-title enforcement is not covered (out of baseline
-  scope).
-- Remediation: No action. Optional: add a CI step validating PR titles.
+### unit-tests — present
+- Evidence: `.husky/pre-push:9` runs `pnpm test:coverage` (`jest --coverage`); `jest.config.ts` 80% global threshold.
 
-#### secret-scan-on-staged-content — missing
+### build-smoke — present  *(moved from MISSING)*
+- Evidence: `.husky/pre-push:12` runs `pnpm build` (`vite build`) as a production-build smoke test.
 
-- Expectation: gitleaks (`protect`) or detect-secrets runs against staged content
-  before commit.
-- Evidence: NO `.gitleaks.toml`; NO `.pre-commit-config.yaml`; NO secret-scan
-  step in `.husky/pre-commit`. gitleaks runs ONLY in CI
-  (`.github/workflows/ci.yml` security job, `gitleaks/gitleaks-action@v3`).
-- Gap: No staged-content secret scan locally. A secret can be committed and
-  pushed before CI catches it.
-- Remediation: Add `gitleaks protect --staged --redact` (or detect-secrets) to
-  `.husky/pre-commit` to complement the CI scan.
+---
 
-### Stage 2 — Pre-push
+## Stage 3 — Continuous Integration
 
-#### pre-push-hook-configured — present
+### ci-workflow-present — present
+- Evidence: `.github/workflows/ci.yml` (quality, fallow, test, build, e2e, security) plus `codeql.yml`, `lighthouse.yml`, `styleproof.yml`, `styleproof-approve.yml`. Triggers on push to main + PR.
 
-- Expectation: A pre-push hook exists and is wired into the hook runner.
-- Evidence: `.husky/pre-push` present and executable, managed by husky.
-- Gap: None.
-- Remediation: No action.
+### all-pre-push-gates-rerun-on-clean-checkout — present
+- Evidence: each `ci.yml` job is a fresh `ubuntu-latest` checkout with `pnpm install --frozen-lockfile`, then quality → `pnpm typecheck` + `pnpm check`; test → `pnpm test:coverage`; build → `pnpm build` + `pnpm size`; e2e → playwright install + `pnpm e2e`. CI is a superset of the local hooks (it adds the full typecheck/lint that pre-push delegates).
 
-#### full-type-check — missing
+### end-to-end-tests — present
+- Evidence: `@playwright/test@^1.49.1`; `playwright.config.ts`; `ci.yml` e2e job runs `playwright install` then `pnpm e2e`.
 
-- Expectation: `tsc --noEmit` runs over the entire project at pre-push.
-- Evidence: `.husky/pre-push` runs only `pnpm test` and `pnpm e2e`; NO
-  `pnpm typecheck` invocation. Typecheck DOES run at pre-commit and in CI.
-- Gap: The pre-push hook runs no type check. The signal does not resolve, though
-  it is partly mitigated by the full pre-commit typecheck and CI re-run.
-- Remediation: Add `pnpm typecheck` to `.husky/pre-push`, or document that the
-  pre-commit typecheck is the intended gate.
+### coverage-threshold-enforced — present
+- Evidence: `jest.config.ts` `coverageThreshold.global` 80% (branches/functions/lines/statements); `ci.yml` test job runs `pnpm test:coverage`. `collectCoverageFrom` excludes index barrels / `main.tsx` / `App.tsx` (composition root, covered by E2E) — feature logic in scope.
 
-#### full-lint — missing
+### bundle-size-budget — present  *(moved from MISSING)*
+- Evidence: `size-limit@^12.1.0` + `@size-limit/file`; `.size-limit.json` (JS 80 kB, CSS 5 kB on `dist/assets/*`); `package.json` `size: size-limit`; `ci.yml` build job `Bundle-size budget` step runs `pnpm size` after build.
 
-- Expectation: The lint command runs the whole codebase and fails on warnings.
-- Evidence: `.husky/pre-push` runs only `pnpm test` and `pnpm e2e`; NO full-tree
-  lint. Full lint (`pnpm check`) runs only at pre-commit (staged) and in CI.
-  No `--max-warnings=0` equivalent — Biome `warn` rules (e.g.
-  `noNonNullAssertion: warn`) never fail a gate.
-- Gap: No whole-codebase lint before push; warning-level findings are silently
-  shippable.
-- Remediation: Add `pnpm check` to `.husky/pre-push`; consider promoting `warn`
-  rules to `error` or failing on warnings.
+### accessibility-checks — present  *(moved from MISSING)*
+- Evidence (three layers): `@axe-core/playwright@^4.11.3` in `e2e/accessibility.spec.ts` (AxeBuilder, wcag2a/2aa/21a/21aa, zero violations) run by the `ci.yml` e2e job; `jest-axe@^10.0.0` extended in `jest.setup.ts` and used by `src/features/threshold-counter/ThresholdCounter.a11y.test.tsx` (CI test job); Lighthouse `categories:accessibility` >= 0.9 hard error.
 
-#### unit-tests — present
+### dependency-vulnerability-scan — present
+- Evidence: `ci.yml` security job runs `pnpm audit --audit-level=high` and `gitleaks/gitleaks-action@v3`; `.github/dependabot.yml` weekly npm + github-actions updates.
 
-- Expectation: Vitest or Jest runs the unit-test suite to completion at pre-push.
-- Evidence: `.husky/pre-push` runs `pnpm test` = `jest`; `jest@^29.7.0` +
-  `jest-environment-jsdom` via `jest.config.ts`.
-- Gap: Minor — plain `jest`, not `jest --ci`; coverage thresholds are NOT
-  enforced at pre-push (only in CI via `test:coverage`).
-- Remediation: No blocking action. Optionally use `--ci` and/or run
-  `pnpm test:coverage` at pre-push.
+### license-compliance-check — missing
+- Evidence: no `license-checker` / `license-compliance` / `licensee` / `@inquirer/license-checker-rs` dependency; no workflow step enforcing a license allow/deny-list.
+- Gap: the one genuinely absent CI gate. Nothing blocks an incompatible (e.g. copyleft) transitive license from entering the tree.
+- Remediation: add `license-checker-rs`, define an SPDX allow-list, and add a CI step (e.g. in the security job) that fails on out-of-list licenses.
 
-#### build-smoke — missing
+### lighthouse-ci — present  *(moved from MISSING)*
+- Evidence: `@lhci/cli@^0.15.1`; `lighthouserc.json` (`staticDistDir ./dist`; accessibility >= 0.9 error, performance >= 0.8 warn, best-practices >= 0.9 warn, seo off); `.github/workflows/lighthouse.yml` runs on PR: build then `lhci autorun`.
 
-- Expectation: The production build command runs and exits cleanly at pre-push.
-- Evidence: `.husky/pre-push` runs only `pnpm test` and `pnpm e2e`; NO
-  `pnpm build`. The pre-push Playwright run boots the Vite DEV server
-  (`playwright.config.ts` `webServer = pnpm dev`), not a production build.
-- Gap: A broken production build is not caught until CI's build job.
-- Remediation: Add `pnpm build` to `.husky/pre-push`, or accept CI as the gate.
+---
 
-### Stage 3 — Continuous integration
+## What changed vs the prior (pre-enhancement) run
 
-#### ci-workflow-present — present
+Prior tally -> current tally:
+- Pre-commit: present 2->3, misconfigured 3->3, missing 1->0.
+- Pre-push: present 2->3, misconfigured 0->0, missing 3->2.
+- CI: present 5->8, misconfigured 0->0, missing 4->1.
 
-- Expectation: At least one workflow definition exists.
-- Evidence: `.github/workflows/ci.yml`, `styleproof.yml`, `styleproof-approve.yml`.
-- Gap: None.
-- Remediation: No action.
+Gates that moved to **present**:
+1. `secret-scan-on-staged-content` (pre-commit) — was missing.
+2. `build-smoke` (pre-push) — was missing.
+3. `bundle-size-budget` (CI) — was missing.
+4. `accessibility-checks` (CI) — was missing.
+5. `lighthouse-ci` (CI) — was missing.
 
-#### all-pre-push-gates-rerun-on-clean-checkout — present
-
-- Expectation: The workflow installs deps fresh and runs type-check, lint, unit
-  tests, and build.
-- Evidence: `ci.yml` `quality` job (`pnpm install --frozen-lockfile` →
-  `pnpm typecheck` → `pnpm check`), `test` job (`pnpm test:coverage`), `build`
-  job (`pnpm build`), `e2e` job (playwright install + `pnpm e2e`); every job
-  does a fresh frozen-lockfile install.
-- Gap: None — CI is in fact stricter than pre-push and covers the pre-push gaps.
-- Remediation: No action.
-
-#### end-to-end-tests — present
-
-- Expectation: Playwright or Cypress runs against a build of the application.
-- Evidence: `@playwright/test@^1.49.1`; `ci.yml` `e2e` job runs
-  `playwright install --with-deps chromium` then `pnpm e2e`;
-  `playwright.config.ts` present.
-- Gap: Minor — in `ci.yml` the e2e job runs against the Vite dev server (no
-  `E2E_BASE_URL` set), not a production build. The StyleProof workflow does run
-  against the production preview build.
-- Remediation: No blocking action. Optionally set `E2E_BASE_URL` against a
-  `pnpm preview` server in the e2e job.
-
-#### coverage-threshold-enforced — present
-
-- Expectation: A coverage threshold is configured and the workflow fails when it
-  is not met.
-- Evidence: `jest.config.ts` `coverageThreshold.global = 80%` (branches /
-  functions / lines / statements); `ci.yml` `test` job runs `pnpm test:coverage`.
-- Gap: None. `App.tsx` / `main.tsx` are excluded from `collectCoverageFrom`, so
-  the gate measures library/component code, not the app shell.
-- Remediation: No action. Optionally narrow the exclusions as the shell grows.
-
-#### bundle-size-budget — missing
-
-- Expectation: A bundle-size check runs and fails when the budget is exceeded.
-- Evidence: NO `size-limit` / `bundlewatch` / `@next/bundle-analyzer`; NO
-  bundle-size step in any workflow.
-- Gap: No bundle-size budget; bloat ships undetected.
-- Remediation: Add `size-limit` + `.size-limit.json` budget + a CI
-  `pnpm size-limit` step against `dist/`.
-
-#### accessibility-checks — missing
-
-- Expectation: Automated accessibility checks run against components or pages.
-- Evidence: NO `@axe-core/*` / `pa11y` / `@storybook/addon-a11y`; NO a11y step
-  in any workflow; Playwright tests do not assert a11y.
-- Gap: No automated a11y coverage on a user-facing React app.
-- Remediation: Add `@axe-core/playwright` and assert `AxeBuilder` results in the
-  e2e run, or add `pa11y-ci` as a CI step.
-
-#### dependency-vulnerability-scan — present
-
-- Expectation: A vulnerability scanner runs against the lockfile.
-- Evidence: `ci.yml` `security` job runs `pnpm audit --audit-level=high`
-  (gitleaks secret scan in the same job).
-- Gap: No Dependabot config (`.github/dependabot.yml` absent) — vulns are
-  detected but dependency updates are manual.
-- Remediation: No blocking action. Optionally add `.github/dependabot.yml`.
-
-#### license-compliance-check — missing
-
-- Expectation: A license check runs and enforces an allow-list or deny-list.
-- Evidence: NO `license-checker` / `license-compliance` /
-  `@inquirer/license-checker-rs`; NO license-check step in any workflow.
-- Gap: No license-compliance gate; a disallowed/copyleft transitive license can
-  enter the tree unflagged.
-- Remediation: Add `license-checker-rseidelsohn` (or `license-compliance`) with
-  an allow-list and a CI step that fails on disallowed licenses.
-
-#### lighthouse-ci — missing
-
-- Expectation: Lighthouse CI runs against a built version and asserts thresholds
-  (recommended for user-facing apps; flagged but not always required).
-- Evidence: NO `@lhci/cli`; NO `lighthouserc.*`; NO `lhci autorun` step.
-- Gap: No Lighthouse CI; performance/SEO/best-practice regressions are
-  unmeasured. StyleProof covers computed-style diffs, not Lighthouse budgets.
-- Remediation: Recommended — add `@lhci/cli`, `lighthouserc.json` with assertion
-  thresholds, and a CI `lhci autorun` step against the `pnpm preview` build.
+Still graded short of present (unchanged, all deliberate except the last):
+- `staged-file-formatter`, `staged-file-linter`, `type-check-on-staged-files`
+  (pre-commit) — misconfigured: Biome `--staged` instead of `lint-staged`; full
+  `tsc` instead of staged-scoped.
+- `full-type-check`, `full-lint` (pre-push) — missing at this stage by design
+  (owned by pre-commit + CI).
+- `license-compliance-check` (CI) — genuinely missing, no tooling.
