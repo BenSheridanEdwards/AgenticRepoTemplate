@@ -102,10 +102,13 @@ jest.config.ts / jest.setup.ts  Unit + component tests (RTL + jest-axe), coverag
 playwright.config.ts        One browser harness for E2E + StyleProof.
 .size-limit.json            Bundle-size budget.
 lighthouserc.json           Lighthouse CI budget (a11y floor + perf).
+.fallowrc.jsonc             Fallow config — ignores runtime-loaded plugins.
+pnpm-workspace.yaml         pnpm settings — trusted builds + security overrides.
 tsconfig.json               strict + extra strictness; the first gate.
 vite.config.ts              The runnable carrier.
 scripts/
   setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify.
+  fallow-audit.sh           Base-aware Fallow audit (introduced-issue gate).
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   verify-gates.sh           Local mirror of the CI gate suite.
 e2e/
@@ -113,6 +116,7 @@ e2e/
   accessibility.spec.ts     Real-browser axe scan (WCAG A/AA, incl. contrast).
   styleproof.spec.ts        StyleProof surfaces (computed-style capture).
 src/features/threshold-counter/  The one minimal-but-real feature.
+.architect-audits/          Committed ArchitectPlaybook reports (5 audits, 0 violations).
 graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities) — rebuild with graphify.
 ```
 
@@ -133,7 +137,12 @@ pnpm setup:agents      # installs the playbook + Fallow skills, checks graphify
 ```
 
 This template is built to score well on those audits — it *is* what "good" looks
-like through that lens.
+like through that lens. The proof is committed: the
+[`.architect-audits/`](.architect-audits) reports are real, graph-enriched runs
+of all five audits with **zero violations** across architecture, testing,
+agentic setup, quality gates, and security. (They were not always green — the
+first pass found real issues; the committed history shows the find → fix →
+re-audit loop.)
 
 **2 · Keep agent output enterprise-grade.** The context files and gates make an
 agent's code follow the patterns in
@@ -149,8 +158,8 @@ every change, whoever or whatever wrote it.
 pnpm install
 pnpm setup:agents     # one-time: external agentic toolkit
 pnpm dev              # http://localhost:5173
-pnpm verify           # typecheck → biome → fallow → unit tests → build
-pnpm e2e              # behaviour map (Playwright)
+pnpm verify           # typecheck → biome → fallow → tests+coverage → build → size
+pnpm e2e              # behaviour map + axe a11y scan (Playwright)
 ```
 
 Requires **Node ≥ 20** and **pnpm**. See [`.nvmrc`](.nvmrc).
@@ -165,12 +174,14 @@ Requires **Node ≥ 20** and **pnpm**. See [`.nvmrc`](.nvmrc).
 **Brownfield** — copy the scaffolding into the existing repo:
 
 ```
-AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/workflows/
-biome.json  commitlint.config.ts
+AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/  (workflows + dependabot)
+biome.json  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
 ```
 
 Then run `/pre-audit-setup` and the audits to see where the repo falls short of
-the standards, and close the gaps gate by gate.
+the standards, and close the gaps gate by gate — exactly the find → fix →
+re-audit loop the committed [`.architect-audits/`](.architect-audits) reports
+demonstrate on this repo.
 
 ---
 
