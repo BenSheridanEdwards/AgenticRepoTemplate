@@ -7,6 +7,9 @@ allowBuilds:
   '@swc/core': true
   esbuild: true
 
+minimumReleaseAgeExclude:
+  - styleproof@3.0.1
+
 # Force-patch a transitive high-severity advisory the CI security gate caught:
 # @lhci/cli (and its inquirer > external-editor chain) pulled tmp < 0.2.6, which
 # has a path-traversal vulnerability (GHSA-ph9p-34f9-6g65). Pin the patched line
