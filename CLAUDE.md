@@ -37,6 +37,7 @@ Install the external skill libraries once with `pnpm setup:agents`:
 - **Fallow** skill — interpreting code-intelligence findings.
 - **graphify** — the codebase knowledge graph the audits build on.
 - **GitNexus** — local execution-flow and impact index for repo navigation.
+- **Ponytail** — shortest-working-diff discipline for coding and review tasks.
 
 ## Settings & hooks
 

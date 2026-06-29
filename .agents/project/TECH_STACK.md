@@ -29,6 +29,7 @@ each owner runs locally and in CI.
 | Repo health audits | **ArchitectPlaybook** | Claude Code skills; the health-check (showcase #1). |
 | Codebase knowledge graph | **graphify** | Powers ArchitectPlaybook's `/pre-audit-setup`. |
 | Execution-flow index | **GitNexus** | Local generated index for impact, trace, and context queries. |
+| Simplicity discipline | **Ponytail** | Prefer deletion, stdlib/native features, and existing patterns. |
 
 ## Boundaries to respect
 
@@ -39,7 +40,7 @@ each owner runs locally and in CI.
 - **Visual correctness is StyleProof's job, not the unit suite's.** Unit tests
   stub stylesheets on purpose (`jest.style-stub.cjs`).
 
-External tooling (Fallow, StyleProof, ArchitectPlaybook, graphify, GitNexus) is
+External tooling (Fallow, StyleProof, ArchitectPlaybook, graphify, GitNexus, Ponytail) is
 documented in the repo root `README.md` and installed via `pnpm setup:agents`. We reference
 these as living libraries rather than vendoring copies — see
 [`../decisions/0004-agent-context-lives-in-dot-agents.md`](../decisions/0004-agent-context-lives-in-dot-agents.md).

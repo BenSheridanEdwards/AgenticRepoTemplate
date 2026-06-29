@@ -41,6 +41,12 @@ pnpm e2e              # the end-to-end behaviour map
 8. **Change rules in the open.** If a constraint is wrong, propose an ADR in
    `.agents/decisions/`; don't quietly diverge.
 
+## Simplicity Mode
+
+Use Ponytail for coding, review, refactor, and design tasks unless the user says
+otherwise. Default level: `full`: delete code, reuse existing patterns, and use
+stdlib or native platform features before adding abstractions or dependencies.
+
 ## Where to look
 
 | Need | File |
