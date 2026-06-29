@@ -19,6 +19,8 @@ the Claude-Code-specific layer on top.
 
 This repo commits its own skills under `.claude/skills/`:
 
+- **`build-agent-guidance`** — create or update `AGENTS.md`, `CLAUDE.md`,
+  `.agents/`, and agent-facing repo standards from current evidence.
 - **`run-e2e-tests`** — map a behaviour to a Playwright test and run it.
 - **`write-unit-tests`** — Jest + React Testing Library, behaviour-first.
 - **`pr-quality-contract`** — prepare proof-backed PRs with local checks,
@@ -41,10 +43,12 @@ fails, fix the cause.
 
 ## The workflow for a change
 
-1. Read `.agents/project/ARCHITECTURE.md` + `CONVENTIONS.md`.
-2. Use the `run-e2e-tests` / `write-unit-tests` skills; copy from
+1. Read `.agents/project/AGENTIC_INFRASTRUCTURE.md` before changing guidance,
+   hooks, workflows, or skills.
+2. Read `.agents/project/ARCHITECTURE.md` + `CONVENTIONS.md`.
+3. Use the `run-e2e-tests` / `write-unit-tests` skills; copy from
    `.agents/templates/`.
-3. Run `pnpm verify` and `pnpm e2e` until green.
-4. Commit with a Conventional Commit message.
-5. Use `pr-quality-contract` before opening or marking the PR ready.
-6. For a health-check of the whole repo, run the ArchitectPlaybook audits.
+4. Run `pnpm verify` and `pnpm e2e` until green.
+5. Commit with a Conventional Commit message.
+6. Use `pr-quality-contract` before opening or marking the PR ready.
+7. For a health-check of the whole repo, run the ArchitectPlaybook audits.

@@ -40,6 +40,7 @@ to do:
 - [`CLAUDE.md`](CLAUDE.md) is the Claude-specific layer. It defers to
   `AGENTS.md` and adds skills and the audit commands.
 - [`.agents/`](.agents) is the single source of detail. It holds the
+  [agentic infrastructure layer model](.agents/project/AGENTIC_INFRASTRUCTURE.md), the
   [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow, the
   [conventions](.agents/project/CONVENTIONS.md) for naming, imports, errors, and
   state, the [Definition of Done](.agents/project/DEFINITION_OF_DONE.md), the
@@ -213,6 +214,7 @@ pass.
 ```
 AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
 .agents/                  The repo's knowledge (read before writing).
+  project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.
   project/DEFINITION_OF_DONE.md  "Done" means these gates are green.
@@ -225,6 +227,7 @@ AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
   settings.json             Permission allowlist and PreToolUse hook.
   hooks/block-gate-bypass.sh  Refuses --no-verify. Gates are not optional.
   skills/                   This repo's own packaged processes.
+    build-agent-guidance/   Build truthful AGENTS.md, CLAUDE.md, and .agents context.
     pr-quality-contract/    PR proof, CI status, risk, and handoff workflow.
 .husky/                     pre-commit, commit-msg, pre-push gates.
 .github/

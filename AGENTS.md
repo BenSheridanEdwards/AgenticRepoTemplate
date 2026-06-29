@@ -45,6 +45,7 @@ pnpm e2e              # the end-to-end behaviour map
 
 | Need | File |
 | --- | --- |
+| How the agentic infrastructure is layered | `.agents/project/AGENTIC_INFRASTRUCTURE.md` |
 | The pattern to follow | `.agents/project/ARCHITECTURE.md` |
 | Naming, imports, errors | `.agents/project/CONVENTIONS.md` |
 | When am I done? | `.agents/project/DEFINITION_OF_DONE.md` |

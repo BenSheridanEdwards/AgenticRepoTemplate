@@ -13,6 +13,7 @@ changes — no drift between three half-maintained instruction files.
 
 | Path | Read it when… |
 | --- | --- |
+| [`project/AGENTIC_INFRASTRUCTURE.md`](project/AGENTIC_INFRASTRUCTURE.md) | …before changing agent guidance, hooks, workflows, or skills. |
 | [`project/ARCHITECTURE.md`](project/ARCHITECTURE.md) | …before adding or moving any module. It is the pattern you must follow. |
 | [`project/CONVENTIONS.md`](project/CONVENTIONS.md) | …while writing code — naming, structure, imports, errors, state. |
 | [`project/DEFINITION_OF_DONE.md`](project/DEFINITION_OF_DONE.md) | …before you claim a task is finished. The gates enforce this list. |
