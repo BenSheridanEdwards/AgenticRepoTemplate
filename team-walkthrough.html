@@ -121,7 +121,7 @@
   .note{margin-top:20px; background:var(--panel2); border:1px solid var(--line2); border-left:3px solid var(--accent3);
     border-radius:12px; padding:16px 20px; font-size:14px; color:#d3deef; line-height:1.55}
   .note b{color:#fff}
-  .note ul{margin:8px 0 0; padding-left:18px} .note li{margin:5px 0}
+  .note ul{margin:8px 0 0; padding-left:18px} .note ul li{margin:5px 0}
 
   .stat-row{display:flex; gap:16px; flex-wrap:wrap; margin-top:20px}
   .stat{flex:1; min-width:155px; background:var(--panel); border:1px solid var(--line2); border-radius:14px; padding:16px 18px;
@@ -204,6 +204,7 @@
       <div class="cap">Standards fail early and locally, then enforce trust at the end. The same checks run locally and in CI; red means fix the cause, never weaken the config.</div>
       <div class="svgwrap">
       <svg viewBox="0 0 1040 224" width="1040" height="224" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Inter,sans-serif">
+        <title>Quality gates from commit to CI</title>
         <defs>
           <marker id="arrow" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
             <path d="M0,0 L7,3 L0,6 Z" fill="#5b6f9e"/>
@@ -289,6 +290,7 @@
       <div class="cap">Audit and fix from the foundation up. The agentic infrastructure is the base plate that keeps each layer from sliding back.</div>
       <div class="svgwrap">
       <svg viewBox="0 0 1040 372" width="1040" height="372" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Inter,sans-serif">
+        <title>Health check order from foundation to non-functionals</title>
         <!-- order arrow, foundation up -->
         <line x1="44" y1="282" x2="44" y2="40" stroke="#5b6f9e" stroke-width="2"/>
         <polygon points="44,26 37,42 51,42" fill="#5b6f9e"/>
@@ -355,6 +357,7 @@
       <div class="cap">Foundations first, optimisation last. You only earn the right to the later steps by doing the earlier ones.</div>
       <div class="svgwrap">
       <svg viewBox="0 0 1040 430" width="1040" height="430" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Inter,sans-serif">
+        <title>Brownfield improvement sequence from safety net to optimisation</title>
         <!-- rail -->
         <line x1="58" y1="48" x2="58" y2="386" stroke="#33405c" stroke-width="2"/>
 
@@ -397,6 +400,7 @@
       <div class="cap">Behaviour and style regression are peers. Both hold the product steady from the outside, so the inside is safe to change.</div>
       <div class="svgwrap">
       <svg viewBox="0 0 1040 300" width="1040" height="300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Inter,sans-serif">
+        <title>Behaviour and style regression guards</title>
         <defs>
           <marker id="arrG" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
             <path d="M0,0 L7,3 L0,6 Z" fill="#36d6a0"/>
@@ -445,6 +449,7 @@
       <div class="cap">With the guards in place, the refactor runs as a loop. Audit against your intended architecture, fix the gap, re-audit, and measure the progress each pass.</div>
       <div class="svgwrap" style="max-width:460px; margin:6px auto 14px">
         <svg viewBox="0 0 480 140" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Inter,sans-serif">
+          <title>Agentic audit loop</title>
           <defs>
             <marker id="tri" markerWidth="8" markerHeight="8" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#36d6a0"/></marker>
           </defs>
