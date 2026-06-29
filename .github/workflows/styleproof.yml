@@ -23,7 +23,7 @@ jobs:
       # server (see the config's `usesExternalServer`).
       E2E_BASE_URL: http://localhost:3000
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # need the base branch too
 
