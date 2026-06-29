@@ -40,10 +40,12 @@ to do:
 - [`CLAUDE.md`](CLAUDE.md) is the Claude-specific layer. It defers to
   `AGENTS.md` and adds skills and the audit commands.
 - [`.agents/`](.agents) is the single source of detail. It holds the
+  [agentic infrastructure layer model](.agents/project/AGENTIC_INFRASTRUCTURE.md), the
   [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow, the
   [conventions](.agents/project/CONVENTIONS.md) for naming, imports, errors, and
   state, the [Definition of Done](.agents/project/DEFINITION_OF_DONE.md), the
   [quality-gate matrix](.agents/project/QUALITY_GATES.md), the
+  [PR quality contract](.agents/project/PR_QUALITY.md), the
   [tech stack](.agents/project/TECH_STACK.md) and what not to add to it, the
   [glossary](.agents/project/GLOSSARY.md), the [decision records](.agents/decisions)
   that explain why each rule exists, and [templates](.agents/templates) to copy
@@ -69,6 +71,12 @@ same checks, so "works on my machine" and "passes CI" mean the same thing.
 [Definition of Done](.agents/project/DEFINITION_OF_DONE.md)), so an agent cannot
 honestly report a task finished until `pnpm verify` and `pnpm e2e` pass, no
 matter who or what wrote the code.
+
+PRs then carry that proof into review. The
+[PR quality contract](.agents/project/PR_QUALITY.md) and
+[pull request template](.github/pull_request_template.md) require exact local
+commands, visual proof or an explicit `N/A`, latest-sha CI status, risk, and
+rollback. A reviewer should never have to guess what was actually verified.
 
 The catch is that your context files and your codebase have to speak the same
 language. If the foundations hold three different patterns while `AGENTS.md`
@@ -207,10 +215,12 @@ pass.
 ```
 AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
 .agents/                  The repo's knowledge (read before writing).
+  project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.
   project/DEFINITION_OF_DONE.md  "Done" means these gates are green.
   project/QUALITY_GATES.md  Which gate runs where, and which tool owns it.
+  project/PR_QUALITY.md     Proof required before a PR is ready.
   project/TECH_STACK.md     One tool per concern, and what not to add.
   project/GLOSSARY.md       Shared language (pairs with graphify).
   decisions/                Decision records: why each constraint exists.
@@ -220,8 +230,11 @@ AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
   hooks/block-gate-bypass.sh  Refuses --no-verify. Gates are not optional.
   skills/                   This repo's own packaged processes.
     build-quality-gates/    Build pre-commit, pre-push, and CI gates.
+    build-agent-guidance/   Build truthful AGENTS.md, CLAUDE.md, and .agents context.
+    pr-quality-contract/    PR proof, CI status, risk, and handoff workflow.
 .husky/                     pre-commit, commit-msg, pre-push gates.
 .github/
+  pull_request_template.md  Proof-backed PR handoff template.
   dependabot.yml            Weekly npm and GitHub Actions updates.
   workflows/
     ci.yml                  Quality, tests, build and size, e2e, security.

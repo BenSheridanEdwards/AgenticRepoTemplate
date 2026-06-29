@@ -20,8 +20,12 @@ the Claude-Code-specific layer on top.
 This repo commits its own skills under `.claude/skills/`:
 
 - **`build-quality-gates`** — create or audit pre-commit, pre-push, and CI gates.
+- **`build-agent-guidance`** — create or update `AGENTS.md`, `CLAUDE.md`,
+  `.agents/`, and agent-facing repo standards from current evidence.
 - **`run-e2e-tests`** — map a behaviour to a Playwright test and run it.
 - **`write-unit-tests`** — Jest + React Testing Library, behaviour-first.
+- **`pr-quality-contract`** — prepare proof-backed PRs with local checks,
+  visual evidence, latest-sha CI status, risk, and explicit gaps.
 
 Install the external skill libraries once with `pnpm setup:agents`:
 
@@ -35,16 +39,21 @@ Install the external skill libraries once with `pnpm setup:agents`:
 
 `.claude/settings.json` defines a permission allowlist for the project's safe
 commands and a **PreToolUse hook** (`.claude/hooks/block-gate-bypass.sh`) that
-refuses any command using `--no-verify`. The gates are not optional — if one
+refuses any git command using `--no-verify`. The hook is deliberately scoped:
+Claude Code only spawns it for Bash commands with a `git` subcommand, and the
+script blocks only the gate-bypass flag. The gates are not optional — if one
 fails, fix the cause.
 
 ## The workflow for a change
 
 1. Read `.agents/project/QUALITY_GATES.md` before changing hooks, scripts, CI,
    or tool ownership.
-2. Read `.agents/project/ARCHITECTURE.md` + `CONVENTIONS.md`.
-3. Use the `run-e2e-tests` / `write-unit-tests` skills; copy from
+2. Read `.agents/project/AGENTIC_INFRASTRUCTURE.md` before changing guidance,
+   hooks, workflows, or skills.
+3. Read `.agents/project/ARCHITECTURE.md` + `CONVENTIONS.md`.
+4. Use the `run-e2e-tests` / `write-unit-tests` skills; copy from
    `.agents/templates/`.
-4. Run `pnpm verify` and `pnpm e2e` until green.
-5. Commit with a Conventional Commit message.
-6. For a health-check of the whole repo, run the ArchitectPlaybook audits.
+5. Run `pnpm verify` and `pnpm e2e` until green.
+6. Commit with a Conventional Commit message.
+7. Use `pr-quality-contract` before opening or marking the PR ready.
+8. For a health-check of the whole repo, run the ArchitectPlaybook audits.

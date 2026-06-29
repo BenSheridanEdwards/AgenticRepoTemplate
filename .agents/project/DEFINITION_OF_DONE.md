@@ -25,6 +25,9 @@ gates" are the same statement. An agent must not report a task complete until
       `.size-limit.json` budget).
 - [ ] **Visuals accounted for.** Any CSS change is either an *intended* change
       approved in the StyleProof report, or a refactor certified as zero-diff.
+- [ ] **PR proof is ready.** The pull request body follows
+      [`PR_QUALITY.md`](PR_QUALITY.md), with exact local commands, visual proof
+      or `N/A` with a reason, CI status, risk, rollback, and no private details.
 - [ ] **Patterns followed.** The change matches
       [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`CONVENTIONS.md`](CONVENTIONS.md);
       new files were created from [`../templates/`](../templates).
@@ -41,3 +44,6 @@ pnpm e2e      # behaviour map
 
 If both are green and the checklist holds, the work is done. If either is red,
 it is not — regardless of how finished the code looks.
+
+Before opening or marking a PR ready, also complete
+[`PR_QUALITY.md`](PR_QUALITY.md) through the GitHub pull request template.

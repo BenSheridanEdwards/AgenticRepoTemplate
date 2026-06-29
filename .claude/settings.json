@@ -31,7 +31,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-gate-bypass.sh\""
+            "if": "Bash(git *)",
+            "command": "sh",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/block-gate-bypass.sh"]
           }
         ]
       }

@@ -1,0 +1,3 @@
+interface:
+  display_name: "PR Quality Contract"
+  short_description: "Prepare proof-backed PRs with local checks, visual evidence, CI status, and explicit gaps."
