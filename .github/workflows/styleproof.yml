@@ -23,7 +23,7 @@ jobs:
       # server (see the config's `usesExternalServer`).
       E2E_BASE_URL: http://localhost:3000
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # need the base branch too
 
@@ -62,7 +62,7 @@ jobs:
 
       # --- report + gate (review-gate mode: status stays red until each visual
       #     change is approved via the styleproof-approve workflow) ---
-      - uses: BenSheridanEdwards/styleproof@v1
+      - uses: BenSheridanEdwards/StyleProof@v3
         with:
           # The capture writes under its baseDir (__stylemaps__/<label>), so the
           # action must be pointed at the full path, not the bare label.
