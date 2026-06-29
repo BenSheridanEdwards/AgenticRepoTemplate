@@ -40,7 +40,10 @@ point: commit, push, CI, or PR review.
    local command that gives a close signal before push.
 5. **Make gaps explicit.** If a concern is review-only or intentionally deferred,
    document that instead of implying it is enforced.
-6. **Verify the gate change.** Run the changed hook/script directly when
+6. **Sanitize Git-heavy hook tests.** If a Husky hook runs tests that create or
+   inspect other Git repos, clear Git-local hook variables first:
+   `unset $(git rev-parse --local-env-vars)`.
+7. **Verify the gate change.** Run the changed hook/script directly when
    possible, then `pnpm check`, `pnpm verify`, and `pnpm e2e` for this template.
 
 ## Biome Boundary

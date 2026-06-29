@@ -40,6 +40,8 @@ the layer where the behaviour is observable.
 - Put expensive behaviour checks in pre-push and CI.
 - Run security and dependency checks in CI, with staged secret scanning locally.
 - Keep CI as the clean-checkout backstop. Local hooks can be bypassed; CI cannot.
+- If a hook runs tests that create or inspect other Git repos, clear Git-local
+  hook variables first: `unset $(git rev-parse --local-env-vars)`.
 - If a check mutates files, it must be explicit and reviewable. Gates should
   prefer failing with instructions over silently rewriting unrelated files.
 
