@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import {
   CRITICAL_THRESHOLD,
-  type ThresholdLevel,
-  WARNING_THRESHOLD,
   statusForCount,
+  type ThresholdLevel,
   useThresholdCounter,
+  WARNING_THRESHOLD,
 } from './useThresholdCounter';
 
 // The pure rule is kept apart from the hook precisely so it can be tested in
