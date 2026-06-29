@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Quality Gates"
+  short_description: "Create pre-commit, pre-push, and CI gates."
+  default_prompt: "Use $build-quality-gates to add or audit this repo's quality gates."

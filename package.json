@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.5.1",
     "@commitlint/cli": "^19.6.1",
     "@commitlint/config-conventional": "^19.6.0",
     "@commitlint/types": "^19.5.0",
@@ -62,7 +62,7 @@
     "jest-axe": "^10.0.0",
     "jest-environment-jsdom": "^29.7.0",
     "size-limit": "^12.1.0",
-    "styleproof": "^1.0.0",
+    "styleproof": "3.1.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"

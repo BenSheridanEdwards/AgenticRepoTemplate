@@ -36,16 +36,21 @@ pnpm e2e              # the end-to-end behaviour map
 6. **Done means the gates are green.** Do not report a task complete until
    `pnpm verify` and `pnpm e2e` pass — see
    `.agents/project/DEFINITION_OF_DONE.md`.
-7. **Change rules in the open.** If a constraint is wrong, propose an ADR in
+7. **PRs need proof.** Before opening or marking a PR ready, complete the
+   pull request template and follow `.agents/project/PR_QUALITY.md`.
+8. **Change rules in the open.** If a constraint is wrong, propose an ADR in
    `.agents/decisions/`; don't quietly diverge.
 
 ## Where to look
 
 | Need | File |
 | --- | --- |
+| How the agentic infrastructure is layered | `.agents/project/AGENTIC_INFRASTRUCTURE.md` |
 | The pattern to follow | `.agents/project/ARCHITECTURE.md` |
 | Naming, imports, errors | `.agents/project/CONVENTIONS.md` |
 | When am I done? | `.agents/project/DEFINITION_OF_DONE.md` |
+| Which gates run where | `.agents/project/QUALITY_GATES.md` |
+| What proof does a PR need? | `.agents/project/PR_QUALITY.md` |
 | Which tool owns what | `.agents/project/TECH_STACK.md` |
 | Domain language | `.agents/project/GLOSSARY.md` |
 | Why a rule exists | `.agents/decisions/` (ADRs) |

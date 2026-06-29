@@ -3,7 +3,8 @@
 The point of this list is not the tools; it is that **each concern has exactly
 one owner**. An agent never has to guess which tool to reach for, and never adds
 a second tool that does the same job a different way. Adding or swapping a tool
-is an ADR-level decision.
+is an ADR-level decision. See [`QUALITY_GATES.md`](QUALITY_GATES.md) for where
+each owner runs locally and in CI.
 
 | Concern | Owner | Notes |
 | --- | --- | --- |
