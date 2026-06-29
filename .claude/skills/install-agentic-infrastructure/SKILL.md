@@ -60,8 +60,10 @@ Layer the infrastructure so every instruction has one owner.
    stable enough for branch protection: type/lint/format, Fallow/code
    intelligence, tests, build, E2E, security, CodeQL, Lighthouse, StyleProof.
 6. **Install agentic tools deliberately.** Wire Fallow as a repo dependency or
-   action. Document Graphify/ArchitectPlaybook setup as external tooling unless
-   the target repo already vendors or pins those tools.
+   action. Document Graphify, GitNexus, and ArchitectPlaybook setup as external
+   tooling unless the target repo already vendors or pins those tools. Generated
+   analysis indexes (`graphify-out/`, `.gitnexus/`) must be ignored by VCS and
+   formatter/linter tools.
 7. **Set the Biome boundary.** Biome owns formatting, import ordering, and the
    rules it actually implements. Use TypeScript, React Testing Library,
    `jest-axe`, Playwright axe, Lighthouse, CodeQL, Fallow, and StyleProof for

@@ -60,5 +60,5 @@ pnpm e2e              # the end-to-end behaviour map
 
 - Do not commit secrets; CI runs a secret scan and a dependency audit.
 - Do not add a second linter, formatter, or test runner (see `TECH_STACK.md`).
-- Treat generated artefacts (`dist/`, `coverage/`, `__stylemaps__/`) as
-  disposable; never edit them by hand.
+- Treat generated artefacts (`dist/`, `coverage/`, `__stylemaps__/`,
+  `graphify-out/`, `.gitnexus/`) as disposable; never edit them by hand.

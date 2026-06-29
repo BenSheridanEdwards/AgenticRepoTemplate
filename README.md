@@ -255,7 +255,7 @@ pnpm-workspace.yaml         pnpm settings: trusted builds and security overrides
 tsconfig.json               strict, with extra strictness; the first gate.
 vite.config.ts              The runnable carrier.
 scripts/
-  setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify.
+  setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
@@ -267,6 +267,7 @@ e2e/
 src/features/threshold-counter/  The one small but real feature.
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
 graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). Rebuild with graphify.
+.gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.
 ```
 
 ## Quick start
@@ -307,6 +308,7 @@ reports show on this repo.
 | **StyleProof** | Computed-style visual regression gate | <https://github.com/BenSheridanEdwards/styleproof> |
 | **ArchitectPlaybook** | Repo health-check audits | <https://github.com/BenSheridanEdwards/ArchitectPlaybook> |
 | **graphify** | Token-efficient codebase context for the audits | <https://graphify.net> |
+| **GitNexus** | Local execution-flow and impact index | <https://github.com/abhigyanpatwari/GitNexus> |
 
 ## License
 

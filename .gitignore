@@ -23,6 +23,9 @@ __stylemaps__/
 graphify-out/*
 !graphify-out/GRAPH_REPORT.md
 
+# GitNexus local repo index (generated — rebuild with `gitnexus analyze`)
+.gitnexus/
+
 # Local env + editor noise
 .env
 .env.*
