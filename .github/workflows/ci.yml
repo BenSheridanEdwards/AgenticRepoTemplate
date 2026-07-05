@@ -57,11 +57,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:coverage
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: failure()
+        continue-on-error: true
         with:
           name: coverage
           path: coverage/
           if-no-files-found: ignore
+          retention-days: 3
 
   build:
     name: Production build
@@ -78,9 +80,11 @@ jobs:
       - name: Bundle-size budget
         run: pnpm size
       - uses: actions/upload-artifact@v7
+        continue-on-error: true
         with:
           name: dist
           path: dist/
+          retention-days: 3
 
   e2e:
     name: End-to-end behaviour map
@@ -96,11 +100,13 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm e2e
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: failure()
+        continue-on-error: true
         with:
           name: playwright-report
           path: playwright-report/
           if-no-files-found: ignore
+          retention-days: 3
 
   security:
     name: Security audit
