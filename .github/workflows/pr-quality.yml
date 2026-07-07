@@ -1,0 +1,35 @@
+name: PR quality
+
+# The PR body and title are the review-facing proof. This gate keeps them honest:
+# the four template sections must be present, in order, and non-empty; the proof
+# section must carry an inline image or an explicit "Not applicable"; and the
+# title must be Conventional Commits. It runs on `edited` too, so fixing the body
+# re-checks it without a new push.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-body:
+    name: Validate PR body and title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      # The PR body and title are untrusted input. They are passed through the
+      # environment via toJSON (never interpolated into the run-script text), so
+      # a crafted body cannot break out into shell.
+      - name: Validate
+        env:
+          PR_TITLE: ${{ toJSON(github.event.pull_request.title) }}
+          PR_BODY: ${{ toJSON(github.event.pull_request.body) }}
+        run: node scripts/validate-pr-body.mjs

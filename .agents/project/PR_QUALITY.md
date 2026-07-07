@@ -51,4 +51,26 @@ not report completion until the latest-sha checks are green.
 
 Use [`.github/pull_request_template.md`](../../.github/pull_request_template.md)
 for every pull request. The template is the review-facing version of this
-contract; this document explains the standard behind it.
+contract; this document explains the standard behind it. The body must preserve
+these sections, in order: `Why does this feature exist?`, `What changed?`,
+`Behavioural Proof (with video and screenshots)`, and `Verification Summary`.
+The `PR quality` workflow ([`scripts/validate-pr-body.mjs`](../../scripts/validate-pr-body.mjs))
+fails a PR whose body omits a section, leaves one placeholder-only, carries no
+proof, or whose title is not Conventional Commits.
+
+## PR Proof Law
+
+Every PR must follow
+[`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md).
+
+- Screenshot proof must be committed to the branch, normally under
+  `docs/proof/<short-scope>/` (see [`docs/proof/README.md`](../../docs/proof/README.md)).
+- The PR body must embed screenshots inline with Markdown image syntax:
+  `![Descriptive alt text](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)`.
+- Bare screenshot links, local filesystem paths, relative paths, and "see
+  attached" placeholders do not satisfy proof.
+- After creating or editing the PR, inspect the body with
+  `gh pr view <number> --json body --jq .body` and confirm the proof section
+  contains `![`.
+- If no rendered or behavioural proof applies, write `Not applicable` in the
+  proof section with the technical reason.

@@ -10,7 +10,7 @@ only supported version; adopters fork from it and own their copy thereafter.
 Please report security issues **privately** — do not open a public issue for a
 vulnerability.
 
-- Preferred: open a [GitHub private security advisory](https://github.com/BenSheridanEdwards/AgenticProjectTemplate/security/advisories/new)
+- Preferred: open a [GitHub private security advisory](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/security/advisories/new)
   (Security → Report a vulnerability).
 - Or email **ben@codewalnut.com** with the details and a way to reproduce.
 
