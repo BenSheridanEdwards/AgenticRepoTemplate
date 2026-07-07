@@ -39,11 +39,22 @@ const CONVENTIONAL_COMMIT_PATTERN =
   /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^()\n]+\))?!?: .+/;
 
 /**
- * Strip an HTML comment (`<!-- ... -->`) from a block of text. Template guidance
+ * Strip HTML comments (`<!-- ... -->`) from a block of text. Template guidance
  * lives in comments; it must not count as user-provided content.
+ *
+ * A single `replace` pass is incomplete: removing one match can splice the
+ * surrounding text into a *new* `<!--`, so a crafted body could leave a comment
+ * marker behind. Loop to a fixpoint so no `<!--` can survive, and drop any
+ * unterminated trailing `<!--` (an opened-but-never-closed comment).
  */
 function stripHtmlComments(text) {
-  return text.replace(/<!--[\s\S]*?-->/g, '');
+  let previous;
+  let current = text;
+  do {
+    previous = current;
+    current = current.replace(/<!--[\s\S]*?-->/g, '');
+  } while (current !== previous);
+  return current.replace(/<!--[\s\S]*$/, '');
 }
 
 /**

@@ -74,6 +74,23 @@ describe('validatePullRequest', () => {
     expect(result).toEqual({ ok: true, errors: [] });
   });
 
+  it('strips HTML comments completely, even when they overlap (fixpoint)', () => {
+    // A single-pass strip would remove the inner `<!-- ... -->` and splice the
+    // remainder into a surviving `<!--`, letting comment-only content masquerade
+    // as proof. The fixpoint strip must remove it all, so this proof section is
+    // treated as empty and fails.
+    const overlappingComment = VALID_BODY.replace(
+      /!\[the counter at capacity\].*\)/,
+      '<!-<!-- x -->- still a comment -->',
+    );
+    const result = validatePullRequest({
+      title: VALID_TITLE,
+      body: overlappingComment,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('no proof');
+  });
+
   it('fails a non-Conventional-Commits title', () => {
     const result = validatePullRequest({
       title: '[claude] add PR validator',
