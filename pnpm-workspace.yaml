@@ -6,6 +6,9 @@ allowBuilds:
   '@biomejs/biome': true
   '@swc/core': true
   esbuild: true
+  # Native resolver used by Jest 30 (napi bindings; falls back to a slow JS
+  # path without its build). Trusted for the same reason as @swc/core.
+  unrs-resolver: true
 
 minimumReleaseAgeExclude:
   - styleproof@3.1.2
