@@ -25,6 +25,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm check:context
       - run: pnpm typecheck
       - run: pnpm check
 
