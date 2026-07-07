@@ -10,8 +10,9 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
 | Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan. |
-| Local proof | `pnpm verify` + `pnpm e2e` | Typecheck, Biome, Fallow, coverage, build, size, E2E. |
-| CI quality | `.github/workflows/ci.yml` | Typecheck, Biome, Fallow, tests, build, security. |
+| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, Fallow, coverage, build, size, E2E. |
+| Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
+| CI quality | `.github/workflows/ci.yml` | Context layer, typecheck, Biome, Fallow, tests, build, security. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets. |
 | CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison. |

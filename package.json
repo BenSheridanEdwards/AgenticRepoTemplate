@@ -29,8 +29,9 @@
     "styleproof:diff": "STYLEMAP_DIR=head STYLEPROOF_REPLAY_FROM=__stylemaps__/base playwright test --grep \"styleproof capture\"",
     "secret-scan": "bash scripts/secret-scan.sh",
     "license:check": "node scripts/license-check.mjs",
+    "check:context": "node scripts/check-context-layer.mjs",
     "validate:pr": "node scripts/validate-pr-body.mjs",
-    "verify": "pnpm typecheck && pnpm check && pnpm fallow:audit && pnpm test:coverage && pnpm build && pnpm size",
+    "verify": "pnpm check:context && pnpm typecheck && pnpm check && pnpm fallow:audit && pnpm test:coverage && pnpm build && pnpm size",
     "setup:agents": "bash scripts/setup-agentic-toolkit.sh",
     "prepare": "husky"
   },

@@ -7,6 +7,9 @@ set -euo pipefail
 
 step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
 
+step "Context layer invariants (files, manifest, docs, skills)"
+pnpm check:context
+
 step "Type check (tsc --noEmit)"
 pnpm typecheck
 
