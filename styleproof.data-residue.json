@@ -1,0 +1,3 @@
+{
+  "service-status-error·/api/service-status": "Intentional error-state surface: the spec forces /api/service-status to return 500 so StyleProof captures the rendered failure UI."
+}

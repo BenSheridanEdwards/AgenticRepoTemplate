@@ -13,6 +13,7 @@ test-results/
 
 # StyleProof capture output (regenerated each run)
 __stylemaps__/
+.styleproof/
 
 # Lighthouse CI output
 .lighthouseci/

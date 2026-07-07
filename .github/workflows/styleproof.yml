@@ -18,14 +18,12 @@ jobs:
     name: Computed-style visual gate
     runs-on: ubuntu-latest
     env:
-      # Point Playwright at the production build we serve ourselves on :3000.
-      # With E2E_BASE_URL set, playwright.config.ts does NOT spawn its own
-      # server (see the config's `usesExternalServer`).
       E2E_BASE_URL: http://localhost:3000
+      STYLEPROOF_VERSION: "4.0.1"
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # need the base branch too
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
@@ -33,39 +31,58 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # --- capture the BASE branch ---
-      # StyleProof registers its capture tests from inside the library, so
-      # Playwright attributes them to node_modules, not e2e/styleproof.spec.ts.
-      # Select them by title with --grep rather than by file path.
-      - run: git checkout ${{ github.event.pull_request.base.sha }}
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Build and serve base
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - id: maps
+        name: Restore cached StyleProof maps
+        shell: bash
         run: |
+          set +e
+          rm -rf __stylemaps__
+          pnpm exec styleproof-map --restore --sha "${{ github.event.pull_request.base.sha }}" --dir base --base-dir __stylemaps__ --spec e2e/styleproof.spec.ts
+          base_code=$?
+          pnpm exec styleproof-map --restore --sha "${{ github.event.pull_request.head.sha }}" --dir head --base-dir __stylemaps__ --spec e2e/styleproof.spec.ts
+          head_code=$?
+          set -e
+          if [ "$base_code" -eq 0 ] && [ "$head_code" -eq 0 ]; then
+            echo "capture-needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "capture-needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Capture maps in CI on cache miss
+        if: steps.maps.outputs.capture-needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf __stylemaps__
+
+          git checkout --force "${{ github.event.pull_request.base.sha }}"
+          pnpm install --frozen-lockfile
+          pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
+          pnpm exec playwright install --with-deps chromium
           pnpm build
           nohup pnpm preview > /tmp/preview-base.log 2>&1 &
           npx --yes wait-on http://localhost:3000
-      - run: STYLEMAP_DIR=base pnpm exec playwright test --grep "styleproof capture"
+          pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir base --base-dir __stylemaps__ --keep-har --no-upload
 
-      # --- capture the PR HEAD, replaying the base's recorded data so the diff
-      #     is code, not live-data drift ---
-      - run: git checkout ${{ github.event.pull_request.head.sha }}
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Build and serve head
-        run: |
+          git checkout --force "${{ github.event.pull_request.head.sha }}"
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
           pkill -f "vite preview" || true
           pnpm build
           nohup pnpm preview > /tmp/preview-head.log 2>&1 &
           npx --yes wait-on http://localhost:3000
-      - run: STYLEMAP_DIR=head STYLEPROOF_REPLAY_FROM=__stylemaps__/base pnpm exec playwright test --grep "styleproof capture"
+          if find __stylemaps__/base -name '*.har' -print -quit | grep -q .; then
+            STYLEPROOF_REPLAY_FROM=__stylemaps__/base pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir __stylemaps__ --no-upload
+          else
+            pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir __stylemaps__ --no-upload
+          fi
 
-      # --- report + gate (review-gate mode: status stays red until each visual
-      #     change is approved via the styleproof-approve workflow) ---
-      - uses: BenSheridanEdwards/StyleProof@v3
+      # StyleProof v4.0.1
+      - uses: BenSheridanEdwards/StyleProof@9a2f2cd9ee8168eba67040633934c762454edc4a
         with:
-          # The capture writes under its baseDir (__stylemaps__/<label>), so the
-          # action must be pointed at the full path, not the bare label.
           baseline-dir: __stylemaps__/base
           fresh-dir: __stylemaps__/head
           require-approval: true

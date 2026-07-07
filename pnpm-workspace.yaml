@@ -8,7 +8,7 @@ allowBuilds:
   esbuild: true
 
 minimumReleaseAgeExclude:
-  - styleproof@3.1.2
+  - styleproof
 
 # Force-patch a transitive high-severity advisory the CI security gate caught:
 # @lhci/cli (and its inquirer > external-editor chain) pulled tmp < 0.2.6, which
