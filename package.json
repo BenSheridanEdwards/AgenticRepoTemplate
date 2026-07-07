@@ -21,7 +21,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "e2e": "playwright test e2e/app.spec.ts e2e/accessibility.spec.ts",
+    "e2e": "playwright test e2e/app.spec.ts e2e/service-status.spec.ts e2e/accessibility.spec.ts",
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",
     "lhci": "lhci autorun",

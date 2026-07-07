@@ -9,7 +9,9 @@ test.describe('Threshold counter', () => {
   test('walks from healthy through warning to at-capacity, then resets', async ({ page }) => {
     await page.goto('/');
 
-    const status = page.getByRole('status');
+    // Scope to the Capacity region: the page now carries a second status region
+    // for the service-status feature, so target this feature's live region.
+    const status = page.getByRole('region', { name: 'Capacity' }).getByRole('status');
     await expect(status).toHaveText('Healthy');
 
     const increase = page.getByRole('button', { name: 'Increase' });

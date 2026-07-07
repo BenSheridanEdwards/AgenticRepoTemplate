@@ -1,3 +1,4 @@
+import { ServiceStatus } from './features/service-status';
 import { ThresholdCounter } from './features/threshold-counter';
 
 export function App() {
@@ -10,6 +11,7 @@ export function App() {
         </p>
       </header>
       <ThresholdCounter />
+      <ServiceStatus />
     </main>
   );
 }
