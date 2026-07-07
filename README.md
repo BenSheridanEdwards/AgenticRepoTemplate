@@ -4,106 +4,195 @@
 [![CodeQL](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/workflows/codeql.yml/badge.svg)](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/workflows/codeql.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A reference scaffold for building software with agents. It holds the files,
-gates, and context that keep AI-written code consistent and enterprise-grade,
-whether you are starting a new project or working to improve a brownfield one.
+A template repository that installs a complete method for building software with
+agents: the context files, quality gates, definition of done, and PR contract
+that make AI-written code consistent, proven, and safe to merge. The principles
+come first and the stack does not matter. TypeScript and React are here only as
+a small, runnable feature, so every gate fires on real code.
 
-The principles come first and the stack does not matter. TypeScript and React
-are here only as a small, runnable feature, so you can run `pnpm verify` and
-watch every gate run on real code.
+Press **Use this template** and the method is live from your first commit.
 
-## The idea
+## Why this exists
 
-Agents write a lot of code, and they write it fast. Without guardrails, that
-speed produces inconsistency: every file a slightly different shape, and
-standards applied only where someone thought to look. The fix is not to slow the
-agent down. The fix is to make the standards executable and the context
-explicit, so the correct way to write code is also the only way that passes.
+Agents write code faster than humans can review it. Left alone, that speed
+produces inconsistency and slop. The fix is not to slow the agent down. The fix
+is to make the standards executable and the context explicit, so the correct
+way to write code is also the only way that passes.
 
-## Three questions this repo answers
+Four beliefs shape every file in this repository:
 
-This template is built to answer three questions you can ask of any engineering
-team. Each one maps to real files and runnable proof in this repo.
+1. **Executable standards beat written standards.** Documented guidelines are
+   advisory; hooks, CI gates, and machine-validated PR bodies are law. Give the
+   agent the team's standards before it writes, and make those standards
+   impossible to skip after it writes. "Done" and "the gates are green" are the
+   same statement.
+2. **Consistency is infrastructure.** The codebase itself is the largest prompt
+   the agent ever reads. If it holds three fetching patterns and three ways to
+   style an element, the context the agent works from is 90% mess and 10%
+   intent, and it follows the mess. No `AGENTS.md` outvotes an inconsistent
+   codebase.
+3. **Proof, not claims.** A change is done only when committed evidence matches
+   the claim. A passing build or green types are necessary but never
+   sufficient. Every user-visible change ships screenshots and video, inline in
+   the PR.
+4. **Agents must see.** An agent that cannot look at a screenshot cannot QA the
+   user experience or validate its own work. Vision is a requirement of the
+   proof loop, not an optimisation.
 
-### Q1. How do I get enterprise-grade pull requests from agents?
+And one rule that never bends: **the agent never merges and never deploys.**
+Humans hold both ends of the loop, the intent and the merge. Every line is
+owned by a named engineer, whoever or whatever wrote it.
 
-There are two parts to this. Give the agent the team's standards before it
-writes, and make those standards impossible to skip after it writes.
+## The method
 
-First, make the context explicit. The repo holds its own knowledge, so the agent
-inherits the team's best thinking, the layout of the project, and the things not
-to do:
+The same order every time, whether the repository is new or twenty years old:
+
+1. **Map the behaviour first.** Write the user-visible contracts down as
+   end-to-end tests. Nothing else is safe to assess or change without them.
+2. **Install the agentic infrastructure.** The context files, skills, hooks,
+   gates, and PR contract in this template. This is the base plate, not the
+   starting point; it locks in each later fix so it cannot regress.
+3. **Align standards and architecture.** Run the audits, fix what they surface,
+   re-run. The loop is the point, not the passing grade at the end.
+4. **Accelerate with proof.** Now agents build features. Every PR carries
+   inline evidence and passes the gate ladder, and review becomes
+   approve-or-redirect.
+
+For brownfield codebases the order inside step 3 is not negotiable: safety net
+and target first, then refactor with confidence, then tighten and simplify,
+then prune and upgrade dependencies, and optimise last. Optimising before the
+foundation is consistent only bakes the mess in deeper.
+
+## What is installed, and what it means
+
+### The context layer: what the agent knows before it writes
+
+An agent walking into a codebase needs the same things a new engineer does: how
+to run it, what the architecture is, what not to touch, and where the failure
+modes are. One set of files serves both. The test of this layer: a new
+engineer, or a new agent, is productive and safe within minutes of cloning,
+without asking anyone anything.
 
 - [`AGENTS.md`](AGENTS.md) is the tool-agnostic operating contract, written for
-  the agent. It covers the golden rules, the commands to run, and where context
-  lives. It follows the [agents.md](https://agents.md) convention.
-- [`CLAUDE.md`](CLAUDE.md) is the Claude-specific layer. It defers to
-  `AGENTS.md` and adds skills and the audit commands.
-- [`.agents/`](.agents) is the single source of detail. It holds the
-  [agentic infrastructure layer model](.agents/project/AGENTIC_INFRASTRUCTURE.md), the
-  [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow, the
-  [conventions](.agents/project/CONVENTIONS.md) for naming, imports, errors, and
-  state, the [Definition of Done](.agents/project/DEFINITION_OF_DONE.md), the
+  any agent. Golden rules, commands, and pointers into `.agents/`. It follows
+  the [agents.md](https://agents.md) convention and stays thin.
+- [`CLAUDE.md`](CLAUDE.md) is a vendor adapter. It defers to `AGENTS.md` and
+  adds only vendor-specific skills and tooling.
+  [`agents/openai.yaml`](agents/openai.yaml) does the same for other vendors,
+  so the method is not welded to one AI supplier.
+- [`.agents/`](.agents) is the single source of detail: the
+  [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow,
+  the [conventions](.agents/project/CONVENTIONS.md) for naming, imports,
+  errors, and state, the
+  [tech stack](.agents/project/TECH_STACK.md) and what not to add to it, the
+  [glossary](.agents/project/GLOSSARY.md) of shared language, the
+  [Definition of Done](.agents/project/DEFINITION_OF_DONE.md), the
   [quality-gate matrix](.agents/project/QUALITY_GATES.md), the
   [PR quality contract](.agents/project/PR_QUALITY.md), the
-  [tech stack](.agents/project/TECH_STACK.md) and what not to add to it, the
-  [glossary](.agents/project/GLOSSARY.md), the [decision records](.agents/decisions)
-  that explain why each rule exists, and [templates](.agents/templates) to copy
-  from.
+  [decision records](.agents/decisions) that mark the difference between a
+  mistake and a deliberate act, and [templates](.agents/templates) so the
+  correct pattern is the path of least resistance.
+- [`PROGRESS.md`](PROGRESS.md) and [`TODO.md`](TODO.md) are the memory layer:
+  checkpointed work with verification status, and forward handoffs with
+  acceptance criteria. They give agents audit-grade memory across sessions.
 
 The root files stay short and point inward, so there is exactly one place to
-update when the way you work changes.
+update when the way you work changes. The standard ships as files, not written
+guidelines: adopt it by copying these files, never by retyping them, because
+retyped standards drift.
 
-Second, enforce the standards with gates rather than good intentions. Every
-standard is an executable gate, and each one runs at the earliest point it can
-fail:
+### The quality gates: standards you cannot skip
+
+Feedback speed determines placement. Fast checks run early, expensive checks
+run later, and local hooks mirror CI so "works on my machine" and "passes CI"
+mean the same thing. A green PR means "this change introduced nothing new".
 
 | Stage | What it enforces | Where |
 | --- | --- | --- |
-| **On commit** | Type safety, consistent style and imports, code intelligence (dead code, cycles), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
-| **On push** | Logic tested with a coverage floor, a production build, the behaviour map (E2E), and accessibility | [`.husky/pre-push`](.husky/pre-push) |
-| **In CI** | Everything before re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, a performance and accessibility budget, and visual regression | [`.github/workflows/`](.github/workflows) |
+| **On commit** | Type safety, consistent style and imports, code intelligence (dead code, cycles, complexity), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
+| **On push** | Logic tested with a coverage floor, a production build, the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green | [`.husky/pre-push`](.husky/pre-push) |
+| **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, PR-body validation, and visual regression | [`.github/workflows/`](.github/workflows) |
+| **Before merge** | Human visual sign-off: the visual gate flips green only when a reviewer ticks every per-change checkbox, bound to the exact commit | [`styleproof-approve.yml`](.github/workflows/styleproof-approve.yml) plus branch protection |
 
-A [PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any attempt to
-use `--no-verify`, so the gates cannot be skipped. The local hooks and CI run the
-same checks, so "works on my machine" and "passes CI" mean the same thing.
-"Done" is defined as "the gates are green" (see the
-[Definition of Done](.agents/project/DEFINITION_OF_DONE.md)), so an agent cannot
-honestly report a task finished until `pnpm verify` and `pnpm e2e` pass, no
-matter who or what wrote the code.
+The gates cannot be skipped. A
+[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any `--no-verify`,
+and weakening type, lint, or test configuration to turn red green is a named
+violation. Honest red beats dishonest green.
 
-PRs then carry that proof into review. The
-[PR quality contract](.agents/project/PR_QUALITY.md) and
-[pull request template](.github/pull_request_template.md) require exact local
-commands, visual proof or an explicit `N/A`, latest-sha CI status, risk, and
-rollback. A reviewer should never have to guess what was actually verified.
+### The definition of done: done is mechanical
 
-The catch is that your context files and your codebase have to speak the same
-language. If the foundations hold three different patterns while `AGENTS.md`
-defines one, the agent struggles to remember which it is meant to follow, and the
-mess wins. So before the gates and the context can do their job, the foundations
-have to be fixed, and that starts with a health check.
+The [Definition of Done](.agents/project/DEFINITION_OF_DONE.md) removes
+judgment from the word "done". A task is finished when the gates are green and
+the proof is present, and at no other time. Every item on the list is
+mechanically checkable, so an agent cannot honestly report a task complete
+until `pnpm verify` and `pnpm e2e` pass, no matter who or what wrote the code.
 
-### Q2. How do I check the health of an enterprise codebase?
+### The PR contract: proof, not claims
 
-Health has an order, and it does not start with the agentic setup. It starts
-with the behaviour map and end-to-end tests, because nothing else is safe to
-assess or change without them. Then the architecture, then maintainability and
-readability, then security, then the non-functionals. You work each layer in
-that order, because a weak floor makes everything above it shaky. The agentic
-infrastructure is not the headline here. It is what locks each fix in so it
-cannot regress.
+The [pull request template](.github/pull_request_template.md) requires four
+sections in order: why the change exists, what changed, behavioural proof, and
+a verification summary listing exact commands and results, separating
+pre-existing failures from introduced ones. The contract has teeth:
+[`pr-quality.yml`](.github/workflows/pr-quality.yml) runs
+[`scripts/validate-pr-body.mjs`](scripts/validate-pr-body.mjs) on every PR
+event and rejects missing sections, placeholders, and non-conventional titles.
 
-Consistency is the thing health is really measuring. If the codebase has three
-fetching patterns and three ways to style an element, the context window an agent
-works from is 90% mess and 10% intent, and it follows the mess, because the code
-it reads is the largest and the last context it sees. No `AGENTS.md` outvotes an
-inconsistent codebase. So the work is making the code consistent, foundation
-first; the instructions only take once the code backs them up.
+Proof means committed evidence. Screenshots live under
+[`docs/proof/`](docs/proof) on the PR branch and are embedded inline in the PR
+body; bare links, local paths, and "see attached" are not proof. Flows with
+motion include video. If no rendered proof applies, the PR says `Not
+applicable` with the technical reason. And every bug fix ships, in the same
+change, with the test that would have caught it, asserting the user-visible
+symptom. A reviewer should never have to guess what was actually verified.
+
+### The visual gate: behaviour and looks are separate truths
+
+Behaviour tests are blind to visual drift, and screenshots are blind to runtime
+failure, so this template runs both. The behaviour map in
+[`e2e/app.spec.ts`](e2e/app.spec.ts) drives the product through the real
+interface using roles and visible text. Beside it,
+[`e2e/styleproof.spec.ts`](e2e/styleproof.spec.ts), built on
+[StyleProof](https://github.com/BenSheridanEdwards/styleproof), reads the
+browser's computed styles and compares the PR against its base branch at three
+widths, catching hover and focus states, between-breakpoint rules, and
+sub-pixel drift that pixel snapshots miss. A refactor is safe when the
+behaviour suite stays green and the style diff is zero or every change is
+deliberately approved.
+
+### Skills: processes with exactly one job
+
+A skill is a documented, executable process with exactly one job; if two skills
+could be selected for the same reason, rename or split them. This repo ships
+its own under [`.claude/skills/`](.claude/skills): the PR quality contract, the
+inline-screenshot proof law, and installers for the guidance and gate layers.
+Each carries a vendor-neutral manifest.
+
+## Truth rules
+
+Binding on this repository and any repository built from it:
+
+- Do not claim a gate exists unless the hook, script, or workflow exists and
+  runs on a clean checkout.
+- Do not describe target architecture as current fact; label aspirations as
+  targets.
+- Never report "installed" from filesystem presence alone; prove the command,
+  hook, or workflow runs.
+- Do not claim enforcement from repository files alone when the gate depends on
+  platform settings. "The repo is right" and "the repo is enforced" are
+  different claims, which is why the post-clone checklist below exists.
+
+## The audit loop: health has an order
+
+Health does not start with the agentic setup. It starts with the behaviour map
+and end-to-end tests, because nothing else is safe to assess or change without
+them. Then structure, then maintainability, then security, then the
+non-functionals, in that order, because a weak floor makes everything above it
+shaky. The agentic infrastructure is not the headline; it is what locks each
+fix in so it cannot regress.
 
 This repo grades itself with the
 [ArchitectPlaybook](https://github.com/BenSheridanEdwards/ArchitectPlaybook)
-audits and commits the reports as proof in
+audits and commits the reports, including the imperfect ones, in
 [`.architect-audits/`](.architect-audits):
 
 ```bash
@@ -113,102 +202,67 @@ pnpm setup:agents      # installs the playbook and Fallow skills
 /testing-audit  /architecture-audit  /security-audit  /quality-gates-audit  /agentic-audit
 ```
 
-The layers, audited from the foundation up:
+The committed history shows the loop working: the first run found real problems
+(missing static analysis, a live dependency advisory, weak test selectors) and
+each one being closed. Known deliberate trade-offs and open gaps are recorded
+in the reports themselves and in [`TODO.md`](TODO.md). Honest history is a
+feature; the loop is the point, not the passing grade at the end.
 
-1. **Behaviour and E2E.** What the product does, mapped through the UI by role
-   and visible text. In this repo: Priority-1 selector ratio 100%, getByTestId 0%.
-2. **Architecture.** Boundaries, coupling, god modules, cycles, orphans. In this
-   repo: clean on every check it can assess, with 0 cycles and 0 orphans.
-3. **Maintainability and readability.** One consistent pattern, low complexity, no
-   dead code. In this repo: a consistent feature pattern, Fallow clean.
-4. **Security.** Taint flow, static analysis, secrets, dependencies. In this repo:
-   a clean code baseline, with CodeQL, Dependabot, and a secret scan in place.
-5. **Non-functionals and gates.** Performance and accessibility budgets, bundle
-   size, and the gates that hold them. In this repo: strong, with a few deliberate
-   choices noted below.
-
-Beneath all five sits the agentic infrastructure, the context files, gates, and
-definition of done that lock each layer so it cannot regress (26 checks present,
-0 violations). It is the base plate, not the starting point.
-
-The audits run against a model of the codebase built by
-[graphify](https://graphify.net), which keeps that context token-efficient, so
-checks like "no circular dependencies" and "no god module" are computed from the
-real structure rather than asserted. The graph is plumbing, not the point; the
-point is the order of the layers above.
-
-A few notes worth knowing before you present the grades:
-
-- The audits use their own words. "Zero violations" is exactly true, because no
-  check is graded a violation, but it does not mean everything is green.
-- The quality-gates audit grades three pre-commit checks as misconfigured (Biome
-  runs through `biome check --staged` rather than `lint-staged`, and the type
-  check covers the whole project rather than only staged files) and two pre-push
-  checks as missing by design (the full type check and lint are owned by
-  pre-commit and CI). These are deliberate, documented trade-offs.
-- That same report flags `license-compliance-check` as missing. The repo has
-  since added [`scripts/license-check.mjs`](scripts/license-check.mjs) (run with
-  `pnpm license:check`), so a fresh run closes that gap.
-- The architecture audit leaves two checks marked missing because there is no
-  second feature yet, so there is no cross-feature coupling or `src/shared/`
-  layer to measure. That is a limit of scale, not a defect.
-
-This is the agentic audit loop: run the audits, fix what they surface, then run
-them again, making progress each pass and learning what changed since the last.
-The architecture audit reads your intention files in `.agents/` as its north
-star, and falls back to opinionated defaults where you have not set one. So the
-grade is measured against the standard you defined, not a generic checklist.
-
-The reports were not always green. The first run found real problems: missing
-static analysis, a live `tmp` advisory, and weaker test selectors. The committed
-history shows each one being closed. The loop is the point, not the passing grade
-at the end.
-
-Non-functionals and code hygiene are checked continuously, not only at audit
-time. Lighthouse holds an accessibility floor of 0.9 and a performance target of
-0.8 in [`lighthouserc.json`](lighthouserc.json), there is a bundle-size budget in
-[`.size-limit.json`](.size-limit.json), and Fallow checks for dead code, cycles,
+Non-functionals are held continuously, not only at audit time: Lighthouse keeps
+an accessibility floor of 0.9 and a performance target of 0.8 in
+[`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
+[`.size-limit.json`](.size-limit.json), and Fallow checks dead code, cycles,
 and complexity drift on every commit.
 
-### Q3. How do I move a legacy brownfield codebase to modern enterprise-grade?
+## Quick start
 
-You do not start by refactoring. The shift has an order, and each step earns the
-next:
+```bash
+pnpm install
+pnpm setup:agents     # one time: external agentic toolkit
+pnpm dev              # http://localhost:5173
+pnpm verify           # typecheck, biome, fallow, tests with coverage, build, size
+pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
+```
 
-1. **Set the safety net and the target.** Before touching a line of code, map the
-   behaviours with tests, stand up the quality gates, and add visual regression
-   testing. Then define the ideal architecture, patterns, and conventions in
-   [`.agents/`](.agents) and set the [definition of done](.agents/project/DEFINITION_OF_DONE.md).
-2. **Refactor with confidence.** Once you are sure you will not break the user
-   experience, shift the internals toward the ideal pattern.
-3. **Tighten and simplify.** Reduce and lower complexity. Do we need this? Can it
-   be simpler?
-4. **Prune and upgrade dependencies.** Audit what you depend on, remove what is
-   unused, upgrade the rest.
-5. **Optimise.** Performance, accessibility, and scalability come last. They are
-   unlocked because the foundations are set and held in place.
+Requires Node 20 or higher and pnpm. See [`.nvmrc`](.nvmrc).
 
-The safety net in step 1 is what makes the rest safe. The behaviour map in
-[`e2e/app.spec.ts`](e2e/app.spec.ts) is the contract for what the product does,
-driven through the real interface and checked through the accessibility tree, so
-it is deliberately separate from the implementation. It walks the counter from
-Healthy, to Approaching limit, to At capacity, and back to a reset, using only
-roles and visible text. Beside it, the visual gate in
-[`e2e/styleproof.spec.ts`](e2e/styleproof.spec.ts), built on
-[StyleProof](https://github.com/BenSheridanEdwards/styleproof), reads the
-browser's computed styles and compares the pull request against its base branch
-at three widths (1280, 768, and 390). It catches forced hover and focus states,
-rules that only apply between breakpoints, and sub-pixel drift that pixel
-snapshots miss.
+### Post-clone setup checklist
 
-With behaviour held by the end-to-end map and the look held by StyleProof, the
-internals are free to be reshaped to match
-[`ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md). Optimising before that
-foundation is consistent only bakes the mess in deeper, which is why the order is
-not negotiable. The agentic infrastructure locks each gain in place so the
-codebase does not drift back, and the
-[`.architect-audits/`](.architect-audits) loop measures the gap closing on each
-pass.
+Some enforcement lives in platform settings and cannot be committed, so a fresh
+repository has to finish this list before the gates truly block:
+
+- [ ] **Require the `StyleProof` commit status in branch protection.** The
+      visual gate posts a `StyleProof` status and a `<!-- styleproof-report -->`
+      review comment, but a red status only blocks a merge once a
+      branch-protection rule on `main` requires it. Add the rule under Settings
+      → Branches → "Require status checks to pass", selecting `StyleProof` (see
+      the operating notes in
+      [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md)).
+- [ ] **Also require the `PR quality` and CI status checks**, so the PR-body
+      contract and the gate suite block merges too.
+- [ ] **Keep `styleproof-approve.yml` on the default branch.** The approval
+      workflow is an `issue_comment` workflow, so it only runs from `main`.
+- [ ] **Turn on secret scanning and Dependabot** in the repository's security
+      settings.
+
+## Adopt it
+
+For a new project, press **Use this template**, run `pnpm install` and
+`pnpm setup:agents`, then build inside `src/features/*` using the templates in
+[`.agents/templates/`](.agents/templates). The gates are live from the first
+commit.
+
+For a brownfield project, copy the scaffolding into the existing repo:
+
+```
+AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/  (workflows and dependabot)
+biome.json  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
+```
+
+Then run `/pre-audit-setup` and the audits to see where the repo falls short,
+and close the gaps one gate at a time, in the order above: behaviour map first,
+optimise last. This is the same find, fix, and re-audit loop the committed
+[`.architect-audits/`](.architect-audits) reports show on this repo.
 
 ## Every file, and why it is here
 
@@ -275,55 +329,6 @@ src/features/threshold-counter/  The one small but real feature.
 graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). Rebuild with graphify.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.
 ```
-
-## Quick start
-
-```bash
-pnpm install
-pnpm setup:agents     # one time: external agentic toolkit
-pnpm dev              # http://localhost:5173
-pnpm verify           # typecheck, biome, fallow, tests with coverage, build, size
-pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
-```
-
-Requires Node 20 or higher and pnpm. See [`.nvmrc`](.nvmrc).
-
-### Post-clone setup checklist
-
-Some gates only take effect once the repository is configured, so a fresh clone
-has to finish this list:
-
-- [ ] **Require the `StyleProof` commit status in branch protection.** The visual
-      gate posts a `StyleProof` status and a `<!-- styleproof-report -->` review
-      comment, but a red status only *blocks a merge* once a branch-protection
-      rule on `main` requires it. Until then the report is advisory. Add the rule
-      under Settings → Branches → branch protection → "Require status checks to
-      pass", selecting `StyleProof` (see
-      [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md), the
-      StyleProof operating notes).
-- [ ] **Keep `styleproof-approve.yml` on the default branch.** The approval
-      workflow is an `issue_comment` workflow, so it only runs from `main`; on a
-      feature branch it does nothing.
-- [ ] **Also require the `PR quality` and CI status checks** so the PR-body
-      contract and the gate suite block merges too.
-
-## Adopt it
-
-For a new project, clone the repo, run `pnpm install` and `pnpm setup:agents`,
-then build inside `src/features/*` using the templates. The gates are live from
-the first commit.
-
-For a brownfield project, copy the scaffolding into the existing repo:
-
-```
-AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/  (workflows and dependabot)
-biome.json  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
-```
-
-Then run `/pre-audit-setup` and the audits to see where the repo falls short of
-the standards, and close the gaps one gate at a time. This is the same find, fix,
-and re-audit loop that the committed [`.architect-audits/`](.architect-audits)
-reports show on this repo.
 
 ## The tools this builds on
 
