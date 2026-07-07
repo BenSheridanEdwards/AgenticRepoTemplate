@@ -35,3 +35,6 @@ graphify-out/*
 
 # Claude Code personal overrides (never committed; team settings live in settings.json)
 .claude/settings.local.json
+
+# Claude Code agent tooling (GitNexus index, Graphify output, local settings)
+graphify-out/
