@@ -1,7 +1,7 @@
-# Agentic Project Template
+# Agentic Repo Template
 
-[![CI](https://github.com/BenSheridanEdwards/AgenticProjectTemplate/actions/workflows/ci.yml/badge.svg)](https://github.com/BenSheridanEdwards/AgenticProjectTemplate/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/BenSheridanEdwards/AgenticProjectTemplate/actions/workflows/codeql.yml/badge.svg)](https://github.com/BenSheridanEdwards/AgenticProjectTemplate/actions/workflows/codeql.yml)
+[![CI](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/workflows/ci.yml/badge.svg)](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/workflows/codeql.yml/badge.svg)](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/workflows/codeql.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A reference scaffold for building software with agents. It holds the files,
@@ -214,6 +214,8 @@ pass.
 
 ```
 AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
+agents/openai.yaml        Vendor-neutral manifest; points at AGENTS.md and .agents/.
+PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptance criteria.
 .agents/                  The repo's knowledge (read before writing).
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
@@ -233,12 +235,14 @@ AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
     build-quality-gates/    Build pre-commit, pre-push, and CI gates.
     build-agent-guidance/   Build truthful AGENTS.md, CLAUDE.md, and .agents context.
     pr-quality-contract/    PR proof, CI status, risk, and handoff workflow.
+    pr-inline-screenshot-proof/  Embed committed proof inline in the PR body.
 .husky/                     pre-commit, commit-msg, pre-push gates.
 .github/
   pull_request_template.md  Proof-backed PR handoff template.
   dependabot.yml            Weekly npm and GitHub Actions updates.
   workflows/
     ci.yml                  Quality, tests, build and size, e2e, security.
+    pr-quality.yml          Validates the PR body and title (scripts/validate-pr-body.mjs).
     codeql.yml              CodeQL static analysis (security-events).
     lighthouse.yml          Performance and accessibility budget on PRs.
     styleproof.yml          Computed-style visual gate (PR head vs base).
@@ -259,7 +263,9 @@ scripts/
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
+  validate-pr-body.mjs      Validates the PR body sections, proof, and title (pnpm validate:pr).
   verify-gates.sh           Local mirror of the CI gate suite.
+docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
 e2e/
   app.spec.ts               The behaviour map.
   accessibility.spec.ts     Real-browser axe scan (WCAG A and AA, including contrast).
@@ -281,6 +287,25 @@ pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
 ```
 
 Requires Node 20 or higher and pnpm. See [`.nvmrc`](.nvmrc).
+
+### Post-clone setup checklist
+
+Some gates only take effect once the repository is configured, so a fresh clone
+has to finish this list:
+
+- [ ] **Require the `StyleProof` commit status in branch protection.** The visual
+      gate posts a `StyleProof` status and a `<!-- styleproof-report -->` review
+      comment, but a red status only *blocks a merge* once a branch-protection
+      rule on `main` requires it. Until then the report is advisory. Add the rule
+      under Settings → Branches → branch protection → "Require status checks to
+      pass", selecting `StyleProof` (see
+      [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md), the
+      StyleProof operating notes).
+- [ ] **Keep `styleproof-approve.yml` on the default branch.** The approval
+      workflow is an `issue_comment` workflow, so it only runs from `main`; on a
+      feature branch it does nothing.
+- [ ] **Also require the `PR quality` and CI status checks** so the PR-body
+      contract and the gate suite block merges too.
 
 ## Adopt it
 
