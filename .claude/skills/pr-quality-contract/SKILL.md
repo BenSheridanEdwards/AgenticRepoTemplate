@@ -30,9 +30,13 @@ asking for proof, or decide whether work is ready to report complete.
    reason instead of pretending visual proof exists.
 4. **Separate proof layers.** Keep local command proof, GitHub Actions status,
    deploy/runtime proof, and pending gaps in separate sentences.
-5. **Fill the template.** Use `.github/pull_request_template.md`; do not leave
-   placeholder comments, empty checkboxes with no explanation, or vague
-   summaries such as "all tests pass".
+5. **Fill the template.** Use `.github/pull_request_template.md` exactly. The
+   body must contain, in order, `Why does this feature exist?`, `What changed?`,
+   `Behavioural Proof (with video and screenshots)`, and `Verification Summary`.
+   Do not leave placeholder comments, empty checkboxes with no explanation, or
+   vague summaries such as "all tests pass". `scripts/validate-pr-body.mjs` (the
+   `PR quality` workflow) rejects a body that omits a section, leaves one
+   placeholder-only, lacks proof, or carries a non-Conventional-Commits title.
 6. **Gate completion.** Do not report the work complete until the latest-sha CI
    checks are green, or until you have clearly said which checks are still
    pending or failing.

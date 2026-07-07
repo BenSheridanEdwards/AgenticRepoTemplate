@@ -34,6 +34,29 @@ This is why the template does not add ESLint or Prettier. Biome covers the fast
 lint/format/import loop; the remaining concerns are covered by stronger gates at
 the layer where the behaviour is observable.
 
+## StyleProof operating notes
+
+StyleProof is the computed-style visual gate
+([`.github/workflows/styleproof.yml`](../../.github/workflows/styleproof.yml)).
+It is runnable locally, not CI-only:
+
+- `pnpm styleproof:capture` captures a baseline (`STYLEMAP_DIR=base`) and
+  `pnpm styleproof:diff` captures the head and diffs it against that baseline.
+- **Capture is selected by test title**, not file path: StyleProof registers its
+  capture tests from inside the library (attributed to `node_modules`), so both
+  scripts select them with `playwright test --grep "styleproof capture"`.
+- **`STYLEPROOF_REPLAY_FROM` isolates data drift.** `styleproof:diff` replays the
+  base run's recorded data (`STYLEPROOF_REPLAY_FROM=__stylemaps__/base`) so the
+  diff is *code*, not live-data drift.
+- **The approval workflow must live on the default branch.**
+  [`styleproof-approve.yml`](../../.github/workflows/styleproof-approve.yml) is an
+  `issue_comment` workflow, which only ever runs from the default branch — it has
+  no effect while it lives only on a feature branch.
+- **The gate only blocks merges once branch protection requires the `StyleProof`
+  commit status.** Until a branch-protection rule requires that status, a red
+  StyleProof report is advisory. Adding that rule is a post-clone setup step (see
+  the README).
+
 ## Placement rules
 
 - Put the fastest deterministic checks in pre-commit.

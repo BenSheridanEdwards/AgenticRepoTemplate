@@ -3,7 +3,9 @@
 > The operating contract for **any** agent (or engineer) working in this repo.
 > It is tool-agnostic and follows the [agents.md](https://agents.md) convention:
 > write for the agent — concrete commands, explicit rules, no tribal knowledge.
-> `CLAUDE.md` adds the Claude-Code-specific layer on top of this file.
+> `CLAUDE.md` adds the Claude-Code-specific layer on top of this file, and
+> [`agents/openai.yaml`](agents/openai.yaml) is the vendor-neutral manifest for
+> OpenAI-family agents — both defer to this file and the `.agents/` docs.
 
 ## What this repo is
 

@@ -1,5 +1,5 @@
 {
-  "name": "agentic-project-template",
+  "name": "agentic-repo-template",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -25,8 +25,11 @@
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",
     "lhci": "lhci autorun",
+    "styleproof:capture": "STYLEMAP_DIR=base playwright test --grep \"styleproof capture\"",
+    "styleproof:diff": "STYLEMAP_DIR=head STYLEPROOF_REPLAY_FROM=__stylemaps__/base playwright test --grep \"styleproof capture\"",
     "secret-scan": "bash scripts/secret-scan.sh",
     "license:check": "node scripts/license-check.mjs",
+    "validate:pr": "node scripts/validate-pr-body.mjs",
     "verify": "pnpm typecheck && pnpm check && pnpm fallow:audit && pnpm test:coverage && pnpm build && pnpm size",
     "setup:agents": "bash scripts/setup-agentic-toolkit.sh",
     "prepare": "husky"
