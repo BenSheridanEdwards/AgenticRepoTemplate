@@ -15,6 +15,12 @@ function stubFetch(response: Partial<Response> & { ok: boolean }) {
   global.fetch = jest.fn().mockResolvedValue(response as Response) as unknown as typeof fetch;
 }
 
+function stubPendingFetch() {
+  global.fetch = jest
+    .fn()
+    .mockReturnValue(new Promise<Response>(() => {})) as unknown as typeof fetch;
+}
+
 const SAMPLE: ServiceStatusData[] = [
   { identifier: 'web', name: 'Web application', health: 'operational' },
   { identifier: 'api', name: 'Public API', health: 'degraded' },
@@ -26,7 +32,7 @@ afterEach(() => {
 
 describe('ServiceStatus', () => {
   it('shows a loading message while the request is in flight', () => {
-    stubFetch({ ok: true, json: async () => SAMPLE });
+    stubPendingFetch();
 
     render(<ServiceStatus />);
 

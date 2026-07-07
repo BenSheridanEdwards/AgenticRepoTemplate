@@ -12,6 +12,12 @@ function stubFetch(response: Partial<Response> & { ok: boolean }) {
   return fetchMock;
 }
 
+function stubPendingFetch() {
+  global.fetch = jest
+    .fn()
+    .mockReturnValue(new Promise<Response>(() => {})) as unknown as typeof fetch;
+}
+
 const SAMPLE: ServiceStatus[] = [
   { identifier: 'web', name: 'Web application', health: 'operational' },
 ];
@@ -22,7 +28,7 @@ afterEach(() => {
 
 describe('useServiceStatus', () => {
   it('starts in the loading state before the request resolves', () => {
-    stubFetch({ ok: true, json: async () => SAMPLE });
+    stubPendingFetch();
 
     const { result } = renderHook(() => useServiceStatus());
 
