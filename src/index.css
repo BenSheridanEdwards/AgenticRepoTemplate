@@ -143,6 +143,119 @@ body {
   color: var(--color-muted);
 }
 
+.service-status {
+  margin-top: var(--space);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.service-status__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.service-status__heading {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.service-status__button {
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #1d263f;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.service-status__button:hover {
+  background: #26314f;
+  border-color: #3a4a72;
+}
+
+.service-status__button:focus-visible {
+  outline: 2px solid var(--pill-low-fg);
+  outline-offset: 2px;
+}
+
+.service-status__region {
+  display: block;
+}
+
+.service-status__message {
+  margin: 0;
+  font-size: 15px;
+  color: var(--color-muted);
+}
+
+.service-status__message--error {
+  color: var(--pill-critical-fg);
+}
+
+.service-status__message--empty {
+  color: var(--color-muted);
+}
+
+.service-status__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.service-status__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #1d263f;
+}
+
+.service-status__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.service-status__pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.service-status__pill--operational {
+  background: var(--pill-low-bg);
+  color: var(--pill-low-fg);
+}
+
+.service-status__pill--degraded {
+  background: var(--pill-warning-bg);
+  color: var(--pill-warning-fg);
+}
+
+.service-status__pill--down {
+  background: var(--pill-critical-bg);
+  color: var(--pill-critical-fg);
+}
+
 @media (max-width: 480px) {
   .app {
     padding: 24px var(--space);
@@ -150,5 +263,10 @@ body {
 
   .threshold-counter__actions {
     flex-direction: column;
+  }
+
+  .service-status__item {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
