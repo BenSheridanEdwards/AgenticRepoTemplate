@@ -7,14 +7,16 @@ import type { Config } from 'jest';
  */
 const config: Config = {
   testEnvironment: 'jsdom',
-  roots: ['<rootDir>/src'],
-  testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
+  roots: ['<rootDir>/src', '<rootDir>/scripts'],
+  testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}', '<rootDir>/scripts/**/*.test.{ts,tsx}'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': '<rootDir>/jest.style-stub.cjs',
   },
   transform: {
-    '^.+\\.(t|j)sx?$': [
+    // Also transform .mjs so scripts/*.mjs (e.g. validate-pr-body.mjs) can be
+    // imported directly by their co-located tests.
+    '^.+\\.(t|j)sx?$|^.+\\.mjs$': [
       '@swc/jest',
       {
         jsc: {
