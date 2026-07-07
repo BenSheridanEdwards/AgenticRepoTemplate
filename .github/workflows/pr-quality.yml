@@ -19,6 +19,10 @@ concurrency:
 jobs:
   pr-body:
     name: Validate PR body and title
+    # Bot-authored PRs (Dependabot version bumps and similar) carry
+    # machine-generated bodies, not the human proof contract. Every other
+    # gate still applies to them in full.
+    if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
