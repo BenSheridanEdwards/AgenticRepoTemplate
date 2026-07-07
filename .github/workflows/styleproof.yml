@@ -32,7 +32,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --config.minimum-release-age=0
 
       - id: maps
         name: Restore cached StyleProof maps
@@ -59,7 +59,7 @@ jobs:
           rm -rf __stylemaps__
 
           git checkout --force "${{ github.event.pull_request.base.sha }}"
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --config.minimum-release-age=0
           pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
           pnpm exec playwright install --with-deps chromium
           pnpm build
@@ -68,7 +68,7 @@ jobs:
           pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir base --base-dir __stylemaps__ --keep-har --no-upload
 
           git checkout --force "${{ github.event.pull_request.head.sha }}"
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --config.minimum-release-age=0
           pnpm exec playwright install --with-deps chromium
           pkill -f "vite preview" || true
           pnpm build
