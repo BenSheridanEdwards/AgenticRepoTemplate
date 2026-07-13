@@ -42,6 +42,7 @@ jobs:
       - uses: fallow-rs/fallow@v2
         with:
           command: audit
+          no-cache: true
           comment: true
           review-comments: true
 
