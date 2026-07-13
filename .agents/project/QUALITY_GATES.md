@@ -9,7 +9,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | --- | --- | --- |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan. |
+| Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, Fallow, coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
 | CI quality | `.github/workflows/ci.yml` | Context layer, typecheck, Biome, Fallow, tests, build, security. |
@@ -57,6 +57,9 @@ It is runnable locally, not CI-only:
   commit status.** Until a branch-protection rule requires that status, a red
   StyleProof report is advisory. Adding that rule is a post-clone setup step (see
   the README).
+- **Exact commit maps are reused.** Pre-push restores an existing SHA-keyed map
+  before capturing; CI captures only a missing head when the base is compatible,
+  and publishes every cold fallback for later runs.
 
 ## Placement rules
 

@@ -13,3 +13,10 @@ pnpm build
 
 echo "› end-to-end behaviour map (Playwright)"
 pnpm e2e
+
+echo "› restore or publish the exact StyleProof map"
+head_sha="$(git rev-parse HEAD)"
+if ! pnpm exec styleproof-map --restore --sha "$head_sha" --dir current --base-dir .styleproof/maps --spec e2e/styleproof.spec.ts; then
+  pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --sha "$head_sha" --upload
+fi
+pnpm exec styleproof-diff || true
