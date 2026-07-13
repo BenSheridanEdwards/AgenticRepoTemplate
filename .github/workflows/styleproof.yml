@@ -41,9 +41,9 @@ jobs:
           set +e
           MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
           rm -rf "$MAP_ROOT"
-          pnpm exec styleproof-map --restore --sha "${{ github.event.pull_request.base.sha }}" --dir base --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
+          node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.base.sha }}" --dir base --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
           base_code=$?
-          pnpm exec styleproof-map --restore --sha "${{ github.event.pull_request.head.sha }}" --dir head --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
+          node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.head.sha }}" --dir head --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
           head_code=$?
           set -e
           echo "base-hit=$([ "$base_code" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
@@ -71,7 +71,7 @@ jobs:
             pnpm build
             nohup pnpm preview > /tmp/preview-base.log 2>&1 &
             npx --yes wait-on http://localhost:3000
-            pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "${{ github.event.pull_request.base.sha }}" --upload
+            node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "${{ github.event.pull_request.base.sha }}" --upload
             pkill -f "vite preview" || true
 
             git checkout --force "${{ github.event.pull_request.head.sha }}"
@@ -84,9 +84,9 @@ jobs:
           nohup pnpm preview > /tmp/preview-head.log 2>&1 &
           npx --yes wait-on http://localhost:3000
           if find "$MAP_ROOT/base" -name '*.har' -print -quit | grep -q .; then
-            STYLEPROOF_REPLAY_FROM="$MAP_ROOT/base" pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
+            STYLEPROOF_REPLAY_FROM="$MAP_ROOT/base" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
           else
-            pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
+            node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
           fi
 
       # StyleProof v4.4.16
