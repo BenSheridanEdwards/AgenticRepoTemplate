@@ -66,8 +66,8 @@ jobs:
             git checkout --force "${{ github.event.pull_request.base.sha }}"
             pnpm install --frozen-lockfile --config.minimum-release-age=0
             pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
-            git checkout -- package.json pnpm-lock.yaml
             pnpm exec playwright install --with-deps chromium
+            git checkout -- package.json pnpm-lock.yaml
             pnpm build
             nohup pnpm preview > /tmp/preview-base.log 2>&1 &
             npx --yes wait-on http://localhost:3000
