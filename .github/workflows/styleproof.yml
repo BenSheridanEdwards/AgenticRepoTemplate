@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       E2E_BASE_URL: http://localhost:3000
-      STYLEPROOF_VERSION: "4.4.9"
+      STYLEPROOF_VERSION: "4.4.12"
       STYLEPROOF_MAP_STORE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
@@ -60,9 +60,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          AUTHORIZATION_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$STYLEPROOF_MAP_STORE_TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=$AUTHORIZATION_HEADER" fetch --no-tags --depth=1 origin refs/heads/styleproof-maps:refs/remotes/origin/styleproof-token-proof
-          git -c "http.https://github.com/.extraheader=$AUTHORIZATION_HEADER" push origin refs/remotes/origin/styleproof-token-proof:refs/heads/styleproof-maps
           MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
 
           if [ "${{ steps.maps.outputs.base-hit }}" != 'true' ]; then
@@ -93,8 +90,8 @@ jobs:
             pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
           fi
 
-      # StyleProof v4.4.9
-      - uses: BenSheridanEdwards/StyleProof@f7efadcd124e6713c3e7e40755d6f6248face9bd
+      # StyleProof v4.4.12
+      - uses: BenSheridanEdwards/StyleProof@f362de4feebf98d7593aadc9394b5941ab0f1854
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head
