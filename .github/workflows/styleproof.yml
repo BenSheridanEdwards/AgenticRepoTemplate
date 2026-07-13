@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       E2E_BASE_URL: http://localhost:3000
-      STYLEPROOF_VERSION: "4.4.6"
+      STYLEPROOF_VERSION: "4.4.7"
+      STYLEPROOF_MAP_STORE_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -89,8 +90,8 @@ jobs:
             pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
           fi
 
-      # StyleProof v4.4.6
-      - uses: BenSheridanEdwards/StyleProof@c7b54b6c4dccf2071e24b611b08e5b5a9f498010
+      # StyleProof v4.4.7
+      - uses: BenSheridanEdwards/StyleProof@0dfd525aab6ae49165e9be4c1749a6c8cd8321bb
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head
