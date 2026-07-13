@@ -66,6 +66,7 @@ jobs:
             git checkout --force "$BASE_SHA"
             pnpm install --frozen-lockfile --config.minimum-release-age=0
             pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
+            git checkout -- package.json pnpm-lock.yaml
             PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
             PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "$BASE_SHA" --upload
 
@@ -81,8 +82,8 @@ jobs:
             PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
           fi
 
-      # StyleProof v4.4.17
-      - uses: BenSheridanEdwards/StyleProof@7d989d42896236e93d7c1bc4b0be23eacfa62468
+      # StyleProof v4.4.18
+      - uses: BenSheridanEdwards/StyleProof@511387b3f47580217cb97ea4cf11d0c232a686a0
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head
