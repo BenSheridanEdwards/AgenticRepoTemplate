@@ -1,3 +1,0 @@
-#!/usr/bin/env sh
-# Conventional Commits — the history is read by humans and agents alike.
-pnpm exec commitlint --edit "$1"

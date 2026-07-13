@@ -1,4 +1,0 @@
-interface:
-  display_name: "PR Inline Screenshot Proof"
-  short_description: "Embed screenshots and proof artifacts inline in the PR body, not as bare links."
-  default_prompt: "Use $pr-inline-screenshot-proof to embed committed proof inline in the PR description."
