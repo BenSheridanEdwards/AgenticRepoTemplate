@@ -17,8 +17,6 @@ jobs:
   styleproof:
     name: Computed-style visual gate
     runs-on: ubuntu-latest
-    env:
-      E2E_BASE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v7
         with:
