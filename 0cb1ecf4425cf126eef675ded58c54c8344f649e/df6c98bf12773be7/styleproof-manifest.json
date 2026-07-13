@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "packageVersion": "4.4.13",
+  "sha": "0cb1ecf4425cf126eef675ded58c54c8344f649e",
+  "dirty": false,
+  "spec": "e2e/styleproof.spec.ts",
+  "specHash": "859b3b794deabbc13a11bd3417a6b26551fc77eac80c9865907c6d961f1e2dad",
+  "lockfile": "pnpm-lock.yaml",
+  "lockfileHash": "10330b0ce28fc62c28536662f3c2fb33de6f30a07aacca6fd615b0d6ba02b956",
+  "playwrightVersion": "1.61.0",
+  "browserVersion": "149.0.7827.55",
+  "platform": "darwin",
+  "arch": "arm64",
+  "nodeMajor": "26",
+  "screenshots": true,
+  "har": false,
+  "compatibilityKey": "df6c98bf12773be7",
+  "createdAt": "2026-07-13T20:30:19.505Z"
+}
