@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       E2E_BASE_URL: http://localhost:3000
-      STYLEPROOF_VERSION: "4.4.16"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -59,43 +58,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
+          STYLEPROOF_VERSION="$(node -p "require('./node_modules/styleproof/package.json').version")"
 
           if [ "${{ steps.maps.outputs.base-hit }}" != 'true' ]; then
             rm -rf "$MAP_ROOT"
-            git checkout --force "${{ github.event.pull_request.base.sha }}"
+            git checkout --force "$BASE_SHA"
             pnpm install --frozen-lockfile --config.minimum-release-age=0
             pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
-            pnpm exec playwright install --with-deps chromium
-            pnpm build
-            git checkout -- package.json pnpm-lock.yaml
-            nohup node_modules/.bin/vite preview > /tmp/preview-base.log 2>&1 &
-            base_preview_pid=$!
-            npx --yes wait-on http://localhost:3000
-            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "${{ github.event.pull_request.base.sha }}" --upload
-            kill "$base_preview_pid" || true
-            wait "$base_preview_pid" || true
+            PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
+            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "$BASE_SHA" --upload
 
-            git checkout --force "${{ github.event.pull_request.head.sha }}"
+            git checkout --force "$HEAD_SHA"
             pnpm install --frozen-lockfile --config.minimum-release-age=0
           else
             rm -rf "$MAP_ROOT/head"
           fi
-          pnpm exec playwright install --with-deps chromium
-          pnpm build
-          nohup node_modules/.bin/vite preview > /tmp/preview-head.log 2>&1 &
-          head_preview_pid=$!
-          npx --yes wait-on http://localhost:3000
+          PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
           if find "$MAP_ROOT/base" -name '*.har' -print -quit | grep -q .; then
-            PATH="$PWD/node_modules/.bin:$PATH" STYLEPROOF_REPLAY_FROM="$MAP_ROOT/base" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
+            PATH="$PWD/node_modules/.bin:$PATH" STYLEPROOF_REPLAY_FROM="$MAP_ROOT/base" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
           else
-            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
+            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
           fi
-          kill "$head_preview_pid" || true
-          wait "$head_preview_pid" || true
 
-      # StyleProof v4.4.16
-      - uses: BenSheridanEdwards/StyleProof@14250dc9e4659400703a412fa788e3f5ef881988
+      # StyleProof v4.4.17
+      - uses: BenSheridanEdwards/StyleProof@7d989d42896236e93d7c1bc4b0be23eacfa62468
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head

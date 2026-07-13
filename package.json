@@ -67,7 +67,7 @@
     "jest-axe": "^10.0.0",
     "jest-environment-jsdom": "^29.7.0",
     "size-limit": "^12.1.0",
-    "styleproof": "4.4.16",
+    "styleproof": "4.4.17",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
