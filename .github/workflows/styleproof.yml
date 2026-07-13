@@ -20,7 +20,7 @@ jobs:
     env:
       E2E_BASE_URL: http://localhost:3000
       STYLEPROOF_VERSION: "4.4.9"
-      STYLEPROOF_MAP_STORE_TOKEN: ${{ github.token }}
+      STYLEPROOF_MAP_STORE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
         with:
