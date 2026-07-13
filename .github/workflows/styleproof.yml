@@ -70,9 +70,11 @@ jobs:
             pnpm build
             git checkout -- package.json pnpm-lock.yaml
             nohup node_modules/.bin/vite preview > /tmp/preview-base.log 2>&1 &
+            base_preview_pid=$!
             npx --yes wait-on http://localhost:3000
             PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "${{ github.event.pull_request.base.sha }}" --upload
-            pkill -f "vite preview" || true
+            kill "$base_preview_pid" || true
+            wait "$base_preview_pid" || true
 
             git checkout --force "${{ github.event.pull_request.head.sha }}"
             pnpm install --frozen-lockfile --config.minimum-release-age=0
@@ -82,12 +84,15 @@ jobs:
           pnpm exec playwright install --with-deps chromium
           pnpm build
           nohup node_modules/.bin/vite preview > /tmp/preview-head.log 2>&1 &
+          head_preview_pid=$!
           npx --yes wait-on http://localhost:3000
           if find "$MAP_ROOT/base" -name '*.har' -print -quit | grep -q .; then
             PATH="$PWD/node_modules/.bin:$PATH" STYLEPROOF_REPLAY_FROM="$MAP_ROOT/base" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
           else
             PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "${{ github.event.pull_request.head.sha }}" --upload
           fi
+          kill "$head_preview_pid" || true
+          wait "$head_preview_pid" || true
 
       # StyleProof v4.4.16
       - uses: BenSheridanEdwards/StyleProof@14250dc9e4659400703a412fa788e3f5ef881988
