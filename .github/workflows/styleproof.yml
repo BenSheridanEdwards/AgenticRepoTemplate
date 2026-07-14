@@ -35,11 +35,16 @@ jobs:
         name: Restore cached StyleProof maps
         shell: bash
         run: |
-          set +e
+          set -e
           MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
           rm -rf "$MAP_ROOT"
+          git checkout --force "${{ github.event.pull_request.base.sha }}"
+          set +e
           PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.base.sha }}" --dir base --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
           base_code=$?
+          set -e
+          git checkout --force "${{ github.event.pull_request.head.sha }}"
+          set +e
           PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.head.sha }}" --dir head --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
           head_code=$?
           set -e
@@ -82,8 +87,8 @@ jobs:
             PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
           fi
 
-      # StyleProof v4.4.18
-      - uses: BenSheridanEdwards/StyleProof@511387b3f47580217cb97ea4cf11d0c232a686a0
+      # StyleProof v4.4.19
+      - uses: BenSheridanEdwards/StyleProof@90d6e746549c6bb95f8222d2941b3fb432c93abe
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head
