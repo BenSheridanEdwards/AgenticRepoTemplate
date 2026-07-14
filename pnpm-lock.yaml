@@ -97,8 +97,8 @@ importers:
         specifier: ^12.1.0
         version: 12.1.0(jiti@2.6.1)
       styleproof:
-        specifier: 4.4.19
-        version: 4.4.19(@playwright/test@1.61.0)
+        specifier: 4.4.20
+        version: 4.4.20(@playwright/test@1.61.0)
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.15.41)(@types/node@22.19.21)(typescript@5.9.3)
@@ -3084,8 +3084,8 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
 
-  styleproof@4.4.19:
-    resolution: {integrity: sha512-MxLuz5EduRLprlMOEck5qmhnYJwJU+ayqaxFMAnliReGLQwBwEhfQsNQGpFEhYbkKbOvWBy3B+f/5agnBPvb2w==}
+  styleproof@4.4.20:
+    resolution: {integrity: sha512-4K88DPrDonAz7t8w4zdIi+ZetQWjblsn2lEe4cC+OeCsWsqgpwtkL/FynsRpxlZ+Q2tXULwlgd0JgssgIW1/DA==}
     engines: {node: '>=18'}
     hasBin: true
     peerDependencies:
@@ -6733,7 +6733,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  styleproof@4.4.19(@playwright/test@1.61.0):
+  styleproof@4.4.20(@playwright/test@1.61.0):
     dependencies:
       '@playwright/test': 1.61.0
       pngjs: 7.0.0
