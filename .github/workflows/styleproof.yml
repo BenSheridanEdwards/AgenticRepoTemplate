@@ -17,9 +17,6 @@ jobs:
   styleproof:
     name: Computed-style visual gate
     runs-on: ubuntu-latest
-    env:
-      E2E_BASE_URL: http://localhost:3000
-      STYLEPROOF_VERSION: "4.0.1"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,13 +35,21 @@ jobs:
         name: Restore cached StyleProof maps
         shell: bash
         run: |
+          set -e
+          MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
+          rm -rf "$MAP_ROOT"
+          git checkout --force "${{ github.event.pull_request.base.sha }}"
           set +e
-          rm -rf __stylemaps__
-          pnpm exec styleproof-map --restore --sha "${{ github.event.pull_request.base.sha }}" --dir base --base-dir __stylemaps__ --spec e2e/styleproof.spec.ts
+          PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.base.sha }}" --dir base --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
           base_code=$?
-          pnpm exec styleproof-map --restore --sha "${{ github.event.pull_request.head.sha }}" --dir head --base-dir __stylemaps__ --spec e2e/styleproof.spec.ts
+          set -e
+          git checkout --force "${{ github.event.pull_request.head.sha }}"
+          set +e
+          PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.head.sha }}" --dir head --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
           head_code=$?
           set -e
+          echo "base-hit=$([ "$base_code" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "head-hit=$([ "$head_code" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           if [ "$base_code" -eq 0 ] && [ "$head_code" -eq 0 ]; then
             echo "capture-needed=false" >> "$GITHUB_OUTPUT"
           else
@@ -56,33 +61,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf __stylemaps__
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
+          STYLEPROOF_VERSION="$(node -p "require('./node_modules/styleproof/package.json').version")"
 
-          git checkout --force "${{ github.event.pull_request.base.sha }}"
-          pnpm install --frozen-lockfile --config.minimum-release-age=0
-          pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
-          pnpm exec playwright install --with-deps chromium
-          pnpm build
-          nohup pnpm preview > /tmp/preview-base.log 2>&1 &
-          npx --yes wait-on http://localhost:3000
-          pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir base --base-dir __stylemaps__ --keep-har --no-upload
+          if [ "${{ steps.maps.outputs.base-hit }}" != 'true' ]; then
+            rm -rf "$MAP_ROOT"
+            git checkout --force "$BASE_SHA"
+            pnpm install --frozen-lockfile --config.minimum-release-age=0
+            pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
+            git checkout -- package.json pnpm-lock.yaml
+            PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
+            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "$BASE_SHA" --upload
 
-          git checkout --force "${{ github.event.pull_request.head.sha }}"
-          pnpm install --frozen-lockfile --config.minimum-release-age=0
-          pnpm exec playwright install --with-deps chromium
-          pkill -f "vite preview" || true
-          pnpm build
-          nohup pnpm preview > /tmp/preview-head.log 2>&1 &
-          npx --yes wait-on http://localhost:3000
-          if find __stylemaps__/base -name '*.har' -print -quit | grep -q .; then
-            STYLEPROOF_REPLAY_FROM=__stylemaps__/base pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir __stylemaps__ --no-upload
+            git checkout --force "$HEAD_SHA"
+            pnpm install --frozen-lockfile --config.minimum-release-age=0
           else
-            pnpm exec styleproof-map --spec e2e/styleproof.spec.ts --dir head --base-dir __stylemaps__ --no-upload
+            rm -rf "$MAP_ROOT/head"
+          fi
+          PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
+          if find "$MAP_ROOT/base" -name '*.har' -print -quit | grep -q .; then
+            PATH="$PWD/node_modules/.bin:$PATH" STYLEPROOF_REPLAY_FROM="$MAP_ROOT/base" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
+          else
+            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
           fi
 
-      # StyleProof v4.0.1
-      - uses: BenSheridanEdwards/StyleProof@9a2f2cd9ee8168eba67040633934c762454edc4a
+      # StyleProof v4.4.21
+      - uses: BenSheridanEdwards/StyleProof@f20851e105746c0a681f6d06728bdec145f9737a
         with:
-          baseline-dir: __stylemaps__/base
-          fresh-dir: __stylemaps__/head
+          baseline-dir: ${{ runner.temp }}/styleproof-maps/base
+          fresh-dir: ${{ runner.temp }}/styleproof-maps/head
           require-approval: true
