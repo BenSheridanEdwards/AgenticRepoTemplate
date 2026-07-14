@@ -87,8 +87,8 @@ jobs:
             PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
           fi
 
-      # StyleProof v4.4.20
-      - uses: BenSheridanEdwards/StyleProof@a03aa0059c8e71568d1c0bdd33eb0fded1c960e7
+      # StyleProof v4.4.21
+      - uses: BenSheridanEdwards/StyleProof@f20851e105746c0a681f6d06728bdec145f9737a
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head
