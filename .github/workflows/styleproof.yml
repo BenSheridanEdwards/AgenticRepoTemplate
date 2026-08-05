@@ -88,7 +88,7 @@ jobs:
           fi
 
       # StyleProof v4.4.21
-      - uses: BenSheridanEdwards/StyleProof@f20851e105746c0a681f6d06728bdec145f9737a
+      - uses: BenSheridanEdwards/StyleProof@81628143c82b69bc1c8bd3542e7fb3c618f1fa24
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head
