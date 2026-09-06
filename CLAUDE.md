@@ -28,6 +28,8 @@ This repo commits its own skills under `.claude/skills/`:
 - **`write-unit-tests`** — Jest + React Testing Library, behaviour-first.
 - **`pr-quality-contract`** — prepare proof-backed PRs with local checks,
   visual evidence, latest-sha CI status, risk, and explicit gaps.
+- **`show-me`** — create the smallest grounded visual explanation that removes
+  review ambiguity from a non-trivial PR.
 
 Install the external skill libraries once with `pnpm setup:agents`:
 
@@ -64,7 +66,7 @@ fails, fix the cause.
 
 ## Agent tooling
 
-This repo is wired for Claude Code with three tools:
+This repo is wired for Claude Code with four tools:
 
 - **Ponytail** — default lazy-coding mode (global plugin). `/ponytail lite|full|ultra`.
 - **GitNexus** — code-intelligence graph. MCP server in `.mcp.json` (`npx -y gitnexus mcp`,
@@ -74,6 +76,11 @@ This repo is wired for Claude Code with three tools:
   (`<!-- gitnexus:start/end -->`) and rewritten on every re-index; do not hand-edit inside it.
 - **Graphify** — `/graphify` builds a navigable knowledge graph under `graphify-out/`
   (gitignored). Use it for architecture and file-relationship questions.
+- **Show Me** — `/show-me` creates a concise visual explanation of a change.
+  Use it selectively on non-trivial PRs. Ground every label in real files,
+  symbols, states, or evidence. It supports the PR proof and never replaces
+  tests, StyleProof reports, screenshots, or exact-head CI. Read
+  `.claude/skills/show-me/REPOSITORY.md` with the upstream skill.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
