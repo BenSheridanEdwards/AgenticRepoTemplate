@@ -78,7 +78,7 @@ This repo is wired for Claude Code with three tools:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **MergeProof** (134 symbols, 144 relationships, 1 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **AgenticRepoTemplate** (236 symbols, 363 relationships, 12 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -102,10 +102,10 @@ This project is indexed by GitNexus as **MergeProof** (134 symbols, 144 relation
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/MergeProof/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/MergeProof/clusters` | All functional areas |
-| `gitnexus://repo/MergeProof/processes` | All execution flows |
-| `gitnexus://repo/MergeProof/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/AgenticRepoTemplate/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/AgenticRepoTemplate/clusters` | All functional areas |
+| `gitnexus://repo/AgenticRepoTemplate/processes` | All execution flows |
+| `gitnexus://repo/AgenticRepoTemplate/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 
