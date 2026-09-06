@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "expected": null,
+  "exclude": {},
+  "determinism": "replayed",
+  "dataResidue": "gate"
+}
