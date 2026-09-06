@@ -28,6 +28,18 @@ Every PR body must include:
 
 ## Ready means reviewable
 
+Before review, a non-trivial PR must include the smallest view that lets the
+reviewer understand the changed behaviour or structure without reconstructing
+it from the diff. Use `/show-me` when it is available. Choose one useful
+representation, such as a control-flow sketch, component tree, state
+transition, sequence, or focused before-and-after diff. Do not add a diagram to
+a trivial change.
+
+Every label must trace to real files, symbols, states, or evidence in the PR.
+Keep warnings and uncertainty visible. The view explains the change; it does
+not replace behavioural tests, StyleProof reports, screenshots, command output,
+or exact-head CI.
+
 Open a ready PR when the work is reviewable and the body has proof. Do not open
 placeholder PRs with missing verification and then call the work done. If a PR
 must be opened before CI finishes, say exactly which checks are pending and do

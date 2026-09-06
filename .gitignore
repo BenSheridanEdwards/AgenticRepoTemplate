@@ -26,6 +26,7 @@ graphify-out/*
 
 # GitNexus local repo index (generated — rebuild with `gitnexus analyze`)
 .gitnexus/
+.show-me/
 
 # Local env + editor noise
 .env
