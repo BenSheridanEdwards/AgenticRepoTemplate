@@ -7,15 +7,16 @@ through repository rules, automated checks, and recorded responsibility.
 
 ## Status
 
-Every rule below is a **target**. Each names the check planned to enforce it.
+Policy rules run in ESLint, scoped to these guardrails only; Biome keeps
+formatting and general lint. Every rule below is a **target**. Each names the check planned to enforce it.
 When a check lands, its row moves to **enforced** in the same PR. Until then,
 the current gates are the ones listed in
 [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md).
 
 | Area | Status | Planned enforcer |
 | --- | --- | --- |
-| React rules | target | `react/no-multi-comp`, React hooks and compiler lint rules, restricted syntax |
-| Structure and abstraction | target | Restricted imports, Fallow boundaries, custom route-boundary and task-file checks |
+| React rules | target | ESLint policy config: `react/no-multi-comp`, React hooks and compiler lint rules, restricted syntax; TanStack Query and React Hook Form as installed defaults |
+| Structure and abstraction | target | `src/routes/` structure, restricted imports, Fallow route boundaries, custom route-boundary and task-file checks |
 | Callback naming | target | `react/jsx-handler-names` plus a custom TypeScript-aware naming check |
 | Local hooks and CI | target | Husky pre-commit and pre-push parity with required CI checks |
 | Enforcement change approval | target | Trusted-baseline detection workflow, sticky PR comment, checkbox approval check |
@@ -39,11 +40,11 @@ the current gates are the ones listed in
 - Compose pages from existing global primitives.
 - Keep domain-specific components within their domain.
 - Colocate page-specific components, hooks, supporting logic, and tests by
-  route. In this template a route maps to a feature folder under
+  route under `src/routes/<route-name>/`. Domain code stays in
   `src/features/<feature-name>/`.
 - Import another route's code only through its public entry point.
 - Keep single-use presentation inline by default. Creating new component files
-  must be allowed by the task.
+  must be allowed by the task: a new feature task allows them.
 
 ## Callback naming
 
