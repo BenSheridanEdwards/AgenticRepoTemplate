@@ -151,8 +151,8 @@ approval with an audit trail) stay in the plan.
 
 **Installed today.** The single app keeps feature slices with co-located tests
 and shared modules with public entry points. PR0 maps them onto the role table.
-Fallow 2.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
-and Fallow 2.x also checks dead code, cycles, and complexity. The repo runs
+Fallow 3.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
+and Fallow 3.x also checks dead code, cycles, and complexity. The repo runs
 `strict` TypeScript, Biome with its recommended preset for lint and format,
 Jest, Playwright, axe, and StyleProof. Husky hooks mirror CI, a script validates
 PR bodies, and a hook refuses `--no-verify`.

@@ -39,12 +39,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: fallow-rs/fallow@v2
+      - uses: fallow-rs/fallow@v3.33.1
         with:
+          version: "3.33.1"
           command: audit
           no-cache: true
           comment: true
           review-comments: true
+      - name: Assert the Fallow CLI matches the package.json pin
+        if: ${{ !cancelled() }}
+        run: |
+          expected="fallow $(node -p "require('./package.json').devDependencies.fallow")"
+          actual="$(fallow --version | head -n 1)"
+          echo "pinned: ${expected}"
+          echo "ran:    ${actual}"
+          test "${actual}" = "${expected}"
 
   test:
     name: Unit + component tests
