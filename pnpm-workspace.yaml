@@ -33,18 +33,31 @@ minimumReleaseAgeExclude:
   - qs@6.16.0
   - fast-uri@3.1.6
   - fast-uri@3.1.3
+  - brace-expansion@1.1.20
+  - brace-expansion@1.1.21
+  - proxy-addr@2.0.8
+  - basic-ftp@6.2.1
+  - basic-ftp@6.2.3
+  - source-map-js@1.2.2
+  - compression@1.8.2
 
-# Force-patch a transitive high-severity advisory the CI security gate caught:
-# @lhci/cli (and its inquirer > external-editor chain) pulled tmp < 0.2.6, which
-# has a path-traversal vulnerability (GHSA-ph9p-34f9-6g65). Pin the patched line
-# across the whole tree.
+# Force-patch transitive advisories the CI security gate (`pnpm audit
+# --audit-level=high`) catches. Prefer published npm patches; for braces and
+# extract-zip no patched release exists yet, so we vendor the community fixes
+# under vendor/ with bumped versions (3.0.4 / 2.0.2) and point overrides at them.
+# Remove the file: overrides once upstream publishes.
 overrides:
   body-parser@<1.20.6: ^1.20.6
   brace-expansion@<1.1.16: ^1.1.16
   brace-expansion@<1.1.17: ^1.1.17
   brace-expansion@<1.1.18: ^1.1.18
+  brace-expansion@<1.1.20: ^1.1.21
+  brace-expansion@<1.1.21: ^1.1.21
+  braces: file:vendor/braces
   browserslist@<=4.28.6: ^4.28.7
-
+  basic-ftp@<=6.2.0: ^6.2.3
+  compression@<1.8.2: ^1.8.2
+  extract-zip: file:vendor/extract-zip
   fast-uri@>=3.0.0 <3.1.3: ^3.1.3
   fast-uri@>=3.0.0 <3.1.5: ^3.1.5
   fast-uri@>=3.0.0 <3.1.6: ^3.1.6
@@ -62,14 +75,16 @@ overrides:
   nanoid@<3.3.18: ^3.3.18
   postcss@<=8.5.17: ^8.5.18
   postcss@<=8.5.22: ^8.5.23
+  proxy-addr@>=1.1.0 <2.0.8: ^2.0.8
   qs@>=2.2.5 <6.16.0: ^6.16.0
   qs@>=6.14.2 <=6.15.3: ^6.15.4
+  source-map-js@>=1.0.0 <1.2.2: ^1.2.2
   tmp: '>=0.2.6'
   uuid@<11.1.1: ^11.1.1
 
-# No patched extract-zip release exists in npm yet. Keep this one advisory
-# explicit and reviewable rather than pretending an unavailable 2.0.2 can be
-# installed. Remove this exception as soon as a patched release is published.
+# GHSA-jmr9-qjv8-65gv is an older extract-zip advisory with no published
+# patched release. The newer GHSA-7pqw-9j4j-h8q3 is cleared via the vendored
+# extract-zip@2.0.2 override above. Remove this ignore when upstream publishes.
 auditConfig:
   ignoreGhsas:
     - GHSA-jmr9-qjv8-65gv
