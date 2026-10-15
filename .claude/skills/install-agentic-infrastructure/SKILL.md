@@ -64,10 +64,11 @@ Layer the infrastructure so every instruction has one owner.
    external tooling unless the target repo already vendors or pins those tools.
    Generated analysis indexes (`graphify-out/`, `.gitnexus/`) must be ignored
    by VCS and formatter/linter tools.
-7. **Set the Biome boundary.** Biome owns formatting, import ordering, and the
-   rules it actually implements. Use TypeScript, React Testing Library,
-   `jest-axe`, Playwright axe, Lighthouse, CodeQL, Fallow, and StyleProof for
-   the concerns ESLint plugins often covered.
+7. **Set lint ownership.** Biome owns formatting, import ordering, and general
+   lint. ESLint owns policy, React hooks, React Compiler, and React Doctor
+   rules, and the React Doctor CLI owns its project-level checks. Each rule has
+   one owner. Use TypeScript, React Testing Library, `jest-axe`, Playwright axe,
+   Lighthouse, CodeQL, Fallow, and StyleProof for the behaviour they observe.
 8. **Add PR proof.** Add `.github/pull_request_template.md` and
    `.agents/project/PR_QUALITY.md`; require local proof, CI status, visual proof
    or `N/A`, and residual risk.
@@ -81,8 +82,8 @@ Layer the infrastructure so every instruction has one owner.
 
 - Keep private project names, paths, secrets, and customer details out of public
   template repos.
-- Do not add ESLint, Prettier, a second test runner, or duplicate scanners
-  unless an ADR explains a concrete uncovered requirement.
+- Keep one owner per concern. A new formatter, lint engine, test runner, or
+  scanner needs an ADR that names the uncovered requirement it owns.
 - Do not weaken TypeScript, Biome, coverage, Lighthouse, StyleProof, or branch
   protection thresholds to make an installation green.
 - Prefer advisory local gates plus hard CI gates when a tool needs credentials,
