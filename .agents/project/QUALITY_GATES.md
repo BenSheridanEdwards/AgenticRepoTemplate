@@ -9,13 +9,13 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | --- | --- | --- |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |
+| Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, Fallow, coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
 | CI quality | `.github/workflows/ci.yml` | Context layer, typecheck, Biome, Fallow, tests, build, security. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets. |
-| CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison. |
+| CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison, posted on the PR as a visual diff report. |
 
 ## Tool ownership
 
@@ -37,9 +37,13 @@ the layer where the behaviour is observable.
 
 ## StyleProof operating notes
 
-StyleProof is the computed-style visual gate
-([`.github/workflows/styleproof.yml`](../../.github/workflows/styleproof.yml)).
-It is runnable locally, not CI-only:
+StyleProof is the visual change and regression tool. It runs in CI
+([`.github/workflows/styleproof.yml`](../../.github/workflows/styleproof.yml))
+on every pull request, compares the computed styles of the PR head against its
+base, and posts the visual diff on the PR as the `<!-- styleproof-report -->`
+comment. A reviewer, human or agent, checks that the report matches the
+intended UI changes and approves them. To debug a surface before you push, run
+the same capture and diff locally:
 
 - `pnpm styleproof:capture` captures a baseline (`STYLEMAP_DIR=base`) and
   `pnpm styleproof:diff` captures the head and diffs it against that baseline.
@@ -57,9 +61,9 @@ It is runnable locally, not CI-only:
   commit status.** Until a branch-protection rule requires that status, a red
   StyleProof report is advisory. Adding that rule is a post-clone setup step (see
   the README).
-- **Exact commit maps are reused.** Pre-push restores an existing SHA-keyed map
-  before capturing; CI captures only a missing head when the base is compatible,
-  and publishes every cold fallback for later runs.
+- **CI reuses exact commit maps.** The workflow restores the SHA-keyed maps for
+  the base and the head, captures only the maps that are missing, and publishes
+  each new capture for later runs.
 
 ## Placement rules
 
