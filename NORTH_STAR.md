@@ -153,9 +153,10 @@ and shared modules with public entry points. PR0 maps them onto the role table.
 Fallow 2.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
 and Fallow 2.x also checks dead code, cycles, and complexity. The repo runs
 `strict` TypeScript, Biome with its recommended preset for lint and format,
-Jest, Playwright, axe, and StyleProof. Husky hooks mirror the CI test, build,
-and E2E gates. StyleProof runs in CI and posts its visual diff on the PR for
-review. A script validates PR bodies, and a hook refuses `--no-verify`.
+Jest, Playwright, axe, and StyleProof. Husky hooks run the CI checks that work
+locally. StyleProof runs in CI and posts its visual diff on the PR, and a
+reviewer, human or agent, checks it against the intended UI changes. A script
+validates PR bodies, and a hook refuses `--no-verify`.
 
 **The plan.** PR0 moves the app into `apps/web`. Plan PRs 1 to 9 follow in
 order, with the Effect PR ahead of PR 3. Each PR that changes a tool also

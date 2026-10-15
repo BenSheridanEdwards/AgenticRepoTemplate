@@ -42,8 +42,8 @@ StyleProof is the visual change and regression tool. It runs in CI
 on every pull request, compares the computed styles of the PR head against its
 base, and posts the visual diff on the PR as the `<!-- styleproof-report -->`
 comment. A reviewer, human or agent, checks that the report matches the
-intended UI changes and approves them. To debug a surface before you push, run
-the same capture and diff locally:
+intended UI changes. A human with write access then approves the changes in the
+report. To debug a surface before you push, use the local scripts:
 
 - `pnpm styleproof:capture` captures a baseline (`STYLEMAP_DIR=base`) and
   `pnpm styleproof:diff` captures the head and diffs it against that baseline.
@@ -62,8 +62,9 @@ the same capture and diff locally:
   StyleProof report is advisory. Adding that rule is a post-clone setup step (see
   the README).
 - **CI reuses exact commit maps.** The workflow restores the SHA-keyed maps for
-  the base and the head, captures only the maps that are missing, and publishes
-  each new capture for later runs.
+  the base and the head. If the base map is missing, it captures both maps. If
+  only the head map is missing, it captures the head. It publishes each new
+  capture for later runs.
 
 ## Placement rules
 
