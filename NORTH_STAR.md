@@ -1,23 +1,28 @@
 # North Star
 
-> The direction this template moves in. Read it to understand *why* a gate
-> exists or *which* gate to build next. For how to work today, read
-> [`AGENTS.md`](AGENTS.md); for what is installed, read
-> [`.agents/project/TECH_STACK.md`](.agents/project/TECH_STACK.md) and
-> [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md).
+> A software factory is a repository that any agent can operate in, and is
+> forced to produce great code in line with the project's standards. It is
+> **agent-agnostic** — any model, any harness. What forces those standards is
+> the linter: tightly configured to flag bad code early, and red until the
+> agent closes the loop.
 
 ## The thesis
 
 **The factory is the repository.** Not the model, not the harness. The
-repository holds the machinery: types, lint, tests, CI, and the PR contract.
-Anyone should be able to bring their own agent, on any harness and any model,
-and find it almost impossible to land bad code.
+repository holds the machinery — types, lint, tests, CI, and the PR contract —
+so any agent, on any model or harness, is forced to meet the project's
+standards. The linter is the force: it flags bad code early and stays red
+until the agent closes the loop.
 
 Skills are valuable. They teach agents *how to do* a workflow — operating
 procedures that preferably come with the agent, with project-specific ones
 welcome in the repo when they earn their place. They are not the factory's
 enforcement layer. Code quality and conventions are enforced by lint and CI;
 skills do not compete for that job.
+
+For day-to-day operating rules see [`AGENTS.md`](AGENTS.md). For what is
+installed today see [`.agents/project/TECH_STACK.md`](.agents/project/TECH_STACK.md)
+and [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md).
 
 The reason the factory matters is that **slop compounds**. In a soft repository
 an agent slops a plan, slops the implementation, then reviews its own slop.
