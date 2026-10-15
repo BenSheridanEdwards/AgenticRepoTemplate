@@ -1,23 +1,27 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import config from '../styleproof.config';
 
-describe('StyleProof workflow', () => {
-  it('lets Playwright own the web server during cache-miss capture', () => {
-    const workflow = readFileSync(join(process.cwd(), '.github/workflows/styleproof.yml'), 'utf8');
+// styleproof ships ESM only, which this CJS Jest runtime cannot load.
+jest.mock('styleproof', () => ({ defineConfig: <T>(value: T) => value }));
 
-    expect(workflow).not.toContain('E2E_BASE_URL:');
-    expect(workflow).not.toContain('pnpm dev &');
-    expect(workflow).toContain('git checkout -- package.json pnpm-lock.yaml');
-    expect(workflow).toContain('node_modules/styleproof/bin/styleproof-map.mjs');
+const workflow = (name: string) =>
+  readFileSync(join(process.cwd(), '.github/workflows', name), 'utf8');
 
-    const pullRequestBaseExpression = '$' + '{{ github.event.pull_request.base.sha }}';
-    const pullRequestHeadExpression = '$' + '{{ github.event.pull_request.head.sha }}';
-    const baseCheckout = workflow.indexOf(`git checkout --force "${pullRequestBaseExpression}"`);
-    const baseRestore = workflow.indexOf(`--restore --sha "${pullRequestBaseExpression}"`);
-    const headCheckout = workflow.indexOf(`git checkout --force "${pullRequestHeadExpression}"`);
-    const headRestore = workflow.indexOf(`--restore --sha "${pullRequestHeadExpression}"`);
-    expect(baseCheckout).toBeLessThan(baseRestore);
-    expect(baseRestore).toBeLessThan(headCheckout);
-    expect(headCheckout).toBeLessThan(headRestore);
+describe('StyleProof review gate', () => {
+  it('blocks the merge until a reviewer approves style changes', () => {
+    expect(config.blocking).toBe(true);
+    expect(config.requireApproval).toBe(true);
+    expect(workflow('styleproof.yml')).toContain('require-approval: true');
+  });
+
+  it.each([
+    'styleproof.yml',
+    'styleproof-approve.yml',
+  ])('pins every StyleProof reference in %s to a release commit', (name) => {
+    const refs = workflow(name).match(/BenSheridanEdwards\/StyleProof[^@\s]*@\S+/g) ?? [];
+
+    expect(refs.length).toBeGreaterThan(0);
+    for (const ref of refs) expect(ref).toMatch(/@[0-9a-f]{40}$/);
   });
 });

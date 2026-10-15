@@ -57,9 +57,16 @@ It is runnable locally, not CI-only:
   commit status.** Until a branch-protection rule requires that status, a red
   StyleProof report is advisory. Adding that rule is a post-clone setup step (see
   the README).
-- **Exact commit maps are reused.** Pre-push restores an existing SHA-keyed map
-  before capturing; CI captures only a missing head when the base is compatible,
-  and publishes every cold fallback for later runs.
+- **CI captures both sides inside the job.** `styleproof-ci` captures the base
+  in a detached git worktree under the head's StyleProof release, so the PR
+  checkout never moves. Maps and the report stay workflow artifacts; nothing is
+  published to a map branch.
+- **The StyleProof workflows are hand-owned.** They are adapted from the
+  `styleproof-init` 7.7.0 templates (single job, artifact storage, review gate)
+  with this repo's Node and pnpm setup and commit-pinned StyleProof refs, so
+  `styleproof-init --upgrade` does not rewrite them. To upgrade, regenerate into
+  a scratch checkout and port the diff. `styleproof.config.ts` sets
+  `blocking: true`; the init default, `'advisory'`, turns the gate green.
 
 ## Placement rules
 
