@@ -22,6 +22,10 @@ task complete until `pnpm verify` and `pnpm e2e` are green.
       written reason.
 - [ ] **Code intelligence clean.** `pnpm fallow:audit` introduces no new dead
       code, circular dependencies, or complexity/architecture violations.
+- [ ] **Architecture checks pass.** `pnpm arch:check` passes: no forbidden
+      import, `docs/architecture/roles.mmd` matches `pnpm arch:diagram`, and
+      every `etc/*.api.md` matches the code (`pnpm api:report` after an
+      intended export change).
 - [ ] **Build succeeds.** `pnpm build` produces a clean production bundle.
 - [ ] **Accessible.** No axe violations (jest-axe in unit tests, `@axe-core/playwright`
       in the E2E run); interactive elements are reachable and labelled.
@@ -44,7 +48,7 @@ task complete until `pnpm verify` and `pnpm e2e` are green.
 ## The one-command proof
 
 ```bash
-pnpm verify   # typecheck → biome → fallow → unit tests → build → size
+pnpm verify   # typecheck → biome → fallow → architecture → unit tests → build → size
 pnpm e2e      # behaviour map + axe accessibility scan
 ```
 

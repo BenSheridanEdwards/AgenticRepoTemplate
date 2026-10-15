@@ -20,7 +20,10 @@ pnpm install          # install dependencies (Node ≥ 22, pnpm)
 pnpm setup:agents     # install the external agentic toolkit (one time)
 pnpm dev              # run the app at http://localhost:5173
 pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
-pnpm verify           # the full local gate suite (typecheck → biome → eslint → react doctor → fallow → tests → build)
+pnpm arch:check       # architecture gate, role diagram freshness, API report freshness
+pnpm arch:diagram     # regenerate docs/architecture/roles.mmd from .fallowrc.jsonc
+pnpm api:report       # regenerate etc/*.api.md after an intended export change
+pnpm verify           # the full local gate suite (typecheck → biome → eslint → react doctor → fallow → architecture → tests → build)
 pnpm e2e              # the end-to-end behaviour map
 ```
 

@@ -25,6 +25,9 @@ pnpm react-doctor
 step "Code intelligence (Fallow)"
 pnpm fallow:audit
 
+step "Architecture gate, role diagram, and API reports (Fallow + API Extractor)"
+pnpm arch:check
+
 step "Unit + component tests with coverage (Jest + RTL)"
 pnpm test:coverage
 

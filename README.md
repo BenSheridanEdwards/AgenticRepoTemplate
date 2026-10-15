@@ -212,7 +212,9 @@ Non-functionals are held continuously, not only at audit time: Lighthouse keeps
 an accessibility floor of 0.9 and a performance target of 0.8 in
 [`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
 [`.size-limit.json`](.size-limit.json), and Fallow checks dead code, cycles,
-and complexity drift on every commit.
+and complexity drift on every commit. Fallow also owns the architecture graph,
+gate, and role diagram, all read from `.fallowrc.jsonc`, and API Extractor keeps
+a committed report of each public module's exports.
 
 ## Quick start
 
@@ -221,7 +223,7 @@ pnpm install
 pnpm setup:agents     # one time: external agentic toolkit
 pnpm dev              # http://localhost:5173
 pnpm lint:policy      # ESLint policy, React hooks, and React Compiler rules
-pnpm verify           # typecheck, biome, eslint, react doctor, fallow, tests with coverage, build, size
+pnpm verify           # typecheck, biome, eslint, react doctor, fallow, architecture, tests with coverage, build, size
 pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
 ```
 
@@ -311,24 +313,28 @@ jest.config.ts / jest.setup.ts  Unit and component tests (RTL and jest-axe), cov
 playwright.config.ts        One browser harness for E2E and StyleProof.
 .size-limit.json            Bundle-size budget.
 lighthouserc.json           Lighthouse budget (accessibility floor and performance).
-.fallowrc.jsonc             Fallow config; ignores runtime-loaded plugins.
+.fallowrc.jsonc             Fallow config: the role zones and rules, plus runtime-loaded plugins.
 pnpm-workspace.yaml         pnpm settings: trusted builds and security overrides.
 tsconfig.json               strict, with extra strictness; the first gate.
 vite.config.ts              The runnable carrier.
 scripts/
   setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus, Ponytail.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
+  fallow-roles.mjs          Renders docs/architecture/roles.mmd from the Fallow graph.
+  api-report.mjs            Writes and checks the etc/*.api.md API Extractor reports.
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
   validate-pr-body.mjs      Validates the PR body sections, proof, and title (pnpm validate:pr).
   enforcement-approval.mjs  Lists protected files in a sticky comment and sets the enforcement-approval status.
   verify-gates.sh           Local mirror of the CI gate suite.
+docs/architecture/roles.mmd  Generated role diagram (pnpm arch:diagram).
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
 e2e/
   app.spec.ts               The behaviour map.
   accessibility.spec.ts     Real-browser axe scan (WCAG A and AA, including contrast).
   styleproof.spec.ts        StyleProof surfaces (computed-style capture).
 src/features/threshold-counter/  The one small but real feature.
+etc/                        Generated API Extractor reports, one per public module (pnpm api:report).
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
 graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). Rebuild with graphify.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.
@@ -338,7 +344,7 @@ graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). R
 
 | Tool | Role | Link |
 | --- | --- | --- |
-| **Fallow** | Code intelligence: dead code, cycles, complexity, drift | <https://github.com/fallow-rs/fallow> |
+| **Fallow** | Code intelligence: dead code, cycles, complexity, architecture gate and role diagram | <https://github.com/fallow-rs/fallow> |
 | **StyleProof** | Computed-style visual regression gate | <https://github.com/BenSheridanEdwards/styleproof> |
 | **ArchitectPlaybook** | Repo health-check audits | <https://github.com/BenSheridanEdwards/ArchitectPlaybook> |
 | **graphify** | Token-efficient codebase context for the audits | <https://graphify.net> |
