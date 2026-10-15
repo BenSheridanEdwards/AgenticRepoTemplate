@@ -79,3 +79,4 @@ It is runnable locally, not CI-only:
    changes.
 3. Add an ADR when adding, removing, or swapping a tool owner.
 4. Run the changed gate directly, then `pnpm verify` and `pnpm e2e`.
+<!-- Lighthouse skip-path proof. -->
