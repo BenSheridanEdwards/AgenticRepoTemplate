@@ -128,12 +128,13 @@ export function fingerprint(protectedFiles) {
 
 /**
  * Render a path as a table-safe code span. Filenames come from the PR author,
- * so newlines, pipes and backticks are neutralised to keep each row one line.
+ * so backslashes, newlines, pipes and backticks are neutralised to keep each row one line.
  *
  * @param {string} path
  */
 function codeCell(path) {
   return `\`${path
+    .replace(/\\/g, '\\\\')
     .replace(/[\r\n]+/g, ' ')
     .replace(/`/g, "'")
     .replace(/\|/g, '\\|')}\``;
