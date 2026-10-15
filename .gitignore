@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Intermediates of pnpm arch:diagram and pnpm api:report
+.cache/
+
 # Test + coverage artefacts
 coverage/
 playwright-report/

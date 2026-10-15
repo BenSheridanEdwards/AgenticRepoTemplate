@@ -21,6 +21,7 @@
     "react-doctor": "react-doctor . --no-lint --no-supply-chain --no-telemetry --blocking warning --yes",
     "fallow:audit": "bash scripts/fallow-audit.sh",
     "arch:gate": "fallow architecture -q",
+    "arch:diagram": "node scripts/fallow-roles.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
