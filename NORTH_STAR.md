@@ -113,8 +113,9 @@ A person approves, merges, and deploys.
 ## Decisions settled on 2026-10-15
 
 The 2026-10-15 gap review settled eight decisions that shape the plan. The
-[decision record pull request](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/pulls)
-adds the reasoning as ADRs in `.agents/decisions/`.
+reasoning lives as ADRs in
+[`.agents/decisions/`](.agents/decisions/), indexed by
+[0006](.agents/decisions/0006-gap-review-decision-set.md).
 
 1. **Protected enforcement paths.** Root configs, `.github/**`, `.claude/**`,
    `.husky/**`, `scripts/**`, `tooling/**`, the lockfile, and the agent docs are
