@@ -178,4 +178,12 @@ describe('gate wiring', () => {
     expect(prePush).toMatch(/sh scripts\/require-up-to-date-main\.sh\n/);
     expect(prePush.indexOf('require-up-to-date-main.sh')).toBeLessThan(prePush.indexOf('pnpm '));
   });
+
+  it('runs the strict check in CI against the PR head commit, not the merge commit', () => {
+    const ci = read('.github/workflows/ci.yml');
+    const headSha = '$' + '{{ github.event.pull_request.head.sha }}';
+    expect(ci).toContain(`ref: ${headSha}`);
+    expect(ci).toContain('fetch-depth: 0');
+    expect(ci).toMatch(/run: sh scripts\/require-up-to-date-main\.sh\n/);
+  });
 });
