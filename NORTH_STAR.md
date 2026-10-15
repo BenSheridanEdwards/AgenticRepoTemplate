@@ -2,158 +2,189 @@
 
 > A software factory is a repository that any agent can operate in, and is
 > forced to produce great code in line with the project's standards. It is
-> **agent-agnostic** — any model, any harness. What forces those standards is
-> the linter: tightly configured to flag bad code early, and red until the
-> agent closes the loop.
+> **agent-agnostic** and works the same for any model and any harness. The
+> linter forces those standards. It is tightly configured to flag bad code
+> early, and it stays red until the agent closes the loop.
 
-## The thesis
+## The factory is the repository
 
-**The factory is the repository.** Not the model, not the harness. The
-repository holds the machinery — types, lint, tests, CI, and the PR contract —
-so any agent, on any model or harness, is forced to meet the project's
-standards. The linter is the force: it flags bad code early and stays red
-until the agent closes the loop.
-
-Skills are valuable. They teach agents *how to do* a workflow — operating
-procedures that preferably come with the agent, with project-specific ones
-welcome in the repo when they earn their place. They are not the factory's
-enforcement layer. Code quality and conventions are enforced by lint and CI;
-skills do not compete for that job.
-
-For day-to-day operating rules see [`AGENTS.md`](AGENTS.md). For what is
-installed today see [`.agents/project/TECH_STACK.md`](.agents/project/TECH_STACK.md)
-and [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md).
+The repository holds the machinery: types, lint, tests, CI, and the PR
+contract. Any agent, on any model or harness, meets the project's standards
+because the repository refuses changes that miss them. The linter carries most
+of that load.
 
 The reason the factory matters is that **slop compounds**. In a soft repository
 an agent slops a plan, slops the implementation, then reviews its own slop.
 Repeat that across many contributors and many agents and the codebase degrades,
-approvals slow down, and velocity falls over time. The fix is not a better
-prompt. It is a repository that refuses bad changes, and refuses every route
-around the refusal.
+approvals slow down, and velocity falls. The fix is a repository that refuses
+bad changes and closes every route around each refusal.
 
 This extends the beliefs in the [README](README.md): executable standards beat
-written standards, and consistency is infrastructure. Repo docs still matter
-for domain-specific knowledge; they inform the agent. They do not replace the
-gates.
+written standards, and consistency is infrastructure. Domain docs in the repo
+inform the agent. The gates decide what lands.
 
-**What success looks like:** any person's agent, on any harness or model, can
+For day-to-day operating rules see [`AGENTS.md`](AGENTS.md). For what is
+installed today see [`.agents/project/TECH_STACK.md`](.agents/project/TECH_STACK.md)
+and [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md).
+Settled decisions live as ADRs in [`.agents/decisions/`](.agents/decisions/).
+
+**What success looks like.** Any person's agent, on any harness or model, can
 clone a repository built from this template and open only pull requests a named
 human can approve or redirect in minutes. The repository, not the agent, makes
 the wrong change hard to land. Every written rule names the check that enforces
 it. Every PR names the outcome it moves, proves it with committed evidence, and
-states what would falsify it. No gate weakens without a human signature.
+states what would falsify it. Every gate change carries a human signature.
 
 ## Principles
 
 ### 1. Lint beats instructions
 
-The right comparison is lint versus agent instructions and repo prose
-(`AGENTS.md`-style rules), not lint versus skills. Those are different jobs.
+Compare lint with agent instructions and repo prose, such as `AGENTS.md`-style
+rules. Prose rules get skipped and go stale. A lint rule closes the loop. It
+blocks the change and tells the agent what broke and how to fix it. When an
+agent gets something wrong twice, write a rule.
 
-Prose instructions in the repo do little to stop slop. They get ignored and go
-out of date. Linting is the guard against slop: a lint rule closes the loop —
-it blocks the change and tells the agent what it broke and how to fix it. When
-an agent gets something wrong twice, the answer is a rule, not another
-paragraph.
+Skills are agent operating procedures. They teach an agent how to run a
+workflow, and they are valuable. Most ship with the agent, and the repo adds
+project-specific skills when they earn their place. Lint and CI enforce code
+quality. Skills guide how the agent works.
 
-Skills are a different thing entirely. They provide operating procedures for
-how an agent should behave and how to run a workflow. They have nothing to do
-with linting and should not be compared as if they competed for the same job.
-Do not use skills to enforce code standards. Prefer skills that ship with the
-agent; put project-specific skills in the repo when useful, never as the
-mechanism that enforces quality. Domain docs in the repo remain welcome for
-project knowledge.
+A standard with no gate behind it is a target and is labelled as one. A rule is
+finished when the routes around it are closed too: aliases, re-exports, inline
+disables, and edits to the rule's own config. Enforcement paths are protected
+by default, so a change to any rule needs a human sign-off.
 
-A standard with no gate behind it is a target, and is labelled as one.
+Each lint engine owns its own concerns. Biome owns format and general lint.
+ESLint owns policy rules and the React hooks and Compiler rules. React Doctor
+rules block through ESLint where a plugin rule exists, and React Doctor itself
+enforces the rest in CI.
 
-A rule is only finished when the routes around it are closed too: aliases,
-re-exports, inline disables, and edits to the rule's own config.
+### 2. One role table defines the structure
 
-Biome owns lint. Custom rules try Biome first; adding ESLint for rules Biome
-cannot express is an ADR, not a quiet addition.
+[ARCHITECTURE.md](.agents/project/ARCHITECTURE.md) holds one table that maps
+each role to its folder, its allowed imports, and the Fallow zone that enforces
+it. Routes compose pages from features and the UI package, and routes never
+import other routes. Features hold domain code with co-located tests. Shared
+code lives in a feature or in the UI package. Every folder is named for its
+role, so a reviewer can see a PR's scope from the paths it touches.
 
-### 2. Co-locate by feature
-
-A feature owns its view, state wiring, logic, and tests in one folder under
-`src/features/`, as [ARCHITECTURE.md](.agents/project/ARCHITECTURE.md)
-describes. A reviewer can see a PR's exact scope from the paths it touches.
-
-There are no junk drawers. Broad `lib/` and `utils/` folders are where
-unrelated helpers pile up and agents learn to dump code, so they do not exist.
-`src/shared/` is not a junk drawer: each module in it is a deliberate shared
-primitive with its own public `index.ts`, and moving code there is a decision,
-not a default.
-
-### 3. Duplicate feature UI; share only primitives
+### 3. Duplicate feature UI and share UI components
 
 Generated code is cheap and coupling is expensive. Feature-level UI and helpers
-may be duplicated case by case rather than abstracted early. The exception is
-global primitives (components such as buttons, and style tokens): those exist
-once, and lint enforces their use.
+may be duplicated case by case. Global UI components, such as buttons, and style
+tokens exist once in the UI package, and lint enforces their use.
 
 ### 4. The compiler is a gate
 
-`strict` TypeScript is the first gate. Contracts should be typed end to end, so
-a schema change makes the compiler list everything else that must change.
+`strict` TypeScript is the first gate. Effect Schema defines every schema,
+including form validation through the React Hook Form resolver and tRPC inputs.
+A schema change makes the compiler list everything else that must change. The
+Effect runtime runs only at integration boundaries, and pure logic stays as
+plain functions.
 
-### 5. Proof the agent can see
+### 5. State lives in custom hooks
+
+`useState` and `useEffect` appear only inside custom `use*` hooks, and a lint
+rule enforces that. Components calculate derived values during render. TanStack
+Query owns server state and React Hook Form owns form state.
+
+### 6. Proof the agent can see
 
 Agents verify their own work through the behaviour map (Playwright E2E), the
 accessibility scan, and StyleProof's computed-style diff. Behaviour and looks
 are separate truths and both are checked.
 
-### 6. Fast CI
+### 7. Fast CI
 
 CI is the whole feedback loop, so its speed is the agent's iteration speed.
 Keep it fast, and keep local hooks mirroring it.
 
-### 7. The unit of delivery is a merge-ready PR
+### 8. The unit of delivery is a merge-ready PR
 
 Every piece of work ends as one pull request that is:
 
-- **green** on every required check, on the latest commit;
-- **up to date with `main`**;
-- **described well enough to approve from**, following the
+- **Green** on every required check, on the latest commit.
+- **Up to date with `main`**.
+- **Described well enough to approve from**, following the
   [PR quality contract](.agents/project/PR_QUALITY.md).
 
-The agent never merges and never deploys. A person approves and merges.
+A person approves, merges, and deploys.
+
+## Decisions settled on 2026-10-15
+
+The 2026-10-15 gap review settled eight decisions that shape the plan. The
+[decision record pull request](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/pulls)
+adds the reasoning as ADRs in `.agents/decisions/`.
+
+1. **Protected enforcement paths.** Root configs, `.github/**`, `.claude/**`,
+   `.husky/**`, `scripts/**`, `tooling/**`, the lockfile, and the agent docs are
+   protected by default. Content checks catch new suppression comments,
+   deleted, skipped, or `.only` tests, and coverage excludes.
+2. **Monorepo.** This template becomes the reference monorepo and drops the
+   two demo features.
+3. **Order.** PR0 moves the app into `apps/web` unchanged. The nine
+   enforcement PRs then target `apps/web`.
+4. **Lint ownership.** Biome owns format and general lint. ESLint owns policy,
+   hooks, and compiler rules. React Doctor rules block through ESLint where
+   possible and through React Doctor in CI otherwise.
+5. **Effect.** Effect Schema defines every schema. The Effect runtime runs only
+   at integration boundaries. The Effect PR lands before the TanStack Query and
+   React Hook Form PR.
+6. **State.** `useState` and `useEffect` live only inside custom `use*` hooks.
+7. **Structure.** ARCHITECTURE.md holds one role table. Routes never import
+   routes, and shared code lives in features or the UI package.
+8. **Architecture checks.** Fallow 3.x owns the dependency graph, the
+   architecture gate, and the diagram. CI fails on a forbidden import and on a
+   stale committed role diagram. Each package commits an API Extractor report,
+   so export changes show as a reviewed diff. Fallow replaces
+   dependency-cruiser in the plan.
+
+### Considered and set aside
+
+The review weighed and set aside five items: the new-file rule, the trials, a
+separate agent identity, a separate approval-check decision, and a guardrails
+PR form. Plan PR 8 (enforcement-change detection) and plan PR 9 (checkbox
+approval with an audit trail) stay in the plan.
 
 ## Where the template stands
 
-**Installed today:** feature slices under `src/features/` with co-located tests;
-`src/shared/` modules with public surfaces; Fallow boundary zones that fail on
-cross-feature imports (`.fallowrc.jsonc`); `strict` TypeScript; Biome for lint
-and format (recommended preset, no custom rules yet); Fallow for dead code,
-cycles, and complexity; Jest, Playwright, axe, and StyleProof; husky hooks
-mirroring CI; PR body validation; and a hook that refuses `--no-verify`.
+**Installed today.** The single app keeps feature slices with co-located tests
+and shared modules with public entry points. PR0 maps them onto the role table.
+Fallow 2.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
+and Fallow 2.x also checks dead code, cycles, and complexity. The repo runs
+`strict` TypeScript, Biome with its recommended preset for lint and format,
+Jest, Playwright, axe, and StyleProof. Husky hooks mirror CI, a script validates
+PR bodies, and a hook refuses `--no-verify`.
 
-**Next machinery (targets — land each as its own merge-ready PR):**
+**The plan.** PR0 moves the app into `apps/web`. Plan PRs 1 to 9 follow in
+order, with the Effect PR ahead of PR 3. Each PR that changes a tool also
+updates `TECH_STACK.md` and `QUALITY_GATES.md` to match. Ticketed forward work
+with acceptance criteria lives in [`TODO.md`](TODO.md).
 
 | Target | What it adds | Status |
 | --- | --- | --- |
-| No junk drawers | `lib/` and `utils/` folders fail a check, not just a convention | Not enforced |
-| Rule → enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Not present |
-| React Doctor | React rules that fail CI, run beside Biome | Target; ADR on the lint stack before install |
-| Ban casual `useState`/`useEffect` | Raw state and effect hooks need a stated reason a purpose-built tool will not work | Not enforced; current features still use them |
-| TypeScript Effect | `effect` with Effect Schema for new typed schemas | Not installed |
-| `REVIEW.md` (Sarah's BUGBOT.md idea) | Human-written review rules for PR review bots, after lint, never instead of it | Not present |
+| Monorepo | The app in `apps/web`, then `apps/api` and `packages/ui` | Decided, PR0 |
+| Lint ownership | ESLint for policy, hooks, and compiler rules beside Biome | Decided, PR 1 |
+| React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 1 |
+| Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 3 |
+| State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Decided, PR 6 |
+| Protected enforcement paths | Enforcement-change detection, then checkbox approval with an audit trail | Decided, PRs 8 and 9 |
+| Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
+| Role-named folders | `lib/` and `utils/` folders fail a check | Target |
+| Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Target |
+| `REVIEW.md` | Human-written rules for automated PR review, read after lint | Target |
 | Cloud agents | Agents triggered from tickets, alerts, or schedules | Last, once the repository is factory-shaped |
-
-This document names the factory method and the next machinery. Ticketed forward
-work with acceptance criteria lives in [`TODO.md`](TODO.md). Adding a tool is
-an ADR-level decision under [`TECH_STACK.md`](.agents/project/TECH_STACK.md);
-Biome stays the owner of lint and format until an ADR says otherwise.
 
 ## Done criteria for a new rule
 
 A standard moves from target to installed when:
 
-1. a hook, script, or workflow enforces it and fails on a deliberate violation;
-2. it passes on the clean tree and runs on a clean checkout in CI;
-3. the known routes around it are covered;
-4. the guidance in `.agents/` names the gate beside the rule.
+1. A hook, script, or workflow enforces it and fails on a deliberate violation.
+2. It passes on the clean tree and runs on a clean checkout in CI.
+3. Checks cover the known routes around it.
+4. The guidance in `.agents/` names the gate beside the rule.
 
-Until then, docs describe it as a target, never as current fact.
+Until then, docs describe it as a target.
 
 ## Sources
 
@@ -161,7 +192,3 @@ Until then, docs describe it as a target, never as current fact.
   <https://x.com/sarahfim/status/2108298553823203613>
 - Sarah Fim, "How to build an anti-slop software factory for teams of 30+":
   <https://x.com/sarahfim/status/2109736893198016898>
-
-This template keeps skills first-class for agent behaviour. Where Sarah sets
-skills aside relative to the factory, we diverge: skills teach workflows;
-lint and CI enforce standards.
