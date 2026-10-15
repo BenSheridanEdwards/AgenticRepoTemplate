@@ -20,6 +20,7 @@
     "lint:policy": "eslint --max-warnings=0 .",
     "react-doctor": "react-doctor . --no-lint --no-supply-chain --no-telemetry --blocking warning --yes",
     "fallow:audit": "bash scripts/fallow-audit.sh",
+    "arch:gate": "fallow architecture -q",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

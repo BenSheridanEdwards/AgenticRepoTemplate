@@ -56,6 +56,14 @@ jobs:
           echo "pinned: ${expected}"
           echo "ran:    ${actual}"
           test "${actual}" = "${expected}"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Architecture gate (forbidden imports)
+        run: pnpm arch:gate
 
   test:
     name: Unit + component tests
