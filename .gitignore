@@ -40,3 +40,5 @@ graphify-out/*
 
 # Claude Code agent tooling (GitNexus index, Graphify output, local settings)
 graphify-out/
+styleproof-audit.json
+stylemaps/
