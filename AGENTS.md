@@ -53,6 +53,7 @@ stdlib or native platform features before adding abstractions or dependencies.
 
 | Need | File |
 | --- | --- |
+| Agent guardrails and how they are enforced | `GUARDRAILS.md` |
 | How the agentic infrastructure is layered | `.agents/project/AGENTIC_INFRASTRUCTURE.md` |
 | The pattern to follow | `.agents/project/ARCHITECTURE.md` |
 | Naming, imports, errors | `.agents/project/CONVENTIONS.md` |
