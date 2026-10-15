@@ -8,20 +8,28 @@
 
 ## The thesis
 
-**The factory is the repository.** Not the model, not the harness, not the
-skills. The repository holds the machinery: types, lint, tests, CI, and the PR
-contract. Anyone should be able to bring their own agent, on any harness and
-any model, and find it almost impossible to land bad code.
+**The factory is the repository.** Not the model, not the harness. The
+repository holds the machinery: types, lint, tests, CI, and the PR contract.
+Anyone should be able to bring their own agent, on any harness and any model,
+and find it almost impossible to land bad code.
 
-The reason is that **slop compounds**. In a soft repository an agent slops a
-plan, slops the implementation, then reviews its own slop. Repeat that across
-many contributors and many agents and the codebase degrades, approvals slow
-down, and velocity falls over time. The fix is not a better prompt. It is a
-repository that refuses bad changes, and refuses every route around the
-refusal.
+Skills are valuable. They teach agents *how to do* a workflow — operating
+procedures that preferably come with the agent, with project-specific ones
+welcome in the repo when they earn their place. They are not the factory's
+enforcement layer. Code quality and conventions are enforced by lint and CI;
+skills do not compete for that job.
+
+The reason the factory matters is that **slop compounds**. In a soft repository
+an agent slops a plan, slops the implementation, then reviews its own slop.
+Repeat that across many contributors and many agents and the codebase degrades,
+approvals slow down, and velocity falls over time. The fix is not a better
+prompt. It is a repository that refuses bad changes, and refuses every route
+around the refusal.
 
 This extends the beliefs in the [README](README.md): executable standards beat
-written standards, and consistency is infrastructure.
+written standards, and consistency is infrastructure. Repo docs still matter
+for domain-specific knowledge; they inform the agent. They do not replace the
+gates.
 
 **What success looks like:** any person's agent, on any harness or model, can
 clone a repository built from this template and open only pull requests a named
@@ -32,16 +40,26 @@ states what would falsify it. No gate weakens without a human signature.
 
 ## Principles
 
-### 1. Lint beats skills
+### 1. Lint beats instructions
 
-Skills and prose are advisory. They get ignored and go out of date. A lint
-rule closes the loop: it blocks the change and tells the agent what it broke
-and how to fix it. When an agent gets something wrong twice, the answer is a
-rule, not another paragraph.
+The right comparison is lint versus agent instructions and repo prose
+(`AGENTS.md`-style rules), not lint versus skills. Those are different jobs.
 
-Skills stay useful for repeated *workflows* (the PR contract, installing
-gates). They do not own *standards*. A standard with no gate behind it is a
-target, and is labelled as one.
+Prose instructions in the repo do little to stop slop. They get ignored and go
+out of date. Linting is the guard against slop: a lint rule closes the loop —
+it blocks the change and tells the agent what it broke and how to fix it. When
+an agent gets something wrong twice, the answer is a rule, not another
+paragraph.
+
+Skills are a different thing entirely. They provide operating procedures for
+how an agent should behave and how to run a workflow. They have nothing to do
+with linting and should not be compared as if they competed for the same job.
+Do not use skills to enforce code standards. Prefer skills that ship with the
+agent; put project-specific skills in the repo when useful, never as the
+mechanism that enforces quality. Domain docs in the repo remain welcome for
+project knowledge.
+
+A standard with no gate behind it is a target, and is labelled as one.
 
 A rule is only finished when the routes around it are closed too: aliases,
 re-exports, inline disables, and edits to the rule's own config.
@@ -104,21 +122,22 @@ and format (recommended preset, no custom rules yet); Fallow for dead code,
 cycles, and complexity; Jest, Playwright, axe, and StyleProof; husky hooks
 mirroring CI; PR body validation; and a hook that refuses `--no-verify`.
 
-**Next machinery (not installed, targets only):**
+**Next machinery (targets — land each as its own merge-ready PR):**
 
 | Target | What it adds | Status |
 | --- | --- | --- |
 | No junk drawers | `lib/` and `utils/` folders fail a check, not just a convention | Not enforced |
 | Rule → enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Not present |
-| React Doctor | React rules that fail CI, run beside Biome | Not installed; needs an ADR on the lint stack |
+| React Doctor | React rules that fail CI, run beside Biome | Target; ADR on the lint stack before install |
 | Ban casual `useState`/`useEffect` | Raw state and effect hooks need a stated reason a purpose-built tool will not work | Not enforced; current features still use them |
 | TypeScript Effect | `effect` with Effect Schema for new typed schemas | Not installed |
 | `REVIEW.md` (Sarah's BUGBOT.md idea) | Human-written review rules for PR review bots, after lint, never instead of it | Not present |
 | Cloud agents | Agents triggered from tickets, alerts, or schedules | Last, once the repository is factory-shaped |
 
-Each target lands as its own merge-ready PR. Adding a tool is an ADR-level
-decision under [`TECH_STACK.md`](.agents/project/TECH_STACK.md); Biome stays
-the owner of lint and format until an ADR says otherwise.
+This document names the factory method and the next machinery. Ticketed forward
+work with acceptance criteria lives in [`TODO.md`](TODO.md). Adding a tool is
+an ADR-level decision under [`TECH_STACK.md`](.agents/project/TECH_STACK.md);
+Biome stays the owner of lint and format until an ADR says otherwise.
 
 ## Done criteria for a new rule
 
@@ -131,24 +150,13 @@ A standard moves from target to installed when:
 
 Until then, docs describe it as a target, never as current fact.
 
-## What this is not
-
-- **Not a roadmap.** It names direction and the next machinery, not every
-  ticket. Forward work with acceptance criteria lives in [`TODO.md`](TODO.md).
-- **Not a claim of current enforcement.** React Doctor, Effect, a hook ban, and
-  `REVIEW.md` are not here yet. ESLint is not part of this stack; React Doctor
-  lands beside Biome only after an ADR if GritQL cannot express the rule.
-- **Not a product north star.** It describes the factory method this template
-  encodes, not any product built with it.
-
 ## Sources
 
 - Sarah Fim, "Agents ≠ Software Factory" (video post):
   <https://x.com/sarahfim/status/2108298553823203613>
 - Sarah Fim, "How to build an anti-slop software factory for teams of 30+":
   <https://x.com/sarahfim/status/2109736893198016898>
-- FLEET PR #2166, `feat(lint): make the repository the factory`, the base for
-  these ideas: <https://github.com/BenSheridanEdwards/FLEET/pull/2166>
-- Internal factory brief for this template (2026-10-15), which condenses the
-  sources above, proposes the success statement, and orders follow-on PRs
-  (truth fixes, gate manifest, PR contract, lint guard, lint-is-law).
+
+This template keeps skills first-class for agent behaviour. Where Sarah sets
+skills aside relative to the factory, we diverge: skills teach workflows;
+lint and CI enforce standards.
