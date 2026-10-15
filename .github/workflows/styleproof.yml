@@ -71,7 +71,7 @@ jobs:
             git checkout --force "$BASE_SHA"
             pnpm install --frozen-lockfile --config.minimum-release-age=0
             pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
-            git checkout -- package.json pnpm-lock.yaml
+            git checkout -- package.json pnpm-lock.yaml vendor/extract-zip/cli.js
             PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
             PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "$BASE_SHA" --upload
 
