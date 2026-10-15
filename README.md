@@ -301,6 +301,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
     lighthouse.yml          Performance and accessibility budget on PRs.
     styleproof.yml          Computed-style visual gate (PR head vs base).
     styleproof-approve.yml  Per-change visual sign-off on the default branch.
+    enforcement-approval.yml  Sign-off gate for enforcement-path changes (main's copy judges each PR).
 SECURITY.md                 Vulnerability disclosure policy.
 biome.json                  Lint, format, import order (one tool).
 commitlint.config.ts        Conventional Commits.
@@ -318,6 +319,7 @@ scripts/
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
   validate-pr-body.mjs      Validates the PR body sections, proof, and title (pnpm validate:pr).
+  enforcement-approval.mjs  Lists protected files in a sticky comment and sets the enforcement-approval status.
   verify-gates.sh           Local mirror of the CI gate suite.
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
 e2e/

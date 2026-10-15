@@ -16,6 +16,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets. |
 | CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison. |
+| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` | `enforcement-approval` status stays red until a write-access reviewer approves changes to enforcement paths. |
 
 ## Tool ownership
 
@@ -60,6 +61,30 @@ It is runnable locally, not CI-only:
 - **Exact commit maps are reused.** Pre-push restores an existing SHA-keyed map
   before capturing; CI captures only a missing head when the base is compatible,
   and publishes every cold fallback for later runs.
+
+## Enforcement approval
+
+[`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
+applies [ADR 0007](../decisions/0007-protect-enforcement-paths-by-default.md):
+changes to the files that define the gates wait for a maintainer's sign-off.
+
+- **Protected areas**, checked in order by
+  [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs):
+  `pnpm-lock.yaml`; agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
+  `.agents/**`, `agents/**`); `.github/**`; `.claude/**`; `.husky/**`;
+  `scripts/**`; `tooling/**`; and every root file outside a short prose and app
+  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). A rename counts
+  when either side is protected.
+- **One sticky comment** lists the protected files with a single
+  `Approve these enforcement changes` box. Ticking it, with write access, turns
+  the `enforcement-approval` commit status green. Any later change to a
+  protected file resets the box; changes elsewhere keep the approval.
+- **Main's copy judges the PR.** The workflow uses `pull_request_target`,
+  checks out only the default branch's script, and reads the PR's files through
+  the API, so it takes effect once it lands on main. Require the
+  `enforcement-approval` status in branch protection to make it blocking.
+- **Dry run** against any PR:
+  `gh api --paginate repos/OWNER/REPO/pulls/N/files | jq -s '{files: add}' | node scripts/enforcement-approval.mjs`.
 
 ## Placement rules
 
