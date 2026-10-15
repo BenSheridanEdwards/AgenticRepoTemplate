@@ -66,6 +66,8 @@ jobs:
         run: pnpm arch:gate
       - name: Role diagram matches the rules file
         run: pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd
+      - name: API reports match the public module entries
+        run: pnpm api:check
 
   test:
     name: Unit + component tests

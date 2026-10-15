@@ -104,11 +104,16 @@ function runFallow(args) {
   return execFileSync(FALLOW, args, { cwd: REPOSITORY_ROOT, encoding: 'utf8' });
 }
 
+/** The zones from `.fallowrc.jsonc`, as printed by `fallow list --boundaries --format json`. */
+export function readFallowBoundaries() {
+  return runFallow(['list', '--boundaries', '--format', 'json', '-q']);
+}
+
 function runCli() {
   mkdirSync(CACHE_DIRECTORY, { recursive: true });
   const dotPath = join(CACHE_DIRECTORY, 'graph.dot');
   runFallow(['viz', '--no-open', '--viz-format', 'dot', '--out', dotPath, '-q']);
-  const boundariesJson = runFallow(['list', '--boundaries', '--format', 'json', '-q']);
+  const boundariesJson = readFallowBoundaries();
 
   const diagram = renderRoleDiagram(readFileSync(dotPath, 'utf8'), boundariesJson);
   mkdirSync(dirname(DIAGRAM_PATH), { recursive: true });
