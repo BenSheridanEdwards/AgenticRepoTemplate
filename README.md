@@ -209,8 +209,8 @@ in the reports themselves and in [`TODO.md`](TODO.md). Honest history is a
 feature; the loop is the point, not the passing grade at the end.
 
 Non-functionals are held continuously, not only at audit time: Lighthouse keeps
-an accessibility floor of 0.9 and a performance target of 0.8 in
-[`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
+an accessibility floor of 0.9 and a performance target of 0.8 (median of three
+runs) in [`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
 [`.size-limit.json`](.size-limit.json), and Fallow checks dead code, cycles,
 and complexity drift on every commit.
 
@@ -298,7 +298,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
     ci.yml                  Quality, tests, build and size, e2e, security.
     pr-quality.yml          Validates the PR body and title (scripts/validate-pr-body.mjs).
     codeql.yml              CodeQL static analysis (security-events).
-    lighthouse.yml          Performance and accessibility budget on PRs.
+    lighthouse.yml          Performance and accessibility budget on UI-relevant PRs.
     styleproof.yml          Computed-style visual gate (PR head vs base).
     styleproof-approve.yml  Per-change visual sign-off on the default branch.
 SECURITY.md                 Vulnerability disclosure policy.
