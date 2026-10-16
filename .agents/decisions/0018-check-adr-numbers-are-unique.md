@@ -24,9 +24,17 @@ Nothing failed in any of them. Each depended on someone noticing.
 ## Decision
 
 `pnpm check:context` fails when two files in `.agents/decisions/` share a
-number. The error names both files and the next free number. It also fails
-when an ADR's `# N.` title does not match its file name, so a renumber is
-finished in both places.
+number. The error names both files and tells the branch that added one to
+pick a higher number that no open PR uses. The check cannot see open PRs or
+tell which file came from main, so it does not suggest an exact number.
+
+It also fails when:
+
+- a Markdown file in `.agents/decisions/` is not named `NNNN-slug.md`, so a
+  typo such as `016-x.md` cannot slip a duplicate past the check;
+- an ADR's first line is not the `# N.` title its file name gives it, so a
+  renumber is finished in both places;
+- an ADR is a symbolic link, the same rule as every other context file.
 
 It does not require the numbers to have no gaps. Open PRs may hold numbers
 that are not on main yet, and requiring no gaps would force them to collide
@@ -34,7 +42,9 @@ on purpose.
 
 ## Consequences
 
-- The clash shows up in `pnpm verify` and in CI on the branch that merges
-  main in, which the up-to-date-main gate already requires.
+- The clash shows up in `pnpm verify` and in CI on a PR whose branch merges
+  main in. Two PRs that both go green against the same main can still land
+  one after the other with the same number. The push to main then fails CI,
+  and requiring branches to be up to date before merging closes that gap.
 - The branch that lands second renumbers its ADR. The fix stays in that branch.
-- An ADR file that does not match `NNNN-slug.md` is not checked.
+- `.agents/decisions/` is now required to exist.
