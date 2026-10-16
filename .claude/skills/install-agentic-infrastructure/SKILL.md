@@ -4,8 +4,8 @@ description: >-
   Install or upgrade agentic engineering infrastructure in a repository. Use
   when asked to add or standardize AGENTS.md, CLAUDE.md, .agents project
   context, Claude skills/hooks/settings, Husky pre-commit or pre-push gates,
-  GitHub Actions CI, StyleProof, Fallow, Graphify/ArchitectPlaybook setup, or
-  proof-backed pull request quality gates.
+  GitHub Actions CI, Fallow, Graphify/ArchitectPlaybook setup, or proof-backed
+  pull request quality gates.
 ---
 
 # Install Agentic Infrastructure
@@ -37,8 +37,8 @@ Layer the infrastructure so every instruction has one owner.
 - **CI gates:** GitHub Actions rerun the same proof on a clean checkout and add
   server-only checks: SAST, dependency audit, license, secret scan, visual,
   accessibility, performance, and artifact upload.
-- **PR contract:** the PR template requires exact proof, screenshots or
-  StyleProof evidence when UI changed, and explicit unverified gaps.
+- **PR contract:** the PR template requires exact proof, screenshots when
+  UI changed, and explicit unverified gaps.
 
 ## Process
 
@@ -58,7 +58,7 @@ Layer the infrastructure so every instruction has one owner.
      variables before running them: `unset $(git rev-parse --local-env-vars)`.
 5. **Install CI as the clean-room mirror.** Split jobs by concern and keep names
    stable enough for branch protection: type/lint/format, Fallow/code
-   intelligence, tests, build, E2E, security, CodeQL, Lighthouse, StyleProof.
+   intelligence, tests, build, E2E, security, CodeQL, Lighthouse.
 6. **Install agentic tools deliberately.** Wire Fallow as a repo dependency or
    action. Document Graphify, GitNexus, Ponytail, and ArchitectPlaybook setup as
    external tooling unless the target repo already vendors or pins those tools.
@@ -66,8 +66,8 @@ Layer the infrastructure so every instruction has one owner.
    by VCS and formatter/linter tools.
 7. **Set the Biome boundary.** Biome owns formatting, import ordering, and the
    rules it actually implements. Use TypeScript, React Testing Library,
-   `jest-axe`, Playwright axe, Lighthouse, CodeQL, Fallow, and StyleProof for
-   the concerns ESLint plugins often covered.
+   `jest-axe`, Playwright axe, Lighthouse, CodeQL, and Fallow for the
+   concerns ESLint plugins often covered.
 8. **Add PR proof.** Add `.github/pull_request_template.md` and
    `.agents/project/PR_QUALITY.md`; require local proof, CI status, visual proof
    or `N/A`, and residual risk.
@@ -83,8 +83,8 @@ Layer the infrastructure so every instruction has one owner.
   template repos.
 - Do not add ESLint, Prettier, a second test runner, or duplicate scanners
   unless an ADR explains a concrete uncovered requirement.
-- Do not weaken TypeScript, Biome, coverage, Lighthouse, StyleProof, or branch
-  protection thresholds to make an installation green.
+- Do not weaken TypeScript, Biome, coverage, Lighthouse, or branch protection
+  thresholds to make an installation green.
 - Prefer advisory local gates plus hard CI gates when a tool needs credentials,
   GitHub permissions, paid runners, or a browser environment.
 - For brownfield repos, fail only on introduced issues where possible. A gate

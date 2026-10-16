@@ -12,11 +12,10 @@ each owner runs locally and in CI.
 | UI | **React 19** | Function components + hooks only. |
 | Build / dev server | **Vite** | The runnable carrier; the scaffolding is stack-agnostic. |
 | Unit / component tests | **Jest + React Testing Library** | Behaviour through the accessibility tree. |
-| End-to-end tests | **Playwright** | The behaviour map; also hosts StyleProof. |
+| End-to-end tests | **Playwright** | The behaviour map. |
 | Lint + format + import order | **Biome** | One tool, not ESLint *and* Prettier. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence | **Fallow** | Dead code, cycles, complexity, architecture drift. |
-| Visual regression | **StyleProof** | Diffs computed styles; review-gate + certify modes. |
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
 | Bundle-size budget | **size-limit** | Fails CI when `dist/` exceeds the budget. |
 | Performance budget | **Lighthouse CI** | a11y floor + perf budget on UI-relevant pull requests. |
@@ -37,10 +36,10 @@ each owner runs locally and in CI.
   a guaranteed source of churn.
 - **Do not add a second test runner.** Unit = Jest, E2E = Playwright. That is
   the whole matrix.
-- **Visual correctness is StyleProof's job, not the unit suite's.** Unit tests
-  stub stylesheets on purpose (`jest.style-stub.cjs`).
+- **The unit suite asserts behaviour.** Unit tests stub stylesheets on purpose
+  (`jest.style-stub.cjs`).
 
-External tooling (Fallow, StyleProof, ArchitectPlaybook, graphify, GitNexus, Ponytail) is
+External tooling (Fallow, ArchitectPlaybook, graphify, GitNexus, Ponytail) is
 documented in the repo root `README.md` and installed via `pnpm setup:agents`. We reference
 these as living libraries rather than vendoring copies — see
 [`../decisions/0004-agent-context-lives-in-dot-agents.md`](../decisions/0004-agent-context-lives-in-dot-agents.md).

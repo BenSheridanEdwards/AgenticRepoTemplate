@@ -57,7 +57,6 @@ plugin concerns with the gate that owns the behaviour:
 - Accessibility: `jest-axe`, `@axe-core/playwright`, and Lighthouse
 - Security patterns: CodeQL, gitleaks, `pnpm audit`
 - Architecture drift: Fallow
-- Visual regressions: StyleProof
 
 Only add ESLint through an ADR if a concrete required rule is not covered by
 Biome, TypeScript, tests, security gates, or review.

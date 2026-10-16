@@ -28,5 +28,3 @@ but they verify *units*, while the behaviour map verifies *the product*.
   living documentation.
 - E2E is slower than unit tests, so it runs on pre-push and in CI, not on every
   commit.
-- Playwright is also the host for StyleProof, so one browser harness serves both
-  behavioural and visual verification.

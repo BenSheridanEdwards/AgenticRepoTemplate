@@ -3,7 +3,7 @@ set -euo pipefail
 
 # The local mirror of the CI gate suite. Run this before opening a PR; if it is
 # green, CI will be too (CI re-runs the same checks on a clean checkout, plus
-# the security audit and StyleProof, which need the GitHub environment).
+# the security audit, which needs the GitHub environment).
 
 step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
 

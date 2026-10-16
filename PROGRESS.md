@@ -31,7 +31,7 @@ ships, leave its block here as history and open the next one above it.
 - **Completed:**
   - `.github/pull_request_template.md` rewritten to the four canon sections
     (Why / What changed / Behavioural Proof / Verification Summary) with the
-    repo's StyleProof, DoD, and CI checkboxes folded into Verification Summary,
+    repo's DoD and CI checkboxes folded into Verification Summary,
     plus a PR Proof Law block.
   - `.agents/project/DEFINITION_OF_DONE.md` upgraded with the required-sections,
     required-title, behavioural-proof, and inline-proof-law content, keeping the
@@ -50,9 +50,8 @@ ships, leave its block here as history and open the next one above it.
   - Root `agents/openai.yaml` vendor-neutral manifest + pointer in `AGENTS.md`.
   - `.architect-audits/README.md` records that the committed reports are stale
     (old repo name, older commit) and that re-running is tracked in `TODO.md`.
-  - `package.json` gains `styleproof:capture`, `styleproof:diff`, and
-    `validate:pr` scripts; `QUALITY_GATES.md` gains StyleProof operating notes;
-    README gains a branch-protection checklist.
+  - `package.json` gains the `validate:pr` script; README gains a
+    branch-protection checklist.
   - README badges, `package.json` `name`, and the README H1 aligned to
     `AgenticRepoTemplate`.
 - **Proof artifact:** validator fail/pass terminal output (pasted in the PR body's
@@ -60,7 +59,7 @@ ships, leave its block here as history and open the next one above it.
   cases); `pnpm verify` output in the PR's Verification Summary.
 - **Verification:** `pnpm typecheck`, `pnpm check`, `pnpm test:coverage`,
   `pnpm build`, `pnpm size`, `pnpm fallow:audit`, and the validator CLI run
-  against a bad body (exit 1) and the real PR body (exit 0). E2E and StyleProof
-  are wired in CI; not run locally (no UI surface changed).
+  against a bad body (exit 1) and the real PR body (exit 0). E2E is wired in
+  CI; not run locally (no UI surface changed).
 - **Blockers:** none for this change. Follow-up work (re-run the stale audits,
   add fallow boundary zones, grow a second feature) is listed in `TODO.md`.

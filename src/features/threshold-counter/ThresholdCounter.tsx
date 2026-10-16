@@ -3,7 +3,7 @@ import { CRITICAL_THRESHOLD, useThresholdCounter } from './useThresholdCounter';
 /**
  * The one "minimal but real" feature. It exists so every quality gate fires on
  * genuine code: branchy logic for the unit suite, a clickable flow for the E2E
- * behaviour map, and a status pill that recolours by state for StyleProof.
+ * behaviour map, and a status pill that recolours by state.
  */
 export function ThresholdCounter() {
   const { count, status, increment, decrement, reset } = useThresholdCounter();

@@ -6,7 +6,7 @@ import { useServiceStatus } from './useServiceStatus';
  * renders four distinct, observable states (loading, error, empty, success).
  * It exists so the gates fire on genuine async surfaces: a route/data seam the
  * E2E map can intercept, error and empty branches for the unit suite, and a
- * health pill that recolours by state for StyleProof.
+ * health pill that recolours by state.
  *
  * A component only renders. All state lives in `useServiceStatus`; all parsing
  * lives in `fetchServiceStatuses` (see `.agents/project/ARCHITECTURE.md`).

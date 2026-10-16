@@ -26,8 +26,6 @@ task complete until `pnpm verify` and `pnpm e2e` are green.
       in the E2E run); interactive elements are reachable and labelled.
 - [ ] **Within budget.** `pnpm size` passes (the bundle stays under the
       `.size-limit.json` budget).
-- [ ] **Visuals accounted for.** Any CSS change is either an *intended* change
-      approved in the StyleProof report, or a refactor certified as zero-diff.
 - [ ] **PR proof is ready.** The pull request body follows
       [`PR_QUALITY.md`](PR_QUALITY.md) and the
       [pull request template](../../.github/pull_request_template.md), with exact
