@@ -7,6 +7,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 
 | Stage | Owner | Gates |
 | --- | --- | --- |
+| Agent commands | `.claude/hooks/block-gate-bypass.sh` | Refuses `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath` rewrites before Claude Code runs them (ADR 0017). |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
 | Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |

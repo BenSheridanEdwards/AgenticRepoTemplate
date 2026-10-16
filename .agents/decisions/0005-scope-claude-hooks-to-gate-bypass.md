@@ -1,6 +1,6 @@
 # 5. Scope Claude hooks to deterministic gate bypasses
 
-- **Status:** Accepted
+- **Status:** Accepted, amended by [0017](0017-block-every-hook-bypass.md)
 - **Date:** 2026-06-29
 
 ## Context

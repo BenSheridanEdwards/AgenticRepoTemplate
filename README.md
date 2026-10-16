@@ -115,7 +115,8 @@ mean the same thing. A green PR means "this change introduced nothing new".
 | **Before merge** | Human visual sign-off: the visual gate flips green only when a reviewer ticks every per-change checkbox, bound to the exact commit | [`styleproof-approve.yml`](.github/workflows/styleproof-approve.yml) plus branch protection |
 
 The gates cannot be skipped. A
-[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any `--no-verify`,
+[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses `--no-verify`,
+`git commit -n`, `HUSKY=0`, and `core.hooksPath` rewrites,
 and weakening type, lint, or test configuration to turn red green is a named
 violation. Honest red beats dishonest green.
 
@@ -283,7 +284,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
   templates/                Scaffolds for components, tests, E2E, StyleProof.
 .claude/
   settings.json             Permission allowlist and PreToolUse hook.
-  hooks/block-gate-bypass.sh  Refuses --no-verify. Gates are not optional.
+  hooks/block-gate-bypass.sh  Refuses every hook bypass. Gates are not optional.
   skills/                   This repo's own packaged processes.
     install-agentic-infrastructure/  Install repo guidance, hooks, CI, and PR proof.
     build-quality-gates/    Build pre-commit, pre-push, and CI gates.
