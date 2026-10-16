@@ -65,9 +65,10 @@ preserve these sections, in this order:
 `scripts/validate-pr-body.mjs` (the `pr-quality` CI job) enforces this
 structure: each section must be present, in order, and non-empty; the
 Behavioural Proof section must contain an inline image (`![`) or the exact string
-`Not applicable`; the Verification Summary's `- Head commit:` line must be
-exactly one SHA (full or short) of the PR head, so a push that moves the head fails until the
-body is re-checked; and the PR **title** must be Conventional Commits.
+`Not applicable`; the Verification Summary must have exactly one
+`- Head commit:` line, naming one SHA (full or short) of the PR head, so a push
+that moves the head fails until the body is re-checked; and the PR **title**
+must be Conventional Commits.
 
 ## Required PR title
 

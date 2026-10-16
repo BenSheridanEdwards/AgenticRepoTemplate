@@ -33,7 +33,9 @@ jobs:
           node-version-file: .nvmrc
       # The PR body and title are untrusted input. They are passed through the
       # environment via toJSON (never interpolated into the run-script text), so
-      # a crafted body cannot break out into shell.
+      # a crafted body cannot break out into shell. PR_HEAD_SHA is passed raw on
+      # purpose: a SHA is plain hex, and the validator rejects anything that is
+      # not 40 hex characters.
       - name: Validate
         env:
           PR_TITLE: ${{ toJSON(github.event.pull_request.title) }}

@@ -23,20 +23,32 @@ structure, so a stale body still passed.
 
 ## Decision
 
-The Verification Summary carries a `- Head commit:` line: the SHA the whole
-body was last checked against. `scripts/validate-pr-body.mjs` fails when the
-line is missing, when its value is anything but one SHA (7-40 hex characters,
-optionally in backticks; `None` and prose fail), or when that SHA is not a
-prefix of the PR head SHA. A note in the label (`- Head commit (short):`) is
-still the field, and the SHA may sit on the next line. The error names the fix:
-re-check the body against the new head, then update the field.
+The Verification Summary carries exactly one `- Head commit:` line: the SHA the
+whole body was last checked against. `scripts/validate-pr-body.mjs` grades the
+Verification Summary that the section-order check located (so a decoy heading
+earlier in the body cannot stand in for it) and fails when the line is missing
+or appears more than once, when its value is anything but one SHA (7-40 hex
+characters, optionally in a balanced pair of backticks; `None` and prose fail,
+and the error quotes the rejected value), or when that SHA is not a prefix of
+the PR head SHA. The value is the rest of the label line; only when that is
+empty is it the next non-empty line, so a SHA may sit on the next line and prose
+after the field is not read as part of it. A note in the label
+(`- Head commit (short):`) is still the field. The error names the fix: re-check
+the body against the new head, then update the field.
+
+`validatePullRequest` takes `headSha` as a required argument: a full
+40-character SHA, or `null` to grade only the field's shape. Any other value,
+including a missing one, is an error, so a caller that forgets the head fails
+closed instead of skipping the comparison.
 
 The workflow passes the head as `PR_HEAD_SHA` from
-`github.event.pull_request.head.sha`, through the environment like the body.
-Run locally without it, the validator uses `git rev-parse HEAD`. In GitHub
-Actions, or whenever `PR_HEAD_SHA` is set, a value that is not a 40-character
-SHA fails the check instead of falling back, because the CI checkout is a merge
-commit, not the PR head.
+`github.event.pull_request.head.sha`, through the environment like the body but
+raw rather than through `toJSON`: a SHA is plain hex with nothing to escape, and
+the validator rejects anything that is not 40 hex characters. Run locally
+without it, the validator uses `git rev-parse HEAD`. In GitHub Actions, or
+whenever `PR_HEAD_SHA` is set, a value that is not a 40-character SHA fails the
+check instead of falling back, because the CI checkout is a merge commit, not
+the PR head.
 
 ## Consequences
 
@@ -47,3 +59,7 @@ commit, not the PR head.
   the head at that event. The newest push's run is the one that counts.
 - The check proves the author touched the body at this head, not that every
   sentence is true. Review still reads it.
+- Known limit: a sub-heading inside the Verification Summary (`## Notes`) ends
+  that section, as it does for every section today, so a `- Head commit:` line
+  below one is not seen and the check reports the field as missing. It fails
+  closed; changing how sections split is out of scope here.
