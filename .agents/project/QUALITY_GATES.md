@@ -8,13 +8,13 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Stage | Owner | Gates |
 | --- | --- | --- |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
-| Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |
+| Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
+| Pre-push | `.husky/pre-push` | Branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, Fallow, coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
-| CI quality | `.github/workflows/ci.yml` | Context layer, typecheck, Biome, Fallow, tests, build, security. |
+| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, typecheck, Biome, Fallow, tests, build, security. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
-| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets. |
+| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files; other PRs report the same check green with audits skipped. |
 | CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison. |
 
 ## Tool ownership
@@ -39,16 +39,25 @@ the layer where the behaviour is observable.
 
 StyleProof is the computed-style visual gate
 ([`.github/workflows/styleproof.yml`](../../.github/workflows/styleproof.yml)).
-It is runnable locally, not CI-only:
+It runs only in CI and compares the PR head against the PR base commit:
 
-- `pnpm styleproof:capture` captures a baseline (`STYLEMAP_DIR=base`) and
-  `pnpm styleproof:diff` captures the head and diffs it against that baseline.
+- **One install, at the head.** The job installs the PR head once and fails
+  closed if that install leaves `git status --porcelain` non-empty. A capture
+  from a dirty tree cannot bind to a commit SHA.
+- **The base is captured from the head's install.** A detached worktree of the
+  base commit sits under the ignored `.styleproof/` directory, so its sources
+  resolve the head's `node_modules`. `STYLEPROOF_APP_ROOT` points
+  `playwright.styleproof.config.ts` at it. Nothing is installed at the base:
+  an install there rewrites any tracked file the base commits with the wrong
+  mode (the `vendor/extract-zip/cli.js` bin did) and dirties the capture.
+  Dependency-only visual changes therefore show no diff, because both sides
+  render with the head's dependencies.
+- **Maps never leave the job.** Both captures pass `--no-upload`, and the
+  report is a workflow artifact (`report-storage: artifact`). Nothing is
+  published to the `styleproof-maps` branch from CI or from a laptop.
 - **Capture is selected by test title**, not file path: StyleProof registers its
-  capture tests from inside the library (attributed to `node_modules`), so both
-  scripts select them with `playwright test --grep "styleproof capture"`.
-- **`STYLEPROOF_REPLAY_FROM` isolates data drift.** `styleproof:diff` replays the
-  base run's recorded data (`STYLEPROOF_REPLAY_FROM=__stylemaps__/base`) so the
-  diff is *code*, not live-data drift.
+  capture tests from inside the library (attributed to `node_modules`), so
+  `styleproof-map` selects them with `playwright test --grep "styleproof capture"`.
 - **The approval workflow must live on the default branch.**
   [`styleproof-approve.yml`](../../.github/workflows/styleproof-approve.yml) is an
   `issue_comment` workflow, which only ever runs from the default branch — it has
@@ -57,9 +66,13 @@ It is runnable locally, not CI-only:
   commit status.** Until a branch-protection rule requires that status, a red
   StyleProof report is advisory. Adding that rule is a post-clone setup step (see
   the README).
-- **Exact commit maps are reused.** Pre-push restores an existing SHA-keyed map
-  before capturing; CI captures only a missing head when the base is compatible,
-  and publishes every cold fallback for later runs.
+- **The StyleProof workflows are hand-owned.** They are adapted from the
+  `styleproof-init` 7.7.0 templates (single job, artifact storage, review gate)
+  with this repo's Node and pnpm setup, the worktree base capture above, and
+  commit-pinned StyleProof refs, so
+  `styleproof-init --upgrade` does not rewrite them. To upgrade, regenerate into
+  a scratch checkout and port the diff. `styleproof.config.ts` sets
+  `blocking: true`; the init default, `'advisory'`, turns the gate green.
 
 ## Placement rules
 
@@ -67,6 +80,11 @@ It is runnable locally, not CI-only:
 - Put expensive behaviour checks in pre-push and CI.
 - Run security and dependency checks in CI, with staged secret scanning locally.
 - Keep CI as the clean-checkout backstop. Local hooks can be bypassed; CI cannot.
+- Every branch must contain the latest origin/main
+  (`scripts/require-up-to-date-main.sh`). The fix is
+  `git fetch origin && git merge origin/main`. This is the one networked
+  pre-commit check: the fetch is quiet, capped at 10 seconds, and falls back to
+  the last known origin/main when offline. Pre-push and CI require a fresh fetch.
 - If a hook runs tests that create or inspect other Git repos, clear Git-local
   hook variables first: `unset $(git rev-parse --local-env-vars)`.
 - If a check mutates files, it must be explicit and reviewable. Gates should
