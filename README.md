@@ -157,7 +157,9 @@ browser's computed styles and compares the PR against its base branch at three
 widths, catching hover and focus states, between-breakpoint rules, and
 sub-pixel drift that pixel snapshots miss. A refactor is safe when the
 behaviour suite stays green and the style diff is zero or every change is
-deliberately approved.
+deliberately approved. The StyleProof workflow runs in CI on every pull
+request and posts the visual diff on the PR. A reviewer, human or agent, checks
+that the report matches the intended UI changes.
 
 ### Skills: processes with exactly one job
 
