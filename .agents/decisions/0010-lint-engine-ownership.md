@@ -32,7 +32,7 @@ This record supersedes the lines that rule out ESLint in
 
 - Each rule still has exactly one owner, so an agent knows which tool reports
   a given finding.
-- Plan PR 1 installs ESLint and React Doctor and rewrites the superseded doc
+- Plan PR 2 installs ESLint and React Doctor and rewrites the superseded doc
   lines in the same change, so the docs match the tooling the moment it lands.
-- Plan PR 7 adds staged policy lint to pre-commit and full lint to pre-push,
+- Plan PR 8 adds staged policy lint to pre-commit and full lint to pre-push,
   mirrored in CI.
