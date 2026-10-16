@@ -30,6 +30,20 @@ function createInMemoryFilesystem({ files = {}, symlinks = {} }) {
     readSymbolicLinkTarget(relativePath) {
       return symlinks[relativePath];
     },
+    listDirectory(relativePath) {
+      const prefix = relativePath === '.' ? '' : `${relativePath}/`;
+      const children = new Map();
+      for (const path of Object.keys(files)) {
+        if (path.startsWith(prefix)) {
+          const [name, ...rest] = path.slice(prefix.length).split('/');
+          children.set(name, children.get(name) || rest.length > 0);
+        }
+      }
+      if (children.size === 0) {
+        throw new Error(`ENOENT: ${relativePath}`);
+      }
+      return [...children].map(([name, isDirectory]) => ({ name, isDirectory }));
+    },
   };
 }
 
@@ -135,5 +149,35 @@ describe('checkContextLayer', () => {
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('description:');
+  });
+
+  it('fails, naming the file and lines, when a merge leaves a section in a doc twice', () => {
+    const files = buildPassingTree();
+    const approval = '## Enforcement approval\n\nTick the box.\n';
+    files['.agents/project/QUALITY_GATES.md'] =
+      `# Quality gates\n\n${approval}\n## Placement rules\n\n${approval}`;
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    const message = result.errors.join('\n');
+    expect(message).toContain(
+      '`.agents/project/QUALITY_GATES.md` has the section `## Enforcement approval` 2 times',
+    );
+    expect(message).toContain('lines 3, 9');
+  });
+
+  it('passes when the same heading sits under different parents or inside a code block', () => {
+    const files = buildPassingTree();
+    files['.agents/project/CONVENTIONS.md'] = [
+      '# Conventions',
+      '## Naming',
+      '### Example',
+      '## Imports',
+      '### Example',
+      '```md',
+      '## Naming',
+      '```',
+    ].join('\n');
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result).toEqual({ ok: true, errors: [] });
   });
 });

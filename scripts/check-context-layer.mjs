@@ -14,7 +14,7 @@
  * line when every invariant holds, and exits 1 listing every failure otherwise.
  */
 
-import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -63,6 +63,12 @@ export function createNodeFilesystem(rootDirectory) {
     },
     readSymbolicLinkTarget(relativePath) {
       return readlinkSync(toAbsolute(relativePath));
+    },
+    listDirectory(relativePath) {
+      return readdirSync(toAbsolute(relativePath), { withFileTypes: true }).map((entry) => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+      }));
     },
   };
 }
@@ -157,6 +163,75 @@ function checkClaudeLayer(filesystem, errors) {
   }
 }
 
+/** The context docs a merge can duplicate a section in: root Markdown, `.agents/`, house skills. */
+function listContextDocs(filesystem) {
+  const rootDocs = filesystem
+    .listDirectory('.')
+    .filter(({ name, isDirectory }) => !isDirectory && name.endsWith('.md'))
+    .map(({ name }) => name);
+  return [
+    ...rootDocs,
+    ...listMarkdownUnder(filesystem, '.agents'),
+    ...listMarkdownUnder(filesystem, '.claude/skills'),
+  ];
+}
+
+function listMarkdownUnder(filesystem, directory) {
+  return filesystem.listDirectory(directory).flatMap(({ name, isDirectory }) => {
+    const path = `${directory}/${name}`;
+    if (isDirectory) {
+      return listMarkdownUnder(filesystem, path);
+    }
+    return name.endsWith('.md') ? [path] : [];
+  });
+}
+
+/**
+ * The line numbers of each heading, keyed by its level, text, and the headings
+ * above it. Headings inside fenced code blocks are skipped.
+ */
+function headingLinesBySection(text) {
+  const linesBySection = new Map();
+  const ancestors = [];
+  let inFence = false;
+  text.split('\n').forEach((line, index) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+    }
+    const heading = inFence ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (!heading) {
+      return;
+    }
+    const level = heading[1].length;
+    while (ancestors.length > 0 && ancestors.at(-1).level >= level) {
+      ancestors.pop();
+    }
+    const section = [...ancestors.map((ancestor) => ancestor.line), line.trim()].join('\n');
+    linesBySection.set(section, [...(linesBySection.get(section) ?? []), index + 1]);
+    ancestors.push({ level, line: line.trim() });
+  });
+  return linesBySection;
+}
+
+/**
+ * Assert no context doc has the same section twice under the same parent. When
+ * two branches add the same section in different places, git merges both copies
+ * without a conflict.
+ */
+function checkDuplicateSections(filesystem, errors) {
+  for (const path of listContextDocs(filesystem)) {
+    for (const [section, lines] of headingLinesBySection(filesystem.readText(path))) {
+      if (lines.length > 1) {
+        errors.push(
+          `\`${path}\` has the section \`${section.split('\n').at(-1)}\` ${lines.length} times ` +
+            `(lines ${lines.join(', ')}) under the same parent. A merge usually does this when both ` +
+            'sides added the section. Keep one copy, merging any lines that differ, and delete the rest.',
+        );
+      }
+    }
+  }
+}
+
 /** Run every context-layer invariant. Returns `{ ok, errors }`; pure. */
 export function checkContextLayer(filesystem) {
   const errors = [];
@@ -196,6 +271,8 @@ export function checkContextLayer(filesystem) {
       errors.push(`\`${skillPath}\` frontmatter is missing a \`description:\` field.`);
     }
   }
+
+  checkDuplicateSections(filesystem, errors);
 
   return { ok: errors.length === 0, errors };
 }
