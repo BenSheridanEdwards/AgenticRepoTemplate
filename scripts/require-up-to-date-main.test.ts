@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -41,6 +41,21 @@ function check(...flags: string[]) {
   const result = spawnSync('sh', [SCRIPT, ...flags], { cwd: work, env, encoding: 'utf8' });
   return { status: result.status, output: result.stdout + result.stderr };
 }
+
+/** Push from `work` through a real pre-push hook that runs only the up-to-date gate. */
+function push(...args: string[]) {
+  const hook = join(work, '.git/hooks/pre-push');
+  writeFileSync(hook, `#!/bin/sh\nexec sh '${SCRIPT}' --pushed-refs\n`);
+  chmodSync(hook, 0o755);
+  const result = spawnSync('git', ['push', '-q', 'origin', ...args], {
+    cwd: work,
+    env,
+    encoding: 'utf8',
+  });
+  return { status: result.status, output: result.stdout + result.stderr };
+}
+
+const remoteBranches = () => git(work, 'ls-remote', '--heads', 'origin');
 
 /** Advance origin/main from a second clone, so `work` only learns of it by fetching. */
 function advanceRemoteMain(): void {
@@ -165,17 +180,74 @@ describe('require-up-to-date-main.sh', () => {
   });
 });
 
+describe('require-up-to-date-main.sh --pushed-refs (pre-push)', () => {
+  it('refuses a stale branch pushed while main is checked out, naming it', () => {
+    advanceRemoteMain();
+    git(work, 'switch', '-q', 'main');
+    const { status, output } = push('feature');
+    expect(status).not.toBe(0);
+    expect(output).toMatch(/✗ feature is behind origin\/main/);
+    expect(output).toContain(REMEDY);
+    expect(remoteBranches()).not.toContain('refs/heads/feature');
+  });
+
+  it('passes several pushed branches that all contain origin/main', () => {
+    git(work, 'branch', 'feature-two');
+    git(work, 'switch', '-q', 'main');
+    expect(push('feature', 'feature-two')).toMatchObject({ status: 0 });
+    expect(remoteBranches()).toContain('refs/heads/feature-two');
+  });
+
+  it('refuses the one stale branch among several, naming only it', () => {
+    advanceRemoteMain();
+    git(work, 'switch', '-q', '-c', 'fresh');
+    execFileSync('sh', ['-c', `${REMEDY} -q --no-edit`], { cwd: work, env });
+    const { status, output } = push('fresh', 'feature');
+    expect(status).not.toBe(0);
+    expect(output).toMatch(/✗ feature is behind origin\/main/);
+    expect(output).not.toMatch(/fresh is behind/);
+    expect(remoteBranches()).not.toContain('refs/heads/fresh');
+  });
+
+  it('allows deleting a stale remote branch', () => {
+    expect(push('feature')).toMatchObject({ status: 0 });
+    advanceRemoteMain();
+    expect(push('--delete', 'feature')).toMatchObject({ status: 0 });
+    expect(remoteBranches()).not.toContain('refs/heads/feature');
+  });
+
+  it('allows pushing main while a stale branch is checked out', () => {
+    advanceRemoteMain();
+    git(work, 'switch', '-q', 'main');
+    git(work, 'pull', '-q', '--ff-only');
+    commit(work, 'main-fix');
+    git(work, 'switch', '-q', 'feature');
+    expect(check().status).toBe(1);
+    expect(push('main')).toMatchObject({ status: 0 });
+    expect(git(work, 'ls-remote', 'origin', 'refs/heads/main')).toContain(
+      git(work, 'rev-parse', 'main'),
+    );
+  });
+
+  it('allows pushing a tag on an older commit', () => {
+    git(work, 'tag', '-a', '-m', 'release', 'v1', 'main');
+    advanceRemoteMain();
+    expect(push('v1')).toMatchObject({ status: 0 });
+    expect(git(work, 'ls-remote', 'origin', 'refs/tags/v1')).not.toBe('');
+  });
+});
+
 describe('gate wiring', () => {
   const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
-  it('runs the check first in both hooks: offline-tolerant on commit, strict on push', () => {
+  it('runs the check first in both hooks: offline-tolerant on HEAD at commit, strict on pushed refs at push', () => {
     const preCommit = read('.husky/pre-commit');
     const prePush = read('.husky/pre-push');
     expect(preCommit).toContain('sh scripts/require-up-to-date-main.sh --allow-offline');
     expect(preCommit.indexOf('require-up-to-date-main.sh')).toBeLessThan(
       preCommit.indexOf('pnpm typecheck'),
     );
-    expect(prePush).toMatch(/sh scripts\/require-up-to-date-main\.sh\n/);
+    expect(prePush).toMatch(/sh scripts\/require-up-to-date-main\.sh --pushed-refs\n/);
     expect(prePush.indexOf('require-up-to-date-main.sh')).toBeLessThan(prePush.indexOf('pnpm '));
   });
 
