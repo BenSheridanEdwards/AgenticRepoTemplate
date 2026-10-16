@@ -9,12 +9,12 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | --- | --- | --- |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |
+| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, Fallow, coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, typecheck, Biome, Fallow, tests, build, security. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
-| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets. |
+| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files; other PRs report the same check green with audits skipped. |
 | CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison. |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` | `enforcement-approval` status stays red until a write-access reviewer approves changes to enforcement paths. |
 
@@ -110,6 +110,9 @@ changes to the files that define the gates wait for a maintainer's sign-off.
   `git fetch origin && git merge origin/main`. This is the one networked
   pre-commit check: the fetch is quiet, capped at 10 seconds, and falls back to
   the last known origin/main when offline. Pre-push and CI require a fresh fetch.
+  Pre-commit and CI check HEAD. Pre-push checks every pushed branch from git's
+  pre-push stdin, whichever branch is checked out. Deletions, tags, and pushes
+  to main are exempt.
 - If a hook runs tests that create or inspect other Git repos, clear Git-local
   hook variables first: `unset $(git rev-parse --local-env-vars)`.
 - If a check mutates files, it must be explicit and reviewable. Gates should

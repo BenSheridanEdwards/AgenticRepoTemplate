@@ -5,8 +5,8 @@ set -e
 # unit suite and the end-to-end behaviour map are green. This is the local
 # mirror of what CI re-runs on the server.
 
-echo "› up to date with origin/main"
-sh scripts/require-up-to-date-main.sh
+echo "› pushed branches up to date with origin/main"
+sh scripts/require-up-to-date-main.sh --pushed-refs
 
 echo "› unit + component tests with coverage (Jest + React Testing Library)"
 pnpm test:coverage

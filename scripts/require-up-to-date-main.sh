@@ -1,26 +1,51 @@
 #!/usr/bin/env sh
-# Refuse to continue when HEAD does not contain origin/main, so every branch is
-# tested against the main it will merge into. Shared by .husky/pre-commit,
+# Refuse to continue when a branch does not contain origin/main, so every branch
+# is tested against the main it will merge into. Shared by .husky/pre-commit,
 # .husky/pre-push, and CI.
 #
-# Usage: sh scripts/require-up-to-date-main.sh [--allow-offline]
+# Usage: sh scripts/require-up-to-date-main.sh [--allow-offline | --pushed-refs]
 #
-# By default a failed fetch fails closed (pre-push and CI need the network
-# anyway). --allow-offline warns and checks the last known origin/main instead,
-# so commits stay fast and work offline.
+# By default this checks HEAD. --pushed-refs reads git's pre-push lines
+# ("<local ref> <local sha> <remote ref> <remote sha>") from stdin and checks
+# every pushed branch instead, since a push need not come from HEAD. Deletions,
+# pushes to main, and non-branch refs such as tags are exempt.
+#
+# A failed fetch fails closed (pre-push and CI need the network anyway).
+# --allow-offline warns and checks the last known origin/main instead, so
+# commits stay fast and work offline.
 set -u
 
 allow_offline=false
+# One "<commit> <branch name>" line per commit to check.
+targets=
 case "${1:-}" in
-  --allow-offline) allow_offline=true ;;
-  '') ;;
+  '' | --allow-offline)
+    [ "${1:-}" = --allow-offline ] && allow_offline=true
+    branch="$(git symbolic-ref --short -q HEAD)"
+    if [ "$branch" = main ]; then
+      exit 0
+    fi
+    targets="HEAD ${branch:-HEAD}"
+    ;;
+  --pushed-refs)
+    while read -r _local_ref local_sha remote_ref _remote_sha; do
+      case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+      case "$remote_ref" in
+        refs/heads/main) ;;
+        refs/heads/*)
+          targets="$targets
+$local_sha ${remote_ref#refs/heads/}"
+          ;;
+      esac
+    done
+    ;;
   *)
-    echo "usage: $0 [--allow-offline]" >&2
+    echo "usage: $0 [--allow-offline | --pushed-refs]" >&2
     exit 2
     ;;
 esac
 
-if [ "$(git symbolic-ref --short -q HEAD)" = main ]; then
+if [ -z "$targets" ]; then
   exit 0
 fi
 
@@ -37,10 +62,10 @@ fetch() {
 }
 
 # Concluding a conflicted `git merge origin/main` commits with origin/main only
-# in MERGE_HEAD, so that counts as containing it.
+# in MERGE_HEAD, so for HEAD that counts as containing it.
 contains_origin_main() {
-  git merge-base --is-ancestor refs/remotes/origin/main HEAD 2>/dev/null ||
-    { git rev-parse -q --verify MERGE_HEAD >/dev/null &&
+  git merge-base --is-ancestor refs/remotes/origin/main "$1" 2>/dev/null ||
+    { [ "$1" = HEAD ] && git rev-parse -q --verify MERGE_HEAD >/dev/null &&
       git merge-base --is-ancestor refs/remotes/origin/main MERGE_HEAD 2>/dev/null; }
 }
 
@@ -56,8 +81,18 @@ if ! fetch git fetch --quiet --no-tags origin +refs/heads/main:refs/remotes/orig
   fi
 fi
 
-if ! contains_origin_main; then
-  echo "✗ This branch is behind origin/main. Bring main in, then retry:" >&2
+stale=false
+while read -r commit name; do
+  if [ -n "$commit" ] && ! contains_origin_main "$commit"; then
+    echo "✗ $name is behind origin/main." >&2
+    stale=true
+  fi
+done <<TARGETS
+$targets
+TARGETS
+
+if [ "$stale" = true ]; then
+  echo "  Bring main into each branch above, then retry:" >&2
   echo "    git fetch origin && git merge origin/main" >&2
   exit 1
 fi
