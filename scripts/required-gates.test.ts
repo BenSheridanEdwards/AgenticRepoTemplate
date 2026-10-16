@@ -244,6 +244,163 @@ describe('checkContract', () => {
     expect(errors).toEqual([expect.stringContaining('differs from the contract')]);
   });
 
+  it.each([
+    [
+      'a lane step only runs on some events',
+      'ci.yml',
+      '      - run: pnpm test:coverage\n',
+      "      - run: pnpm test:coverage\n        if: github.event_name == 'push'\n",
+      'job `test` step "pnpm test:coverage" has `if: github.event_name == \'push\'`',
+    ],
+    [
+      'a stand-alone check step never runs',
+      'pr-quality.yml',
+      '      - name: Validate\n',
+      '      - name: Validate\n        if: false\n',
+      'job `pr-body` step "Validate" has `if: false`',
+    ],
+    [
+      'a lane step runs only after a failure',
+      'ci.yml',
+      '      - run: pnpm e2e\n',
+      '      - run: pnpm e2e\n        if: failure()\n',
+      'job `e2e` step "pnpm e2e" has `if: failure()`',
+    ],
+    [
+      'a lane step reports failure as success',
+      'ci.yml',
+      '      - run: pnpm e2e\n',
+      '      - run: pnpm e2e\n        continue-on-error: true\n',
+      'job `e2e` step "pnpm e2e" sets `continue-on-error`',
+    ],
+    [
+      'a lane command ends in || true',
+      'ci.yml',
+      'run: pnpm test:coverage\n',
+      'run: pnpm test:coverage || true\n',
+      'job `test` step "pnpm test:coverage || true" ignores its exit code with `|| true`',
+    ],
+    [
+      'a lane command ends in || :',
+      'ci.yml',
+      'run: pnpm build\n',
+      'run: pnpm build || :\n',
+      'job `build` step "pnpm build || :" ignores its exit code with `|| :`',
+    ],
+    [
+      'a lane command ends in || exit 0',
+      'codeql.yml',
+      '      - uses: github/codeql-action/analyze@v4\n',
+      '      - run: npx tsc || exit 0\n      - uses: github/codeql-action/analyze@v4\n',
+      'job `analyze` step "npx tsc || exit 0" ignores its exit code with `|| exit 0`',
+    ],
+    [
+      'a multi-line run block turns off errexit',
+      'ci.yml',
+      '          expected="fallow',
+      '          set +e\n          expected="fallow',
+      'job `fallow` step "Assert the Fallow CLI matches the package.json pin" ignores its exit code with `set +e`',
+    ],
+  ])('fails when %s', (_label, workflow, from, to, message) => {
+    const errors = contractErrors((files) => ({
+      [workflow]: files[workflow as keyof typeof REAL_FILES].replace(from, to),
+    }));
+    expect(errors).toEqual([expect.stringContaining(message)]);
+  });
+
+  it.each([
+    ['set +ex', 'set +ex'],
+    ['set +o errexit', 'set +o errexit'],
+  ])('fails when a run block turns off errexit with %s', (_label, command) => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        '          expected="fallow',
+        `          ${command}\n          expected="fallow`,
+      ),
+    }));
+    expect(errors).toEqual([expect.stringContaining('ignores its exit code with `set +e`')]);
+  });
+
+  it.each([
+    [
+      'its steps are indented less than the repo layout',
+      'pr-quality.yml',
+      /\n {4}steps:\n[\s\S]*$/,
+      '\n    steps:\n    - name: Validate\n      if: false\n      run: node scripts/validate-pr-body.mjs\n',
+    ],
+    [
+      'a command continues onto the next line',
+      'ci.yml',
+      '      - run: pnpm e2e\n',
+      '      - run: pnpm e2e\n          || true\n',
+    ],
+    [
+      'a run block has an indent indicator',
+      'ci.yml',
+      '      - run: pnpm e2e\n',
+      '      - run: |2\n          pnpm e2e || true\n',
+    ],
+    [
+      'a run block body sits off the layout',
+      'ci.yml',
+      '      - run: pnpm e2e\n',
+      '      - run: |\n         pnpm e2e || true\n',
+    ],
+    [
+      'a step is written in flow style',
+      'ci.yml',
+      '      - run: pnpm e2e\n',
+      '      - { run: pnpm e2e || true }\n',
+    ],
+    [
+      'a step condition is a block scalar',
+      'ci.yml',
+      '      - run: pnpm e2e\n',
+      '      - run: pnpm e2e\n        if: >-\n          false\n',
+    ],
+  ])('fails closed when %s', (_label, workflow, from, to) => {
+    const errors = contractErrors((files) => ({
+      [workflow]: files[workflow as keyof typeof REAL_FILES].replace(from, to),
+    }));
+    expect(errors).toContainEqual(expect.stringMatching(new RegExp(`^${workflow} line \\d+ `)));
+  });
+
+  it('passes a step that sets continue-on-error to false', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        '      - run: pnpm e2e\n',
+        '      - run: pnpm e2e\n        continue-on-error: false\n',
+      ),
+    }));
+    expect(errors).toEqual([]);
+  });
+
+  it("fails when a lane borrows another gate's skip condition", () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        '      - run: pnpm e2e\n',
+        "      - run: pnpm e2e\n        if: steps.changes.outputs.ui-changed == 'true'\n",
+      ),
+    }));
+    expect(errors).toEqual([expect.stringContaining('job `e2e` step "pnpm e2e" has `if:')]);
+  });
+
+  it('passes evidence uploads that run on failure and may not fail the lane', () => {
+    const ci = REAL_FILES['ci.yml'];
+    expect(ci).toMatch(/upload-artifact@v7\n {8}if: failure\(\)\n {8}continue-on-error: true/);
+    expect(contractErrors()).toEqual([]);
+  });
+
+  it('passes steps that run in more cases than the default', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        '      - run: pnpm test:coverage\n',
+        '      - run: pnpm test:coverage\n        if: always()\n',
+      ),
+    }));
+    expect(errors).toEqual([]);
+  });
+
   it('fails when the inventory is stale', () => {
     const errors = checkContract({
       readWorkflow: (name: keyof typeof REAL_FILES) => REAL_FILES[name],

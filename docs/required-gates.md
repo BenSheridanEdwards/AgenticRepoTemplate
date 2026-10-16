@@ -19,6 +19,14 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 | Lighthouse budgets | `lighthouse.yml` `lighthouse` | Branch protection | Pull requests. Audits run only when `scripts/lighthouse-scope.mjs` finds UI-relevant files; otherwise the job passes without auditing. | `node scripts/lighthouse-scope.mjs origin/main...HEAD`, then `pnpm build && pnpm lhci` |
 | Validate PR body and title | `pr-quality.yml` `pr-body` | Branch protection | Pull requests not opened by a bot account. | `pnpm validate:pr` with `PR_TITLE` and `PR_BODY` set |
 
+## Step rules
+
+Inside every job above, `pnpm gates:check` also fails on a step that:
+
+- Sets `continue-on-error`, unless it is an evidence upload (`actions/upload-artifact`).
+- Has an `if:` other than `always()`, `!cancelled()`, `failure()` on an evidence upload, or the job's declared skip condition (Lighthouse budgets: `steps.changes.outputs.ui-changed == 'true'`).
+- Ignores a command's exit code with any of `|| true`, `|| :`, `|| exit 0`, `set +e`.
+
 ## Checks to require in branch protection
 
 - Required gates
