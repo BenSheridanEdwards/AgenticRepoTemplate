@@ -13,25 +13,31 @@
   // StyleProof loads its configs by file name, never by import.
   "entry": ["playwright.styleproof.config.ts", "styleproof.config.ts"],
 
-  // Architecture boundaries enforce the "features are islands" rule from
-  // .agents/project/ARCHITECTURE.md. Each folder under src/features becomes its
+  // Architecture boundaries enforce the role rules from
+  // .agents/project/ARCHITECTURE.md. The "app" zone is the composition root
+  // (main.tsx, App.tsx, index.css). Each folder under src/features becomes its
   // own zone (via autoDiscover), and a single "shared" zone holds cross-feature
   // code. The rules below make Fallow FAIL (boundary-violation defaults to
-  // error) when a feature imports another feature: features may import shared,
-  // and shared may not import any feature. This is why the rule now runs, not
-  // just documented.
+  // error) on any import they do not allow: app may import features and shared,
+  // features may import shared, and shared imports no other role. This file is
+  // also the source for the role diagram (pnpm arch:diagram) and the list of
+  // public module entries that get API reports (pnpm api:report).
   "boundaries": {
     "zones": [
+      { "name": "app", "patterns": ["src/main.tsx", "src/App.tsx", "src/index.css"] },
       { "name": "features", "autoDiscover": ["src/features"] },
       { "name": "shared", "patterns": ["src/shared/**"] }
     ],
     "rules": [
+      // The composition root wires features and shared code into the DOM.
+      { "from": "app", "allow": ["features", "shared"] },
       // "features" is the logical group of every autoDiscovered feature zone.
       // A group rule applies to each child feature: a feature may import shared
-      // and its own files, and nothing else. A cross-feature import matches no
-      // allow entry, so boundary-violation (error) fails the audit.
+      // and its own files, and nothing else. A cross-feature import, or an
+      // import of the app zone, matches no allow entry, so boundary-violation
+      // (error) fails the audit.
       { "from": "features", "allow": ["shared"] },
-      // Shared code is a leaf: it may not depend on any feature.
+      // Shared code is a leaf: it imports only its own files.
       { "from": "shared", "allow": [] }
     ]
   }
