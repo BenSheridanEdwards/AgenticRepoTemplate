@@ -46,11 +46,15 @@ point: commit, push, CI, or PR review.
 7. **Verify the gate change.** Run the changed hook/script directly when
    possible, then `pnpm check`, `pnpm verify`, and `pnpm e2e` for this template.
 
-## Biome Boundary
+## Lint Ownership
 
-Biome owns formatting, import ordering, and lint rules it actually implements.
-Do not add ESLint just to recreate plugin muscle memory. Cover the usual ESLint
-plugin concerns with the gate that owns the behaviour:
+Biome owns formatting, import ordering, and general lint. ESLint owns policy
+rules, React hooks rules, React Compiler rules, and React Doctor rules through
+`eslint-plugin-react-doctor`; the React Doctor CLI owns the project-level
+checks the plugin cannot express (ADR 0010, ADR 0015). Each rule has exactly
+one owner: when two engines implement the same check, turn it off in one and
+name the owner beside it. Other plugin concerns belong to the gate that owns
+the behaviour:
 
 - Type semantics: `tsc --noEmit`
 - React behaviour: Jest + React Testing Library
@@ -58,8 +62,9 @@ plugin concerns with the gate that owns the behaviour:
 - Security patterns: CodeQL, gitleaks, `pnpm audit`
 - Architecture drift: Fallow
 
-Only add ESLint through an ADR if a concrete required rule is not covered by
-Biome, TypeScript, tests, security gates, or review.
+Add a lint engine or plugin through an ADR when a concrete required rule has no
+owner among Biome, ESLint, React Doctor, TypeScript, tests, security gates, or
+review.
 
 ## Done When
 

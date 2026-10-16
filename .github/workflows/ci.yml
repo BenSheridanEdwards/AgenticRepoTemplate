@@ -43,6 +43,8 @@ jobs:
       - run: pnpm check:context
       - run: pnpm typecheck
       - run: pnpm check
+      - run: pnpm lint:policy
+      - run: pnpm react-doctor
 
   fallow:
     name: Code intelligence (Fallow)

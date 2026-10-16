@@ -19,7 +19,8 @@ just the runnable carrier — the scaffolding is the point (see `README.md`).
 pnpm install          # install dependencies (Node ≥ 22, pnpm)
 pnpm setup:agents     # install the external agentic toolkit (one time)
 pnpm dev              # run the app at http://localhost:5173
-pnpm verify           # the full local gate suite (typecheck → biome → fallow → tests → build)
+pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
+pnpm verify           # the full local gate suite (typecheck → biome → eslint → react doctor → fallow → tests → build)
 pnpm e2e              # the end-to-end behaviour map
 ```
 
@@ -67,7 +68,9 @@ stdlib or native platform features before adding abstractions or dependencies.
 ## Safety
 
 - Do not commit secrets; CI runs a secret scan and a dependency audit.
-- Do not add a second linter, formatter, or test runner (see `TECH_STACK.md`).
+- Keep one owner per concern: Biome formats and runs general lint, ESLint runs
+  policy and React rules, Jest and Playwright run tests. A new tool for an owned
+  concern needs an ADR (see `TECH_STACK.md`).
 - Treat generated artefacts (`dist/`, `coverage/`, `graphify-out/`,
   `.gitnexus/`) as disposable; never edit them by hand.
 

@@ -13,7 +13,9 @@ each owner runs locally and in CI.
 | Build / dev server | **Vite** | The runnable carrier; the scaffolding is stack-agnostic. |
 | Unit / component tests | **Jest + React Testing Library** | Behaviour through the accessibility tree. |
 | End-to-end tests | **Playwright** | The behaviour map. |
-| Lint + format + import order | **Biome** | One tool, not ESLint *and* Prettier. |
+| Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
+| Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks` and `eslint-plugin-react-doctor` on `src/`; see ADR 0015 for each rule's owner. |
+| React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks the ESLint plugin cannot express. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence | **Fallow** | Dead code, cycles, complexity, architecture drift. |
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
@@ -32,8 +34,13 @@ each owner runs locally and in CI.
 
 ## Boundaries to respect
 
-- **Do not add ESLint or Prettier.** Biome owns lint + format. Two formatters is
-  a guaranteed source of churn.
+- **Each lint rule has one owner.** Biome owns formatting and general lint;
+  ESLint owns policy, React hooks, React Compiler, and React Doctor rules; the
+  React Doctor CLI owns the project-level checks
+  ([ADR 0010](../decisions/0010-lint-engine-ownership.md),
+  [ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)). When two engines
+  implement the same check, one turns it off and names the owner. Biome is the
+  only formatter.
 - **Do not add a second test runner.** Unit = Jest, E2E = Playwright. That is
   the whole matrix.
 - **The unit suite asserts behaviour.** Unit tests stub stylesheets on purpose

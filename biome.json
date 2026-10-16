@@ -45,7 +45,9 @@
       "preset": "recommended",
       "correctness": {
         "noUnusedImports": "error",
-        "noUnusedVariables": "error"
+        "noUnusedVariables": "error",
+        "useExhaustiveDependencies": "off",
+        "useHookAtTopLevel": "off"
       },
       "style": {
         "useImportType": "error",

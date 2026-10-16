@@ -10,17 +10,21 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan. |
-| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, Fallow, coverage, build, size, E2E. |
+| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
-| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, typecheck, Biome, Fallow, tests, build, security. |
+| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, tests, build, security. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files; other PRs report the same check green with audits skipped. |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` | `enforcement-approval` status stays red until a write-access reviewer approves changes to enforcement paths. |
 
 ## Tool ownership
 
-- **Biome** owns formatting, import ordering, and JavaScript/TypeScript lint
-  rules that it implements.
+- **Biome** owns formatting, import ordering, and general JavaScript/TypeScript
+  lint.
+- **ESLint** (`pnpm lint:policy`) owns policy rules, React hooks rules, React
+  Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
+- **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
+  ESLint plugin cannot express, such as duplicated JSX across files.
 - **TypeScript** owns type semantics through `tsc --noEmit`.
 - **Jest + React Testing Library** own component and hook behaviour.
 - **jest-axe, @axe-core/playwright, and Lighthouse** own accessibility.
@@ -30,14 +34,17 @@ only when a hook, script, workflow, or review checklist actually owns it.
 - **CodeQL, gitleaks, pnpm audit, and the license check** own security and
   dependency risk.
 
-This is why the template does not add ESLint or Prettier. Biome covers the fast
-lint/format/import loop; the remaining concerns are covered by stronger gates at
-the layer where the behaviour is observable.
+Each lint rule has exactly one owner
+([ADR 0010](../decisions/0010-lint-engine-ownership.md),
+[ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)). Biome runs the fast
+format, import, and general lint loop; ESLint and React Doctor run the React
+policy layer; the remaining concerns sit with stronger gates at the layer where
+the behaviour is observable.
 
 ## Visual style checking
 
 Visual style checking returns once StyleProof is fixed
-([ADR 0015](../decisions/0015-pause-styleproof-until-it-is-fixed.md)).
+([ADR 0016](../decisions/0016-pause-styleproof-until-it-is-fixed.md)).
 
 ## Enforcement approval
 

@@ -17,8 +17,9 @@ task complete until `pnpm verify` and `pnpm e2e` are green.
       threshold in `jest.config.ts` (80%).
 - [ ] **Types check.** `pnpm typecheck` passes with no `any` and no weakened
       config.
-- [ ] **Lint + format clean.** `pnpm check` (Biome) passes; no disabled rules
-      without a written reason.
+- [ ] **Lint + format clean.** `pnpm check` (Biome), `pnpm lint:policy`
+      (ESLint), and `pnpm react-doctor` pass; every disabled rule carries a
+      written reason.
 - [ ] **Code intelligence clean.** `pnpm fallow:audit` introduces no new dead
       code, circular dependencies, or complexity/architecture violations.
 - [ ] **Build succeeds.** `pnpm build` produces a clean production bundle.

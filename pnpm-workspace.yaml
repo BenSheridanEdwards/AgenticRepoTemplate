@@ -46,6 +46,9 @@ minimumReleaseAgeExclude:
 # under vendor/ with bumped versions (3.0.4 / 2.0.2) and point overrides at them.
 # Remove the file: overrides once upstream publishes.
 overrides:
+  # react-doctor brings a newer playwright-core; this keeps axe's Page type on
+  # the version @playwright/test uses. Bump it together with @playwright/test.
+  '@axe-core/playwright>playwright-core': 1.61.0
   body-parser@<1.20.6: ^1.20.6
   brace-expansion@<1.1.16: ^1.1.16
   brace-expansion@<1.1.17: ^1.1.17

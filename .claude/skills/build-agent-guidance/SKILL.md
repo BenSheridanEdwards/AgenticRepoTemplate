@@ -60,8 +60,8 @@ the root docs into a second codebase.
 - Do not list tools that are not installed or gates that do not run.
 - Do not add private project names, secrets, customer data, or local paths to a
   public template.
-- Do not add ESLint, Prettier, a second test runner, or another duplicate tool
-  unless the tech-stack contract changes through an ADR.
+- Keep one owner per concern; a new tool for an owned concern changes the
+  tech-stack contract through an ADR.
 
 ## Done When
 

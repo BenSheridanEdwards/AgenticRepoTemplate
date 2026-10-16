@@ -1,4 +1,4 @@
-# 15. Pause StyleProof until it is fixed
+# 16. Pause StyleProof until it is fixed
 
 - **Status:** Accepted
 - **Date:** 2026-10-16

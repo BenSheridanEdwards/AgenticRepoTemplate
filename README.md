@@ -212,7 +212,8 @@ and complexity drift on every commit.
 pnpm install
 pnpm setup:agents     # one time: external agentic toolkit
 pnpm dev              # http://localhost:5173
-pnpm verify           # typecheck, biome, fallow, tests with coverage, build, size
+pnpm lint:policy      # ESLint policy, React hooks, and React Compiler rules
+pnpm verify           # typecheck, biome, eslint, react doctor, fallow, tests with coverage, build, size
 pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
 ```
 
@@ -240,7 +241,7 @@ For a brownfield project, copy the scaffolding into the existing repo:
 
 ```
 AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/  (workflows and dependabot)
-biome.json  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
+biome.json  eslint.config.js  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
 ```
 
 Then run `/pre-audit-setup` and the audits to see where the repo falls short,
@@ -285,7 +286,8 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
     lighthouse.yml          Performance and accessibility budget on UI-relevant PRs.
     enforcement-approval.yml  Sign-off gate for enforcement-path changes (main's copy judges each PR).
 SECURITY.md                 Vulnerability disclosure policy.
-biome.json                  Lint, format, import order (one tool).
+biome.json                  Format, import order, and general lint.
+eslint.config.js            Policy, React hooks, React Compiler, and React Doctor rules.
 commitlint.config.ts        Conventional Commits.
 jest.config.ts / jest.setup.ts  Unit and component tests (RTL and jest-axe), coverage gate.
 playwright.config.ts        Browser harness for the E2E behaviour map.
