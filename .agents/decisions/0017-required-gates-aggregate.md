@@ -30,7 +30,11 @@ gate noticed either change.
   sets `continue-on-error`, a `ci.yml` job is outside the contract, the
   aggregate job's text differs from the one the contract renders, or
   `docs/required-gates.md` is stale. It runs in `pnpm verify` and in the
-  aggregate job. Steps inside lane jobs stay with enforcement approval.
+  aggregate job. It also reads the steps inside every gate job and fails on a
+  step-level `continue-on-error` or `if:` that could turn a failed lane green,
+  and on a `run:` that ignores its exit code (`|| true`, `set +e`, and similar).
+  Evidence uploads and a gate's declared `skipRule.when` are the exceptions.
+  The step rules are listed in the inventory.
 - **Settings stay with a maintainer.** The contract names the checks to
   require. `node scripts/required-gates.mjs --protection` compares the live
   settings with them.
@@ -43,4 +47,5 @@ gate noticed either change.
   inventory.
 - Lighthouse still decides inside a step whether to audit. That rule lives in
   `scripts/lighthouse-scope.mjs` with its own tests, and the contract's
-  `skipRule` pins the workflow step to it.
+  `skipRule` pins the workflow step to it and names the one condition the
+  later steps may skip on.

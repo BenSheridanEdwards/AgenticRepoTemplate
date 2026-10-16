@@ -87,8 +87,13 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
   job. It fails on a missing or renamed job, a changed job-level `if:`, a
   `continue-on-error` gate job, a `ci.yml` job outside the contract, any change
   to the aggregate job's text (its `needs`, `if: always()`, or steps), or a
-  stale inventory. Steps inside the lane jobs are reviewed through enforcement
-  approval, not this check.
+  stale inventory. Inside every gate job it also fails on a step that sets
+  `continue-on-error`, carries an `if:` that could skip the work, or ignores a
+  command's exit code. Evidence uploads (`actions/upload-artifact` on
+  `failure()`) and Lighthouse's declared skip condition are the exceptions. The
+  inventory lists the step rules, rendered from `STEP_POLICY`. The reader
+  needs no YAML dependency because it accepts one layout. A line outside that
+  layout fails the check, so no step goes unread.
 - **Local versus hosted proof.** `pnpm verify` and `pnpm e2e` mirror every lane
   with a local command. The security audit and CodeQL run only on GitHub, and
   Lighthouse runs locally only on request. Hosted readiness is a green

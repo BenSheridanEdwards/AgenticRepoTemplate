@@ -35,7 +35,8 @@ export const AGGREGATE = { check: 'Required gates', workflow: 'ci.yml', job: 're
  * aggregate job. `appliesTo` is the only way a lane may be skipped: the job's
  * `if:` must be exactly the rendered rule, and a skip outside it fails. A
  * stand-alone check pins its job-level `if:` verbatim. A job that skips its own
- * work inside a step names the tested script that decides it in `skipRule`.
+ * work inside a step names the tested script that decides it in `skipRule.run`,
+ * and `skipRule.when` is the one step condition that may skip that work.
  */
 export const REQUIRED_GATES = [
   {
@@ -100,7 +101,10 @@ export const REQUIRED_GATES = [
     workflow: 'lighthouse.yml',
     job: 'lighthouse',
     judgedBy: 'branch protection',
-    skipRule: 'node scripts/lighthouse-scope.mjs',
+    skipRule: {
+      run: 'node scripts/lighthouse-scope.mjs',
+      when: "steps.changes.outputs.ui-changed == 'true'",
+    },
     appliesWhen:
       'Pull requests. Audits run only when `scripts/lighthouse-scope.mjs` finds UI-relevant files; otherwise the job passes without auditing.',
     local: '`node scripts/lighthouse-scope.mjs origin/main...HEAD`, then `pnpm build && pnpm lhci`',
@@ -167,52 +171,131 @@ export function decideRequiredGates({ needs, run }) {
 }
 
 /**
- * Read the job ids under `jobs:`, each job's `name:`, `if:`,
- * `continue-on-error:`, and flow-list `needs:`, and its steps' one-line `run:`
- * commands. The workflows here keep those fields on one line, so a line reader
- * is enough and needs no YAML dependency.
+ * Step leniency that cannot turn a failed lane green. A step condition here
+ * runs the step in every case the default would. An evidence step only uploads
+ * what a lane produced, so it may run on failure and may not fail the lane.
+ */
+const STEP_POLICY = {
+  widening: ['always()', '!cancelled()'],
+  evidence: { uses: /^actions\/upload-artifact@/, conditions: ['failure()'] },
+  ignoredExit: [
+    { label: '|| true', pattern: /\|\|\s*true\b/ },
+    { label: '|| :', pattern: /\|\|\s*:(?=\s|;|$)/m },
+    { label: '|| exit 0', pattern: /\|\|\s*exit\s+0\b/ },
+    { label: 'set +e', pattern: /\bset\b[^\n;]*(?:\s\+[a-z]*e|\+o\s+errexit)/ },
+  ],
+};
+
+const FIELD = /^([\w-]+):(?:\s+(.*?))?\s*$/;
+const BLOCK_HEADER = /^[|>][-+]?$/;
+
+/** The lines under `jobs:` with their line numbers, without blanks and comments. */
+function jobLines(workflowText) {
+  const lines = workflowText.split('\n').map((text, index) => ({ text, number: index + 1 }));
+  const start = lines.findIndex(({ text }) => /^jobs:\s*$/.test(text));
+  if (start === -1) {
+    return [];
+  }
+  const end = lines.findIndex(({ text }, index) => index > start && /^\S/.test(text));
+  return lines
+    .slice(start + 1, end === -1 ? undefined : end)
+    .filter(({ text }) => !/^\s*(#.*)?$/.test(text));
+}
+
+/**
+ * Read each job's fields and each step's fields, with `run:` block scalars
+ * collected. The workflows keep one layout (jobs at 2 spaces, job fields at 4,
+ * steps at 6, step fields at 8, nested content at 10 or deeper), so a line
+ * reader is enough and needs no YAML dependency. Any line outside that layout
+ * is a problem, so a step the reader cannot see fails the check instead of
+ * passing it unread.
  */
 function parseJobs(workflowText) {
   const jobs = new Map();
-  let inJobs = false;
-  let current;
-  for (const line of workflowText.split('\n')) {
-    if (/^jobs:\s*$/.test(line)) {
-      inJobs = true;
-      continue;
-    }
-    if (!inJobs || /^\s*(#.*)?$/.test(line)) {
-      continue;
-    }
-    if (/^\S/.test(line)) {
-      inJobs = false;
-      continue;
-    }
-    const jobMatch = line.match(/^ {2}([\w-]+):\s*$/);
-    if (jobMatch) {
-      current = { runs: [] };
-      jobs.set(jobMatch[1], current);
-      continue;
-    }
-    if (current) {
-      readJobLine(current, line);
+  const problems = [];
+  const state = { jobs, job: undefined, step: undefined, jobKey: undefined, nested: 'reject' };
+  for (const { text, number } of jobLines(workflowText)) {
+    if (!readLine(state, text)) {
+      problems.push(
+        `line ${number} has a layout the contract reader does not check: "${text.trim()}". ` +
+          'Use the layout of the other workflow jobs so every step stays checked.',
+      );
     }
   }
-  return jobs;
+  return { jobs, problems };
 }
 
-const JOB_FIELD = /^ {4}(name|if|needs|continue-on-error):\s*(.*?)\s*$/;
-const STEP_RUN = /^ {6}(?:- | {2})run:\s*(.*?)\s*$/;
+function readLine(state, line) {
+  const indent = line.search(/\S/);
+  const field = line.trim().match(FIELD);
+  if (indent === 2) {
+    return startJob(state, field);
+  }
+  if (!state.job) {
+    return false;
+  }
+  if (indent === 4) {
+    state.jobKey = field?.[1];
+    return field !== null && setField(state, state.job, field[1], field[2]);
+  }
+  if (state.jobKey === 'steps') {
+    return readStepLine(state, line, indent);
+  }
+  return state.nested === 'opaque';
+}
 
-function readJobLine(job, line) {
-  const field = line.match(JOB_FIELD);
-  if (field) {
-    job[field[1]] = unwrapExpression(field[2]);
+function startJob(state, field) {
+  Object.assign(state, { job: undefined, step: undefined, jobKey: undefined });
+  if (!field || field[2] !== undefined) {
+    return false;
   }
-  const run = line.match(STEP_RUN);
-  if (run) {
-    job.runs.push(run[1]);
+  state.job = { steps: [] };
+  state.jobs.set(field[1], state.job);
+  return true;
+}
+
+function readStepLine(state, line, indent) {
+  if (indent >= 10) {
+    return readNested(state, line);
   }
+  const step = indent === 6 ? line.trim().match(/^- (.*)$/)?.[1] : line.trim();
+  const field = indent === 6 || indent === 8 ? step?.match(FIELD) : null;
+  if (!field) {
+    return false;
+  }
+  if (indent === 6) {
+    state.step = {};
+    state.job.steps.push(state.step);
+  }
+  return state.step !== undefined && setField(state, state.step, field[1], field[2]);
+}
+
+function readNested(state, line) {
+  if (state.nested === 'run') {
+    state.step.run += `${line.slice(10)}\n`;
+  }
+  return state.nested !== 'reject';
+}
+
+/**
+ * Set a job or step field and decide how to read the lines nested under it: a
+ * `run: |` block collects its text, a mapping such as `with:` is skipped, and
+ * anything under a plain value is a problem.
+ */
+function setField(state, target, key, value) {
+  if (value === undefined) {
+    state.nested = 'opaque';
+    return !['run', 'if', 'continue-on-error', 'name'].includes(key);
+  }
+  if (/^[|>]/.test(value)) {
+    const isRunBlock = key === 'run' && BLOCK_HEADER.test(value);
+    state.nested = isRunBlock ? 'run' : 'opaque';
+    target[key] = '';
+    return isRunBlock;
+  }
+  state.nested = 'reject';
+  target[key] = unwrapExpression(value);
+  return true;
 }
 
 /** `if: ${{ x }}` and `if: x` mean the same to GitHub; compare the bare form. */
@@ -225,8 +308,13 @@ function parseNeeds(needsText) {
   return flowList ? flowList[1].split(',').map((job) => job.trim()) : undefined;
 }
 
+/** `continue-on-error: false` is the default, so only another value counts. */
+function isSet(value) {
+  return value !== undefined && value !== 'false';
+}
+
 function checkContinueOnError(where, job, errors) {
-  if (job['continue-on-error'] !== undefined) {
+  if (isSet(job['continue-on-error'])) {
     errors.push(
       `${where} must not set \`continue-on-error\`; it reports a failed job as a success.`,
     );
@@ -250,11 +338,50 @@ function checkGateJob(gate, job, errors) {
         `\`if: ${expected ?? '(none)'}\`. A skip outside the contract reads as a pass.`,
     );
   }
-  if (gate.skipRule && !job.runs.includes(gate.skipRule)) {
+  if (gate.skipRule && !job.steps.some((step) => step.run === gate.skipRule.run)) {
     errors.push(
-      `${where} must decide its skip with \`run: ${gate.skipRule}\`, the tested rule. ` +
+      `${where} must decide its skip with \`run: ${gate.skipRule.run}\`, the tested rule. ` +
         'An untested skip reads as a pass.',
     );
+  }
+  for (const step of job.steps) {
+    checkStep(gate, step, `${where} step "${stepLabel(step)}"`, errors);
+  }
+}
+
+function stepLabel(step) {
+  return step.name ?? step.run?.split('\n')[0] ?? step.uses ?? step.id ?? '(unnamed)';
+}
+
+function allowedStepConditions(gate, isEvidence) {
+  return [
+    ...STEP_POLICY.widening,
+    ...(isEvidence ? STEP_POLICY.evidence.conditions : []),
+    ...(gate.skipRule ? [gate.skipRule.when] : []),
+  ];
+}
+
+function checkStep(gate, step, where, errors) {
+  const isEvidence = STEP_POLICY.evidence.uses.test(step.uses ?? '');
+  if (isSet(step['continue-on-error']) && !isEvidence) {
+    errors.push(
+      `${where} sets \`continue-on-error\`; it reports a failed step as a success. ` +
+        'Only evidence uploads may.',
+    );
+  }
+  const allowed = allowedStepConditions(gate, isEvidence);
+  if (step.if !== undefined && !allowed.includes(step.if)) {
+    errors.push(
+      `${where} has \`if: ${step.if}\`; a skipped step reads as a pass. ` +
+        `Allowed here: ${allowed.map((condition) => `\`${condition}\``).join(', ')}.`,
+    );
+  }
+  for (const { label, pattern } of STEP_POLICY.ignoredExit) {
+    if (pattern.test(step.run ?? '')) {
+      errors.push(
+        `${where} ignores its exit code with \`${label}\`, so a failure reads as a pass.`,
+      );
+    }
   }
 }
 
@@ -342,7 +469,9 @@ export function checkContract({ readWorkflow, inventory }) {
   const jobsByWorkflow = new Map();
   for (const gate of REQUIRED_GATES) {
     if (!jobsByWorkflow.has(gate.workflow)) {
-      jobsByWorkflow.set(gate.workflow, parseJobs(readWorkflow(gate.workflow)));
+      const { jobs, problems } = parseJobs(readWorkflow(gate.workflow));
+      errors.push(...problems.map((problem) => `${gate.workflow} ${problem}`));
+      jobsByWorkflow.set(gate.workflow, jobs);
     }
     checkGateJob(gate, jobsByWorkflow.get(gate.workflow).get(gate.job), errors);
   }
@@ -389,6 +518,20 @@ export function compareProtection({ contexts }) {
   return { errors, alsoRequired };
 }
 
+function renderStepRules() {
+  const quote = (values) => values.map((value) => `\`${value}\``).join(', ');
+  const skipConditions = REQUIRED_GATES.filter((gate) => gate.skipRule).map(
+    (gate) => `${gate.check}: \`${gate.skipRule.when}\``,
+  );
+  return [
+    '- Sets `continue-on-error`, unless it is an evidence upload (`actions/upload-artifact`).',
+    `- Has an \`if:\` other than ${quote(STEP_POLICY.widening)}, ` +
+      `${quote(STEP_POLICY.evidence.conditions)} on an evidence upload, or the job's declared ` +
+      `skip condition (${skipConditions.join('; ')}).`,
+    `- Ignores a command's exit code with any of ${quote(STEP_POLICY.ignoredExit.map(({ label }) => label))}.`,
+  ];
+}
+
 export function renderInventory() {
   const rows = REQUIRED_GATES.map((gate) => {
     const appliesWhen = gate.appliesTo
@@ -409,6 +552,12 @@ export function renderInventory() {
     '| Check | Workflow job | Judged by | Applies when | Local mirror |',
     '| --- | --- | --- | --- | --- |',
     ...rows,
+    '',
+    '## Step rules',
+    '',
+    'Inside every job above, `pnpm gates:check` also fails on a step that:',
+    '',
+    ...renderStepRules(),
     '',
     '## Checks to require in branch protection',
     '',
