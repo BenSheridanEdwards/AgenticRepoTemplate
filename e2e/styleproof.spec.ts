@@ -9,6 +9,14 @@ import { defineStyleMapCapture } from 'styleproof';
  */
 defineStyleMapCapture({
   dir: process.env.STYLEMAP_DIR,
+  // The surface universe StyleProof certifies against: a surface removed below
+  // fails the coverage guard instead of silently leaving the report.
+  expected: [
+    'threshold-counter',
+    'service-status-success',
+    'service-status-empty',
+    'service-status-error',
+  ],
   surfaces: [
     {
       key: 'threshold-counter',
