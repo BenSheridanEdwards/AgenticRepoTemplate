@@ -25,6 +25,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Install leaves the tree clean
+        run: git diff --exit-code
       - run: pnpm check:context
       - run: pnpm typecheck
       - run: pnpm check
