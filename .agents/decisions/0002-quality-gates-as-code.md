@@ -21,7 +21,7 @@ earliest point it can fail:
 - **Pre-push (behaviour):** unit/component tests with coverage, a production
   build smoke, and the end-to-end behaviour map.
 - **CI:** all of the above re-run on a clean checkout, plus dependency + secret
-  security audit and the StyleProof visual gate.
+  security audit.
 
 The local hooks and CI run the *same* checks, so "passes on my machine" and
 "passes in CI" converge. `pnpm verify` is the single local command that mirrors

@@ -62,7 +62,6 @@ the behaviour:
 - Security patterns: CodeQL, gitleaks, `pnpm audit`
 - Architecture graph, gate, and role diagram: Fallow
 - Exported API reports: API Extractor
-- Visual regressions: StyleProof
 
 Add a lint engine or plugin through an ADR when a concrete required rule has no
 owner among Biome, ESLint, React Doctor, TypeScript, tests, security gates, or

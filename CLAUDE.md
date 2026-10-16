@@ -79,7 +79,7 @@ This repo is wired for Claude Code with four tools:
 - **Show Me** — `/show-me` creates a concise visual explanation of a change.
   Use it selectively on non-trivial PRs. Ground every label in real files,
   symbols, states, or evidence. It supports the PR proof and never replaces
-  tests, StyleProof reports, screenshots, or exact-head CI. Read
+  tests, screenshots, or exact-head CI. Read
   `.claude/skills/show-me/REPOSITORY.md` with the upstream skill.
 
 <!-- gitnexus:start -->

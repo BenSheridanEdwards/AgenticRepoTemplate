@@ -74,8 +74,8 @@ stdlib or native platform features before adding abstractions or dependencies.
 - Keep one owner per concern: Biome formats and runs general lint, ESLint runs
   policy and React rules, Jest and Playwright run tests. A new tool for an owned
   concern needs an ADR (see `TECH_STACK.md`).
-- Treat generated artefacts (`dist/`, `coverage/`, `__stylemaps__/`,
-  `graphify-out/`, `.gitnexus/`) as disposable; never edit them by hand.
+- Treat generated artefacts (`dist/`, `coverage/`, `graphify-out/`,
+  `.gitnexus/`) as disposable; never edit them by hand.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

@@ -90,9 +90,8 @@ Query owns server state and React Hook Form owns form state.
 
 ### 6. Proof the agent can see
 
-Agents verify their own work through the behaviour map (Playwright E2E), the
-accessibility scan, and StyleProof's computed-style diff. Behaviour and looks
-are separate truths and both are checked.
+Agents verify their own work through the behaviour map (Playwright E2E) and the
+accessibility scan.
 
 ### 7. Fast CI
 
@@ -154,10 +153,8 @@ and shared modules with public entry points. PR0 maps them onto the role table.
 Fallow 3.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
 and Fallow 3.x also checks dead code, cycles, and complexity. The repo runs
 `strict` TypeScript, Biome with its recommended preset for lint and format,
-Jest, Playwright, axe, and StyleProof. Husky hooks run the CI checks that work
-locally. StyleProof runs in CI and posts its visual diff on the PR, and a
-reviewer, human or agent, checks it against the intended UI changes. A script
-validates PR bodies, and a hook refuses `--no-verify`.
+Jest, Playwright, and axe. Husky hooks run the CI checks that work locally. A
+script validates PR bodies, and a hook refuses `--no-verify`.
 
 **The plan.** PR0 moves the app into `apps/web`. Plan PRs 1 to 9 follow in
 order, with the Effect PR ahead of PR 4. Each PR that changes a tool also

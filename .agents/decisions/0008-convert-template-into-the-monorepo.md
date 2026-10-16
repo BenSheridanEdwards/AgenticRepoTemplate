@@ -19,6 +19,6 @@ conversion.
 
 - One repository carries the gates, the guidance, and the monorepo shape, so
   nothing has to be copied across.
-- The behaviour map, StyleProof surfaces, and unit tests for the two demo
-  features go with them. The new reference feature brings its own.
+- The behaviour map and unit tests for the two demo features go with them. The
+  new reference feature brings its own.
 - The move itself is sequenced by [0009](0009-move-the-app-to-apps-web-first.md).

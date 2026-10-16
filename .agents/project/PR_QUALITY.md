@@ -17,8 +17,8 @@ Every PR body must include:
 - **Why:** the problem, risk, or capability the change exists to address.
 - **What changed:** the smallest reviewable summary of the diff.
 - **Local verification:** exact commands run, with pass/fail status.
-- **Visual proof:** screenshots, video, StyleProof report, or `N/A` with a
-  reason. Any UI-visible or CSS change needs visual proof.
+- **Visual proof:** screenshots, video, or `N/A` with a reason. Any UI-visible
+  or CSS change needs visual proof.
 - **CI status:** whether checks are green for the latest commit, still pending,
   or failing with the failure named.
 - **Risk and rollback:** the likely blast radius and how to back out.
@@ -37,8 +37,7 @@ a trivial change.
 
 Every label must trace to real files, symbols, states, or evidence in the PR.
 Keep warnings and uncertainty visible. The view explains the change; it does
-not replace behavioural tests, StyleProof reports, screenshots, command output,
-or exact-head CI.
+not replace behavioural tests, screenshots, command output, or exact-head CI.
 
 Open a ready PR when the work is reviewable and the body has proof. Do not open
 placeholder PRs with missing verification and then call the work done. If a PR
@@ -49,9 +48,9 @@ not report completion until the latest-sha checks are green.
 
 - Use command names, not summaries: `pnpm verify` is useful; "tests passed" is
   not.
-- For UI-visible work, include screenshots, video, or the StyleProof report. For
-  docs-only or config-only work, write `N/A` and point to deterministic proof
-  such as lint, build, or workflow validation.
+- For UI-visible work, include screenshots or video. For docs-only or
+  config-only work, write `N/A` and point to deterministic proof such as lint,
+  build, or workflow validation.
 - If a command fails, keep the failure visible and fix the cause. Never use
   `--no-verify`, weaken a gate, or remove a check to make the PR green.
 - If proof depends on a deploy or external service, verify that runtime directly

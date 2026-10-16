@@ -12,14 +12,13 @@ each owner runs locally and in CI.
 | UI | **React 19** | Function components + hooks only. |
 | Build / dev server | **Vite** | The runnable carrier; the scaffolding is stack-agnostic. |
 | Unit / component tests | **Jest + React Testing Library** | Behaviour through the accessibility tree. |
-| End-to-end tests | **Playwright** | The behaviour map; also hosts StyleProof. |
+| End-to-end tests | **Playwright** | The behaviour map. |
 | Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
 | Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks` and `eslint-plugin-react-doctor` on `src/`; see ADR 0015 for each rule's owner. |
 | React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks the ESLint plugin cannot express. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence and architecture | **Fallow** | Dead code, cycles, complexity, the dependency graph, the architecture gate (`pnpm arch:gate`), and the role diagram (`pnpm arch:diagram`). |
 | Exported API reports | **API Extractor** | One committed `etc/*.api.md` per public module entry (`pnpm api:report`, `pnpm api:check`). |
-| Visual regression | **StyleProof** | Diffs computed styles; review-gate + certify modes. |
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
 | Bundle-size budget | **size-limit** | Fails CI when `dist/` exceeds the budget. |
 | Performance budget | **Lighthouse CI** | a11y floor + perf budget on UI-relevant pull requests. |
@@ -45,10 +44,10 @@ each owner runs locally and in CI.
   only formatter.
 - **Do not add a second test runner.** Unit = Jest, E2E = Playwright. That is
   the whole matrix.
-- **Visual correctness is StyleProof's job, not the unit suite's.** Unit tests
-  stub stylesheets on purpose (`jest.style-stub.cjs`).
+- **The unit suite asserts behaviour.** Unit tests stub stylesheets on purpose
+  (`jest.style-stub.cjs`).
 
-External tooling (Fallow, StyleProof, ArchitectPlaybook, graphify, GitNexus, Ponytail) is
+External tooling (Fallow, ArchitectPlaybook, graphify, GitNexus, Ponytail) is
 documented in the repo root `README.md` and installed via `pnpm setup:agents`. We reference
 these as living libraries rather than vendoring copies — see
 [`../decisions/0004-agent-context-lives-in-dot-agents.md`](../decisions/0004-agent-context-lives-in-dot-agents.md).

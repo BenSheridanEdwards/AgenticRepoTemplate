@@ -75,8 +75,6 @@ export default [
       'vendor/**',
       'playwright-report/**',
       'test-results/**',
-      'styleproof-report/**',
-      '__stylemaps__/**',
       'graphify-out/**',
       '.architect-audits/**',
     ],

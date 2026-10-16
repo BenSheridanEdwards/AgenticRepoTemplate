@@ -87,9 +87,8 @@ with a public surface, and record the choice as an ADR in `../decisions/`.
 Adding a feature is a mechanical, repeatable act:
 
 1. `mkdir src/features/<feature-name>` (kebab-case).
-2. Copy the four templates from [`../templates/`](../templates) and fill them in.
-3. Specify the behaviour in `e2e/app.spec.ts`; add a StyleProof surface if the
-   feature introduces a new visual state.
+2. Copy the three templates from [`../templates/`](../templates) and fill them in.
+3. Specify the behaviour in `e2e/app.spec.ts`.
 4. Run `pnpm api:report` and commit the new `etc/<role>-<name>.api.md`. The
    role diagram stays the same, because the new folder joins an existing role.
 5. `pnpm verify` must pass before you call it done.

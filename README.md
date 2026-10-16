@@ -111,8 +111,7 @@ mean the same thing. A green PR means "this change introduced nothing new".
 | --- | --- | --- |
 | **On commit** | The branch contains main, type safety, consistent style and imports, code intelligence (dead code, cycles, complexity), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
 | **On push** | The branch contains the latest main, logic tested with a coverage floor, a production build, the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green | [`.husky/pre-push`](.husky/pre-push) |
-| **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, PR-body validation, and visual regression | [`.github/workflows/`](.github/workflows) |
-| **Before merge** | Human visual sign-off: the visual gate flips green only when a reviewer other than the PR author ticks "Approve all changes", bound to the exact commit | [`styleproof-approve.yml`](.github/workflows/styleproof-approve.yml) plus branch protection |
+| **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, and PR-body validation | [`.github/workflows/`](.github/workflows) |
 
 The gates cannot be skipped. A
 [PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any `--no-verify`,
@@ -145,21 +144,12 @@ applicable` with the technical reason. And every bug fix ships, in the same
 change, with the test that would have caught it, asserting the user-visible
 symptom. A reviewer should never have to guess what was actually verified.
 
-### The visual gate: behaviour and looks are separate truths
+### Visual style checking
 
-Behaviour tests are blind to visual drift, and screenshots are blind to runtime
-failure, so this template runs both. The behaviour map in
-[`e2e/app.spec.ts`](e2e/app.spec.ts) drives the product through the real
-interface using roles and visible text. Beside it,
-[`e2e/styleproof.spec.ts`](e2e/styleproof.spec.ts), built on
-[StyleProof](https://github.com/BenSheridanEdwards/styleproof), reads the
-browser's computed styles and compares the PR against its base branch at three
-widths, catching hover and focus states, between-breakpoint rules, and
-sub-pixel drift that pixel snapshots miss. A refactor is safe when the
-behaviour suite stays green and the style diff is zero or every change is
-deliberately approved. The StyleProof workflow runs in CI on every pull
-request and posts the visual diff on the PR. A reviewer, human or agent, checks
-that the report matches the intended UI changes.
+The behaviour map in [`e2e/app.spec.ts`](e2e/app.spec.ts) drives the product
+through the real interface using roles and visible text. Visual style checking
+returns once [StyleProof](https://github.com/BenSheridanEdwards/styleproof) is
+fixed.
 
 ### Skills: processes with exactly one job
 
@@ -236,17 +226,9 @@ Requires Node 22 or higher and pnpm. See [`.nvmrc`](.nvmrc).
 Some enforcement lives in platform settings and cannot be committed, so a fresh
 repository has to finish this list before the gates truly block:
 
-- [ ] **Require the `StyleProof` commit status in branch protection.** The
-      visual gate posts a `StyleProof` status and a `<!-- styleproof-report -->`
-      review comment, but a red status only blocks a merge once a
-      branch-protection rule on `main` requires it. Add the rule under Settings
-      → Branches → "Require status checks to pass", selecting `StyleProof` (see
-      the operating notes in
-      [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md)).
-- [ ] **Also require the `PR quality` and CI status checks**, so the PR-body
-      contract and the gate suite block merges too.
-- [ ] **Keep `styleproof-approve.yml` on the default branch.** The approval
-      workflow is an `issue_comment` workflow, so it only runs from `main`.
+- [ ] **Require the `PR quality` and CI status checks** in branch protection
+      (Settings → Branches → "Require status checks to pass"), so the PR-body
+      contract and the gate suite block merges.
 - [ ] **Turn on secret scanning and Dependabot** in the repository's security
       settings.
 
@@ -285,7 +267,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
   project/TECH_STACK.md     One tool per concern, and what not to add.
   project/GLOSSARY.md       Shared language (pairs with graphify).
   decisions/                Decision records: why each constraint exists.
-  templates/                Scaffolds for components, tests, E2E, StyleProof.
+  templates/                Scaffolds for components, tests, and E2E.
 .claude/
   settings.json             Permission allowlist and PreToolUse hook.
   hooks/block-gate-bypass.sh  Refuses --no-verify. Gates are not optional.
@@ -304,15 +286,13 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
     pr-quality.yml          Validates the PR body and title (scripts/validate-pr-body.mjs).
     codeql.yml              CodeQL static analysis (security-events).
     lighthouse.yml          Performance and accessibility budget on UI-relevant PRs.
-    styleproof.yml          Computed-style visual gate (PR head vs base).
-    styleproof-approve.yml  Visual sign-off on the default branch.
     enforcement-approval.yml  Sign-off gate for enforcement-path changes (main's copy judges each PR).
 SECURITY.md                 Vulnerability disclosure policy.
 biome.json                  Format, import order, and general lint.
 eslint.config.js            Policy, React hooks, React Compiler, and React Doctor rules.
 commitlint.config.ts        Conventional Commits.
 jest.config.ts / jest.setup.ts  Unit and component tests (RTL and jest-axe), coverage gate.
-playwright.config.ts        One browser harness for E2E and StyleProof.
+playwright.config.ts        Browser harness for the E2E behaviour map.
 .size-limit.json            Bundle-size budget.
 lighthouserc.json           Lighthouse budget (accessibility floor and performance).
 .fallowrc.jsonc             Fallow config: the role zones and rules, plus runtime-loaded plugins.
@@ -334,7 +314,6 @@ docs/proof/                 Committed screenshot/video proof, embedded inline in
 e2e/
   app.spec.ts               The behaviour map.
   accessibility.spec.ts     Real-browser axe scan (WCAG A and AA, including contrast).
-  styleproof.spec.ts        StyleProof surfaces (computed-style capture).
 src/features/threshold-counter/  The one small but real feature.
 etc/                        Generated API Extractor reports, one per public module (pnpm api:report).
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
@@ -347,7 +326,6 @@ graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). R
 | Tool | Role | Link |
 | --- | --- | --- |
 | **Fallow** | Code intelligence: dead code, cycles, complexity, architecture gate and role diagram | <https://github.com/fallow-rs/fallow> |
-| **StyleProof** | Computed-style visual regression gate | <https://github.com/BenSheridanEdwards/styleproof> |
 | **ArchitectPlaybook** | Repo health-check audits | <https://github.com/BenSheridanEdwards/ArchitectPlaybook> |
 | **graphify** | Token-efficient codebase context for the audits | <https://graphify.net> |
 | **GitNexus** | Local execution-flow and impact index | <https://github.com/abhigyanpatwari/GitNexus> |

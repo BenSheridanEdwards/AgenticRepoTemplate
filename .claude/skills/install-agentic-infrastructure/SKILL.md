@@ -4,8 +4,8 @@ description: >-
   Install or upgrade agentic engineering infrastructure in a repository. Use
   when asked to add or standardize AGENTS.md, CLAUDE.md, .agents project
   context, Claude skills/hooks/settings, Husky pre-commit or pre-push gates,
-  GitHub Actions CI, StyleProof, Fallow, Graphify/ArchitectPlaybook setup, or
-  proof-backed pull request quality gates.
+  GitHub Actions CI, Fallow, Graphify/ArchitectPlaybook setup, or proof-backed
+  pull request quality gates.
 ---
 
 # Install Agentic Infrastructure
@@ -37,8 +37,8 @@ Layer the infrastructure so every instruction has one owner.
 - **CI gates:** GitHub Actions rerun the same proof on a clean checkout and add
   server-only checks: SAST, dependency audit, license, secret scan, visual,
   accessibility, performance, and artifact upload.
-- **PR contract:** the PR template requires exact proof, screenshots or
-  StyleProof evidence when UI changed, and explicit unverified gaps.
+- **PR contract:** the PR template requires exact proof, screenshots when
+  UI changed, and explicit unverified gaps.
 
 ## Process
 
@@ -58,7 +58,7 @@ Layer the infrastructure so every instruction has one owner.
      variables before running them: `unset $(git rev-parse --local-env-vars)`.
 5. **Install CI as the clean-room mirror.** Split jobs by concern and keep names
    stable enough for branch protection: type/lint/format, Fallow/code
-   intelligence, tests, build, E2E, security, CodeQL, Lighthouse, StyleProof.
+   intelligence, tests, build, E2E, security, CodeQL, Lighthouse.
 6. **Install agentic tools deliberately.** Wire Fallow as a repo dependency or
    action. Document Graphify, GitNexus, Ponytail, and ArchitectPlaybook setup as
    external tooling unless the target repo already vendors or pins those tools.
@@ -68,7 +68,7 @@ Layer the infrastructure so every instruction has one owner.
    lint. ESLint owns policy, React hooks, React Compiler, and React Doctor
    rules, and the React Doctor CLI owns its project-level checks. Each rule has
    one owner. Use TypeScript, React Testing Library, `jest-axe`, Playwright axe,
-   Lighthouse, CodeQL, Fallow, and StyleProof for the behaviour they observe.
+   Lighthouse, CodeQL, and Fallow for the behaviour they observe.
 8. **Add PR proof.** Add `.github/pull_request_template.md` and
    `.agents/project/PR_QUALITY.md`; require local proof, CI status, visual proof
    or `N/A`, and residual risk.
@@ -84,7 +84,7 @@ Layer the infrastructure so every instruction has one owner.
   template repos.
 - Keep one owner per concern. A new formatter, lint engine, test runner, or
   scanner needs an ADR that names the uncovered requirement it owns.
-- Do not weaken TypeScript, Biome, coverage, Lighthouse, StyleProof, or branch
+- Do not weaken TypeScript, Biome, coverage, Lighthouse, or branch
   protection thresholds to make an installation green.
 - Prefer advisory local gates plus hard CI gates when a tool needs credentials,
   GitHub permissions, paid runners, or a browser environment.

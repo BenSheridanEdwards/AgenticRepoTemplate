@@ -22,7 +22,7 @@ changes — no drift between three half-maintained instruction files.
 | [`project/TECH_STACK.md`](project/TECH_STACK.md) | …to know which tool owns which concern (and what *not* to add). |
 | [`project/GLOSSARY.md`](project/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
 | [`decisions/`](decisions/) | …to understand *why* a constraint exists before you challenge it. ADRs. |
-| [`templates/`](templates/) | …when creating a new component, test, E2E flow, or StyleProof surface. Copy from here. |
+| [`templates/`](templates/) | …when creating a new component, test, or E2E flow. Copy from here. |
 
 ## The contract
 

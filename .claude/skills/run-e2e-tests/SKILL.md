@@ -25,11 +25,9 @@ specified here first.
    journey inside a `test.describe` named for the feature.
 3. **Drive the UI like a user.** Prefer `getByRole(role, { name })` and the
    accessibility tree. Do not assert on CSS classes or internal state — that is
-   StyleProof's and the unit suite's job, not the behaviour map's.
+   the unit suite's job, not the behaviour map's.
 4. **Assert the user-visible outcome.** Use `expect(locator).toHaveText(...)`,
    `toBeVisible()`, the live `status` region, etc.
-5. **If the feature adds a new visual state**, add a StyleProof surface from
-   `.agents/templates/styleproof-surface.ts.template` to `e2e/styleproof.spec.ts`.
 
 ## Commands
 
