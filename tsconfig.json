@@ -33,7 +33,9 @@
     "jest.config.ts",
     "jest.setup.ts",
     "commitlint.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "playwright.styleproof.config.ts",
+    "styleproof.config.ts"
   ],
   "ts-node": {
     "transpileOnly": true,

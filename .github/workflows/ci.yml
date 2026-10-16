@@ -14,6 +14,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  up-to-date:
+    name: Branch contains main
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      # The default pull_request checkout is a merge commit that always
+      # contains main; check the PR head itself.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - run: sh scripts/require-up-to-date-main.sh
+
   quality:
     name: Type check · lint · format
     runs-on: ubuntu-latest
@@ -25,6 +38,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Install leaves the tree clean
+        run: git diff --exit-code
       - run: pnpm check:context
       - run: pnpm typecheck
       - run: pnpm check

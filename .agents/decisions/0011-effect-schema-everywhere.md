@@ -18,11 +18,11 @@ pure functions.
   forms, tRPC inputs, and every other parse at a boundary.
 - **The Effect runtime** is used at integration boundaries, where a call talks
   to the outside world. Domain logic stays plain pure functions.
-- The Effect PR lands before plan PR 3 (TanStack Query and React Hook Form).
+- The Effect PR lands before plan PR 4 (TanStack Query and React Hook Form).
 
 ## Consequences
 
-- Plan PR 3 builds its first form on Effect Schema from the start.
+- Plan PR 4 builds its first form on Effect Schema from the start.
 - Agents learn one validation idiom across web forms and API inputs.
 - Iteration inside Effect code uses `Effect.forEach` and `Effect.gen`, which
   fits the loop ban.
