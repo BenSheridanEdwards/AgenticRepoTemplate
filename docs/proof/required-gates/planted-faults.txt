@@ -1,0 +1,35 @@
+# Planted faults at 84b3720272a8c314b0ea400878c833d8507999c6
+$ bash docs/proof/required-gates/plant-faults.sh
+
+## Fault: omit a required lane from the contract
+ 1 file changed, 7 deletions(-)
+    ✕ fails a lane whose result is failure (1 ms)
+    ✕ fails a lane whose result is cancelled
+    ✕ holds for the committed workflows and inventory (3 ms)
+    ✕ fails when a required lane is dropped from the aggregate needs (1 ms)
+Tests:       4 failed, 19 passed, 23 total
+  ✗ ci.yml job `required-gates` needs must be the aggregated lanes [up-to-date, quality, fallow, test, build, security]. Missing: []. Not in the contract: [e2e].
+  ✗ ci.yml job `e2e` is not in the contract. Add it to REQUIRED_GATES in scripts/required-gates.mjs so the aggregate judges it.
+  ✗ docs/required-gates.md is stale. Run `pnpm gates:inventory` and commit the result.
+-- restored --
+Tests:       23 passed, 23 total
+Required-gate contract matches the workflows and the inventory.
+
+## Fault: omit a required lane from the aggregate needs
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+    ✕ holds for the committed workflows and inventory (4 ms)
+Tests:       1 failed, 22 passed, 23 total
+  ✗ ci.yml job `required-gates` needs must be the aggregated lanes [up-to-date, quality, fallow, test, build, e2e, security]. Missing: [e2e]. Not in the contract: [].
+-- restored --
+Tests:       23 passed, 23 total
+Required-gate contract matches the workflows and the inventory.
+
+## Fault: treat cancellation as success
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+    ✕ fails a lane whose result is cancelled (1 ms)
+    ✕ exits 1 and names the lane when one was cancelled (35 ms)
+Tests:       2 failed, 21 passed, 23 total
+Required-gate contract matches the workflows and the inventory.
+-- restored --
+Tests:       23 passed, 23 total
+Required-gate contract matches the workflows and the inventory.
