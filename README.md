@@ -226,7 +226,7 @@ pnpm verify           # typecheck, biome, fallow, tests with coverage, build, si
 pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
 ```
 
-Requires Node 20 or higher and pnpm. See [`.nvmrc`](.nvmrc).
+Requires Node 22 or higher and pnpm. See [`.nvmrc`](.nvmrc).
 
 ### Post-clone setup checklist
 
