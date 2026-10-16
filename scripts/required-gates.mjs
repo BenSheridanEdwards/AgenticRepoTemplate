@@ -34,7 +34,8 @@ export const AGGREGATE = { check: 'Required gates', workflow: 'ci.yml', job: 're
  * Every required check. `judgedBy: 'aggregate'` lanes must be `needs` of the
  * aggregate job. `appliesTo` is the only way a lane may be skipped: the job's
  * `if:` must be exactly the rendered rule, and a skip outside it fails. A
- * stand-alone check pins its job-level `if:` verbatim.
+ * stand-alone check pins its job-level `if:` verbatim. A job that skips its own
+ * work inside a step names the tested script that decides it in `skipRule`.
  */
 export const REQUIRED_GATES = [
   {
@@ -99,9 +100,10 @@ export const REQUIRED_GATES = [
     workflow: 'lighthouse.yml',
     job: 'lighthouse',
     judgedBy: 'branch protection',
+    skipRule: 'node scripts/lighthouse-scope.mjs',
     appliesWhen:
-      'Pull requests. Audits run only when UI-relevant files change; otherwise the job passes without auditing.',
-    local: '`pnpm build && pnpm lhci`',
+      'Pull requests. Audits run only when `scripts/lighthouse-scope.mjs` finds UI-relevant files; otherwise the job passes without auditing.',
+    local: '`node scripts/lighthouse-scope.mjs origin/main...HEAD`, then `pnpm build && pnpm lhci`',
   },
   {
     check: 'Validate PR body and title',
@@ -165,8 +167,9 @@ export function decideRequiredGates({ needs, run }) {
 }
 
 /**
- * Read the job ids under `jobs:` and each job's `name:`, `if:`,
- * `continue-on-error:`, and flow-list `needs:`. The workflows here keep those fields on one line, so a line reader
+ * Read the job ids under `jobs:`, each job's `name:`, `if:`,
+ * `continue-on-error:`, and flow-list `needs:`, and its steps' one-line `run:`
+ * commands. The workflows here keep those fields on one line, so a line reader
  * is enough and needs no YAML dependency.
  */
 function parseJobs(workflowText) {
@@ -187,16 +190,29 @@ function parseJobs(workflowText) {
     }
     const jobMatch = line.match(/^ {2}([\w-]+):\s*$/);
     if (jobMatch) {
-      current = {};
+      current = { runs: [] };
       jobs.set(jobMatch[1], current);
       continue;
     }
-    const fieldMatch = line.match(/^ {4}(name|if|needs|continue-on-error):\s*(.*?)\s*$/);
-    if (current && fieldMatch) {
-      current[fieldMatch[1]] = unwrapExpression(fieldMatch[2]);
+    if (current) {
+      readJobLine(current, line);
     }
   }
   return jobs;
+}
+
+const JOB_FIELD = /^ {4}(name|if|needs|continue-on-error):\s*(.*?)\s*$/;
+const STEP_RUN = /^ {6}(?:- | {2})run:\s*(.*?)\s*$/;
+
+function readJobLine(job, line) {
+  const field = line.match(JOB_FIELD);
+  if (field) {
+    job[field[1]] = unwrapExpression(field[2]);
+  }
+  const run = line.match(STEP_RUN);
+  if (run) {
+    job.runs.push(run[1]);
+  }
 }
 
 /** `if: ${{ x }}` and `if: x` mean the same to GitHub; compare the bare form. */
@@ -232,6 +248,12 @@ function checkGateJob(gate, job, errors) {
     errors.push(
       `${where} has \`if: ${job.if ?? '(none)'}\`; the contract expects ` +
         `\`if: ${expected ?? '(none)'}\`. A skip outside the contract reads as a pass.`,
+    );
+  }
+  if (gate.skipRule && !job.runs.includes(gate.skipRule)) {
+    errors.push(
+      `${where} must decide its skip with \`run: ${gate.skipRule}\`, the tested rule. ` +
+        'An untested skip reads as a pass.',
     );
   }
 }
