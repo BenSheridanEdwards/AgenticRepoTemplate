@@ -134,10 +134,10 @@ reasoning lives as ADRs in
 7. **Structure.** ARCHITECTURE.md holds one role table. Routes never import
    routes, and shared code lives in features or the UI package.
 8. **Architecture checks.** Fallow 3.x owns the dependency graph, the
-   architecture gate, and the diagram. CI fails on a forbidden import and on a
-   stale committed role diagram. Each package commits an API Extractor report,
-   so export changes show as a reviewed diff. Fallow replaces
-   dependency-cruiser in the plan.
+   architecture gate, and the diagram, all read from `.fallowrc.jsonc`. CI
+   fails on a forbidden import, on a stale committed role diagram, and on a
+   stale API report. Each public module entry commits an API Extractor report,
+   so export changes show as a reviewed diff.
 
 ### Considered and set aside
 

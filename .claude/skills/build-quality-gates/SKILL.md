@@ -60,7 +60,8 @@ the behaviour:
 - React behaviour: Jest + React Testing Library
 - Accessibility: `jest-axe`, `@axe-core/playwright`, and Lighthouse
 - Security patterns: CodeQL, gitleaks, `pnpm audit`
-- Architecture drift: Fallow
+- Architecture graph, gate, and role diagram: Fallow
+- Exported API reports: API Extractor
 
 Add a lint engine or plugin through an ADR when a concrete required rule has no
 owner among Biome, ESLint, React Doctor, TypeScript, tests, security gates, or

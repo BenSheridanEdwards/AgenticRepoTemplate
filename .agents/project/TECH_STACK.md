@@ -17,7 +17,8 @@ each owner runs locally and in CI.
 | Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks` and `eslint-plugin-react-doctor` on `src/`; see ADR 0015 for each rule's owner. |
 | React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks the ESLint plugin cannot express. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
-| Code intelligence | **Fallow** | Dead code, cycles, complexity, architecture drift. |
+| Code intelligence and architecture | **Fallow** | Dead code, cycles, complexity, the dependency graph, the architecture gate (`pnpm arch:gate`), and the role diagram (`pnpm arch:diagram`). |
+| Exported API reports | **API Extractor** | One committed `etc/*.api.md` per public module entry (`pnpm api:report`, `pnpm api:check`). |
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
 | Bundle-size budget | **size-limit** | Fails CI when `dist/` exceeds the budget. |
 | Performance budget | **Lighthouse CI** | a11y floor + perf budget on UI-relevant pull requests. |
