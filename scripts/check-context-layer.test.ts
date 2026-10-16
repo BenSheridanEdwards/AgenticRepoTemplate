@@ -30,19 +30,8 @@ function createInMemoryFilesystem({ files = {}, symlinks = {} }) {
     readSymbolicLinkTarget(relativePath) {
       return symlinks[relativePath];
     },
-    listDirectory(relativePath) {
-      const prefix = relativePath === '.' ? '' : `${relativePath}/`;
-      const children = new Map();
-      for (const path of Object.keys(files)) {
-        if (path.startsWith(prefix)) {
-          const [name, ...rest] = path.slice(prefix.length).split('/');
-          children.set(name, children.get(name) || rest.length > 0);
-        }
-      }
-      if (children.size === 0) {
-        throw new Error(`ENOENT: ${relativePath}`);
-      }
-      return [...children].map(([name, isDirectory]) => ({ name, isDirectory }));
+    listTrackedFiles() {
+      return [...Object.keys(files), ...Object.keys(symlinks)];
     },
   };
 }
@@ -178,6 +167,54 @@ describe('checkContextLayer', () => {
       '```',
     ].join('\n');
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result).toEqual({ ok: true, errors: [] });
+  });
+
+  it('reports only the outermost copy when a whole section with sub-sections is duplicated', () => {
+    const files = buildPassingTree();
+    const section = '## Approval\n### Who\n### When\n';
+    files['README.md'] = `# Readme\n${section}## Other\n${section}`;
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(
+      '`README.md` has the section `## Approval` 2 times under `# Readme`',
+    );
+  });
+
+  it('skips front matter and nested or tilde fences, and matches closing hashes', () => {
+    const files = buildPassingTree();
+    files['.agents/project/GLOSSARY.md'] = [
+      '---',
+      '# a yaml comment',
+      '# a yaml comment',
+      '---',
+      '# Glossary',
+      '## Term',
+      '````md',
+      '```',
+      '## Term',
+      '```',
+      '````',
+      '~~~',
+      '## Term',
+      '~~~',
+    ].join('\n');
+    expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
+      ok: true,
+      errors: [],
+    });
+    files['.agents/project/GLOSSARY.md'] = '# Glossary\n## Term\n## Term ##\n';
+    expect(checkContextLayer(createInMemoryFilesystem({ files })).errors.join('\n')).toContain(
+      'has the section `## Term` 2 times',
+    );
+  });
+
+  it('ignores symlinked docs and Markdown outside the context layer', () => {
+    const files = buildPassingTree();
+    files['src/notes.md'] = '# A\n## B\n## B\n';
+    const result = checkContextLayer(
+      createInMemoryFilesystem({ files, symlinks: { '.agents/linked.md': 'elsewhere.md' } }),
+    );
     expect(result).toEqual({ ok: true, errors: [] });
   });
 });

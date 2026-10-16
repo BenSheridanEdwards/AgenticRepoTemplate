@@ -14,7 +14,8 @@
  * line when every invariant holds, and exits 1 listing every failure otherwise.
  */
 
-import { lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,11 +65,10 @@ export function createNodeFilesystem(rootDirectory) {
     readSymbolicLinkTarget(relativePath) {
       return readlinkSync(toAbsolute(relativePath));
     },
-    listDirectory(relativePath) {
-      return readdirSync(toAbsolute(relativePath), { withFileTypes: true }).map((entry) => ({
-        name: entry.name,
-        isDirectory: entry.isDirectory(),
-      }));
+    listTrackedFiles() {
+      return execFileSync('git', ['ls-files', '-z'], { cwd: rootDirectory, encoding: 'utf8' })
+        .split('\0')
+        .filter(Boolean);
     },
   };
 }
@@ -163,71 +163,123 @@ function checkClaudeLayer(filesystem, errors) {
   }
 }
 
-/** The context docs a merge can duplicate a section in: root Markdown, `.agents/`, house skills. */
-function listContextDocs(filesystem) {
-  const rootDocs = filesystem
-    .listDirectory('.')
-    .filter(({ name, isDirectory }) => !isDirectory && name.endsWith('.md'))
-    .map(({ name }) => name);
-  return [
-    ...rootDocs,
-    ...listMarkdownUnder(filesystem, '.agents'),
-    ...listMarkdownUnder(filesystem, '.claude/skills'),
-  ];
+/**
+ * The tracked context docs a merge can duplicate a section in: root Markdown,
+ * everything under `.agents/`, and the house skills. Only tracked files count,
+ * so a local scratch note cannot fail a check that CI would pass.
+ */
+function isContextDoc(path) {
+  return (
+    path.endsWith('.md') &&
+    (!path.includes('/') || path.startsWith('.agents/') || path.startsWith('.claude/skills/'))
+  );
 }
 
-function listMarkdownUnder(filesystem, directory) {
-  return filesystem.listDirectory(directory).flatMap(({ name, isDirectory }) => {
-    const path = `${directory}/${name}`;
-    if (isDirectory) {
-      return listMarkdownUnder(filesystem, path);
+/** True for a regular file; false for a symlink or a tracked file deleted locally. */
+function isReadableDoc(filesystem, path) {
+  try {
+    return filesystem.lstat(path).isFile;
+  } catch {
+    return false;
+  }
+}
+
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const ATX_HEADING = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
+
+/** True when `line` closes a fence opened with `opener`: same character, at least as long, nothing after. */
+function closesFence(line, opener) {
+  const marker = FENCE.exec(line)?.[1] ?? '';
+  return marker[0] === opener[0] && marker.length >= opener.length && line.trim() === marker;
+}
+
+/** The number of leading front-matter lines: a `---` block on the first line, or none. */
+function frontMatterLength(lines) {
+  const closing = lines[0] === '---' ? lines.indexOf('---', 1) : -1;
+  return closing + 1;
+}
+
+/** The document's lines with front matter and fenced code blanked out. */
+function proseLines(text) {
+  const lines = text.split(/\r?\n/);
+  const skipped = frontMatterLength(lines);
+  let opener = null;
+  return lines.map((line, index) => {
+    if (index < skipped) {
+      return '';
     }
-    return name.endsWith('.md') ? [path] : [];
+    if (opener) {
+      opener = closesFence(line, opener) ? null : opener;
+      return '';
+    }
+    opener = FENCE.exec(line)?.[1] ?? null;
+    return opener ? '' : line;
   });
 }
 
 /**
- * The line numbers of each heading, keyed by its level, text, and the headings
- * above it. Headings inside fenced code blocks are skipped.
+ * Every section, keyed by its heading and the headings above it, with the
+ * heading, its parent, and the lines it starts on.
  */
-function headingLinesBySection(text) {
-  const linesBySection = new Map();
+function sectionsOf(text) {
+  const sections = new Map();
   const ancestors = [];
-  let inFence = false;
-  text.split('\n').forEach((line, index) => {
-    if (/^\s*(```|~~~)/.test(line)) {
-      inFence = !inFence;
-    }
-    const heading = inFence ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
-    if (!heading) {
+  proseLines(text).forEach((line, index) => {
+    const match = ATX_HEADING.exec(line);
+    if (!match) {
       return;
     }
-    const level = heading[1].length;
+    const level = match[1].length;
+    const heading = `${match[1]} ${match[2]}`;
     while (ancestors.length > 0 && ancestors.at(-1).level >= level) {
       ancestors.pop();
     }
-    const section = [...ancestors.map((ancestor) => ancestor.line), line.trim()].join('\n');
-    linesBySection.set(section, [...(linesBySection.get(section) ?? []), index + 1]);
-    ancestors.push({ level, line: line.trim() });
+    const key = [...ancestors.map((ancestor) => ancestor.heading), heading].join('\n');
+    const section = sections.get(key) ?? {
+      key,
+      heading,
+      parent: ancestors.at(-1)?.heading,
+      lines: [],
+    };
+    section.lines.push(index + 1);
+    sections.set(key, section);
+    ancestors.push({ level, heading });
   });
-  return linesBySection;
+  return [...sections.values()];
 }
 
 /**
  * Assert no context doc has the same section twice under the same parent. When
  * two branches add the same section in different places, git merges both copies
- * without a conflict.
+ * without a conflict. Only the outermost copy is reported, not each heading in it.
  */
 function checkDuplicateSections(filesystem, errors) {
-  for (const path of listContextDocs(filesystem)) {
-    for (const [section, lines] of headingLinesBySection(filesystem.readText(path))) {
-      if (lines.length > 1) {
-        errors.push(
-          `\`${path}\` has the section \`${section.split('\n').at(-1)}\` ${lines.length} times ` +
-            `(lines ${lines.join(', ')}) under the same parent. A merge usually does this when both ` +
-            'sides added the section. Keep one copy, merging any lines that differ, and delete the rest.',
-        );
+  let trackedFiles;
+  try {
+    trackedFiles = filesystem.listTrackedFiles();
+  } catch {
+    errors.push(
+      'Could not list tracked files with `git ls-files`. Run the check inside the git checkout.',
+    );
+    return;
+  }
+  for (const path of trackedFiles.filter(isContextDoc)) {
+    if (!isReadableDoc(filesystem, path)) {
+      continue;
+    }
+    const duplicates = sectionsOf(filesystem.readText(path)).filter(
+      ({ lines }) => lines.length > 1,
+    );
+    for (const { key, heading, parent, lines } of duplicates) {
+      if (duplicates.some((outer) => key.startsWith(`${outer.key}\n`))) {
+        continue;
       }
+      errors.push(
+        `\`${path}\` has the section \`${heading}\` ${lines.length} times under ` +
+          `${parent ? `\`${parent}\`` : 'the top level'} (lines ${lines.join(', ')}). A merge usually ` +
+          'does this when both sides added the section. Keep one copy, merging any lines that differ, ' +
+          'and delete the rest.',
+      );
     }
   }
 }

@@ -15,12 +15,18 @@ agent doing the merge noticed and deleted one by hand. Nothing failed.
 
 ## Decision
 
-`pnpm check:context` fails when a context doc has the same heading twice
-under the same parent heading. Context docs are the root Markdown files,
-everything under `.agents/`, and `.claude/skills/`. The error names the file,
-the heading, and the line numbers. Headings inside fenced code blocks are
-skipped. The same heading under different parents (for example an
-`### Example` under each of two sections) is allowed.
+`pnpm check:context` fails when a tracked context doc has the same heading
+twice under the same parent heading. Context docs are the root Markdown
+files, everything under `.agents/`, and `.claude/skills/`. The list comes
+from `git ls-files`, so a local scratch note cannot fail a check that CI
+would pass. The error names the file, the heading, its parent, and the line
+numbers. When a whole section with sub-sections is copied, only the
+outermost copy is reported.
+
+Front matter and fenced code blocks are skipped. A closing `#` run on a
+heading is ignored, so `## A` and `## A ##` count as the same heading. The
+same heading under different parents (for example an `### Example` under each
+of two sections) is allowed.
 
 ## Consequences
 
@@ -28,5 +34,9 @@ skipped. The same heading under different parents (for example an
   it, not in a later review.
 - A doc that really needs two sections with one name under one parent has to
   rename one of them.
+- A copy that lands under a different parent is not caught. Both real cases
+  were under the same parent.
+- Setext headings (text underlined with `===` or `---`) and headings inside
+  HTML comments are not parsed. No context doc uses them for sections today.
 - No tracked context doc on main, or at any main commit since the checker
-  was added, has such a duplicate today.
+  was added, has such a duplicate.
