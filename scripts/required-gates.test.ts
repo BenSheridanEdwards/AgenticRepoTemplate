@@ -213,6 +213,16 @@ describe('checkContract', () => {
     expect(errors.join('\n')).toContain('continue-on-error');
   });
 
+  it('fails when Lighthouse stops deciding its skip with the tested rule', () => {
+    const errors = contractErrors((files) => ({
+      'lighthouse.yml': files['lighthouse.yml'].replace(
+        'run: node scripts/lighthouse-scope.mjs',
+        'run: echo "ui-changed=false" >> "$GITHUB_OUTPUT"',
+      ),
+    }));
+    expect(errors).toEqual([expect.stringContaining('scripts/lighthouse-scope.mjs')]);
+  });
+
   it.each([
     [
       'the decision step is deleted',

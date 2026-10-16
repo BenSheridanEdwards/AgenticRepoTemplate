@@ -41,5 +41,6 @@ gate noticed either change.
   once a maintainer selects it. Until then it reports but does not block.
 - Adding a `ci.yml` job means adding a contract row, which regenerates the
   inventory.
-- Lighthouse still decides inside a step whether to audit. That rule is
-  documented in the inventory but not yet tested.
+- Lighthouse still decides inside a step whether to audit. That rule lives in
+  `scripts/lighthouse-scope.mjs` with its own tests, and the contract's
+  `skipRule` pins the workflow step to it.

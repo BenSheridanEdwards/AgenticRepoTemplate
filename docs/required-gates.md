@@ -16,7 +16,7 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 | End-to-end behaviour map | `ci.yml` `e2e` | `Required gates` | Every run. | `pnpm e2e`, pre-push hook |
 | Security audit | `ci.yml` `security` | `Required gates` | Every run. | Hosted only. Pre-commit scans staged files for secrets. |
 | Analyze (javascript-typescript) | `codeql.yml` `analyze` | Branch protection | Every run. | Hosted only. |
-| Lighthouse budgets | `lighthouse.yml` `lighthouse` | Branch protection | Pull requests. Audits run only when UI-relevant files change; otherwise the job passes without auditing. | `pnpm build && pnpm lhci` |
+| Lighthouse budgets | `lighthouse.yml` `lighthouse` | Branch protection | Pull requests. Audits run only when `scripts/lighthouse-scope.mjs` finds UI-relevant files; otherwise the job passes without auditing. | `node scripts/lighthouse-scope.mjs origin/main...HEAD`, then `pnpm build && pnpm lhci` |
 | Validate PR body and title | `pr-quality.yml` `pr-body` | Branch protection | Pull requests not opened by a bot account. | `pnpm validate:pr` with `PR_TITLE` and `PR_BODY` set |
 
 ## Checks to require in branch protection
