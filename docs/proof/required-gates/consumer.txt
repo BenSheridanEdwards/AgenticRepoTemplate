@@ -1,6 +1,6 @@
 $ bash docs/proof/required-gates/consumer-check.sh HEAD
-source: 84b3720272a8c314b0ea400878c833d8507999c6
-consumer: 7190c7ff6d16c826c47ab8409941d609a34f045c in a fresh repository
+source: f9d6e96fcb61393be05970b5c78e93d4cefce3a6
+consumer: f182d638c49fcdedc0f008772f5806884185e47f in a fresh repository
 node v24.22.0, pnpm 11.3.0
 
 $ pnpm install --frozen-lockfile
@@ -10,7 +10,7 @@ $ pnpm gates:check
 Required-gate contract matches the workflows and the inventory.
 
 $ pnpm exec jest scripts/required-gates.test.ts
-Tests:       23 passed, 23 total
+Tests:       27 passed, 27 total
 
 $ --decide: all lanes success, pull_request into main
 exit 0

@@ -28,8 +28,9 @@ gate noticed either change.
 - **Freshness is a gate.** `pnpm gates:check` fails when a contract job is
   missing or renamed, a job-level `if:` differs from the contract, a gate job
   sets `continue-on-error`, a `ci.yml` job is outside the contract, the
-  aggregate's `needs` or `if: always()` drift, or `docs/required-gates.md` is
-  stale. It runs in `pnpm verify` and in the aggregate job.
+  aggregate job's text differs from the one the contract renders, or
+  `docs/required-gates.md` is stale. It runs in `pnpm verify` and in the
+  aggregate job. Steps inside lane jobs stay with enforcement approval.
 - **Settings stay with a maintainer.** The contract names the checks to
   require. `node scripts/required-gates.mjs --protection` compares the live
   settings with them.

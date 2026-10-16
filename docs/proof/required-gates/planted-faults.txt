@@ -1,35 +1,43 @@
-# Planted faults at 84b3720272a8c314b0ea400878c833d8507999c6
+# Planted faults at f9d6e96fcb61393be05970b5c78e93d4cefce3a6
 $ bash docs/proof/required-gates/plant-faults.sh
 
 ## Fault: omit a required lane from the contract
  1 file changed, 7 deletions(-)
-    ✕ fails a lane whose result is failure (1 ms)
+    ✕ fails a lane whose result is failure (2 ms)
     ✕ fails a lane whose result is cancelled
-    ✕ holds for the committed workflows and inventory (3 ms)
+    ✕ holds for the committed workflows and inventory (5 ms)
     ✕ fails when a required lane is dropped from the aggregate needs (1 ms)
-Tests:       4 failed, 19 passed, 23 total
+    ✕ fails when the decision step is deleted (2 ms)
+    ✕ fails when the decision step can fail quietly (1 ms)
+    ✕ fails when the decision step skips on cancellation (1 ms)
+Tests:       7 failed, 20 passed, 27 total
   ✗ ci.yml job `required-gates` needs must be the aggregated lanes [up-to-date, quality, fallow, test, build, security]. Missing: []. Not in the contract: [e2e].
-  ✗ ci.yml job `e2e` is not in the contract. Add it to REQUIRED_GATES in scripts/required-gates.mjs so the aggregate judges it.
-  ✗ docs/required-gates.md is stale. Run `pnpm gates:inventory` and commit the result.
+  ✗ ci.yml job `required-gates` differs from the contract. Its steps decide the result, so it must read exactly:
+  required-gates:
 -- restored --
-Tests:       23 passed, 23 total
+Tests:       27 passed, 27 total
 Required-gate contract matches the workflows and the inventory.
 
 ## Fault: omit a required lane from the aggregate needs
  1 file changed, 1 insertion(+), 1 deletion(-)
-    ✕ holds for the committed workflows and inventory (4 ms)
-Tests:       1 failed, 22 passed, 23 total
+    ✕ holds for the committed workflows and inventory (5 ms)
+    ✕ fails when the decision step is deleted (2 ms)
+    ✕ fails when the decision step can fail quietly (2 ms)
+    ✕ fails when the decision step skips on cancellation (1 ms)
+Tests:       4 failed, 23 passed, 27 total
   ✗ ci.yml job `required-gates` needs must be the aggregated lanes [up-to-date, quality, fallow, test, build, e2e, security]. Missing: [e2e]. Not in the contract: [].
+  ✗ ci.yml job `required-gates` differs from the contract. Its steps decide the result, so it must read exactly:
+  required-gates:
 -- restored --
-Tests:       23 passed, 23 total
+Tests:       27 passed, 27 total
 Required-gate contract matches the workflows and the inventory.
 
 ## Fault: treat cancellation as success
  1 file changed, 1 insertion(+), 1 deletion(-)
     ✕ fails a lane whose result is cancelled (1 ms)
-    ✕ exits 1 and names the lane when one was cancelled (35 ms)
-Tests:       2 failed, 21 passed, 23 total
+    ✕ exits 1 and names the lane when one was cancelled (32 ms)
+Tests:       2 failed, 25 passed, 27 total
 Required-gate contract matches the workflows and the inventory.
 -- restored --
-Tests:       23 passed, 23 total
+Tests:       27 passed, 27 total
 Required-gate contract matches the workflows and the inventory.
