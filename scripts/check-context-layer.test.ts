@@ -30,6 +30,20 @@ function createInMemoryFilesystem({ files = {}, symlinks = {} }) {
     readSymbolicLinkTarget(relativePath) {
       return symlinks[relativePath];
     },
+    listDirectory(relativePath) {
+      const prefix = `${relativePath}/`;
+      const children = new Map();
+      for (const path of Object.keys(files)) {
+        if (path.startsWith(prefix)) {
+          const [name, ...rest] = path.slice(prefix.length).split('/');
+          children.set(name, children.get(name) || rest.length > 0);
+        }
+      }
+      if (children.size === 0) {
+        throw new Error(`ENOENT: ${relativePath}`);
+      }
+      return [...children].map(([name, isDirectory]) => ({ name, isDirectory }));
+    },
   };
 }
 
@@ -64,6 +78,8 @@ function buildPassingTree() {
     'TODO.md': 'todo',
     '.claude/skills/pr-quality-contract/SKILL.md': skillFrontmatter,
     '.claude/skills/pr-inline-screenshot-proof/SKILL.md': skillFrontmatter,
+    '.agents/decisions/0001-record-decisions.md': '# 1. Record decisions\n',
+    '.agents/decisions/0002-gates-as-code.md': '# 2. Gates as code\n',
   };
 }
 
@@ -135,5 +151,34 @@ describe('checkContextLayer', () => {
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('description:');
+  });
+
+  it('fails, naming both files and the next free number, when two ADRs share a number', () => {
+    const files = buildPassingTree();
+    files['.agents/decisions/0002-pause-a-tool.md'] = '# 2. Pause a tool\n';
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    const message = result.errors.join('\n');
+    expect(message).toContain('ADR 0002 is used by');
+    expect(message).toContain('0002-gates-as-code.md');
+    expect(message).toContain('0002-pause-a-tool.md');
+    expect(message).toContain('renumber yours to 0003');
+  });
+
+  it("fails when an ADR's title number does not match its file name", () => {
+    const files = buildPassingTree();
+    files['.agents/decisions/0002-gates-as-code.md'] = '# 3. Gates as code\n';
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('must start its title with `# 2.`');
+  });
+
+  it('fails when the decisions directory is missing', () => {
+    const files = buildPassingTree();
+    delete files['.agents/decisions/0001-record-decisions.md'];
+    delete files['.agents/decisions/0002-gates-as-code.md'];
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('Missing required directory: `.agents/decisions/`');
   });
 });

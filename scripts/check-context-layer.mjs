@@ -14,7 +14,7 @@
  * line when every invariant holds, and exits 1 listing every failure otherwise.
  */
 
-import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -63,6 +63,12 @@ export function createNodeFilesystem(rootDirectory) {
     },
     readSymbolicLinkTarget(relativePath) {
       return readlinkSync(toAbsolute(relativePath));
+    },
+    listDirectory(relativePath) {
+      return readdirSync(toAbsolute(relativePath), { withFileTypes: true }).map((entry) => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+      }));
     },
   };
 }
@@ -157,6 +163,62 @@ function checkClaudeLayer(filesystem, errors) {
   }
 }
 
+/** Where ADRs live, and the `NNNN-slug.md` name each one has. */
+const DECISIONS_DIRECTORY = '.agents/decisions';
+const ADR_FILE_NAME = /^(\d{4})-.+\.md$/;
+
+/** The ADRs in `.agents/decisions/`, each with the number its file name gives it. */
+function listDecisions(filesystem) {
+  return filesystem
+    .listDirectory(DECISIONS_DIRECTORY)
+    .filter(({ name, isDirectory }) => !isDirectory && ADR_FILE_NAME.test(name))
+    .map(({ name }) => ({
+      path: `${DECISIONS_DIRECTORY}/${name}`,
+      number: Number(name.slice(0, 4)),
+    }));
+}
+
+/** The `N` in an ADR's first `# N. Title` heading, or NaN when it has none. */
+function titleNumber(text) {
+  const title = text.match(/^# (.*)$/m)?.[1] ?? '';
+  return Number(/^(\d+)\./.exec(title)?.[1]);
+}
+
+/**
+ * Assert each ADR number belongs to one file and matches the file's `# N.`
+ * title. Two branches that each add "the next" ADR get different file names,
+ * so git merges both without a conflict; this is where the clash shows up.
+ */
+function checkDecisionNumbers(filesystem, errors) {
+  let decisions;
+  try {
+    decisions = listDecisions(filesystem);
+  } catch {
+    errors.push(`Missing required directory: \`${DECISIONS_DIRECTORY}/\`. ADRs live there.`);
+    return;
+  }
+
+  for (const { path, number } of decisions) {
+    if (titleNumber(filesystem.readText(path)) !== number) {
+      errors.push(`\`${path}\` must start its title with \`# ${number}.\` to match its file name.`);
+    }
+  }
+
+  const nextFreeNumber = String(Math.max(0, ...decisions.map(({ number }) => number)) + 1).padStart(
+    4,
+    '0',
+  );
+  for (const [number, sharing] of Map.groupBy(decisions, (decision) => decision.number)) {
+    if (sharing.length > 1) {
+      errors.push(
+        `ADR ${String(number).padStart(4, '0')} is used by ${sharing.map(({ path }) => `\`${path}\``).join(' and ')}. ` +
+          `Keep the one already on main and renumber yours to ${nextFreeNumber}: rename the file, ` +
+          `change its \`# ${number}.\` title, and update every link to it.`,
+      );
+    }
+  }
+}
+
 /** Run every context-layer invariant. Returns `{ ok, errors }`; pure. */
 export function checkContextLayer(filesystem) {
   const errors = [];
@@ -196,6 +258,8 @@ export function checkContextLayer(filesystem) {
       errors.push(`\`${skillPath}\` frontmatter is missing a \`description:\` field.`);
     }
   }
+
+  checkDecisionNumbers(filesystem, errors);
 
   return { ok: errors.length === 0, errors };
 }
