@@ -1,13 +1,17 @@
 name: StyleProof
 
-on: pull_request
-
-# The report comment, the report branch, and the StyleProof commit status all
-# need write access.
-permissions:
-  contents: write
-  pull-requests: write
-  statuses: write
+# CI-only computed-style gate: the PR head against the PR base commit.
+#
+# Both maps come from one install of the PR head. The head is captured in the
+# checkout; the base is captured from a detached worktree under the ignored
+# `.styleproof/` directory, built with the head's node_modules. Nothing is
+# installed at the base commit, so a base whose tracked files an install would
+# rewrite cannot dirty the capture. Maps are never uploaded to a map branch and
+# the report is a workflow artifact. A reviewer signs off intentional changes on
+# the report comment (styleproof-approve.yml).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: styleproof-${{ github.event.pull_request.number }}
@@ -17,79 +21,72 @@ jobs:
   styleproof:
     name: Computed-style visual gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+      actions: read
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-
+          # This job installs and runs PR code: never leave the token in .git/config.
+          persist-credentials: false
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --config.minimum-release-age=0
-
-      - id: maps
-        name: Restore cached StyleProof maps
-        shell: bash
+      - name: Define runner-local map path
+        run: echo "MAP_ROOT=${{ runner.temp }}/styleproof-maps" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Install leaves the tree clean
         run: |
-          set -e
-          MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
-          rm -rf "$MAP_ROOT"
-          git checkout --force "${{ github.event.pull_request.base.sha }}"
-          set +e
-          PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.base.sha }}" --dir base --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
-          base_code=$?
-          set -e
-          git checkout --force "${{ github.event.pull_request.head.sha }}"
-          set +e
-          PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --restore --sha "${{ github.event.pull_request.head.sha }}" --dir head --base-dir "$MAP_ROOT" --spec e2e/styleproof.spec.ts
-          head_code=$?
-          set -e
-          echo "base-hit=$([ "$base_code" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "head-hit=$([ "$head_code" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          if [ "$base_code" -eq 0 ] && [ "$head_code" -eq 0 ]; then
-            echo "capture-needed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "capture-needed=true" >> "$GITHUB_OUTPUT"
+          dirt="$(git status --porcelain)"
+          if [ -n "$dirt" ]; then
+            printf '%s\n' "$dirt"
+            echo "::error::pnpm install modified the checkout; a dirty capture cannot bind to $HEAD_SHA"
+            exit 1
           fi
-
-      - name: Capture maps in CI on cache miss
-        if: steps.maps.outputs.capture-needed == 'true'
-        shell: bash
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Capture the PR head
+        run: pnpm exec styleproof-map --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --no-upload
+      - id: base
+        name: Capture the PR base
         run: |
-          set -euo pipefail
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          MAP_ROOT="$RUNNER_TEMP/styleproof-maps"
-          STYLEPROOF_VERSION="$(node -p "require('./node_modules/styleproof/package.json').version")"
-
-          if [ "${{ steps.maps.outputs.base-hit }}" != 'true' ]; then
-            rm -rf "$MAP_ROOT"
-            git checkout --force "$BASE_SHA"
-            pnpm install --frozen-lockfile --config.minimum-release-age=0
-            pnpm add --save-dev --save-exact --config.minimum-release-age=0 "styleproof@${STYLEPROOF_VERSION}"
-            git checkout -- package.json pnpm-lock.yaml
-            PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
-            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir base --base-dir "$MAP_ROOT" --keep-har --sha "$BASE_SHA" --upload
-
-            git checkout --force "$HEAD_SHA"
-            pnpm install --frozen-lockfile --config.minimum-release-age=0
+          base_tree="$PWD/.styleproof/base"
+          git worktree add --detach "$base_tree" "$BASE_SHA"
+          status=0
+          STYLEPROOF_APP_ROOT="$base_tree" pnpm exec styleproof-map \
+            --dir base --base-dir "$MAP_ROOT" --sha "$BASE_SHA" --no-upload \
+            --tolerate-surface-failures || status=$?
+          git worktree remove --force "$base_tree"
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::Base capture exited $status; reporting a degraded baseline"
+            rm -rf "$MAP_ROOT/base"
+            mkdir -p "$MAP_ROOT/base"
+            echo "failed=true" >> "$GITHUB_OUTPUT"
           else
-            rm -rf "$MAP_ROOT/head"
+            echo "failed=false" >> "$GITHUB_OUTPUT"
           fi
-          PATH="$PWD/node_modules/.bin:$PATH" playwright install --with-deps chromium
-          if find "$MAP_ROOT/base" -name '*.har' -print -quit | grep -q .; then
-            PATH="$PWD/node_modules/.bin:$PATH" STYLEPROOF_REPLAY_FROM="$MAP_ROOT/base" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
-          else
-            PATH="$PWD/node_modules/.bin:$PATH" node node_modules/styleproof/bin/styleproof-map.mjs --spec e2e/styleproof.spec.ts --dir head --base-dir "$MAP_ROOT" --sha "$HEAD_SHA" --upload
-          fi
-
-      # StyleProof v4.4.21
-      - uses: BenSheridanEdwards/StyleProof@f20851e105746c0a681f6d06728bdec145f9737a
+      - name: Captures are bound to clean commits
+        run: |
+          for side in head base; do
+            manifest="$MAP_ROOT/$side/styleproof-manifest.json"
+            # A degraded base is bare by design; a missing head manifest is not.
+            if [ "$side" = base ] && [ "${{ steps.base.outputs.failed }}" = true ]; then continue; fi
+            node -e 'const m = require(process.argv[1]); console.log(`${process.argv[2]}: ${m.sha} dirty=${m.dirty}`); if (m.dirty !== false) process.exit(1);' "$manifest" "$side"
+          done
+          test -z "$(git status --porcelain)"
+      # StyleProof v7.7.0
+      - uses: BenSheridanEdwards/StyleProof@0351899ca9ea11b992971eacfab0bcc3c59f7c5f
         with:
           baseline-dir: ${{ runner.temp }}/styleproof-maps/base
           fresh-dir: ${{ runner.temp }}/styleproof-maps/head
+          base-capture-failed: ${{ steps.base.outputs.failed }}
+          report-storage: artifact
           require-approval: true
