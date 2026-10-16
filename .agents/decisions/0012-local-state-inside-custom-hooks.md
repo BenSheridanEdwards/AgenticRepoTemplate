@@ -19,7 +19,7 @@ guardrails assign to TanStack Query once it lands.
 - Derived values are calculated during render.
 - The North Star state line changes to match this rule when that document
   lands on `main`.
-- `useServiceStatus` moves to TanStack Query in plan PR 3.
+- `useServiceStatus` moves to TanStack Query in plan PR 4.
 
 ## Consequences
 
