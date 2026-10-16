@@ -114,10 +114,11 @@ mean the same thing. A green PR means "this change introduced nothing new".
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, PR-body validation, and visual regression | [`.github/workflows/`](.github/workflows) |
 | **Before merge** | Human visual sign-off: the visual gate flips green only when a reviewer ticks every per-change checkbox, bound to the exact commit | [`styleproof-approve.yml`](.github/workflows/styleproof-approve.yml) plus branch protection |
 
-The gates cannot be skipped. A
-[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses `--no-verify`,
-`git commit -n`, `HUSKY=0`, and `core.hooksPath` rewrites,
-and weakening type, lint, or test configuration to turn red green is a named
+The gates are not optional. A
+[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses the common ways to
+skip the git hooks (`--no-verify`, `git commit -n`, `HUSKY=0`, and rewrites of
+`core.hooksPath`, git aliases, or config includes), CI on a clean checkout is
+the backstop for the rest, and weakening type, lint, or test configuration to turn red green is a named
 violation. Honest red beats dishonest green.
 
 ### The definition of done: done is mechanical
@@ -284,7 +285,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
   templates/                Scaffolds for components, tests, E2E, StyleProof.
 .claude/
   settings.json             Permission allowlist and PreToolUse hook.
-  hooks/block-gate-bypass.sh  Refuses every hook bypass. Gates are not optional.
+  hooks/block-gate-bypass.sh  Refuses common hook bypasses. CI is the backstop.
   skills/                   This repo's own packaged processes.
     install-agentic-infrastructure/  Install repo guidance, hooks, CI, and PR proof.
     build-quality-gates/    Build pre-commit, pre-push, and CI gates.

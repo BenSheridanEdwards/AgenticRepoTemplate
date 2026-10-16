@@ -1,30 +1,16 @@
 #!/usr/bin/env sh
-# PreToolUse(Bash) guard: settings.json spawns this hook for Bash commands that
-# run git, directly or through `env`, `sh`, or `bash` (ADR 0005, amended by
-# ADR 0017). The script refuses every known way to switch the git hooks off:
+# PreToolUse(Bash) guard (ADR 0005, amended by ADR 0017). settings.json spawns
+# it for Bash commands that run git, env, sh, or bash. It refuses the common
+# ways to switch the git hooks off:
 #
-#   --no-verify (and its abbreviations down to --no-veri)
+#   --no-verify, and its abbreviations down to --no-veri
 #   git commit -n, alone or in a short-flag cluster such as -nm or -an
-#   HUSKY=0, in any form (prefix, export, env, quoted)
-#   core.hooksPath set or unset by any route: git -c, --config-env,
-#     GIT_CONFIG_PARAMETERS, GIT_CONFIG_KEY_n, or git config. Reading it
-#     (git config --get core.hooksPath) and setting it back to Husky's own
-#     .husky/_ (or .husky) stay allowed.
+#   HUSKY=0, or a HUSKY value built by $ or backtick expansion
+#   writing core.hooksPath, a git alias, or a config include, through git
+#     config, git -c, --config-env, or GIT_CONFIG_* variables
 #
-# The gates are not optional: an agent that hits a failing gate must fix the
-# cause, not route around it. Exit code 2 blocks the tool call in Claude Code.
-#
-# The script matches the raw hook JSON, so quoted text in the command is
-# visible: `bash -c 'git push --no-verify'` is blocked. Only one kind of quoted
-# text is set aside, the argument of `-m`/`--message`, and only when it has no
-# `$` or backtick (no command substitution), so `git commit -m "docs: -n"`
-# passes. A commit message that names --no-verify, HUSKY=0, or core.hooksPath is
-# still blocked; write it to a file and use `git commit -F <file>`.
-input="$(cat)"
-
-# Turn JSON newline/tab escapes and real whitespace into single spaces so a flag
-# cannot hide behind a line break or unusual spacing.
-normalized="$(printf '%s' "$input" | tr '\n\t\r' '   ' | sed 's/\\[nrt]/ /g' | tr -s ' ')"
+# It is a speed bump, not a sandbox. ADR 0017 lists the shapes it misses; CI on
+# a clean checkout is the backstop. Exit code 2 blocks the tool call.
 
 block() {
   echo "Blocked: $1 switches off the quality gates." >&2
@@ -33,36 +19,70 @@ block() {
   exit 2
 }
 
-has() { printf '%s' "$normalized" | grep -Eq -e "$1"; }
+# Read tool_input.command from the hook JSON and flatten it:
+# - A quoted -m/--message argument becomes MSG, so a message may name a flag.
+#   Only an unquoted -m counts, and only a message with no quote, $, or
+#   backtick inside, so a fake "-m '" inside another string hides nothing.
+# - Every quote and backslash is then deleted, so --no-ver''ify, "-n", and
+#   core.hooks\Path read as the flag they are. This can only add blocks.
+# (No single quote may appear in this program: \x27 stands for one.)
+flatten='
+const MESSAGE = /^(-[apsvqeioz]*m|--message)(=|\s+)(\x27[^\x27"$`]*\x27|"[^\x27"$`\\]*")/;
+let raw = "";
+process.stdin.on("data", (chunk) => { raw += chunk; });
+process.stdin.on("end", () => {
+  const command = JSON.parse(raw).tool_input?.command;
+  const text = typeof command === "string" ? command : "";
+  let out = "";
+  let quote = "";
+  for (let i = 0; i < text.length; i++) {
+    const message = quote === "" && (i === 0 || /\s/.test(text[i - 1])) && MESSAGE.exec(text.slice(i));
+    if (message) {
+      out += `${message[1]} MSG`;
+      i += message[0].length - 1;
+      continue;
+    }
+    const ch = text[i];
+    out += ch;
+    if (ch === "\\" && quote !== "\x27") out += text[++i] ?? "";
+    else if (ch === quote) quote = "";
+    else if (quote === "" && (ch === "\x27" || ch === "\"")) quote = ch;
+  }
+  process.stdout.write(out.replace(/["\x27\\]/g, "").replace(/\s+/g, " "));
+});
+'
+if ! flat="$(node -e "$flatten")"; then
+  echo "Blocked: the hook could not read the command (is node on PATH?)." >&2
+  exit 2
+fi
+
+has() { printf '%s' "$flat" | grep -Eq -e "$1"; }
 
 has '--no-veri' && block '--no-verify'
 
-# HUSKY=0, HUSKY="0", HUSKY='0' (JSON escapes the double quote as \").
-has '(^|[^A-Za-z0-9_])HUSKY=(\\"|'"'"')?0' && block 'HUSKY=0'
-
-# git commit -n: set aside -m/--message arguments without $ or backtick, then
-# look for a short-flag cluster where n comes before any flag that takes a
-# value (m, F, c, C, t, S, u), so -nm and -an block but -mn (message "n") and
-# -uno (untracked=no) do not.
-without_messages="$(printf '%s' "$normalized" | sed -E \
-  -e 's/(-[A-Za-z]*m|--message)(=|[[:space:]]+)\\"([^\\$`]|\\[^"$`])*\\"/\1 MSG/g' \
-  -e "s/(-[A-Za-z]*m|--message)(=|[[:space:]]+)'[^'\$\`]*'/\1 MSG/g")"
-printf '%s' "$without_messages" |
-  grep -Eq 'git[[:space:]]([^;&|]*[[:space:]])?commit[[:space:]]([^;&|]*[[:space:]])?-[apsvqeioz]*n[A-Za-z]*([^A-Za-z-]|$)' &&
+# n must come before any flag that takes a value (m, F, c, C, t, S, u), so -nm
+# and -an block but -mn (message "n") and -uno (untracked=no) do not.
+has 'git[[:space:]]([^;&|]*[[:space:]])?commit[[:space:]]([^;&|]*[[:space:]])?-[apsvqeioz]*n[A-Za-z]*([^A-Za-z-]|$)' &&
   block 'git commit -n'
 
-# core.hooksPath: drop the allowed reads and the reset to Husky's own path,
-# then any remaining mention is a rewrite (git -c, --config-env,
-# GIT_CONFIG_PARAMETERS, GIT_CONFIG_KEY_n, git config set or --unset).
-q='(\\"|'"'"')?'
-end='([[:space:];&|"]|$)'
-key="git[[:space:]]+config[[:space:]]+(--(local|global|system|worktree)[[:space:]]+)?"
-# git config keys are case-insensitive; spelled out because BSD sed has no /I.
-hp='[Cc][Oo][Rr][Ee]\.[Hh][Oo][Oo][Kk][Ss][Pp][Aa][Tt][Hh]'
-rest="$(printf '%s' "$normalized" | sed -E \
-  -e "s/${key}(--get|--get-all|get)[[:space:]]+${q}${hp}${q}${end}/ ; /g" \
-  -e "s/${key}(set[[:space:]]+)?${q}${hp}${q}[[:space:]]+${q}\.husky(\/_)?\/?${q}${end}/ ; /g" \
-  -e "s/${key}${q}${hp}${q}[[:space:]]*([;&|\"]|$)/ ; /g")"
-printf '%s' "$rest" | grep -Eiq 'core\.hookspath' && block 'rewriting core.hooksPath'
+# Husky skips every hook when HUSKY is exactly 0. A value made by expansion
+# could be 0, so only plain literals pass.
+has '(^|[^A-Za-z0-9_])HUSKY=0([^A-Za-z0-9_./:+-]|$)' && block 'HUSKY=0'
+has '(^|[^A-Za-z0-9_])HUSKY=[^[:space:];&|]*[$`]' && block 'HUSKY set by expansion'
+
+# Config keys that move or skip the hooks: core.hooksPath directly, an alias
+# such as `ci = commit -n`, or an include file that sets either. Remove the
+# allowed forms (reads, and core.hooksPath set back to Husky's own .husky/_ or
+# .husky), then any remaining mention is a write. Keys are case-insensitive.
+config='git config( --[a-z-]+)*'
+scope='( --(local|global|system|worktree))?'
+end='( |;|&|\||\)|$)'
+rest="$(printf '%s' "$flat" | tr '[:upper:]' '[:lower:]' | sed -E \
+  -e "s/${config} (--get|--get-all|--get-regexp|get)( --[a-z-]+)* [^ ;&|]+/ ; /g" \
+  -e "s/git config${scope}( set)? core\.hookspath \.husky(\/_)?\/?${end}/ ; /g" \
+  -e "s/git config${scope} core\.hookspath ?([;&|)]|$)/ ; /g")"
+printf '%s' "$rest" | grep -Eq 'core\.hookspath' && block 'rewriting core.hooksPath'
+printf '%s' "$rest" | grep -Eq '(^|[^a-z0-9_])alias\.[a-z0-9]' && block 'writing a git alias'
+printf '%s' "$rest" | grep -Eq 'include\.path|includeif\.' && block 'writing a git config include'
 
 exit 0

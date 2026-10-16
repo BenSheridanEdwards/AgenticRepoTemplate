@@ -1,18 +1,23 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const HOOK = resolve(
-  fileURLToPath(new URL('..', import.meta.url)),
-  '.claude/hooks/block-gate-bypass.sh',
-);
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const HOOK = resolve(ROOT, '.claude/hooks/block-gate-bypass.sh');
+const HOOK_ARG = `\${CLAUDE_PROJECT_DIR}/.claude/hooks/block-gate-bypass.sh`;
 
 /** Pipe a Bash command into the hook as Claude Code's PreToolUse JSON. */
-function runHook(command: string) {
-  const result = spawnSync('sh', [HOOK], {
-    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command } }),
-    encoding: 'utf8',
-  });
+function runHook(shell: string, command: string, description = 'Run a git command') {
+  const payload = {
+    session_id: 'test-session',
+    transcript_path: '/tmp/transcript.jsonl',
+    cwd: ROOT,
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: { command, description },
+  };
+  const result = spawnSync(shell, [HOOK], { input: JSON.stringify(payload), encoding: 'utf8' });
   return { status: result.status, stderr: result.stderr };
 }
 
@@ -20,32 +25,52 @@ const BLOCKED = [
   'git commit --no-verify -m "x"',
   'git push --no-verify',
   'git commit --no-veri -m x',
+  "git push --no-ver''ify",
+  'git push --no-\\verify',
   'git commit -n -m x',
   'git commit -nm x',
   'git commit -anm x',
   'git commit --amend -n',
   'git commit -m "x" -n',
+  'git commit "-n" -m x',
+  'git commit -m x "-n"',
   'git commit -m "$(git commit -n -m y)"',
   'git -C apps/web commit -n -m x',
   'git commit\n-n -m x',
   'cd apps && git commit -n -m x',
+  // A fake -m inside another quoted string must not hide what follows it.
+  "git push 'x -m ' --no-verify ' y'",
   'HUSKY=0 git commit -m x',
   'HUSKY=0 git push',
   'HUSKY="0" git push',
   "HUSKY='0' git push",
+  "HUSKY=''0 git push",
+  'HU""SKY=0 git push',
+  'HUSKY=\\0 git push',
+  'HUSKY=$(echo 0) git push',
+  `HUSKY=\${X:-0} git push`,
+  'HUSKY=`echo 0` git push',
   'export HUSKY=0; git push',
   'env HUSKY=0 git push',
   'git -c core.hooksPath=/dev/null commit -m x',
   'git -c core.hookspath=/dev/null push',
+  "git -c core.hooks''Path=/dev/null push",
   'git --config-env core.hooksPath=EMPTY push',
   'git config core.hooksPath /dev/null',
   'git config "core.hooksPath" /dev/null',
+  'git config core.hooks\\Path /dev/null',
   'git config --global core.hooksPath /tmp/none',
   'git config --unset core.hooksPath',
   'git config core.hooksPath .husky-off',
   'git config --get core.hooksPath && git config core.hooksPath /dev/null',
   "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git push",
   'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/x git push',
+  "git config alias.ci 'commit -n'",
+  'git config --global alias.p "push --no-verify"',
+  "git -c alias.ci='commit -n' ci -m x",
+  'git config include.path /tmp/evil.gitconfig',
+  'git config includeIf.gitdir:~/.path /tmp/evil.gitconfig',
+  'git -c include.path=/tmp/evil.gitconfig commit -m x',
   "bash -c 'git push --no-verify'",
   'sh -c "git commit -n -m x"',
   "bash -c 'HUSKY=0 git push'",
@@ -54,9 +79,12 @@ const BLOCKED = [
 const ALLOWED = [
   'git status',
   'git commit -m "feat: add thing"',
+  'git commit -m "fix: y"',
   'git commit -m "docs: explain -n"',
   "git commit -m 'docs: explain -nm'",
+  'git commit -m "docs: mention --no-verify and HUSKY=0"',
   'git commit --message="docs: -n flag"',
+  'git commit -m "$(cat <<\'EOF\'\nfix: y\n\nLonger body.\nEOF\n)"',
   'git commit -mn',
   'git commit -uno -m x',
   'git commit --no-edit --amend',
@@ -69,19 +97,57 @@ const ALLOWED = [
   'git config core.hooksPath .husky',
   'git config core.hooksPath .husky/_',
   'git config --local core.hooksPath .husky/_ && git push',
+  'git config --get alias.ci',
+  "git config --get-regexp '^alias\\.'",
+  'git config --list',
+  'git config --get include.path',
   'git log --oneline -n 5',
   'HUSKY=1 git push',
 ];
 
-describe('block-gate-bypass hook', () => {
+// The description is free text from the agent; only the command is matched.
+const ALLOWED_WITH_BYPASS_DESCRIPTIONS: [string, string][] = [
+  ['git config --get core.hooksPath', 'Read core.hooksPath'],
+  ['git commit -m "fix: y"', 'Commit -n changes without --no-verify'],
+  ['git push', 'Push without HUSKY=0'],
+  ['git status', 'Check whether alias.ci or include.path is set'],
+];
+
+describe.each(['sh', 'bash'])('block-gate-bypass hook under %s', (shell) => {
   it.each(BLOCKED)('blocks %j', (command) => {
-    const { status, stderr } = runHook(command);
+    const { status, stderr } = runHook(shell, command);
     expect(status).toBe(2);
     expect(stderr).toContain('Fix what the gate reports instead');
     expect(stderr).toContain('.agents/project/DEFINITION_OF_DONE.md');
   });
 
   it.each(ALLOWED)('allows %j', (command) => {
-    expect(runHook(command).status).toBe(0);
+    expect(runHook(shell, command)).toEqual({ status: 0, stderr: '' });
+  });
+
+  it.each(ALLOWED_WITH_BYPASS_DESCRIPTIONS)('allows %j described as %j', (command, description) => {
+    expect(runHook(shell, command, description)).toEqual({ status: 0, stderr: '' });
+  });
+
+  it('blocks when the payload is not JSON', () => {
+    const result = spawnSync(shell, [HOOK], { input: 'not json', encoding: 'utf8' });
+    expect(result.status).toBe(2);
+  });
+});
+
+describe('.claude/settings.json', () => {
+  it('spawns the hook for git, env, sh, and bash commands', () => {
+    const settings = JSON.parse(readFileSync(resolve(ROOT, '.claude/settings.json'), 'utf8'));
+    const bashEntries = settings.hooks.PreToolUse.filter(
+      (entry: { matcher: string }) => entry.matcher === 'Bash',
+    );
+    const hooks = bashEntries.flatMap((entry: { hooks: unknown[] }) => entry.hooks);
+
+    expect(hooks.map((hook: { if: string }) => hook.if).sort()).toEqual(
+      ['Bash(bash *)', 'Bash(env *)', 'Bash(git *)', 'Bash(sh *)'].sort(),
+    );
+    for (const hook of hooks) {
+      expect(hook).toMatchObject({ type: 'command', command: 'sh', args: [HOOK_ARG] });
+    }
   });
 });

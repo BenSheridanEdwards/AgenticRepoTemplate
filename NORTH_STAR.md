@@ -155,7 +155,8 @@ Fallow 2.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
 and Fallow 2.x also checks dead code, cycles, and complexity. The repo runs
 `strict` TypeScript, Biome with its recommended preset for lint and format,
 Jest, Playwright, axe, and StyleProof. Husky hooks mirror CI, a script validates
-PR bodies, and a hook refuses `--no-verify` and the other hook bypasses.
+PR bodies, and a hook refuses `--no-verify` and the other common hook bypasses, with CI as
+the backstop.
 
 **The plan.** PR0 moves the app into `apps/web`. Plan PRs 1 to 9 follow in
 order, with the Effect PR ahead of PR 3. Each PR that changes a tool also
