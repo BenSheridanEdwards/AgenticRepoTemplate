@@ -30,12 +30,12 @@ jobs:
       github.event.sender.type == 'User' &&
       contains(github.event.comment.body, '<!-- enforcement-approval -->'))
     runs-on: ubuntu-latest
-    # contents:read for main's script; pull-requests:read for the head SHA and
-    # files; issues:write for the sticky comment; statuses:write for the gate.
+    # contents:read for main's script; pull-requests:write for the head SHA, the
+    # files, and the sticky comment (a PR's comments need the pull-requests
+    # scope, issues:write alone is refused); statuses:write for the gate.
     permissions:
       contents: read
-      pull-requests: read
-      issues: write
+      pull-requests: write
       statuses: write
     steps:
       - uses: actions/checkout@v7
