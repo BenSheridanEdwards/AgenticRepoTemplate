@@ -16,6 +16,12 @@ pnpm typecheck
 step "Lint + format + imports (Biome)"
 pnpm check
 
+step "Policy, React hooks, and React Compiler lint (ESLint)"
+pnpm lint:policy
+
+step "React Doctor project checks"
+pnpm react-doctor
+
 step "Code intelligence (Fallow)"
 pnpm fallow:audit
 

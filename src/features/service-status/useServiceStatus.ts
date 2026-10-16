@@ -16,29 +16,30 @@ export interface UseServiceStatus {
   reload: () => void;
 }
 
+/** Resolves to the terminal state for one request; it never rejects. */
+async function requestServiceStatuses(): Promise<AsyncResourceState<readonly ServiceStatus[]>> {
+  try {
+    return resolveListState(await fetchServiceStatuses());
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not load service status';
+    return { status: 'error', message };
+  }
+}
+
 export function useServiceStatus(): UseServiceStatus {
   const [state, setState] = useState<AsyncResourceState<readonly ServiceStatus[]>>({
     status: 'loading',
   });
 
-  const load = useCallback(async () => {
-    setState({ status: 'loading' });
-    try {
-      const statuses = await fetchServiceStatuses();
-      setState(resolveListState(statuses));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not load service status';
-      setState({ status: 'error', message });
-    }
+  // State starts as `loading`, so the mount effect only applies the result.
+  useEffect(() => {
+    void requestServiceStatuses().then(setState);
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   const reload = useCallback(() => {
-    void load();
-  }, [load]);
+    setState({ status: 'loading' });
+    void requestServiceStatuses().then(setState);
+  }, []);
 
   return { state, reload };
 }
