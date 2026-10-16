@@ -19,7 +19,7 @@ each owner runs locally and in CI.
 | Visual regression | **StyleProof** | Diffs computed styles; review-gate + certify modes. |
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
 | Bundle-size budget | **size-limit** | Fails CI when `dist/` exceeds the budget. |
-| Performance budget | **Lighthouse CI** | a11y floor + perf budget on pull requests. |
+| Performance budget | **Lighthouse CI** | a11y floor + perf budget on UI-relevant pull requests. |
 | Git hooks | **husky** | Runs the gates locally before commit/push. |
 | Dependency vulnerabilities | **`pnpm audit`** | High/critical advisories fail CI. |
 | Secret scanning | **gitleaks** | Staged content on pre-commit; full history in CI. |

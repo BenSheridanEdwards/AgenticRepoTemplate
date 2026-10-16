@@ -14,7 +14,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, typecheck, Biome, Fallow, tests, build, security. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
-| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets. |
+| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files; other PRs report the same check green with audits skipped. |
 | CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison. |
 
 ## Tool ownership
