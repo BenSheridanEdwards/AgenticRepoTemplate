@@ -169,3 +169,29 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The stable final result (ADR 0017). scripts/required-gates.mjs owns the
+  # lane list and the decision. always() keeps this job running when a lane
+  # fails or the run is cancelled: a skipped job reads as a pass in branch
+  # protection, so `!cancelled()` here would let a cancelled run through.
+  required-gates:
+    name: Required gates
+    if: always()
+    needs: [up-to-date, quality, fallow, test, build, e2e, security]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Workflows and inventory match the contract
+        run: node scripts/required-gates.mjs --check
+      - name: Every required lane passed
+        if: ${{ !cancelled() }}
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: node scripts/required-gates.mjs --decide
