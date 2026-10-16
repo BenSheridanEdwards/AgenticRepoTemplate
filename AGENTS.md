@@ -16,7 +16,7 @@ just the runnable carrier — the scaffolding is the point (see `README.md`).
 ## Run it
 
 ```bash
-pnpm install          # install dependencies (Node ≥ 20, pnpm)
+pnpm install          # install dependencies (Node ≥ 22, pnpm)
 pnpm setup:agents     # install the external agentic toolkit (one time)
 pnpm dev              # run the app at http://localhost:5173
 pnpm verify           # the full local gate suite (typecheck → biome → fallow → tests → build)

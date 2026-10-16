@@ -39,16 +39,25 @@ the layer where the behaviour is observable.
 
 StyleProof is the computed-style visual gate
 ([`.github/workflows/styleproof.yml`](../../.github/workflows/styleproof.yml)).
-It is runnable locally, not CI-only:
+It runs only in CI and compares the PR head against the PR base commit:
 
-- `pnpm styleproof:capture` captures a baseline (`STYLEMAP_DIR=base`) and
-  `pnpm styleproof:diff` captures the head and diffs it against that baseline.
+- **One install, at the head.** The job installs the PR head once and fails
+  closed if that install leaves `git status --porcelain` non-empty. A capture
+  from a dirty tree cannot bind to a commit SHA.
+- **The base is captured from the head's install.** A detached worktree of the
+  base commit sits under the ignored `.styleproof/` directory, so its sources
+  resolve the head's `node_modules`. `STYLEPROOF_APP_ROOT` points
+  `playwright.styleproof.config.ts` at it. Nothing is installed at the base:
+  an install there rewrites any tracked file the base commits with the wrong
+  mode (the `vendor/extract-zip/cli.js` bin did) and dirties the capture.
+  Dependency-only visual changes therefore show no diff, because both sides
+  render with the head's dependencies.
+- **Maps never leave the job.** Both captures pass `--no-upload`, and the
+  report is a workflow artifact (`report-storage: artifact`). Nothing is
+  published to the `styleproof-maps` branch from CI or from a laptop.
 - **Capture is selected by test title**, not file path: StyleProof registers its
-  capture tests from inside the library (attributed to `node_modules`), so both
-  scripts select them with `playwright test --grep "styleproof capture"`.
-- **`STYLEPROOF_REPLAY_FROM` isolates data drift.** `styleproof:diff` replays the
-  base run's recorded data (`STYLEPROOF_REPLAY_FROM=__stylemaps__/base`) so the
-  diff is *code*, not live-data drift.
+  capture tests from inside the library (attributed to `node_modules`), so
+  `styleproof-map` selects them with `playwright test --grep "styleproof capture"`.
 - **The approval workflow must live on the default branch.**
   [`styleproof-approve.yml`](../../.github/workflows/styleproof-approve.yml) is an
   `issue_comment` workflow, which only ever runs from the default branch — it has
@@ -57,9 +66,13 @@ It is runnable locally, not CI-only:
   commit status.** Until a branch-protection rule requires that status, a red
   StyleProof report is advisory. Adding that rule is a post-clone setup step (see
   the README).
-- **Exact commit maps are reused.** Pre-push restores an existing SHA-keyed map
-  before capturing; CI captures only a missing head when the base is compatible,
-  and publishes every cold fallback for later runs.
+- **The StyleProof workflows are hand-owned.** They are adapted from the
+  `styleproof-init` 7.7.0 templates (single job, artifact storage, review gate)
+  with this repo's Node and pnpm setup, the worktree base capture above, and
+  commit-pinned StyleProof refs, so
+  `styleproof-init --upgrade` does not rewrite them. To upgrade, regenerate into
+  a scratch checkout and port the diff. `styleproof.config.ts` sets
+  `blocking: true`; the init default, `'advisory'`, turns the gate green.
 
 ## Placement rules
 
