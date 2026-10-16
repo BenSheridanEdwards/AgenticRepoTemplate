@@ -7,12 +7,15 @@
  * an attacker-controlled PR body can never be evaluated as shell or YAML. The
  * workflow populates them with `${{ toJSON(github.event.pull_request.body) }}`,
  * so each env var holds a JSON-encoded string (quoted, with escaped newlines);
- * the CLI runner JSON-parses it back to the raw text. See
- * `.github/workflows/pr-quality.yml`.
+ * the CLI runner JSON-parses it back to the raw text. The PR head SHA arrives
+ * the same way in `PR_HEAD_SHA`; run locally without it, the CLI uses
+ * `git rev-parse HEAD`. See `.github/workflows/pr-quality.yml`.
  *
  * This module exports `validatePullRequest` for unit tests and runs the CLI when
  * invoked directly. The CLI exits non-zero (fail-closed) with actionable errors.
  */
+
+import { execFileSync } from 'node:child_process';
 
 /**
  * The four template sections, in the order the contract requires them.
@@ -37,6 +40,9 @@ const NOT_APPLICABLE_MARKER = 'Not applicable';
  */
 const CONVENTIONAL_COMMIT_PATTERN =
   /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^()\n]+\))?!?: .+/;
+
+/** The `- Head commit:` value: one commit SHA, full or abbreviated, optionally in backticks. */
+const HEAD_COMMIT_VALUE_PATTERN = /^`?([0-9a-f]{7,40})`?$/i;
 
 /**
  * Strip HTML comments (`<!-- ... -->`) from a block of text. Template guidance
@@ -194,10 +200,70 @@ function collectProofErrors(proofBody) {
 }
 
 /**
- * Validate a PR title and body. Returns `{ ok, errors }`; `errors` is an array
- * of actionable strings. Pure and side-effect free so it can be unit-tested.
+ * The `- Head commit:` label. A note in parentheses (`- Head commit (short):`)
+ * is still the field, so it cannot dodge the comparison.
  */
-export function validatePullRequest({ title, body }) {
+const HEAD_COMMIT_LABEL = /^[-*+]\s+Head commit\s*(\([^)]*\))?:/i;
+
+/**
+ * Read the `- Head commit:` value: the rest of its line plus any following lines
+ * up to the next bullet, so a SHA written on the next line still counts.
+ */
+function headCommitValue(lines, index) {
+  const collected = [lines[index].replace(HEAD_COMMIT_LABEL, '')];
+  for (const line of lines.slice(index + 1)) {
+    if (/^[-*+]\s/.test(line)) {
+      break;
+    }
+    collected.push(line);
+  }
+  return collected.join('\n').trim();
+}
+
+/**
+ * A body goes stale when commits land after it was written. The Verification
+ * Summary's `- Head commit:` line names the commit the whole body was checked
+ * against, so a push that moves the PR head fails this gate until the author
+ * re-checks the body against the new head and updates the field. With no
+ * `headSha` only the field's shape is graded.
+ */
+function collectHeadCommitErrors(sections, headSha) {
+  const verification = sections.find((section) => section.heading === 'Verification Summary');
+  if (!verification) {
+    return [];
+  }
+  const lines = stripHtmlComments(verification.body)
+    .split('\n')
+    .map((line) => line.trim());
+  const index = lines.findIndex((line) => HEAD_COMMIT_LABEL.test(line));
+  if (index === -1) {
+    return [
+      'Section "Verification Summary" has no `- Head commit:` line. ' +
+        'Add one naming the SHA the whole body was checked against.',
+    ];
+  }
+  const named = HEAD_COMMIT_VALUE_PATTERN.exec(headCommitValue(lines, index))?.[1];
+  if (named === undefined) {
+    return [
+      '`- Head commit:` must be one commit SHA and nothing else (7-40 hex ' +
+        'characters, optionally in backticks), such as `1a2b3c4d`.',
+    ];
+  }
+  if (typeof headSha !== 'string' || headSha.toLowerCase().startsWith(named.toLowerCase())) {
+    return [];
+  }
+  return [
+    `\`- Head commit:\` says ${named}, but the PR head is ${headSha.slice(0, 12)}. ` +
+      'Re-check the body against the new head, then update the field.',
+  ];
+}
+
+/**
+ * Validate a PR title and body against the PR head SHA. Returns `{ ok, errors }`;
+ * `errors` is an array of actionable strings. Pure and side-effect free so it
+ * can be unit-tested.
+ */
+export function validatePullRequest({ title, body, headSha }) {
   const sections = splitSections(typeof body === 'string' ? body : '');
   const headings = sections.map((section) => section.heading);
   const located = locateSections(headings);
@@ -206,6 +272,7 @@ export function validatePullRequest({ title, body }) {
     ...collectTitleErrors(title),
     ...located.errors,
     ...collectContentErrors(sections, located.foundIndexBySection),
+    ...collectHeadCommitErrors(sections, headSha),
   ];
 
   return { ok: errors.length === 0, errors };
@@ -229,10 +296,47 @@ function decodeEnv(rawValue) {
   }
 }
 
+/**
+ * The PR head from `PR_HEAD_SHA`, or the local checkout's `HEAD` when run by
+ * hand. Fails closed: in CI the checkout is a merge commit, never the PR head,
+ * so a missing or malformed `PR_HEAD_SHA` there is an error, not a fallback.
+ */
+function resolveHeadSha() {
+  const fromEnv = process.env.PR_HEAD_SHA;
+  if (fromEnv !== undefined || process.env.GITHUB_ACTIONS === 'true') {
+    if (!/^[0-9a-f]{40}$/i.test(fromEnv ?? '')) {
+      throw new Error(
+        `PR_HEAD_SHA must be the 40-character PR head SHA, got "${fromEnv ?? ''}". ` +
+          'Set it from `github.event.pull_request.head.sha`.',
+      );
+    }
+    return fromEnv;
+  }
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    throw new Error(
+      `Could not read HEAD to check \`- Head commit:\` (${String(error.stderr || error.message).trim()}). ` +
+        "Run inside the PR's checkout, or set PR_HEAD_SHA.",
+    );
+  }
+}
+
 function runCli() {
+  let headSha;
+  try {
+    headSha = resolveHeadSha();
+  } catch (error) {
+    console.error(`PR quality contract failed:\n\n  ✗ ${error.message}`);
+    process.exit(1);
+  }
   const result = validatePullRequest({
     title: decodeEnv(process.env.PR_TITLE),
     body: decodeEnv(process.env.PR_BODY),
+    headSha,
   });
 
   if (result.ok) {

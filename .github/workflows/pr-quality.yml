@@ -2,9 +2,11 @@ name: PR quality
 
 # The PR body and title are the review-facing proof. This gate keeps them honest:
 # the four template sections must be present, in order, and non-empty; the proof
-# section must carry an inline image or an explicit "Not applicable"; and the
-# title must be Conventional Commits. It runs on `edited` too, so fixing the body
-# re-checks it without a new push.
+# section must carry an inline image or an explicit "Not applicable"; the title
+# must be Conventional Commits; and the Verification Summary's
+# "- Head commit:" must name the PR head, so a push (`synchronize`) that moves the
+# head past it fails until the body is re-checked. It runs on `edited` too, so
+# fixing the body re-checks it without a new push.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
@@ -36,4 +38,5 @@ jobs:
         env:
           PR_TITLE: ${{ toJSON(github.event.pull_request.title) }}
           PR_BODY: ${{ toJSON(github.event.pull_request.body) }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/validate-pr-body.mjs

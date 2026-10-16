@@ -68,7 +68,11 @@ these sections, in order: `Why does this feature exist?`, `What changed?`,
 `Behavioural Proof (with video and screenshots)`, and `Verification Summary`.
 The `PR quality` workflow ([`scripts/validate-pr-body.mjs`](../../scripts/validate-pr-body.mjs))
 fails a PR whose body omits a section, leaves one placeholder-only, carries no
-proof, or whose title is not Conventional Commits.
+proof, or whose title is not Conventional Commits. It also fails when the
+Verification Summary's `- Head commit:` line is missing, is anything other than
+one commit SHA, or names a commit that is not the PR head: every push re-runs it, so a body written for an
+older head fails until it is re-checked against the new head and the field is
+updated ([ADR 0016](../decisions/0016-pr-body-names-its-head-commit.md)).
 
 ## PR Proof Law
 
