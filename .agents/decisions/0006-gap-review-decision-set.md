@@ -28,9 +28,9 @@ The eight decisions each have their own ADR:
 
 ### Enforcement plan scope
 
-The enforcement plan keeps all nine PRs. That includes PR 8
-(enforcement-change detection) and PR 9 (checkbox approval with an audit
-trail).
+The enforcement plan keeps all nine PRs. PR 1 is enforcement-change
+detection, a required blocking check. PR 9 is checkbox approval with an audit
+trail.
 
 These items sit outside the plan and need no further work:
 
@@ -44,12 +44,13 @@ These items sit outside the plan and need no further work:
 
 1. This decision set.
 2. The monorepo move to `apps/web` ([0009](0009-move-the-app-to-apps-web-first.md)).
-3. Plan PR 1, then the protected-path detector
-   ([0007](0007-protect-enforcement-paths-by-default.md)), so later PRs are
-   gated.
-4. Plan PRs 2 to 7 in their existing order, with the Effect PR ahead of PR 3
-   ([0011](0011-effect-schema-everywhere.md)).
-5. Plan PRs 8 and 9.
+3. Plan PR 1, enforcement-change detection: the protected-path detector
+   from [0007](0007-protect-enforcement-paths-by-default.md). It is a
+   blocking check, so every later PR is gated.
+4. Plan PRs 2 to 8 in their existing order, with the Effect PR ahead of PR 4
+   (TanStack Query and React Hook Form,
+   [0011](0011-effect-schema-everywhere.md)).
+5. Plan PR 9, checkbox approval with an audit trail, blocked by PR 1.
 
 ## Consequences
 

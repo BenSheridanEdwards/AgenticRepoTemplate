@@ -10,6 +10,9 @@
   // used by every test run — exclude it from dead-file analysis.
   "ignorePatterns": ["jest.style-stub.cjs", "vendor/**"],
 
+  // StyleProof loads its configs by file name, never by import.
+  "entry": ["playwright.styleproof.config.ts", "styleproof.config.ts"],
+
   // Architecture boundaries enforce the "features are islands" rule from
   // .agents/project/ARCHITECTURE.md. Each folder under src/features becomes its
   // own zone (via autoDiscover), and a single "shared" zone holds cross-feature

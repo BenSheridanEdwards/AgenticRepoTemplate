@@ -130,8 +130,8 @@ importers:
         specifier: ^12.1.0
         version: 12.1.0(jiti@2.6.1)
       styleproof:
-        specifier: 4.4.21
-        version: 4.4.21(@playwright/test@1.61.0)
+        specifier: 7.7.0
+        version: 7.7.0(@playwright/test@1.61.0)
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.15.41)(@types/node@22.19.21)(typescript@5.9.3)
@@ -3242,12 +3242,12 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
 
-  styleproof@4.4.21:
-    resolution: {integrity: sha512-1wxzwaWvILL9UByn88puXdCTaB896rmIjDJmqiVmBJungrwy0X3TKziqywfgmzPKjZ1Pgt8oFZm5rpq8ycYIBg==}
+  styleproof@7.7.0:
+    resolution: {integrity: sha512-/8RexstXU8RUjUwTZpIGq4A6s8kdvCaMfVvwL4/wyz2NO0wyatRMq/6ucipJBPoNCmNGwQNzlGYKARgGcDdyOA==}
     engines: {node: '>=18'}
     hasBin: true
     peerDependencies:
-      '@playwright/test': '>=1.40'
+      '@playwright/test': '>=1.45'
 
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
@@ -6963,7 +6963,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  styleproof@4.4.21(@playwright/test@1.61.0):
+  styleproof@7.7.0(@playwright/test@1.61.0):
     dependencies:
       '@playwright/test': 1.61.0
       pngjs: 7.0.0
