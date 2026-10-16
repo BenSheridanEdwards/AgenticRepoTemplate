@@ -109,10 +109,10 @@ mean the same thing. A green PR means "this change introduced nothing new".
 
 | Stage | What it enforces | Where |
 | --- | --- | --- |
-| **On commit** | Type safety, consistent style and imports, code intelligence (dead code, cycles, complexity), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
-| **On push** | Logic tested with a coverage floor, a production build, the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green | [`.husky/pre-push`](.husky/pre-push) |
+| **On commit** | The branch contains main, type safety, consistent style and imports, code intelligence (dead code, cycles, complexity), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
+| **On push** | The branch contains the latest main, logic tested with a coverage floor, a production build, the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green | [`.husky/pre-push`](.husky/pre-push) |
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, PR-body validation, and visual regression | [`.github/workflows/`](.github/workflows) |
-| **Before merge** | Human visual sign-off: the visual gate flips green only when a reviewer ticks every per-change checkbox, bound to the exact commit | [`styleproof-approve.yml`](.github/workflows/styleproof-approve.yml) plus branch protection |
+| **Before merge** | Human visual sign-off: the visual gate flips green only when a reviewer other than the PR author ticks "Approve all changes", bound to the exact commit | [`styleproof-approve.yml`](.github/workflows/styleproof-approve.yml) plus branch protection |
 
 The gates cannot be skipped. A
 [PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any `--no-verify`,
@@ -157,7 +157,9 @@ browser's computed styles and compares the PR against its base branch at three
 widths, catching hover and focus states, between-breakpoint rules, and
 sub-pixel drift that pixel snapshots miss. A refactor is safe when the
 behaviour suite stays green and the style diff is zero or every change is
-deliberately approved.
+deliberately approved. The StyleProof workflow runs in CI on every pull
+request and posts the visual diff on the PR. A reviewer, human or agent, checks
+that the report matches the intended UI changes.
 
 ### Skills: processes with exactly one job
 
@@ -224,7 +226,7 @@ pnpm verify           # typecheck, biome, fallow, tests with coverage, build, si
 pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
 ```
 
-Requires Node 20 or higher and pnpm. See [`.nvmrc`](.nvmrc).
+Requires Node 22 or higher and pnpm. See [`.nvmrc`](.nvmrc).
 
 ### Post-clone setup checklist
 
@@ -300,7 +302,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
     codeql.yml              CodeQL static analysis (security-events).
     lighthouse.yml          Performance and accessibility budget on PRs.
     styleproof.yml          Computed-style visual gate (PR head vs base).
-    styleproof-approve.yml  Per-change visual sign-off on the default branch.
+    styleproof-approve.yml  Visual sign-off on the default branch.
     enforcement-approval.yml  Sign-off gate for enforcement-path changes (main's copy judges each PR).
 SECURITY.md                 Vulnerability disclosure policy.
 biome.json                  Lint, format, import order (one tool).

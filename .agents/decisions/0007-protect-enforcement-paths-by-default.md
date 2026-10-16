@@ -41,5 +41,6 @@ A change to any of these fails CI at PR time until Ben signs it off.
   role-map changes reach review ([0014](0014-fallow-owns-architecture-checks.md)).
 - Docs-only PRs that touch `.agents/**` go through the same sign-off. That is
   intended, since guidance is enforcement for agents.
-- The detector lands right after plan PR 1 (see
+- The detector is plan PR 1. It lands right after PR0 as a required,
+  blocking check, ahead of every other enforcement PR (see
   [0006](0006-gap-review-decision-set.md)).
