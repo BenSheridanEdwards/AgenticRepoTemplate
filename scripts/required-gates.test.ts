@@ -136,6 +136,17 @@ describe('the --decide CLI that the Required gates job runs', () => {
     expect(result.stdout + result.stderr).toContain('Security audit');
   });
 
+  it('exits 1 when the event name is missing, so no skip can be excused', () => {
+    const result = spawnSync('node', [SCRIPT, '--decide'], {
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH,
+        NEEDS: JSON.stringify(needsWith({ 'up-to-date': 'skipped' })),
+      },
+    });
+    expect(result.status).toBe(1);
+  });
+
   it('exits 1 when the needs payload is missing', () => {
     const result = spawnSync('node', [SCRIPT, '--decide'], {
       encoding: 'utf8',
@@ -200,6 +211,27 @@ describe('checkContract', () => {
       ),
     }));
     expect(errors.join('\n')).toContain('continue-on-error');
+  });
+
+  it.each([
+    [
+      'the decision step is deleted',
+      /\n {6}- name: Every required lane passed[\s\S]*--decide\n/,
+      '\n',
+    ],
+    [
+      'the decision step can fail quietly',
+      'run: node scripts/required-gates.mjs --decide',
+      'run: node scripts/required-gates.mjs --decide\n        continue-on-error: true',
+    ],
+    [
+      'the decision step skips on cancellation',
+      /(Every required lane passed\n {8})if: always\(\)/,
+      '$1if: !cancelled()',
+    ],
+  ])('fails when %s', (_label, from, to) => {
+    const errors = contractErrors((files) => ({ 'ci.yml': files['ci.yml'].replace(from, to) }));
+    expect(errors).toEqual([expect.stringContaining('differs from the contract')]);
   });
 
   it('fails when the inventory is stale', () => {

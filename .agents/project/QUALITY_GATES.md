@@ -85,8 +85,10 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
   names and job-level `if:`.
 - **Freshness.** `pnpm gates:check` runs in `pnpm verify` and in the aggregate
   job. It fails on a missing or renamed job, a changed job-level `if:`, a
-  `continue-on-error` gate job, a `ci.yml` job outside the contract, aggregate
-  drift, or a stale inventory.
+  `continue-on-error` gate job, a `ci.yml` job outside the contract, any change
+  to the aggregate job's text (its `needs`, `if: always()`, or steps), or a
+  stale inventory. Steps inside the lane jobs are reviewed through enforcement
+  approval, not this check.
 - **Local versus hosted proof.** `pnpm verify` and `pnpm e2e` mirror every lane
   with a local command. The security audit and CodeQL run only on GitHub, and
   Lighthouse runs locally only on request. Hosted readiness is a green

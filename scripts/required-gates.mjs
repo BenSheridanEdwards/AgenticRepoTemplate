@@ -20,9 +20,9 @@
  *                 with the contract.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INVENTORY_PATH = 'docs/required-gates.md';
@@ -236,7 +236,47 @@ function checkGateJob(gate, job, errors) {
   }
 }
 
-function checkAggregateJob(ciJobs, errors) {
+/** The whole aggregate job, so a removed or weakened step is drift too. */
+export function renderAggregateJob() {
+  return [
+    `  ${AGGREGATE.job}:`,
+    `    name: ${AGGREGATE.check}`,
+    '    if: always()',
+    `    needs: [${AGGREGATED.map((gate) => gate.job).join(', ')}]`,
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v7',
+    '        with:',
+    '          persist-credentials: false',
+    '      - uses: actions/setup-node@v6',
+    '        with:',
+    '          node-version-file: .nvmrc',
+    '      - name: Workflows and inventory match the contract',
+    '        run: node scripts/required-gates.mjs --check',
+    '      - name: Every required lane passed',
+    '        if: always()',
+    '        env:',
+    `          NEEDS: \${{ toJSON(needs) }}`,
+    `          EVENT_NAME: \${{ github.event_name }}`,
+    `          BASE_REF: \${{ github.base_ref }}`,
+    '        run: node scripts/required-gates.mjs --decide',
+  ].join('\n');
+}
+
+function aggregateBlock(workflowText) {
+  const lines = workflowText.split('\n');
+  const start = lines.indexOf(`  ${AGGREGATE.job}:`);
+  if (start === -1) {
+    return undefined;
+  }
+  const end = lines.findIndex((line, index) => index > start && /^ {0,2}\S/.test(line));
+  return lines
+    .slice(start, end === -1 ? undefined : end)
+    .join('\n')
+    .trimEnd();
+}
+
+function checkAggregateJob(ciJobs, ciText, errors) {
   const aggregate = ciJobs.get(AGGREGATE.job);
   const where = `ci.yml job \`${AGGREGATE.job}\``;
   if (!aggregate) {
@@ -263,6 +303,12 @@ function checkAggregateJob(ciJobs, errors) {
         `Missing: [${missing.join(', ')}]. Not in the contract: [${extra.join(', ')}].`,
     );
   }
+  if (aggregateBlock(ciText) !== renderAggregateJob()) {
+    errors.push(
+      `${where} differs from the contract. Its steps decide the result, so it must read ` +
+        `exactly:\n${renderAggregateJob()}`,
+    );
+  }
 }
 
 /**
@@ -280,7 +326,7 @@ export function checkContract({ readWorkflow, inventory }) {
   }
 
   const ciJobs = jobsByWorkflow.get(AGGREGATE.workflow);
-  checkAggregateJob(ciJobs, errors);
+  checkAggregateJob(ciJobs, readWorkflow(AGGREGATE.workflow), errors);
   for (const jobId of ciJobs.keys()) {
     if (jobId !== AGGREGATE.job && !AGGREGATED.some((gate) => gate.job === jobId)) {
       errors.push(
@@ -380,7 +426,10 @@ function runDecide() {
   if (typeof needs !== 'object' || needs === null) {
     report(['NEEDS is not the JSON object from `toJSON(needs)`.'], '');
   }
-  const run = { event: process.env.EVENT_NAME ?? '', baseRef: process.env.BASE_REF ?? '' };
+  if (!process.env.EVENT_NAME) {
+    report(['EVENT_NAME is empty, so no lane can be judged as not applicable.'], '');
+  }
+  const run = { event: process.env.EVENT_NAME, baseRef: process.env.BASE_REF ?? '' };
   const decision = decideRequiredGates({ needs, run });
   for (const lane of decision.lanes) {
     console.log(`${lane.pass ? '✓' : '✗'} ${lane.check}: ${lane.reason}`);
@@ -420,6 +469,8 @@ function runCli(mode) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// realpath and pathToFileURL keep the guard true for symlinked or spaced paths;
+// a false guard would exit 0 without deciding.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   runCli(process.argv[2]);
 }

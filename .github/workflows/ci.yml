@@ -189,7 +189,7 @@ jobs:
       - name: Workflows and inventory match the contract
         run: node scripts/required-gates.mjs --check
       - name: Every required lane passed
-        if: ${{ !cancelled() }}
+        if: always()
         env:
           NEEDS: ${{ toJSON(needs) }}
           EVENT_NAME: ${{ github.event_name }}
