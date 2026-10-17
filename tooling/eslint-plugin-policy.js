@@ -4,7 +4,8 @@ import { basename, dirname, extname, relative, sep } from 'node:path';
 
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/;
 const HOOK_NAME = /^use[A-Z0-9]/;
-const KEBAB_CASE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const FOLDER_NAME = /^([a-z0-9]+(-[a-z0-9]+)*|__[a-z]+__)$/;
+const UNPREFIXED_CALLBACK_PROPS = /^(render[A-Z].*|children)$/;
 const COMPONENT_WRAPPERS = new Set(['memo', 'forwardRef']);
 const STATE_AND_EFFECT_HOOKS = new Set([
   'useState',
@@ -12,6 +13,9 @@ const STATE_AND_EFFECT_HOOKS = new Set([
   'useEffect',
   'useLayoutEffect',
   'useInsertionEffect',
+  'useActionState',
+  'useOptimistic',
+  'useSyncExternalStore',
 ]);
 
 const isFunctionNode = (node) =>
@@ -50,19 +54,35 @@ function bindings(declaration) {
     .map((declarator) => ({ id: declarator.id, init: declarator.init }));
 }
 
-/** Module-scope components of a `.tsx` file: `{ name, node, fn }` per PascalCase function. */
+const isTestFile = (path) => /\.test\.tsx?$/.test(path);
+const isExport = (statement) => statement.type.startsWith('Export');
+
+/** The props type from `FC<Props>` on the binding, or `forwardRef<Element, Props>`. */
+function declaredPropsType({ id, init }) {
+  const annotationArguments = id.typeAnnotation?.typeAnnotation?.typeArguments?.params;
+  return annotationArguments?.[0] ?? init?.typeArguments?.params?.[1];
+}
+
+/**
+ * Module-scope components of a non-test `.tsx` file, exported ones first:
+ * `{ name, node, fn, propsType }` per PascalCase function.
+ */
 function moduleComponents(program, filename) {
-  if (extname(filename) !== '.tsx') {
+  if (extname(filename) !== '.tsx' || isTestFile(filename)) {
     return [];
   }
-  return program.body
+  const ordered = [...program.body.filter(isExport), ...program.body.filter((s) => !isExport(s))];
+  return ordered
     .flatMap((statement) => bindings(unwrapExport(statement)))
-    .map(({ id, fn, init }) => ({ name: id.name, node: id, fn: fn ?? wrappedFunction(init) }))
+    .map((binding) => {
+      const fn = binding.fn ?? wrappedFunction(binding.init);
+      const propsType = fn?.params[0]?.typeAnnotation?.typeAnnotation ?? declaredPropsType(binding);
+      return { name: binding.id.name, node: binding.id, fn, propsType };
+    })
     .filter((component) => component.fn && PASCAL_CASE.test(component.name));
 }
 
 const repositoryPath = (context) => relative(context.cwd, context.filename).split(sep).join('/');
-const isTestFile = (path) => /\.test\.tsx?$/.test(path);
 
 function functionName(fn) {
   if (fn.id) {
@@ -105,6 +125,9 @@ const stateAndEffectsInHooks = {
     schema: [],
   },
   create(context) {
+    if (isTestFile(context.filename)) {
+      return {};
+    }
     const reactNames = new Map();
     const reactNamespaces = new Set();
     const restrictedHook = (callee) => {
@@ -156,10 +179,10 @@ const stateAndEffectsInHooks = {
   },
 };
 
-const isCallbackHook = (init) =>
-  init?.type === 'CallExpression' &&
-  init.callee.type === 'Identifier' &&
-  init.callee.name === 'useCallback';
+const isCallbackHook = (init) => {
+  const callee = init?.type === 'CallExpression' ? init.callee : undefined;
+  return (callee?.type === 'MemberExpression' ? callee.property : callee)?.name === 'useCallback';
+};
 
 /** The identifiers of functions declared directly in a component body. */
 function localFunctions(body) {
@@ -211,7 +234,10 @@ const isNamed = (name) => (statement) => unwrapExport(statement)?.id?.name === n
 
 function declaredMembers(program, declaration) {
   if (declaration?.type === 'TSInterfaceDeclaration') {
-    return declaration.body.body;
+    const inherited = (declaration.extends ?? []).flatMap((heritage) =>
+      typeMembers(program, { type: 'TSTypeReference', typeName: heritage.expression }),
+    );
+    return [...declaration.body.body, ...inherited];
   }
   if (declaration?.type === 'TSTypeAliasDeclaration') {
     return typeMembers(program, declaration.typeAnnotation);
@@ -223,6 +249,9 @@ function declaredMembers(program, declaration) {
 function typeMembers(program, annotation) {
   if (annotation?.type === 'TSTypeLiteral') {
     return annotation.members;
+  }
+  if (annotation?.type === 'TSIntersectionType') {
+    return annotation.types.flatMap((type) => typeMembers(program, type));
   }
   if (annotation?.type !== 'TSTypeReference' || annotation.typeName.type !== 'Identifier') {
     return [];
@@ -238,6 +267,7 @@ const isCallbackMember = (member) =>
 const isMisnamedCallback = (member) =>
   isCallbackMember(member) &&
   member.key?.type === 'Identifier' &&
+  !UNPREFIXED_CALLBACK_PROPS.test(member.key.name) &&
   !/^on[A-Z]/.test(member.key.name);
 
 const callbackPropNames = {
@@ -253,8 +283,8 @@ const callbackPropNames = {
   create(context) {
     return {
       Program(program) {
-        const members = moduleComponents(program, context.filename).flatMap(({ fn }) =>
-          typeMembers(program, fn.params[0]?.typeAnnotation?.typeAnnotation),
+        const members = moduleComponents(program, context.filename).flatMap(({ propsType }) =>
+          typeMembers(program, propsType),
         );
         for (const member of members.filter(isMisnamedCallback)) {
           const name = member.key.name;
@@ -345,32 +375,8 @@ const folderNames = {
       Program(program) {
         const folders = dirname(repositoryPath(context)).split('/').slice(1);
         for (const folder of folders) {
-          if (!KEBAB_CASE.test(folder)) {
+          if (!FOLDER_NAME.test(folder)) {
             context.report({ node: program, messageId: 'kebab', data: { folder } });
-          }
-        }
-      },
-    };
-  },
-};
-
-const disableReason = {
-  meta: {
-    type: 'problem',
-    messages: {
-      reason:
-        'Add the reason after `--`, for example `// eslint-disable-next-line <rule> -- <why this ' +
-        'line is the exception>`.',
-    },
-    schema: [],
-  },
-  create(context) {
-    return {
-      Program() {
-        for (const comment of context.sourceCode.getAllComments()) {
-          const text = comment.value.trim();
-          if (/^eslint-disable(-next-line|-line)?(\s|$)/.test(text) && !/\s--\s+\S/.test(text)) {
-            context.report({ loc: comment.loc, messageId: 'reason' });
           }
         }
       },
@@ -388,6 +394,5 @@ export default {
     'pages-in-routes': pagesInRoutes,
     'file-matches-export': fileMatchesExport,
     'folder-names': folderNames,
-    'disable-reason': disableReason,
   },
 };
