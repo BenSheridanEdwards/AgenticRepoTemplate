@@ -63,6 +63,7 @@ the code-level rules and their checks.
 | Every lint or type suppression names its rule and its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
 | Guidance docs state rules as the action to take. | `pnpm check:docs` |
+| A doc that ties sign-off to a file names only a file the enforcement gate guards. | `pnpm check:docs` ([ADR 0030](decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)) |
 
 ## Simplicity Mode
 
