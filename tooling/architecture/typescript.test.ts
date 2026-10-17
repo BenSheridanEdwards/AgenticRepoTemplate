@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,6 +30,35 @@ function typeCheck(program: 'tsconfig.json' | 'tsconfig.api.json', files: Record
       writeFileSync(join(directory, path), source);
     }
     const run = spawnSync(TSC_BIN, ['-p', 'tsconfig.json', '--noEmit'], {
+      cwd: directory,
+      encoding: 'utf8',
+    });
+    return {
+      status: run.status,
+      errors: [...run.stdout.matchAll(/error (TS\d+)/g)].map(([, code]) => code),
+    };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Type-checks `files`, written at their repo paths, with copies of the repo's
+ * real TypeScript configs, so the `program`'s own `include` picks them up.
+ */
+function typeCheckAtRepoPaths(program: 'tsconfig.domain.json', files: Record<string, string>) {
+  mkdirSync(join(REPOSITORY_ROOT, '.cache'), { recursive: true });
+  const directory = mkdtempSync(join(REPOSITORY_ROOT, '.cache/typescript-programs-'));
+  try {
+    for (const config of ['tsconfig.base.json', 'tsconfig.api.json', program]) {
+      copyFileSync(join(REPOSITORY_ROOT, config), join(directory, config));
+    }
+    const tree = { 'package.json': '{ "type": "module" }\n', ...files };
+    for (const [path, source] of Object.entries(tree)) {
+      mkdirSync(dirname(join(directory, path)), { recursive: true });
+      writeFileSync(join(directory, path), source);
+    }
+    const run = spawnSync(TSC_BIN, ['-p', program, '--noEmit'], {
       cwd: directory,
       encoding: 'utf8',
     });
@@ -87,6 +116,48 @@ describe('TypeScript programs', () => {
       'src/title.ts': 'export const title = document.title;\n',
     });
     expect(result).toEqual({ status: 0, errors: [] });
+  });
+
+  it.each([
+    'apps/api/src/features/greeting/domain.ts',
+    'apps/api/src/features/greeting/domain/format.ts',
+    'showcase/x/api/src/features/todo/domain.ts',
+    'showcase/x/api/src/features/todo/domain/format.ts',
+  ])('passes pure domain code in %s', (path) => {
+    const result = typeCheckAtRepoPaths('tsconfig.domain.json', {
+      [path]: 'export const formatGreeting = (name: string) => `Hello, ${name}!`;\n',
+    });
+    expect(result).toEqual({ status: 0, errors: [] });
+  });
+
+  it.each([
+    [
+      'reads process.env',
+      'apps/api/src/features/greeting/domain.ts',
+      'export const suffix = process.env.SUFFIX;\n',
+      'TS2591', // Cannot find name 'process'; the domain program has no Node types.
+    ],
+    [
+      'exits the process',
+      'showcase/x/api/src/features/todo/domain.ts',
+      'export const stop = () => process.exit(1);\n',
+      'TS2591',
+    ],
+    [
+      'loads Node through createRequire',
+      'apps/api/src/features/greeting/domain/format.ts',
+      "import { createRequire } from 'node:module';\nexport const fs = createRequire('/')('fs');\n",
+      'TS2307', // Cannot find module 'node:module'.
+    ],
+    [
+      'imports Node file IO dynamically',
+      'showcase/x/api/src/features/todo/domain/format.ts',
+      "export const fs = import('node:fs');\n",
+      'TS2307',
+    ],
+  ])('fails domain code that %s', (_label, path, source, code) => {
+    const result = typeCheckAtRepoPaths('tsconfig.domain.json', { [path]: source });
+    expect(result).toEqual({ status: 2, errors: [code] });
   });
 
   it.each([

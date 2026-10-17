@@ -233,6 +233,12 @@ describe('Fallow contract over the reference result', () => {
       ['policy contract/domain-pure'],
     ],
     [
+      'the domain loads Node through createRequire',
+      `${GREETING}/domain.ts`,
+      "import { createRequire } from 'node:module';\nexport interface Greeting { readonly message: string }\nexport const formatGreeting = (name: string) => String(createRequire) + name;\n",
+      ['policy contract/domain-pure'],
+    ],
+    [
       'application logic imports tRPC',
       `${GREETING}/application.ts`,
       "import { TRPCError } from '@trpc/server';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => ({ message: formatGreeting(String(TRPCError) + name) });\n",
@@ -291,6 +297,12 @@ describe('Fallow contract over the reference result', () => {
       `${WEB}/routes/greeting/index.ts`,
       "export const greeting = fetch('/trpc/greeting.greet');\n",
       ['policy contract/effects-in-integrations', 'policy contract/io-effects-in-integrations'],
+    ],
+    [
+      'a route calls self.fetch',
+      `${WEB}/routes/greeting/index.ts`,
+      "export const greeting = self.fetch('/trpc/greeting.greet');\n",
+      ['policy contract/effects-in-integrations'],
     ],
     [
       'a route wires its own tRPC client',

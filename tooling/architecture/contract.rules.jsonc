@@ -23,6 +23,7 @@
         "fs",
         "http",
         "https",
+        "module",
         "net",
         "os",
         "path",
@@ -36,6 +37,7 @@
         "node:fs",
         "node:http",
         "node:https",
+        "node:module",
         "node:net",
         "node:os",
         "node:path",
@@ -70,6 +72,7 @@
       "callees": [
         "fetch",
         "globalThis.fetch",
+        "self.fetch",
         "window.fetch",
         "Effect.runPromise",
         "Effect.runPromiseExit",
