@@ -1,8 +1,7 @@
 # Why does this feature exist?
 
 <!-- The problem, risk, or capability this PR addresses, in user, product, or
-technical terms. Replace this comment with real content; do not leave the
-section as bullets only. -->
+technical terms. Replace this comment with real content in sentences. -->
 
 -
 

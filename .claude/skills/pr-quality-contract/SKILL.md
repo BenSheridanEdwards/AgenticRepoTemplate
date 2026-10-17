@@ -22,7 +22,7 @@ asking for proof, or decide whether work is ready to report complete.
 ## Process
 
 1. **Confirm scope.** Identify the intended base branch, current branch, and
-   changed files. Do not include unrelated local changes in the PR.
+   changed files. Keep unrelated local changes out of the PR.
 2. **Run local proof.** Prefer `pnpm verify` and `pnpm e2e`. If a narrower
    command is appropriate, name why it is enough and list what remains unproven.
 3. **Collect visual proof.** For UI-visible or CSS changes, attach screenshots
@@ -33,21 +33,20 @@ asking for proof, or decide whether work is ready to report complete.
 5. **Fill the template.** Use `.github/pull_request_template.md` exactly. The
    body must contain, in order, `Why does this feature exist?`, `What changed?`,
    `Behavioural Proof (with video and screenshots)`, and `Verification Summary`.
-   Do not leave placeholder comments, empty checkboxes with no explanation, or
-   vague summaries such as "all tests pass". `scripts/validate-pr-body.mjs` (the
+   Replace placeholder comments, explain each unticked checkbox, and name
+   commands in place of summaries such as "all tests pass". `scripts/validate-pr-body.mjs` (the
    `PR quality` workflow) rejects a body that omits a section, leaves one
    placeholder-only, lacks proof, carries a non-Conventional-Commits title, or
-   whose `- Head commit:` is not the PR head. After every push, re-check the
-   whole body against the new head, then update `- Head commit:`.
-6. **Gate completion.** Do not report the work complete until the latest-sha CI
-   checks are green, or until you have clearly said which checks are still
-   pending or failing.
+   names a `- Head commit:` other than the PR head. After every push, re-check
+   the whole body against the new head, then update `- Head commit:`.
+6. **Gate completion.** Report the work complete once the latest-sha CI checks
+   are green, or name the checks that are still pending or failing.
 
 ## Failure Rules
 
 - If a gate fails, report the exact command and failure, then fix the cause.
-- Never use `--no-verify`, remove a hook, weaken TypeScript/Biome/Jest config,
-  or lower a budget to get a green PR.
+- Keep every hook, the TypeScript/Biome/Jest config, and every budget at full
+  strength; a green PR comes from fixing the cause.
 - Keep private project names, secrets, tokens, and local-only paths out of a
   public PR body.
 

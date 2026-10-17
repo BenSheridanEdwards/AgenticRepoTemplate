@@ -5,8 +5,8 @@ the quality gates mechanically enforce most of it, so "done" and "passes the
 gates" are the same statement. A task is not done until the changed behaviour is
 verified by deterministic evidence: tests, build output, typecheck and lint
 results, screenshots or video for user-visible behaviour, or another concrete
-artifact that does not depend on anyone's judgment. An agent must not report a
-task complete until `pnpm verify` and `pnpm e2e` are green.
+artifact that stands without anyone's judgment. An agent reports a task
+complete once `pnpm verify` and `pnpm e2e` are green.
 
 ## The checklist
 

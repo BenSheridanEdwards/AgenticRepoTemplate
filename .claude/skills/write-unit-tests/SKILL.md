@@ -6,7 +6,7 @@ description: Write Jest + React Testing Library unit/component tests that assert
 # Write unit tests
 
 Unit and component tests here verify *units* cheaply and survive refactors,
-because they assert what a **user perceives** — never implementation detail.
+because they assert what a **user perceives**, through the public surface.
 
 ## When to use this skill
 
