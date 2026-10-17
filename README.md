@@ -312,7 +312,7 @@ playwright.config.ts        Browser harness for the E2E behaviour map: one proje
 .size-limit.json            Bundle-size budget.
 lighthouserc.json           Lighthouse budget (accessibility floor and performance).
 .fallowrc.jsonc             Fallow config: the role zones and rules, the contract rule pack, plus runtime-loaded plugins.
-pnpm-workspace.yaml         Workspace packages (apps/*, packages/*, showcase/*/*), trusted builds, and security overrides.
+pnpm-workspace.yaml         Workspace packages (apps/*, packages/*, showcase/*/web, showcase/*/api), trusted builds, and security overrides.
 tsconfig.base.json          strict, with extra strictness; the first gate.
 tsconfig.json               The browser program: web packages and packages/ui.
 tsconfig.node.json          The Node program for root configs, Vite configs and e2e specs.

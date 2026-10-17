@@ -9,7 +9,7 @@ each owner runs locally and in CI.
 | Concern | Owner | Notes |
 | --- | --- | --- |
 | Language | **TypeScript** (`strict`) | The first quality gate is the type system. |
-| Workspace | **pnpm workspaces** | `apps/*`, `packages/*` and each showcase result (`showcase/*/*`); the root configs own every gate. |
+| Workspace | **pnpm workspaces** | `apps/*`, `packages/*` and each showcase result (`showcase/*/web`, `showcase/*/api`); the root configs own every gate. |
 | UI | **React 19** | Function components + hooks only. |
 | UI primitives | **`@repo/ui`** (`packages/ui`) | `Button`, `TextField` and `styles.css`; `react` is its only peer. |
 | Build / dev server | **Vite** | The runnable carrier; the scaffolding is stack-agnostic. Its dev and preview servers proxy `/trpc` to `API_ORIGIN` (default `http://127.0.0.1:3001`). |

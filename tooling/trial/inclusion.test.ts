@@ -28,7 +28,12 @@ import { listResults } from '../results.mjs';
  */
 const REPOSITORY_ROOT = resolve(import.meta.dirname, '../..');
 const BIN = join(REPOSITORY_ROOT, 'node_modules/.bin');
-const PACKAGES_WITH_MODULES = ['apps/web', 'apps/api', 'packages/ui'];
+const PACKAGES_WITH_MODULES = ['apps/api', 'packages/ui'];
+/**
+ * The copy's node_modules are links into this checkout and its lockfile lacks
+ * the showcase importers, so pnpm must never try to reinstall (and purge) them.
+ */
+const PNPM_IN_COPY = ['--config.verify-deps-before-run=false'];
 const WEB_FILE = 'web/src/routes/greeting/GreetingPage.tsx';
 const API_FILE = 'api/src/features/greeting/procedures.ts';
 
@@ -113,21 +118,27 @@ function withCommittedSeed<T>(name: string, files: Record<string, string>, check
   }
 }
 
-/** The web package's dependency links, with `@repo/api` swapped for the showcase api. */
-function linkShowcaseWebModules() {
+/**
+ * A web package's dependency links: every external package from the
+ * reference web's own links, and each workspace package from `workspace`,
+ * inside the copy, so Fallow resolves `@repo/ui` and the api within it.
+ */
+function linkWebModules(packagePath: string, workspace: Record<string, string>) {
   const source = join(REPOSITORY_ROOT, 'apps/web/node_modules');
-  const target = join(copy, 'showcase/x/web/node_modules');
+  const target = join(copy, packagePath, 'node_modules');
   for (const entry of readdirSync(source)) {
     const names = entry.startsWith('@')
       ? readdirSync(join(source, entry)).map((name) => `${entry}/${name}`)
       : [entry];
-    for (const name of names.filter((name) => name !== '@repo/api')) {
+    for (const name of names.filter((name) => !name.startsWith('@repo/'))) {
       mkdirSync(dirname(join(target, name)), { recursive: true });
       symlinkSync(realpathSync(join(source, name)), join(target, name));
     }
   }
-  mkdirSync(join(target, '@x'), { recursive: true });
-  symlinkSync(join(copy, 'showcase/x/api'), join(target, '@x/api'));
+  for (const [name, path] of Object.entries(workspace)) {
+    mkdirSync(dirname(join(target, name)), { recursive: true });
+    symlinkSync(join(copy, path), join(target, name));
+  }
 }
 
 beforeAll(() => {
@@ -148,7 +159,10 @@ beforeAll(() => {
   for (const path of PACKAGES_WITH_MODULES) {
     symlinkSync(join(REPOSITORY_ROOT, path, 'node_modules'), join(copy, path, 'node_modules'));
   }
+  linkWebModules('apps/web', { '@repo/api': 'apps/api', '@repo/ui': 'packages/ui' });
   git('init', '-q', '-b', 'main');
+  // `.gitignore` names `node_modules/`, which matches no symlink.
+  writeFileSync(join(copy, '.git/info/exclude'), 'node_modules\n');
   git('add', '-A');
   git('commit', '-q', '-m', 'scaffold');
 
@@ -164,7 +178,7 @@ beforeAll(() => {
     join(REPOSITORY_ROOT, 'apps/api/node_modules'),
     join(copy, 'showcase/x/api/node_modules'),
   );
-  linkShowcaseWebModules();
+  linkWebModules('showcase/x/web', { '@x/api': 'showcase/x/api', '@repo/ui': 'packages/ui' });
   git('switch', '-q', '-c', 'result/x');
   git('add', '-A');
   git('commit', '-q', '-m', 'feat(showcase): add x');
@@ -175,6 +189,15 @@ afterAll(() => {
 });
 
 describe('a showcase result', () => {
+  it('is committed as source alone, with no dependency link tracked', () => {
+    expect(git('ls-files', 'showcase/x').split('\n')).toContain(`showcase/x/${API_FILE}`);
+    expect(
+      git('ls-files')
+        .split('\n')
+        .filter((path) => path.includes('node_modules')),
+    ).toEqual([]);
+  });
+
   it('is a result with its own ports, so Playwright starts its servers', () => {
     expect(listResults(copy).map(({ id, root, ports }) => ({ id, root, ports }))).toEqual([
       { id: 'reference', root: 'apps', ports: { web: 5173, api: 3001 } },
@@ -191,8 +214,8 @@ describe('a showcase result', () => {
   });
 
   it('is a workspace package that pnpm builds', () => {
-    const listed = run(['pnpm', '-r', 'ls', '--depth', '-1', '--json']);
-    const built = run(['pnpm', '--filter', '@x/web', 'build']);
+    const listed = run(['pnpm', ...PNPM_IN_COPY, '-r', 'ls', '--depth', '-1', '--json']);
+    const built = run(['pnpm', ...PNPM_IN_COPY, '--filter', '@x/web', 'build']);
 
     expect(JSON.parse(listed.stdout).map(({ name }: { name: string }) => name)).toEqual(
       expect.arrayContaining(['@x/web', '@x/api']),
@@ -232,6 +255,31 @@ describe('a showcase result', () => {
     expect(findings).toEqual([
       'showcase/x/web/src/routes/greeting/One.tsx policy/one-component-per-file',
     ]);
+  });
+
+  it('is a project React Doctor scans', () => {
+    const scanned = run([
+      'react-doctor',
+      '.',
+      '--no-lint',
+      '--no-supply-chain',
+      '--no-telemetry',
+      '--yes',
+    ]);
+
+    expect(scanned.output).toMatch(/Select projects › [^\n]*@x\/web/);
+  });
+
+  it('fails the suppression check on a committed suppression with no reason', () => {
+    const file = `showcase/x/${API_FILE}`;
+    const checked = withCommittedSeed(
+      'suppression',
+      { [file]: `// @ts-ignore\n${readFileSync(join(copy, file), 'utf8')}` },
+      () => run(['node', 'scripts/check-suppressions.mjs']),
+    );
+
+    expect(checked.code).toBe(1);
+    expect(checked.output).toContain(file);
   });
 
   it('fails the Biome naming override on a seeded file name', () => {
@@ -300,6 +348,9 @@ describe('a showcase result', () => {
     const gate = script('arch:gate');
 
     expect(diagrams).toMatchObject({ code: 0 });
+    expect(run(['git', 'diff', '--exit-code', 'docs/architecture/roles.mmd'])).toMatchObject({
+      code: 0,
+    });
     expect(gate).toMatchObject({ code: 0 });
   });
 
