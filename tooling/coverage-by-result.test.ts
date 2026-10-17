@@ -68,6 +68,19 @@ describe('coverageShortfalls', () => {
     ]);
   });
 
+  it('compares the percentage Jest reports, floored to two decimals', () => {
+    const justUnder = {
+      [join(root, 'apps/web/src/App.tsx')]: file(5, 5),
+      [join(root, 'showcase/todo-01/web/src/main.ts')]: file(79_999, 100_000),
+    };
+
+    expect(coverageShortfalls(justUnder, listResults(root), root)).toEqual(
+      ['lines', 'statements', 'functions', 'branches'].map(
+        (name) => `todo-01: ${name} 79.99% < 80%`,
+      ),
+    );
+  });
+
   it('counts a metric with nothing to cover as covered', () => {
     const empty = {
       [join(root, 'apps/web/src/main.ts')]: file(0, 0),

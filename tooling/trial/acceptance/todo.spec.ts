@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 /**
  * The fixed Todo acceptance spec (ADR 0034). Playwright runs it as the
@@ -18,9 +18,23 @@ const todoItem = (page: Page, title: string) =>
     .getByRole('listitem')
     .filter({ has: page.getByRole('checkbox', { name: title, exact: true }) });
 
+/**
+ * Clicks and waits for the tRPC mutation the click sends, so a reload never
+ * overtakes it, even when the page updates optimistically first.
+ */
+async function clickAndSave(page: Page, target: Locator) {
+  const saved = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.startsWith('/trpc') &&
+      response.request().method() === 'POST',
+  );
+  await target.click();
+  await saved;
+}
+
 async function addTodo(page: Page, title: string) {
   await page.getByRole('textbox', { name: 'Title' }).fill(title);
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await clickAndSave(page, page.getByRole('button', { name: 'Add', exact: true }));
   await expect(todoItem(page, title)).toBeVisible();
 }
 
@@ -54,7 +68,7 @@ test.describe('Todo acceptance', () => {
       await page.getByRole('textbox', { name: 'Title' }).fill(blank);
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 
-      await expect(page.getByRole('alert')).toBeVisible();
+      await expect(page.getByRole('alert').first()).toBeVisible();
       await page.reload();
       await expect(todoItem(page, loaded)).toBeVisible();
       await expect(todoList(page).getByRole('checkbox', { name: /^\s*$/ })).toHaveCount(0);
@@ -68,12 +82,12 @@ test.describe('Todo acceptance', () => {
     await addTodo(page, title);
     const checkbox = page.getByRole('checkbox', { name: title, exact: true });
 
-    await checkbox.click();
+    await clickAndSave(page, checkbox);
     await expect(checkbox).toBeChecked();
     await page.reload();
     await expect(checkbox).toBeChecked();
 
-    await checkbox.click();
+    await clickAndSave(page, checkbox);
     await expect(checkbox).not.toBeChecked();
     await page.reload();
     await expect(checkbox).not.toBeChecked();
@@ -85,7 +99,7 @@ test.describe('Todo acceptance', () => {
     await addTodo(page, kept);
     await addTodo(page, title);
 
-    await page.getByRole('button', { name: `Delete ${title}`, exact: true }).click();
+    await clickAndSave(page, page.getByRole('button', { name: `Delete ${title}`, exact: true }));
 
     await expect(todoItem(page, title)).toHaveCount(0);
     await page.reload();

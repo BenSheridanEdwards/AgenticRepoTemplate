@@ -139,12 +139,16 @@ function ownsApiProcess(instance) {
   return commandLineOf(instance.apiPid).includes(resolveResult(instance.result).apiServer);
 }
 
-/** The page, and for the reference one greeting through the web server's `/trpc` proxy to the api. */
-async function probeHttp(url, result) {
+/**
+ * The page, and the api: for the reference one greeting through the web
+ * server's `/trpc` proxy, for any other result an answer from its api port.
+ */
+async function probeHttp(url, result, apiPort) {
   try {
     const page = await fetch(url);
     if (!result.isReference) {
-      return { pageStatus: page.status };
+      const api = await fetch(`http://127.0.0.1:${apiPort}/`);
+      return { pageStatus: page.status, apiStatus: api.status };
     }
     const api = await fetch(new URL(GREETING_PROBE, url));
     const greeting = api.ok ? (await api.json())?.result?.data?.message : null;
@@ -252,8 +256,11 @@ async function launch(options) {
     if (!isAlive(api.pid)) {
       throw new Error(`The api exited during startup. Read ${paths.apiLog}.`);
     }
-    const probe = await probeHttp(url, result);
-    if (probe.pageStatus === 200 && (!result.isReference || probe.greeting === 'Hello, Ada!')) {
+    const probe = await probeHttp(url, result, apiPort);
+    const apiReady = result.isReference
+      ? probe.greeting === 'Hello, Ada!'
+      : Boolean(probe.apiStatus);
+    if (probe.pageStatus === 200 && apiReady) {
       const render = await probeRender(url, result);
       if (render.rendered) {
         console.log(
@@ -272,7 +279,7 @@ async function doctor(options) {
   const runId = requireRunId(options);
   const instance = readInstance(runId);
   const result = resolveResult(instance.result);
-  const http = await probeHttp(instance.url, result);
+  const http = await probeHttp(instance.url, result, instance.apiPort);
   const render = await probeRender(instance.url, result);
   const head = gitHead();
   const checks = [
@@ -297,7 +304,13 @@ async function doctor(options) {
             http.error ?? `status ${http.apiStatus}, message ${JSON.stringify(http.greeting)}`,
           ],
         ]
-      : []),
+      : [
+          [
+            'api answers on its port',
+            Boolean(http.apiStatus),
+            http.error ?? `port ${instance.apiPort}, status ${http.apiStatus}`,
+          ],
+        ]),
     [
       'app renders in Chromium',
       render.rendered,

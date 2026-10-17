@@ -37,7 +37,9 @@ function totals(files) {
   );
 }
 
-const percent = ({ covered, total }) => (total === 0 ? 100 : (covered / total) * 100);
+/** Istanbul's percentage, floored to two decimals, which Jest's global threshold compares. */
+const percent = ({ covered, total }) =>
+  total === 0 ? 100 : Math.floor((1000 * 100 * covered) / total / 10) / 100;
 
 /**
  * One line per result and metric under the threshold, or per result with no

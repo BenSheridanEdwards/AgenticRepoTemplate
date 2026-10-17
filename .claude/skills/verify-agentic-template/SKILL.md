@@ -77,8 +77,8 @@ node $V launch --run todo-01 --result todo-01
 default). The api starts from `<result>/api/src/server.ts`, Vite from
 `<result>/web`, and the ports default to that result's own (5183 and 3011 for
 the first showcase result), so pass `--port` and `--api-port` to run it beside
-`pnpm e2e`. The launch is ready once the page answers 200 and Chromium renders
-a level-one heading. `doctor` and `cleanup` read the result from the run's
+`pnpm e2e`. The launch is ready once the page answers 200, the api answers on
+its port, and Chromium renders a level-one heading. `doctor` and `cleanup` read the result from the run's
 `instance.json`.
 
 ## Doctor
