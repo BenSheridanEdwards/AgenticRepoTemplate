@@ -139,7 +139,7 @@ describe('guardedPaths', () => {
     const [path = ''] = guardedPaths([
       { filename: 'docs/moved.yml', previous_filename: '.github/workflows/moved.yml' },
     ]);
-    expect(reasons(path, 'export {};', null)).toEqual(['deletes the file']);
+    expect(reasons(path, 'on: push', null)).toEqual(['deletes the file']);
   });
 });
 
