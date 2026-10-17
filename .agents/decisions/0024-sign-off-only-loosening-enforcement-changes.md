@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md), which
-  sets the guarded paths
+  sets the guarded paths; this record adds the gate's own script and test
 - **Supersedes in part:** [0007](0007-protect-enforcement-paths-by-default.md),
   [0018](0018-dependency-manifests-are-not-enforcement-paths.md),
   [0023](0023-protect-only-the-files-that-run-the-gates.md)
@@ -125,8 +125,9 @@ Four paths stay open:
 ### What asks for a sign-off
 
 ADR 0023 decides which files are guarded, and this record adds the gate's own
-script and test to them. This record decides which changes to them ask. The gate compares each guarded file at the merge base with the same
-file at the head. The guard table `GUARDS` lists the guarded files in order, and
+script and test to them. This record decides which changes to them ask. The
+gate compares each guarded file at the merge base with the same file at the
+head. The guard table `GUARDS` lists the guarded files in order, and
 the first match decides the rule.
 
 | Area | Files | Asks for sign-off when |
@@ -139,7 +140,8 @@ the first match decides the rule.
 
 Code can loosen a gate in ways a text comparison cannot rank, and the gate never
 runs PR code, so any edit to a workflow, a hook, the gate's own script or test,
-or a JavaScript or TypeScript lint file asks for a sign-off. Deleting a guarded file also asks.
+or a JavaScript or TypeScript lint file asks for a sign-off. Deleting a guarded
+file also asks.
 
 The config rules read `biome.json` (comments and trailing commas allowed) and
 compare each value at the merge base with the same value at the head:
@@ -186,7 +188,8 @@ with a short note that has no checkbox.
 
 ## Consequences
 
-- Only a change to a hook, a workflow, or a lint file can ask. Tightening
+- Only a change to a hook, a workflow, a lint file, or the gate's own script or
+  test can ask. Tightening
   `biome.json` merges without a tick, for example raising a rule to `error`.
 - Anyone acting with Ben's GitHub credentials can tick the box, a tool or an
   agent included. GitHub sends `BenSheridanEdwards` as the sender, and the gate

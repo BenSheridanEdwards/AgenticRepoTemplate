@@ -186,18 +186,19 @@ Every other PR passes with no comment.
 
 - **What asks.** `GUARDS` in
   [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs)
-  guards only the files that run the gates: the git hooks (`.husky/**`), the CI
-  workflows (`.github/workflows/**`), the lint files (`eslint.config.js`,
-  `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`,
-  `scripts/check-suppressions.mjs`), and the gate's own script and test
-  (`scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`). It compares each guarded file at the merge
-  base and at the head. Any edit to a hook, a workflow, the gate's script or
-  test, or a lint file other than `biome.json` asks. In `biome.json`, a lowered rule, an added ignore
-  entry, a removed or newly created include list, or a strictness flag turned
-  off asks, and raising a rule passes. Everything else, including
-  `package.json`, the lockfile, the agent docs, the rest of `scripts/`, and
-  `tsconfig.json`, needs no sign-off. A rename
-  counts when either side is guarded. The ADR lists every rule.
+  guards the files that run the gates and the gate itself: the git hooks
+  (`.husky/**`), the CI workflows (`.github/workflows/**`), the lint files
+  (`eslint.config.js`, `biome.json`, `commitlint.config.ts`,
+  `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`), and the
+  gate's own script and test (`scripts/enforcement-approval.mjs`,
+  `scripts/enforcement-approval.test.ts`). It compares each guarded file at the
+  merge base and at the head. Any edit to a hook, a workflow, the gate's script
+  or test, or a lint file other than `biome.json` asks. In `biome.json`, a
+  lowered rule, an added ignore entry, a removed or newly created include list,
+  or a strictness flag turned off asks, and raising a rule passes. Everything
+  else, including `package.json`, the lockfile, the agent docs, the rest of
+  `scripts/`, and `tsconfig.json`, needs no sign-off. A rename counts when
+  either side is guarded. The ADR lists every rule.
 - **One comment, one box, one approver.** The comment lists each change and
   names the head commit, and its box reads `Approve these enforcement changes
   at <sha>`. The status turns green only on the edit in which the GitHub user
