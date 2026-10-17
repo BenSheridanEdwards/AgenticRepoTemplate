@@ -1,6 +1,7 @@
 # 7. Protect enforcement paths by default
 
-- **Status:** Superseded by [0023](0023-protect-only-the-files-that-run-the-gates.md)
+- **Status:** Superseded by [0023](0023-protect-only-the-files-that-run-the-gates.md) and
+  [0024](0024-sign-off-only-loosening-enforcement-changes.md)
 - **Date:** 2026-10-15
 
 ## Context
@@ -31,6 +32,12 @@ Content checks also flag:
 - coverage threshold and coverage exclude changes
 
 A change to any of these fails CI at PR time until Ben signs it off.
+
+[ADR 0023](0023-protect-only-the-files-that-run-the-gates.md) replaces this
+list. [ADR 0024](0024-sign-off-only-loosening-enforcement-changes.md) replaces
+the content checks and the reviewer rule: the gate asks Ben to sign off only the
+changes that loosen or rewrite enforcement, and the tick is bound to the head
+commit.
 
 ## Consequences
 

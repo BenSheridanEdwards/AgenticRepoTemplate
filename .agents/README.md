@@ -55,7 +55,7 @@ the code-level rules and their checks.
 | --- | --- |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Every hook runs; `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides are refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code, [ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI re-runs every gate |
-| The files that run the gates (git hooks, CI workflows, and the lint configs such as `biome.json` and `eslint.config.js`) change with a maintainer's sign-off. | `enforcement-approval` status ([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md)) |
+| A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `eslint.config.js`, `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`) waits for BenSheridanEdwards to tick the sign-off for its head commit. A tick counts when it is made as BenSheridanEdwards. | `enforcement-approval` status ([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | A new dependency arrives with an ADR. | `pnpm check:adr` |

@@ -20,7 +20,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Doc phrasing | `scripts/check-doc-phrasing.mjs` and `scripts/check-sign-off-docs.mjs` (`pnpm check:docs`) | Guidance docs state each rule as the action to take ([ADR 0021](../decisions/0021-guidance-docs-state-the-action.md)). A doc that ties sign-off to a file names only a file the enforcement gate guards ([ADR 0030](../decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)). |
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | Each dependency name new since the merge base with the PR's base branch is named by an ADR added in the same change ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
-| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` | `enforcement-approval` status stays red until a write-access reviewer approves changes to enforcement paths. |
+| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)). |
 
 ## Tool ownership
 
@@ -117,26 +117,45 @@ Visual style checking returns once StyleProof is fixed
 ## Enforcement approval
 
 [`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
-applies [ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md):
-changes to the files that define the gates wait for a maintainer's sign-off.
+applies [ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)
+to the files [ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)
+protects. A PR that loosens or rewrites one of them waits for Ben's sign-off.
+Every other PR passes with no comment.
 
-- **Protected areas**, checked in order by
-  [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs):
-  the git hooks (`.husky/**`), the CI workflows (`.github/workflows/**`), and the
-  lint files (`eslint.config.js`, `biome.json`, `commitlint.config.ts`,
-  `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`).
-  Everything else, including `package.json`, the lockfile and the agent docs,
-  needs no sign-off. A rename counts when either side is protected.
-- **One sticky comment** lists the protected files with a single
-  `Approve these enforcement changes` box. Ticking it, with write access, turns
-  the `enforcement-approval` commit status green. Any later change to a
-  protected file resets the box; changes elsewhere keep the approval.
+- **What asks.** `GUARDS` in
+  [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs)
+  guards only the files that run the gates: the git hooks (`.husky/**`), the CI
+  workflows (`.github/workflows/**`), and the lint files (`eslint.config.js`,
+  `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`,
+  `scripts/check-suppressions.mjs`). It compares each guarded file at the merge
+  base and at the head. Any edit to a hook, a workflow, or a lint file other
+  than `biome.json` asks. In `biome.json`, a lowered rule, an added ignore
+  entry, a removed or newly created include list, or a strictness flag turned
+  off asks, and raising a rule passes. Everything else, including
+  `package.json`, the lockfile, the agent docs, the rest of `scripts/` (the
+  gate's own script included) and `tsconfig.json`, needs no sign-off. A rename
+  counts when either side is guarded. The ADR lists every rule.
+- **One comment, one box, one approver.** The comment lists each change and
+  names the head commit, and its box reads `Approve these enforcement changes
+  at <sha>`. The status turns green only on the edit in which the GitHub user
+  `BenSheridanEdwards` turns that head's unticked box into a ticked one. The
+  gate reads that from the edit event alone, not from the comment text. Any other
+  edit clears the box. When the gate clears a tick from any other account, the
+  comment names that account in a one-line note.
+- **The label records the tick.** On Ben's tick the gate adds a small italic
+  note on the box line, such as `Approved by Ben @BenSheridanEdwards on
+  Monday, the 8th of October, at 3 pm` in London time. Unticking removes it.
+  The gate writes the label for people to read. The edit event and the gate's
+  own status decide the sign-off, and the label text plays no part.
+- **Each push resets it.** A new head commit, merging `main` in included, gets
+  a fresh unticked comment with no label, and the status for that head stays
+  red until Ben ticks again.
 - **Main's copy judges the PR.** The workflow uses `pull_request_target`,
-  checks out only the default branch's script, and reads the PR's files through
-  the API, so it takes effect once it lands on main. Require the
-  `enforcement-approval` status in branch protection to make it blocking.
-- **Dry run** against any PR:
-  `gh api --paginate repos/OWNER/REPO/pulls/N/files | jq -s '{files: add}' | node scripts/enforcement-approval.mjs`.
+  checks out only the default branch's script, and reads file contents through
+  the API. It runs no PR code. Require the `enforcement-approval` status in
+  branch protection to make it blocking.
+- **Dry run** against any two commits:
+  `node scripts/enforcement-approval.mjs --git origin/main HEAD`.
 
 ## Placement rules
 

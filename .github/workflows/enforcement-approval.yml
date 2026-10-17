@@ -1,8 +1,11 @@
-# Enforcement approval gate, ADR 0007.
+# Enforcement sign-off gate, ADR 0024
+# (.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md).
 #
 # pull_request_target runs the default branch's copy of this workflow and of
 # scripts/enforcement-approval.mjs, so main's trusted rules judge every PR. The
-# job reads the PR's changed files through the API and checks out main alone.
+# job reads the guarded files at the merge base and the PR head through the API,
+# checks out main alone, and runs no PR code. It asks for a sign-off only when
+# the PR loosens or rewrites what the gates enforce.
 # Like every pull_request_target and issue_comment workflow, it takes effect once
 # it lands on main.
 name: Enforcement approval
@@ -11,28 +14,32 @@ on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened]
   issue_comment:
-    types: [edited] # ticking the approval box edits the sticky comment
+    types: [edited] # ticking the approval box edits the gate's comment
 
 permissions: {}
 
-concurrency:
-  group: enforcement-approval-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: false
-
 jobs:
   approve:
-    # Comment edits count when a person edits the comment this workflow wrote on
-    # a PR. The script checks the editor's write access before it reads the box.
+    # Any edit of the comment this workflow wrote on a PR reaches the script,
+    # whoever made it and whether or not it kept the marker, so the script can
+    # clear any edit but the approver's fresh tick.
     if: >-
       github.event_name == 'pull_request_target' ||
       (github.event.issue.pull_request &&
       github.event.comment.user.login == 'github-actions[bot]' &&
-      github.event.sender.type == 'User' &&
-      contains(github.event.comment.body, '<!-- enforcement-approval -->'))
+      (startsWith(github.event.comment.body, '<!-- enforcement-approval -->') ||
+      startsWith(github.event.changes.body.from, '<!-- enforcement-approval -->')))
     runs-on: ubuntu-latest
-    # contents:read for main's script; pull-requests:write for the head SHA, the
-    # files, and the sticky comment (a PR's comments need the pull-requests
-    # scope, issues:write alone is refused); statuses:write for the gate.
+    # Job-level, so a run whose job is skipped, such as an edit of any other
+    # comment, never joins the group and cancels a queued gate run.
+    concurrency:
+      group: enforcement-approval-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
+    # contents:read for main's script, the merge base, and the guarded files;
+    # pull-requests:write for the head SHA, the files, and the gate's comment (a
+    # PR's comments need the pull-requests scope, issues:write alone is
+    # refused); statuses:write for the gate. The approver's profile name for the
+    # label is public and needs no scope.
     permissions:
       contents: read
       pull-requests: write
