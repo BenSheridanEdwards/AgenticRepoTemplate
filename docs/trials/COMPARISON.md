@@ -7,8 +7,8 @@ This report compares the Todo trial results under ADR 0035: the full pass count,
 ## Verdict
 
 - Full pass count 2/3
-- Consistency: `inconsistent`. 1 aspect sits outside the spec; 5 sit inside a spec freedom, 4 by the script's rules and 1 by the author's ruling.
-- Baseline: shared. All 14 baseline checks hold.
+- Consistency: `inconsistent`. 2 aspects sit outside the spec, 2 with an author's note; 4 sit inside a spec freedom, 4 by the script's rules and 0 by an author's ruling.
+- Baseline: shared. All 13 baseline checks hold.
 
 ## Runs
 
@@ -18,7 +18,7 @@ This report compares the Todo trial results under ADR 0035: the full pass count,
 | `todo-02` | `passed` | `showcase/todo-02` | `feb8d22` | `9 min 0 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
 | `todo-03` | `passed` | `showcase/todo-03` | `47b2715` | `10 min 39 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
 
-`todo-01` is `failed`: its checks `install`, `verify`, `e2e` and `structure` each exited `0`, and its evidence names the failure `named paths outside the clone: /tmp/verify.log`. Its code comes from `docs/trials/todo-01.patch`, and the report compares it like the others.
+`todo-01` is `failed`: its checks `install`, `verify`, `e2e` and `structure` each exited `0`, and its evidence names the failure `named paths outside the clone: /tmp/verify.log`. Its code comes from `docs/trials/todo-01.patch`, and the report compares it like the others. Under the harness rule (ADR 0034), a tool call that names a path outside the workdir that existed before the agent ran fails the run; the tmp entries that appear while the agent runs are on its allowlist. The first tool call in `docs/trials/todo-01.stream.jsonl` that names `/tmp/verify.log` is `pnpm verify > /tmp/verify.log 2>&1; echo EXIT=$?; git status --short; git status --short --ignored showcase | head; git diff --stat`.
 
 ## Baseline
 
@@ -35,22 +35,23 @@ Every row comes from the committed evidence and files (ADR 0034, "New baseline")
 | Resolved model | equal across runs | `claude-opus-5-5` | `claude-opus-5-5` | `claude-opus-5-5` | yes |
 | User config SHA-256 | equal across runs | `b6019df95dce…` | `b6019df95dce…` | `b6019df95dce…` | yes |
 | Harness equals the scaffold copy | `true` in each run | `true` | `true` | `true` | yes |
-| Real agent session | `agent.fake` is `false` in each run | `false` | `false` | `false` | yes |
 | Session id | distinct per run | `6117367e-e7b4-42d1-b3a9-c3308865b96e` | `7baee87e-b19f-48ea-98b0-15da95dcd46a` | `944317a4-b7b8-485c-a0de-ce64e8cee066` | yes |
 | Template file hash | re-derived from the template at `prompt.path` | `113b09b2044f…` | `113b09b2044f…` | `113b09b2044f…` | yes |
 | Rendered prompt SHA-256 | re-derived with `renderPrompt` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
 | Recorded prompt text | re-derived from `prompt.text` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
 
+A record with `agent.fake: true` stops the report before this table renders, so every run here ran the real agent. The template rows read `tooling/trial/todo-prompt.md` as committed, so a later prompt change shows `no` there, which is the new-baseline rule of ADR 0034.
+
 ## Method
 
-Each dimension compares a normalized form, so names alone count as no difference: names reach only the written forms, which this report shows and the method skips. An invariant holds or breaks in each run on its own. A form is identical when every run has the same value; otherwise it sits inside the spec freedom a rule names, or outside the spec. The author may move an outside-spec aspect into a spec freedom only by a ruling that names the freedom.
+Each dimension compares a normalized form. Names reach only written forms, which this report shows and the method skips, except that a router key breaks a tie between two `{ id }` mutations whose outputs match, and a type name the result does not declare stays as written. An invariant holds or breaks in each run on its own. A form is identical when every run has the same value; otherwise it sits inside the spec freedom a rule names, or outside the spec. An author note on an outside-spec aspect gives its cause and keeps it outside the spec; a note that names a freedom is a ruling and moves the aspect into that freedom.
 
-The component rule reads "outside `web-routes` and `ui`" as a rule on feature components: the scaffold components the reference itself has, in `web-app` and `web-api-client`, are compared by signature.
+The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold the code the reference scaffold fills in, so they are fixed: their files, components, hooks and export names count, and a difference there is outside the spec. Each file outside every role is compared by its text, with the own id as `{id}`. The component rule reads "outside `web-routes` and `ui`" as a rule on feature components, the components outside the scaffold roles; `ui controls` holds the components of every role.
 
 | Dimension | Normalized form | Must be identical |
 | --- | --- | --- |
-| Structure | Roles and role edges from `architecture.mmd` without its header, source files per role, test files per role of the file they test | Role set and role edges |
-| Public API | Procedures by kind and operation, inferred from their shapes, with normalized input and output; the item shape; export kinds per API report, keyed by package and role | One list query and three mutations for create, toggle and delete; create takes `title: string`; toggle and delete take `id`; the item has exactly `id`, `title: string` and `completed: boolean` |
+| Structure | Roles and role edges from `architecture.mmd` without its header, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}` | Role set and role edges |
+| Public API | Procedures by kind and operation, inferred from their shapes, with normalized input and output; the item shape; export names and kinds per API report of a scaffold role, export kind counts per other API report, keyed by package and role | One list query and three mutations for create, toggle and delete; create takes `title: string`; toggle and delete take `id`; the item has exactly `id`, `title: string` and `completed: boolean` |
 | Dependencies | Dependency names and ranges per package and section, the own workspace package as `@{id}`; the rest of each manifest | Equal sets |
 | Component boundaries | Components per role as prop kinds, `@repo/ui` primitives, raw controls and hook calls, names erased | Page in `web-routes`; form controls from `@repo/ui` where a primitive exists; feature components only in `web-routes` and `ui` |
 | Conventions | Hook calls per hook, names erased; `effectTsResolver` use; local state; storage role; id generation | Server state in `use*` hooks through `useTrpc`; one form through React Hook Form and Effect Schema; local state in `use*` hooks; storage in `api-integrations` |
@@ -60,35 +61,27 @@ The component rule reads "outside `web-routes` and `ui`" as a rule on feature co
 | Freedom | Text | Cited by |
 | --- | --- | --- |
 | 1 | Identifier and file names inside a role, including component, hook, procedure and router key names. |  |
-| 2 | How a role splits into files, components, hooks and functions. | `public-api · exports web:web-api-client` |
+| 2 | How a role splits into files, components, hooks and functions. |  |
 | 3 | The type and generation of `id`. | `conventions · id generation` |
 | 4 | What a mutation returns. |  |
 | 5 | Copy text and styling outside the UI contract names. |  |
 | 6 | Test names and the number of tests beyond what the gates require. | `structure · tests web-routes`, `structure · tests api-integrations`, `structure · tests e2e` |
 | 7 | Optional roles left empty, when all three agree. |  |
 
-## Rulings by the author
-
-The script classified each aspect below as `outside-spec`. The author's ruling moves it into the spec freedom it names (PLAN, Risks); the reason is the author's.
-
-| Aspect | Script classification | Freedom | Why |
-| --- | --- | --- | --- |
-| `public-api · exports web:web-api-client` | `outside-spec` | 2 | RouterInputs is a type alias over AppRouter; todo-02's route hook types its inputs from `RouterOutputs` instead, so the type helpers split differently between web-api-client and web-routes; the runtime exports are equal. |
-
 ## Outside the spec
 
-| Aspect | `todo-01` | `todo-02` | `todo-03` | Why |
-| --- | --- | --- | --- | --- |
-| `structure · edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | the spec freedoms leave role edges fixed |
+| Aspect | `todo-01` | `todo-02` | `todo-03` | Why | By |
+| --- | --- | --- | --- | --- | --- |
+| `structure · edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | todo-03 annotates its toggle procedure's return type with `Todo`, imported type-only from `domain.ts`. The contract allows the direction; the spec freedoms keep role edges fixed. | author's note |
+| `public-api · exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | todo-02's route hook types its arguments from `RouterOutputs`, so the `RouterInputs` re-export in the api-client barrel had no importer. `fallow audit` flagged it as an unused type export, and the agent removed it from `index.ts`; `trpc.ts` still declares it. The reference and the other runs export it, and no spec freedom names a scaffold role's exports. | author's note |
 
 ## Inside a spec freedom
 
 | Aspect | `todo-01` | `todo-02` | `todo-03` | Freedom | By | Why |
 | --- | --- | --- | --- | --- | --- | --- |
-| `structure · tests web-routes` | `3` | `2` | `3` | 6 | script rule | each run held the gates its checks ran, so the count beyond them is free |
-| `structure · tests api-integrations` | `1` | `0` | `1` | 6 | script rule | each run held the gates its checks ran, so the count beyond them is free |
-| `structure · tests e2e` | `2` | `1` | `2` | 6 | script rule | each run held the gates its checks ran, so the count beyond them is free |
-| `public-api · exports web:web-api-client` | `value 3 · type 3` | `value 3 · type 2` | `value 3 · type 3` | 2 | author's ruling | see Rulings by the author |
+| `structure · tests web-routes` | `3` | `2` | `3` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · tests api-integrations` | `1` | `0` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · tests e2e` | `2` | `1` | `2` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `conventions · id generation` | `randomUUID` | `counter` | `randomUUID` | 3 | script rule | the generation of `id` |
 
 ## Diagrams
@@ -253,6 +246,8 @@ flowchart LR
 | `tests api-integrations` | `1` | `0` | `1` | spec freedom 6 |
 | `tests outside-roles` | `0` | `0` | `0` | identical |
 | `tests e2e` | `2` | `1` | `2` | spec freedom 6 |
+| `file web/index.html` | `3c4143801c2a` | `3c4143801c2a` | `3c4143801c2a` | identical |
+| `file web/vite.config.ts` | `0002d92d5d0d` | `0002d92d5d0d` | `0002d92d5d0d` | identical |
 
 Written forms where the runs differ:
 
@@ -275,15 +270,14 @@ Written forms where the runs differ:
 | `toggle output` | `Item` | `Item` | `Item` | identical |
 | `delete input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
 | `delete output` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `exports api:api-app` | `value 1 · type 1` | `value 1 · type 1` | `value 1 · type 1` | identical |
+| `exports api:api-app` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | identical |
 | `exports api:api-procedures` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
-| `exports web:web-api-client` | `value 3 · type 3` | `value 3 · type 2` | `value 3 · type 3` | spec freedom 2 |
+| `exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | outside the spec |
 | `exports web:web-routes` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
 
 Written forms where the runs differ:
 
 - `delete output`: `todo-01` `{ id: string; }`; `todo-02` `TodoRequest`; `todo-03` `{ readonly id: string; }`
-- `exports web:web-api-client`: `todo-01` `ApiProvider, RouterInputs, RouterOutputs, TestApiHandlers, TestApiProvider, useTrpc`; `todo-02` `ApiProvider, RouterOutputs, TestApiHandlers, TestApiProvider, useTrpc`; `todo-03` `ApiProvider, RouterInputs, RouterOutputs, TestApiHandlers, TestApiProvider, useTrpc`
 
 ## Dependencies
 

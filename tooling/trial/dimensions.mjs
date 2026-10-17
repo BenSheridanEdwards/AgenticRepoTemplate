@@ -2,30 +2,31 @@
  * The comparison method of ADR 0035 as data. Each dimension turns one result's
  * facts into aspects: one comparable key with one normalized value per run.
  * One engine aligns the aspects across runs and classifies each as identical,
- * inside a named spec freedom, or outside the spec. Names reach only the
- * `written` side of an aspect, which the report shows and the method skips,
- * so freedom 1 holds by construction.
+ * inside a named spec freedom, or outside the spec. A name in a feature role
+ * reaches only the `written` side of an aspect, which the report shows and the
+ * method skips; the exceptions are listed in the report's Method section.
  *
  * @typedef {import('./result-facts.mjs').ResultFacts} ResultFacts
  * @typedef {1 | 2 | 3 | 4 | 5 | 6 | 7} Freedom
  * @typedef {'structure' | 'public-api' | 'dependencies' | 'component-boundaries' | 'conventions'} DimensionId
+ * @typedef {{ readonly value: string, readonly freedom: Freedom, readonly why: string }} Within
  * @typedef {(
- *   | { readonly kind: 'form', readonly key: string, readonly value: string, readonly written: string }
+ *   | { readonly kind: 'form', readonly key: string, readonly value: string, readonly written: string, readonly within?: Within }
  *   | { readonly kind: 'invariant', readonly key: string, readonly holds: boolean, readonly written: string }
- * )} Aspect
+ * )} Aspect  `within`: the value with only a freedom's part erased; equal in every run, the difference sits in that freedom
  * @typedef {{
  *   readonly id: DimensionId,
  *   readonly title: string,
  *   readonly normalizedForm: string,
  *   readonly mustBeIdentical: string,
  *   readonly aspects: (facts: ResultFacts) => readonly Aspect[],
- *   readonly freedoms: readonly { readonly key: RegExp, readonly freedom: Freedom, readonly why: string }[],
+ *   readonly freedoms: readonly { readonly key: RegExp, readonly freedom: Freedom, readonly why: string, readonly when?: (results: readonly ResultFacts[]) => boolean }[],
  *   readonly fixed?: readonly { readonly key: RegExp, readonly why: string }[],
  * }} Dimension
  * @typedef {(
  *   | { readonly classification: 'identical' }
  *   | { readonly classification: 'spec-freedom', readonly freedom: Freedom, readonly why: string, readonly by: 'rule' | 'ruling' }
- *   | { readonly classification: 'outside-spec', readonly why: string }
+ *   | { readonly classification: 'outside-spec', readonly why: string, readonly by: 'rule' | 'note' }
  * )} Verdict
  * @typedef {Verdict & {
  *   readonly dimension: DimensionId,
@@ -34,7 +35,9 @@
  *   readonly kind: 'form' | 'invariant',
  *   readonly values: ReadonlyMap<string, { readonly value: string, readonly written: string }>,
  * }} Difference  `key` is `<dimension> · <aspect>`; a run without the aspect reads `(absent)`
- * @typedef {{ readonly key: string, readonly freedom: Freedom, readonly why: string }} Ruling
+ * @typedef {{ readonly key: string, readonly why: string, readonly freedom?: Freedom }} AuthorNote
+ *   With `freedom`, a ruling: it moves an outside-spec aspect into that freedom.
+ *   Without, it only explains: the aspect stays outside the spec, `why` its reason.
  * @typedef {{
  *   readonly method: readonly { id: DimensionId, title: string, normalizedForm: string, mustBeIdentical: string }[],
  *   readonly freedoms: readonly { number: Freedom, text: string, cited: readonly string[] }[],
@@ -42,6 +45,8 @@
  *   readonly consistent: boolean,
  * }} Comparison
  */
+
+import { createHash } from 'node:crypto';
 
 /** PLAN "Spec freedoms", word for word; ADR 0035 lists the same seven. */
 export const FREEDOMS = [
@@ -62,8 +67,8 @@ export const UI_PRIMITIVE_FOR = {
   'input:search': 'TextField',
 };
 
-/** Roles whose components come with the reference scaffold, compared by signature only. */
-const SCAFFOLD_COMPONENT_ROLES = ['web-app', 'web-api-client'];
+/** The roles the reference fills with scaffold code. A result keeps them as the reference has them. */
+export const SCAFFOLD_ROLES = ['web-app', 'web-api-client', 'api-app', 'api-trpc'];
 const FEATURE_COMPONENT_ROLES = ['web-routes', 'ui'];
 const OPERATIONS = ['list', 'create', 'toggle', 'delete'];
 const SERVER_STATE = new Set([
@@ -75,6 +80,12 @@ const SERVER_STATE = new Set([
 ]);
 const LOCAL_STATE = new Set(['useState', 'useReducer']);
 const ABSENT = '(absent)';
+const SCAFFOLD = SCAFFOLD_ROLES.join('|');
+/** `<prefix> <role>` for every role but the scaffold roles and `outside-roles`. */
+const featureRole = (prefix) => new RegExp(`^${prefix} (?!(?:${SCAFFOLD}|outside-roles)$)`);
+const scaffoldRole = (prefix) => new RegExp(`^${prefix} (?:\\w+:)?(?:${SCAFFOLD})$`);
+const SCAFFOLD_FIXED = 'the reference fixes the scaffold roles';
+const shortHash = (text) => createHash('sha256').update(text).digest('hex').slice(0, 12);
 
 /** @returns {Aspect} */
 const form = (key, value, written = value) => ({ kind: 'form', key, value, written });
@@ -101,6 +112,18 @@ function structureAspects(facts) {
         const tests = facts.testFiles.get(role) ?? [];
         return form(`tests ${role}`, String(tests.length), listed(tests));
       }),
+    ...facts.outsideFiles.map(({ path, text }) => ({
+      ...form(`file ${path}`, shortHash(text)),
+      ...(path === 'web/index.html'
+        ? {
+            within: {
+              value: shortHash(text.replace(/<title>[\s\S]*?<\/title>/, '<title></title>')),
+              freedom: /** @type {Freedom} */ (5),
+              why: 'copy text: only the `<title>` differs',
+            },
+          }
+        : {}),
+    })),
   ];
 }
 
@@ -148,11 +171,13 @@ function publicApiAspects(facts) {
     ),
     ...facts.apiReports.map((report) => {
       const count = (kind) => report.exports.filter((entry) => entry.kind === kind).length;
-      return form(
-        `exports ${report.key}`,
-        `value ${count('value')} · type ${count('type')}`,
-        listed(report.exports.map((entry) => entry.name)),
-      );
+      const names = listed(report.exports.map((entry) => entry.name));
+      return SCAFFOLD_ROLES.includes(report.key.split(':')[1])
+        ? form(
+            `exports ${report.key}`,
+            listed(report.exports.map((entry) => `${entry.name} ${entry.kind}`)),
+          )
+        : form(`exports ${report.key}`, `value ${count('value')} · type ${count('type')}`, names);
     }),
   ];
 }
@@ -165,10 +190,13 @@ function dependencyAspects(facts) {
   ]);
 }
 
-/** Calls with the result's own hooks erased to `use*`, since their names are free. */
+/** Calls with the result's own hooks erased to `use*`, since their names are free, then sorted. */
 const callsOf = (facts, calls) => {
   const own = new Set(facts.hooks.map((hook) => hook.name));
-  return calls.map((call) => (own.has(call) ? 'use*' : call)).join(',');
+  return calls
+    .map((call) => (own.has(call) ? 'use*' : call))
+    .sort()
+    .join(',');
 };
 
 const byRole = (entries) =>
@@ -176,14 +204,14 @@ const byRole = (entries) =>
 
 /** @param {ResultFacts} facts */
 function componentAspects(facts) {
-  const features = facts.components.filter((c) => !SCAFFOLD_COMPONENT_ROLES.includes(c.role));
+  const features = facts.components.filter((c) => !SCAFFOLD_ROLES.includes(c.role));
   const routeExports = new Set(
     facts.apiReports
       .filter((report) => report.key === 'web:web-routes')
       .flatMap((report) => report.exports.map((entry) => entry.name)),
   );
   const pages = features.filter((c) => c.role === 'web-routes' && routeExports.has(c.name));
-  const raw = [...new Set(features.flatMap((c) => c.rawControls))].sort();
+  const raw = [...new Set(facts.components.flatMap((c) => c.rawControls))].sort();
   return [
     invariant('page', pages.length > 0, listed(pages.map((c) => c.name))),
     invariant(
@@ -262,27 +290,34 @@ const DIMENSIONS = [
     id: 'structure',
     title: 'Structure',
     normalizedForm:
-      'Roles and role edges from `architecture.mmd` without its header, source files per role, test files per role of the file they test',
+      'Roles and role edges from `architecture.mmd` without its header, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}`',
     mustBeIdentical: 'Role set and role edges',
     aspects: structureAspects,
     freedoms: [
-      { key: /^files (?!outside-roles)/, freedom: 2, why: 'how a role splits into files' },
+      { key: featureRole('files'), freedom: 2, why: 'how a role splits into files' },
       {
         key: /^tests /,
         freedom: 6,
-        why: 'each run held the gates its checks ran, so the count beyond them is free',
+        why: "the test count beyond the gates; every run's `verify` check exited `0`",
+        when: (results) => results.every((facts) => facts.verified),
       },
     ],
     fixed: [
       { key: /^edge /, why: 'the spec freedoms leave role edges fixed' },
       { key: /^role /, why: 'the spec freedoms leave the role set fixed' },
+      { key: scaffoldRole('files'), why: SCAFFOLD_FIXED },
+      {
+        key: /^tests /,
+        why: "freedom 6 counts tests beyond the gates, which holds when every run's `verify` check exited `0`",
+      },
+      { key: /^file /, why: 'the spec freedoms leave the files outside every role fixed' },
     ],
   },
   {
     id: 'public-api',
     title: 'Public API',
     normalizedForm:
-      'Procedures by kind and operation, inferred from their shapes, with normalized input and output; the item shape; export kinds per API report, keyed by package and role',
+      'Procedures by kind and operation, inferred from their shapes, with normalized input and output; the item shape; export names and kinds per API report of a scaffold role, export kind counts per other API report, keyed by package and role',
     mustBeIdentical:
       'One list query and three mutations for create, toggle and delete; create takes `title: string`; toggle and delete take `id`; the item has exactly `id`, `title: string` and `completed: boolean`',
     aspects: publicApiAspects,
@@ -290,6 +325,7 @@ const DIMENSIONS = [
       { key: /^(create|toggle|delete) output$/, freedom: 4, why: 'what a mutation returns' },
       { key: /^item id type$/, freedom: 3, why: 'the type of `id`' },
     ],
+    fixed: [{ key: scaffoldRole('exports'), why: SCAFFOLD_FIXED }],
   },
   {
     id: 'dependencies',
@@ -308,7 +344,10 @@ const DIMENSIONS = [
     mustBeIdentical:
       'Page in `web-routes`; form controls from `@repo/ui` where a primitive exists; feature components only in `web-routes` and `ui`',
     aspects: componentAspects,
-    freedoms: [{ key: /^components /, freedom: 2, why: 'how a role splits into components' }],
+    freedoms: [
+      { key: featureRole('components'), freedom: 2, why: 'how a role splits into components' },
+    ],
+    fixed: [{ key: scaffoldRole('components'), why: SCAFFOLD_FIXED }],
   },
   {
     id: 'conventions',
@@ -319,9 +358,10 @@ const DIMENSIONS = [
       'Server state in `use*` hooks through `useTrpc`; one form through React Hook Form and Effect Schema; local state in `use*` hooks; storage in `api-integrations`',
     aspects: conventionAspects,
     freedoms: [
-      { key: /^hooks /, freedom: 2, why: 'how a role splits into hooks' },
+      { key: featureRole('hooks'), freedom: 2, why: 'how a role splits into hooks' },
       { key: /^id generation$/, freedom: 3, why: 'the generation of `id`' },
     ],
+    fixed: [{ key: scaffoldRole('hooks'), why: SCAFFOLD_FIXED }],
   },
 ];
 
@@ -353,53 +393,84 @@ const cellOf = (aspect) => {
   return { value, written: aspect.written };
 };
 
+const andList = (items) =>
+  items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+
+/** Which runs hold another value than the most common one (the earliest on a tie), for a Why cell. */
+function whoDiffers(results, aspects) {
+  const values = aspects.map((aspect) => cellOf(aspect).value);
+  const common = values.reduce((best, value) =>
+    values.filter((v) => v === value).length > values.filter((v) => v === best).length
+      ? value
+      : best,
+  );
+  const ids = (match) =>
+    andList(results.filter((_, i) => (values[i] === common) === match).map((f) => `\`${f.id}\``));
+  return `${ids(false)} ${values.filter((v) => v !== common).length === 1 ? 'differs' : 'differ'} from ${ids(true)}`;
+}
+
 /** @returns {Verdict} */
-function classify(dimension, key, aspects) {
+const holdsInEveryRun = (aspects) =>
+  aspects.every((aspect) => aspect?.kind === 'invariant' && aspect.holds)
+    ? { classification: 'identical' }
+    : {
+        classification: 'outside-spec',
+        why: 'the method holds every run to this rule',
+        by: 'rule',
+      };
+
+/** The freedom every run's `within` value agrees under, or undefined. */
+function withinFreedom(aspects) {
+  const within = aspects.map((aspect) => (aspect?.kind === 'form' ? aspect.within : undefined));
+  return within.every(Boolean) && new Set(within.map((w) => w?.value)).size === 1
+    ? within[0]
+    : undefined;
+}
+
+/** @returns {Verdict} */
+function classify(dimension, key, aspects, results) {
   if (aspects.some((aspect) => aspect?.kind === 'invariant')) {
-    return aspects.every((aspect) => aspect?.kind === 'invariant' && aspect.holds)
-      ? { classification: 'identical' }
-      : { classification: 'outside-spec', why: 'the method holds every run to this rule' };
+    return holdsInEveryRun(aspects);
   }
-  const values = new Set(aspects.map((aspect) => cellOf(aspect).value));
-  if (values.size === 1) {
+  if (new Set(aspects.map((aspect) => cellOf(aspect).value)).size === 1) {
     return { classification: 'identical' };
   }
-  const rule = dimension.freedoms.find((freedom) => freedom.key.test(key));
-  if (rule) {
-    return { classification: 'spec-freedom', freedom: rule.freedom, why: rule.why, by: 'rule' };
+  const free =
+    withinFreedom(aspects) ??
+    dimension.freedoms.find((rule) => rule.key.test(key) && (rule.when?.(results) ?? true));
+  if (free) {
+    return { classification: 'spec-freedom', freedom: free.freedom, why: free.why, by: 'rule' };
   }
+  const why =
+    dimension.fixed?.find((fixed) => fixed.key.test(key))?.why ??
+    'the spec freedoms leave this aspect fixed';
   return {
     classification: 'outside-spec',
-    why:
-      dimension.fixed?.find((fixed) => fixed.key.test(key))?.why ??
-      'the spec freedoms leave this aspect fixed',
+    why: key.startsWith('file ') ? `${why}; ${whoDiffers(results, aspects)}` : why,
+    by: 'rule',
   };
 }
 
 /** @returns {readonly Difference[]} */
-function applyRulings(differences, rulings) {
-  const ruled = new Map(differences.map((difference) => [difference.key, difference]));
-  for (const ruling of rulings) {
-    const difference = ruled.get(ruling.key);
+function applyNotes(differences, notes) {
+  const noted = new Map(differences.map((difference) => [difference.key, difference]));
+  for (const note of notes) {
+    const difference = noted.get(note.key);
     if (difference?.classification !== 'outside-spec') {
       throw new Error(
-        `compare: the ruling on "${ruling.key}" is stale; the comparison has ${difference ? `it as ${difference.classification}` : 'no such aspect'}.`,
+        `compare: the author note on "${note.key}" is stale; the comparison has ${difference ? `it as ${difference.classification}` : 'no such aspect'}.`,
       );
     }
     const { dimension, aspect, key, kind, values } = difference;
-    ruled.set(key, {
-      dimension,
-      aspect,
+    const base = { dimension, aspect, key, kind, values, why: note.why };
+    noted.set(
       key,
-      kind,
-      values,
-      classification: 'spec-freedom',
-      freedom: ruling.freedom,
-      why: ruling.why,
-      by: 'ruling',
-    });
+      note.freedom === undefined
+        ? { ...base, classification: 'outside-spec', by: 'note' }
+        : { ...base, classification: 'spec-freedom', freedom: note.freedom, by: 'ruling' },
+    );
   }
-  return [...ruled.values()];
+  return [...noted.values()];
 }
 
 /**
@@ -407,17 +478,18 @@ function applyRulings(differences, rulings) {
  * Difference, identical ones included, in registry order. Classification: an
  * invariant is identical when it holds in every run, else outside the spec; a
  * form is identical when every run has the same value, else inside the first
- * freedom rule that names it, else outside the spec. Each ruling then turns
- * one outside-spec difference into the freedom it names.
+ * freedom rule that names it, else outside the spec. Each author note then
+ * names one outside-spec difference: a ruling moves it into its freedom, a
+ * note without one only gives its reason.
  *
  * @param {readonly ResultFacts[]} results
- * @param {readonly Ruling[]} [rulings]
+ * @param {readonly AuthorNote[]} [notes]
  * @returns {Comparison}
- * @throws when a ruling names a missing aspect or one that is not outside the spec
+ * @throws when a note names a missing aspect or one that is not outside the spec
  */
-export function compareResults(results, rulings = []) {
+export function compareResults(results, notes = []) {
   const ids = results.map((facts) => facts.id);
-  const differences = applyRulings(
+  const differences = applyNotes(
     DIMENSIONS.flatMap((dimension) =>
       alignAspects(dimension, results).map(({ key, aspects }) => ({
         dimension: dimension.id,
@@ -425,10 +497,10 @@ export function compareResults(results, rulings = []) {
         key: `${dimension.id} · ${key}`,
         kind: aspects.find(Boolean)?.kind ?? 'form',
         values: new Map(ids.map((id, index) => [id, cellOf(aspects[index])])),
-        ...classify(dimension, key, aspects),
+        ...classify(dimension, key, aspects, results),
       })),
     ),
-    rulings,
+    notes,
   );
   return {
     method: DIMENSIONS.map(({ id, title, normalizedForm, mustBeIdentical }) => ({

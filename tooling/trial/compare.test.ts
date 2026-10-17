@@ -3,7 +3,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { comparisonReport, REPORT_PATH, renderComparison } from './compare.mjs';
+import {
+  checkLandedRuns,
+  checkRunEvidence,
+  comparisonReport,
+  REPORT_PATH,
+  renderComparison,
+} from './compare.mjs';
 import { compareResults, FREEDOMS, UI_PRIMITIVE_FOR } from './dimensions.mjs';
 import { readContract, readResultFacts, treeFromPatch } from './result-facts.mjs';
 
@@ -32,6 +38,7 @@ const facts = (id: string, ...edits: Edit[]) =>
     id,
     root: `showcase/${id}`,
     passed: true,
+    verified: true,
     tree: variant(id, ...edits),
     contract,
   });
@@ -73,6 +80,12 @@ const remove =
 
 const API_REPORT = 'api/etc/api.api.md';
 const ROUTES = 'web/src/routes/todos';
+const EDGE = 'structure · edge api-procedures -.-> api-domain';
+const addEdge = replaceIn(
+  'architecture.mmd',
+  '  api_procedures --> api_trpc\n',
+  '  api_procedures --> api_trpc\n  api_procedures -.-> api_domain\n',
+);
 
 type Comparison = ReturnType<typeof compareResults>;
 
@@ -239,21 +252,137 @@ describe('compareResults', () => {
   });
 
   it('marks an extra role edge outside the spec', () => {
-    const edged = facts(
-      'todo-03',
+    const comparison = compareResults([facts('todo-01'), facts('todo-03', addEdge)]);
+    expect(departures(comparison)).toEqual([[EDGE, 'outside-spec', null]]);
+    expect(find(comparison, EDGE).why).toMatch(/role edges/);
+  });
+
+  it('keeps an aspect outside the spec under an author note without a freedom, with the note as its why', () => {
+    const comparison = compareResults(
+      [facts('todo-01'), facts('todo-03', addEdge)],
+      [{ key: EDGE, why: 'the agent typed a return' }],
+    );
+    expect(find(comparison, EDGE)).toMatchObject({
+      classification: 'outside-spec',
+      why: 'the agent typed a return',
+      by: 'note',
+    });
+    expect(comparison.consistent).toBe(false);
+    expect(comparison.freedoms.every((freedom) => freedom.cited.length === 0)).toBe(true);
+  });
+
+  it('erases the own hook names before it sorts the calls', () => {
+    const named = (id: string, hook: string) =>
+      facts(
+        id,
+        renameEverywhere(/useTodos\b/g, hook),
+        replaceIn(
+          `${ROUTES}/TodosPage.tsx`,
+          'export function TodosPage() {',
+          'export function TodosPage() {\n  const headingId = useId();',
+        ),
+      );
+    expect(
+      departures(compareResults([named('todo-01', 'useAaa'), named('todo-02', 'useZzz')])),
+    ).toEqual([]);
+  });
+
+  it('reads components wrapped in memo, React.memo and forwardRef', () => {
+    const wrapped = facts('todo-02', (tree) => {
+      tree.set(
+        `${ROUTES}/TodoSearch.tsx`,
+        'import { memo } from \'react\';\n\nexport const TodoSearch = memo(function TodoSearch() {\n  return <input type="text" aria-label="Search" />;\n});\n',
+      );
+      tree.set(`${ROUTES}/TodoCount.tsx`, 'export const TodoCount = React.memo(() => <p>0</p>);\n');
+      tree.set(
+        `${ROUTES}/TodoField.tsx`,
+        'export const TodoField = forwardRef((props, ref) => <p ref={ref}>{props.text}</p>);\n',
+      );
+    });
+    expect(wrapped.components.map((component) => component.name)).toEqual(
+      expect.arrayContaining(['TodoSearch', 'TodoCount', 'TodoField']),
+    );
+    expect(departures(compareResults([facts('todo-01'), wrapped]))).toContainEqual([
+      'component-boundaries · ui controls',
+      'outside-spec',
+      null,
+    ]);
+  });
+
+  it('holds the scaffold roles fixed and every role to the ui primitives', () => {
+    const app = facts(
+      'todo-02',
       replaceIn(
-        'architecture.mmd',
-        '  api_procedures --> api_trpc\n',
-        '  api_procedures --> api_trpc\n  api_procedures -.-> api_domain\n',
+        'web/src/App.tsx',
+        /$/,
+        '\nexport function Reset() {\n  return <button type="button">Reset</button>;\n}\n',
       ),
     );
-    const comparison = compareResults([facts('todo-01'), edged]);
-    expect(departures(comparison)).toEqual([
-      ['structure · edge api-procedures -.-> api-domain', 'outside-spec', null],
+    expect(departures(compareResults([facts('todo-01'), app]))).toEqual([
+      ['component-boundaries · ui controls', 'outside-spec', null],
+      ['component-boundaries · components web-app', 'outside-spec', null],
     ]);
-    expect(find(comparison, 'structure · edge api-procedures -.-> api-domain').why).toMatch(
-      /role edges/,
+  });
+
+  it('compares a file outside every role by its text', () => {
+    const changed = facts('todo-02', replaceIn('web/vite.config.ts', 'port: 5173', 'port: 5174'));
+    const comparison = compareResults([facts('todo-01'), changed, facts('todo-03')]);
+    expect(departures(comparison)).toEqual([
+      ['structure · file web/vite.config.ts', 'outside-spec', null],
+    ]);
+    expect(find(comparison, 'structure · file web/vite.config.ts').why).toContain('`todo-02`');
+    expect(find(comparison, 'structure · file web/index.html').classification).toBe('identical');
+  });
+
+  it('places a change inside the title of web/index.html under freedom 5', () => {
+    const titled = facts('todo-02', replaceIn('web/index.html', /<title>[^<]*</, '<title>Tasks<'));
+    expect(departures(compareResults([facts('todo-01'), titled]))).toEqual([
+      ['structure · file web/index.html', 'spec-freedom', 5],
+    ]);
+  });
+
+  it('reads a constant list as no storage and a mutated one as storage', () => {
+    const constant = facts(
+      'todo-02',
+      replaceIn(
+        'api/src/features/todos/domain.ts',
+        /^/,
+        "export const TODO_FIELDS = ['id', 'title', 'completed'];\n\n",
+      ),
     );
+    expect(departures(compareResults([facts('todo-01'), constant]))).toEqual([]);
+    const mutated = facts(
+      'todo-02',
+      replaceIn(
+        'api/src/features/todos/application.ts',
+        'export interface CreateTodoRequest',
+        'const seen: string[] = [];\n\nexport function remember(id: string) {\n  seen.push(id);\n}\n\nexport interface CreateTodoRequest',
+      ),
+    );
+    expect(departures(compareResults([facts('todo-01'), mutated]))).toEqual([
+      ['conventions · storage role', 'outside-spec', null],
+    ]);
+  });
+
+  it('compares the export names of a scaffold role', () => {
+    const swapped = facts(
+      'todo-02',
+      replaceIn('web/etc/api-client.api.md', 'export type RouterInputs', 'export type RouterArgs'),
+    );
+    expect(departures(compareResults([facts('todo-01'), swapped]))).toEqual([
+      ['public-api · exports web:web-api-client', 'outside-spec', null],
+    ]);
+  });
+
+  it('places the test count under freedom 6 only when every verify check exited 0', () => {
+    const fewer = facts('todo-02', remove('api/src/features/todos/integrations.test.ts'));
+    const comparison = compareResults([{ ...facts('todo-01'), verified: false }, fewer]);
+    expect(departures(comparison)).toEqual([
+      ['structure · tests api-integrations', 'outside-spec', null],
+    ]);
+    expect(
+      find(compareResults([facts('todo-01'), fewer]), 'structure · tests api-integrations').why,
+    ).toBe("the test count beyond the gates; every run's `verify` check exited `0`");
   });
 
   it('marks an added dependency outside the spec', () => {
@@ -339,8 +468,9 @@ describe('compareResults', () => {
     });
   });
 
-  it('throws on a stale ruling', () => {
+  it('throws on a stale ruling or note', () => {
     const pair = [facts('todo-01'), facts('todo-02')];
+    expect(() => compareResults(pair, [{ key: EDGE, why: 'x' }])).toThrow(EDGE);
     expect(() =>
       compareResults(pair, [{ key: 'public-api · missing', freedom: 2, why: 'x' }]),
     ).toThrow('public-api · missing');
@@ -479,13 +609,15 @@ describe('readResultFacts', () => {
   });
 });
 
+const evidence = (id: string) => JSON.parse(read(`docs/trials/${id}.json`));
+
 describe('renderComparison', () => {
   const withoutRouterInputs = replaceIn(
     'web/etc/api-client.api.md',
     /\/\/ @public \(undocumented\)\r?\nexport type RouterInputs [^\n]*\n/,
     '',
   );
-  const evidence = (id: string) => JSON.parse(read(`docs/trials/${id}.json`));
+  const EDITS: Record<string, Edit[]> = { 'todo-02': [withoutRouterInputs], 'todo-03': [addEdge] };
   const runs = (change: (records: ReturnType<typeof evidence>[]) => void = () => undefined) => {
     const records = ['todo-01', 'todo-02', 'todo-03'].map(evidence);
     change(records);
@@ -493,7 +625,7 @@ describe('renderComparison', () => {
       evidence: record,
       source: record.result.patch ?? `showcase/${record.trial.id}`,
       facts: {
-        ...facts(record.trial.id, ...(record.trial.id === 'todo-02' ? [withoutRouterInputs] : [])),
+        ...facts(record.trial.id, ...(EDITS[record.trial.id] ?? [])),
         passed: record.result.status === 'passed',
       },
     }));
@@ -529,9 +661,33 @@ describe('renderComparison', () => {
     expect(report).toMatch(/\| Rendered prompt SHA-256 \|.*\| no \|/);
   });
 
-  it('shows the author ruling apart from the script classifications', () => {
+  it('shows the author notes as the Why of outside-spec aspects, with no rulings section', () => {
     const report = renderComparison(runs(), read);
-    expect(report).toContain('## Rulings by the author');
+    expect(report).not.toContain('## Rulings by the author');
+    expect(report).toMatch(
+      /\| `public-api · exports web:web-api-client` \|.*flagged it as an unused type export.*\| author's note \|/,
+    );
+    expect(report).toMatch(
+      /\| `structure · edge api-procedures -\.-> api-domain` \|.*\| author's note \|/,
+    );
+  });
+
+  it('quotes the first tool call that names each outside path of a failed run', () => {
+    const report = renderComparison(runs(), read);
+    expect(report).toContain('`pnpm verify > /tmp/verify.log 2>&1; echo EXIT=$?;');
+    expect(report).toContain('existed before the agent ran');
+  });
+
+  it('lists only the baseline rows a rendered report can show, with the template caveat', () => {
+    const report = renderComparison(runs(), read);
+    expect(report).not.toContain('Real agent session');
+    expect(report).toContain('`tooling/trial/todo-prompt.md` as committed');
+  });
+
+  it('names the two places a name reaches the method', () => {
+    expect(renderComparison(runs(), read)).toContain(
+      'a router key breaks a tie between two `{ id }` mutations whose outputs match',
+    );
   });
 
   it("shows every run's diagram without its header, the failed run marked", () => {
@@ -540,6 +696,35 @@ describe('renderComparison', () => {
     expect(diagrams).toContain('### `todo-01` (`failed`, from `docs/trials/todo-01.patch`)');
     expect(diagrams.match(/```mermaid\nflowchart LR\n/g)).toHaveLength(3);
     expect(diagrams).not.toContain('%%');
+  });
+});
+
+describe('checkRunEvidence', () => {
+  const record = evidence('todo-02');
+  const files = record.result.changedPaths.filter((path: string) =>
+    path.startsWith('showcase/todo-02/'),
+  );
+  const stream = read(record.stream.path);
+
+  it('accepts a run whose files and stream match its evidence', () => {
+    expect(() => checkRunEvidence(record, files, stream)).not.toThrow();
+  });
+
+  it('throws on a file set that differs from result.changedPaths', () => {
+    expect(() =>
+      checkRunEvidence(record, [...files, 'showcase/todo-02/web/extra.ts'], stream),
+    ).toThrow('result.changedPaths');
+  });
+
+  it('throws on a stream that differs from stream.sha256', () => {
+    expect(() => checkRunEvidence(record, files, `${stream}\n`)).toThrow('stream.sha256');
+  });
+});
+
+describe('checkLandedRuns', () => {
+  it('compares the landed and passed ids as sets', () => {
+    expect(() => checkLandedRuns(['todo-10', 'todo-9'], ['todo-9', 'todo-10'])).not.toThrow();
+    expect(() => checkLandedRuns(['todo-9'], ['todo-9', 'todo-10'])).toThrow('todo-10');
   });
 });
 
@@ -558,10 +743,10 @@ describe('the committed comparison', () => {
     expect(items).toEqual(FREEDOMS.map((text, index) => [index + 1, text]));
   });
 
-  it('names only primitives that @repo/ui exports', () => {
-    const report = read('packages/ui/etc/ui.api.md');
-    for (const primitive of new Set(Object.values(UI_PRIMITIVE_FOR))) {
-      expect(report).toMatch(new RegExp(`^export function ${primitive}\\(`, 'm'));
-    }
+  it('maps every function @repo/ui exports, and only those, as a primitive', () => {
+    const exported = [...read('packages/ui/etc/ui.api.md').matchAll(/^export function (\w+)\(/gm)]
+      .map(([, name]) => name)
+      .sort();
+    expect([...new Set(Object.values(UI_PRIMITIVE_FOR))].sort()).toEqual(exported);
   });
 });

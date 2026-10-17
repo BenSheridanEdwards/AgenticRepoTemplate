@@ -39,6 +39,7 @@
  * @typedef {{
  *   readonly id: string,
  *   readonly passed: boolean,
+ *   readonly verified: boolean,
  *   readonly sourceFiles: ReadonlyMap<string, readonly string[]>,
  *   readonly testFiles: ReadonlyMap<string, readonly string[]>,
  *   readonly diagram: { readonly text: string, readonly roles: readonly string[], readonly edges: readonly { from: string, to: string, typeOnly: boolean }[] },
@@ -48,8 +49,9 @@
  *   readonly apiReports: readonly ApiReport[],
  *   readonly components: readonly Component[],
  *   readonly hooks: readonly Hook[],
+ *   readonly outsideFiles: readonly { readonly path: string, readonly text: string }[],
  *   readonly storage: { readonly roles: readonly string[], readonly idSource: string },
- * }} ResultFacts
+ * }} ResultFacts  `verified`: the run's `verify` check exited 0; `outsideFiles`: see `readOutsideFiles`
  */
 
 import ts from 'typescript';
@@ -558,7 +560,15 @@ function readProcedures(tree) {
   };
 }
 
-/** Top-level functions, declared or bound to a const, with their bodies. */
+/** The function a wrapper call such as `memo(...)` or `forwardRef(...)` holds, through nested wrappers. */
+function unwrapCall(node) {
+  if (node && ts.isCallExpression(node)) {
+    return unwrapCall(node.arguments[0]);
+  }
+  return node && (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) ? node : undefined;
+}
+
+/** Top-level functions, declared or bound to a const, wrapper calls unwrapped, with their bodies. */
 function functionsOf(sourceFile) {
   return sourceFile.statements.flatMap((statement) => {
     if (ts.isFunctionDeclaration(statement) && statement.name && statement.body) {
@@ -567,15 +577,12 @@ function functionsOf(sourceFile) {
     if (!ts.isVariableStatement(statement)) {
       return [];
     }
-    return statement.declarationList.declarations
-      .filter(
-        (declaration) =>
-          ts.isIdentifier(declaration.name) &&
-          declaration.initializer &&
-          (ts.isArrowFunction(declaration.initializer) ||
-            ts.isFunctionExpression(declaration.initializer)),
-      )
-      .map((declaration) => ({ name: declaration.name.getText(), node: declaration.initializer }));
+    return statement.declarationList.declarations.flatMap((declaration) => {
+      const node = unwrapCall(declaration.initializer);
+      return ts.isIdentifier(declaration.name) && node
+        ? [{ name: declaration.name.text, node }]
+        : [];
+    });
   });
 }
 
@@ -705,16 +712,95 @@ function scanWeb(tree, roleOf) {
   };
 }
 
-const COLLECTIONS = new Set(['Map', 'Set', 'WeakMap']);
+const COLLECTIONS = new Set(['Map', 'Set', 'WeakMap', 'Array']);
+const MUTATORS = new Set([
+  'push',
+  'pop',
+  'shift',
+  'unshift',
+  'splice',
+  'sort',
+  'reverse',
+  'fill',
+  'copyWithin',
+]);
+const ASSIGNMENTS = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.PlusEqualsToken,
+  ts.SyntaxKind.MinusEqualsToken,
+  ts.SyntaxKind.AsteriskEqualsToken,
+  ts.SyntaxKind.SlashEqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+]);
 
-/** Module-level collections: a `new Map`/`Set` or an array literal. */
-function holdsCollection(declaration) {
-  const value = declaration.initializer;
-  return (
-    value !== undefined &&
-    ((ts.isNewExpression(value) && COLLECTIONS.has(value.expression.getText())) ||
-      ts.isArrayLiteralExpression(value))
-  );
+/** The name an expression is rooted at: `todos` for `todos`, `todos[0].title` and `todos.items`. */
+function rootName(node) {
+  if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+    return rootName(node.expression);
+  }
+  return ts.isIdentifier(node) ? node.text : null;
+}
+
+const INCREMENTS = new Set([ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken]);
+
+/** The target of an assignment (`=`, `+=`, ...) or an increment, else undefined. */
+function assignedBy(node) {
+  if (ts.isBinaryExpression(node)) {
+    return ASSIGNMENTS.has(node.operatorToken.kind) ? node.left : undefined;
+  }
+  const unary = ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node);
+  return unary && INCREMENTS.has(node.operator) ? node.operand : undefined;
+}
+
+/** The value a `delete` or a mutating method call (`push`, `splice`, ...) changes in place, else undefined. */
+function mutatedBy(node) {
+  if (ts.isDeleteExpression(node)) {
+    return node.expression;
+  }
+  const method = ts.isCallExpression(node) ? node.expression : undefined;
+  return method && ts.isPropertyAccessExpression(method) && MUTATORS.has(method.name.text)
+    ? method.expression
+    : undefined;
+}
+
+/** The names a file reassigns (`=`, `+=`, `++`) and the names whose value it mutates in place. */
+function writesIn(inner) {
+  const reassigned = new Set();
+  const mutated = new Set();
+  for (const node of inner) {
+    const assigned = assignedBy(node);
+    const changed = assigned ?? mutatedBy(node);
+    if (changed) {
+      (assigned && ts.isIdentifier(assigned) ? reassigned : mutated).add(rootName(changed));
+    }
+  }
+  return { reassigned, mutated };
+}
+
+const isLiteral = (value) =>
+  value !== undefined &&
+  (ts.isArrayLiteralExpression(value) || ts.isObjectLiteralExpression(value));
+const isCollection = (value) =>
+  value !== undefined && ts.isNewExpression(value) && COLLECTIONS.has(value.expression.getText());
+
+/**
+ * Module-level mutable state: a `new Map`/`Set`/`Array`, an array or object
+ * literal bound with `let`, a `let` the file reassigns, or an array or object
+ * literal the file mutates in place. A `const` literal left alone is a constant.
+ */
+function holdsState(statement, writes) {
+  const isLet = (statement.declarationList.flags & ts.NodeFlags.Let) !== 0;
+  return statement.declarationList.declarations.some(({ name, initializer }) => {
+    const bound = ts.isIdentifier(name) ? name.text : null;
+    const literal = isLiteral(initializer);
+    return (
+      isCollection(initializer) ||
+      (isLet && (literal || writes.reassigned.has(bound))) ||
+      (literal && writes.mutated.has(bound))
+    );
+  });
 }
 
 /** Module-level numeric `let`s that a function increments. */
@@ -748,13 +834,15 @@ function scanStorage(tree, roleOf) {
       continue;
     }
     const sourceFile = parse(path, text);
-    const declarations = sourceFile.statements
-      .filter(ts.isVariableStatement)
-      .flatMap((statement) => statement.declarationList.declarations);
-    if (declarations.some(holdsCollection)) {
+    const inner = descendants(sourceFile);
+    const writes = writesIn(inner);
+    if (
+      sourceFile.statements
+        .filter(ts.isVariableStatement)
+        .some((statement) => holdsState(statement, writes))
+    ) {
       roles.add(roleOf(path) ?? OUTSIDE);
     }
-    const inner = descendants(sourceFile);
     const uuid = inner.some(
       (node) =>
         ts.isCallExpression(node) &&
@@ -772,15 +860,37 @@ function scanStorage(tree, roleOf) {
   return { roles: unique(roles), idSource: unique(sources).join('+') || 'unrecognized' };
 }
 
+const MANIFESTS = new Set(['web/package.json', 'api/package.json']);
+const isGenerated = (path) =>
+  path === 'architecture.mmd' || /^(?:web|api)\/etc\/[^/]+\.api\.md$/.test(path);
+
 /**
- * @param {{ id: string, root: string, passed: boolean, tree: ResultTree, contract: Contract }} input
+ * The files outside every role that no other aspect compares (manifests,
+ * generated artifacts and tests are compared elsewhere), with the result's own
+ * id as `{id}` and CRLF as LF.
+ */
+function readOutsideFiles(tree, roleOf, id) {
+  return [...tree]
+    .filter(
+      ([path]) =>
+        roleOf(path) === undefined && !MANIFESTS.has(path) && !isGenerated(path) && !isTest(path),
+    )
+    .map(([path, text]) => ({
+      path,
+      text: text.replaceAll('\r\n', '\n').replaceAll(id, '{id}'),
+    }));
+}
+
+/**
+ * @param {{ id: string, root: string, passed: boolean, verified: boolean, tree: ResultTree, contract: Contract }} input
  * @returns {ResultFacts}
  */
-export function readResultFacts({ id, root, passed, tree, contract }) {
+export function readResultFacts({ id, root, passed, verified, tree, contract }) {
   const roleOf = (path) => contract.roleOf(`${root}/${path}`);
   return {
     id,
     passed,
+    verified,
     ...filesByRole(tree, roleOf, contract),
     diagram: parseDiagram(tree.get('architecture.mmd')),
     manifests: {
@@ -790,6 +900,7 @@ export function readResultFacts({ id, root, passed, tree, contract }) {
     ...readProcedures(tree),
     apiReports: readApiReports(tree, root, roleOf),
     ...scanWeb(tree, roleOf),
+    outsideFiles: readOutsideFiles(tree, roleOf, id),
     storage: scanStorage(tree, roleOf),
   };
 }

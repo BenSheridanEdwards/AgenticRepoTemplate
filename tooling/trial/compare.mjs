@@ -25,20 +25,30 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { listResults } from '../results.mjs';
-import { compareResults } from './dimensions.mjs';
+import { compareResults, SCAFFOLD_ROLES } from './dimensions.mjs';
 import { validateEvidence } from './evidence.mjs';
 import { readContract, readResultFacts, treeFromPatch } from './result-facts.mjs';
 import { renderPrompt } from './run-trial.mjs';
+import { streamEvents } from './stream.mjs';
 
 export const REPORT_PATH = 'docs/trials/COMPARISON.md';
 const TRIALS = 'docs/trials';
 
-/** The author's rulings (PLAN, Risks): each turns one outside-spec aspect into the freedom it names. */
-const RULINGS = [
+/**
+ * The author's notes on outside-spec aspects (PLAN, Risks). A note with a
+ * `freedom` is a ruling that moves its aspect into that freedom; a note without
+ * one keeps the aspect outside the spec and gives its cause.
+ *
+ * @type {readonly import('./dimensions.mjs').AuthorNote[]}
+ */
+const AUTHOR_NOTES = [
   {
     key: 'public-api · exports web:web-api-client',
-    freedom: /** @type {const} */ (2),
-    why: "RouterInputs is a type alias over AppRouter; todo-02's route hook types its inputs from `RouterOutputs` instead, so the type helpers split differently between web-api-client and web-routes; the runtime exports are equal.",
+    why: "todo-02's route hook types its arguments from `RouterOutputs`, so the `RouterInputs` re-export in the api-client barrel had no importer. `fallow audit` flagged it as an unused type export, and the agent removed it from `index.ts`; `trpc.ts` still declares it. The reference and the other runs export it, and no spec freedom names a scaffold role's exports.",
+  },
+  {
+    key: 'structure · edge api-procedures -.-> api-domain',
+    why: "todo-03 annotates its toggle procedure's return type with `Todo`, imported type-only from `domain.ts`. The contract allows the direction; the spec freedoms keep role edges fixed.",
   },
 ];
 
@@ -81,12 +91,6 @@ function proveBaseline(evidences, readText) {
       (_, v) => v === 'true',
     ),
     each(
-      'Real agent session',
-      '`agent.fake` is `false` in each run',
-      (e) => String(e.agent.fake),
-      (_, v) => v === 'false',
-    ),
-    each(
       'Session id',
       'distinct per run',
       (e) => e.agent.sessionId,
@@ -113,6 +117,9 @@ function proveBaseline(evidences, readText) {
   ];
 }
 
+/** A code span in running text. */
+const span = (value) => `\`${value.replaceAll('`', "'")}\``;
+
 /** A code span safe inside a table cell; long hashes shortened. */
 function code(value) {
   const short = /^[0-9a-f]{40,64}$/.test(value) ? `${value.slice(0, 12)}…` : value;
@@ -133,8 +140,47 @@ function duration(ms) {
   return code(`${Math.floor(seconds / 60)} min ${seconds % 60} s`);
 }
 
-/** @param {readonly Run[]} runs */
-function renderRuns(runs) {
+/** The first tool call input in a stream that names `path`, on one line, cut at 160 characters. */
+function firstCallNaming(streamText, path) {
+  const inputs = streamEvents(streamText).flatMap((event) =>
+    (Array.isArray(event.message?.content) ? event.message.content : [])
+      .filter(
+        (block) => block?.type === 'tool_use' && block.input && typeof block.input === 'object',
+      )
+      .map((block) =>
+        typeof block.input.command === 'string' ? block.input.command : JSON.stringify(block.input),
+      ),
+  );
+  const found = inputs
+    .find((input) => input.includes(path))
+    ?.replace(/\s+/g, ' ')
+    .trim();
+  return found && found.length > 160 ? `${found.slice(0, 160)}…` : found;
+}
+
+/** For each path a failed run named outside its workdir, the tool call that first named it. */
+function explainOutsideReads(evidence, readText) {
+  const { outsideReads } = evidence.result;
+  if (outsideReads.length === 0) {
+    return [];
+  }
+  const stream = evidence.stream.path;
+  const quotes = outsideReads.map((path) => {
+    const call = stream ? firstCallNaming(readText(stream), path) : undefined;
+    return call
+      ? `The first tool call in ${code(stream ?? '')} that names ${code(path)} is ${span(call)}.`
+      : `The committed stream holds no tool call input that names ${code(path)}.`;
+  });
+  return [
+    `Under the harness rule (ADR 0034), a tool call that names a path outside the workdir that existed before the agent ran fails the run; the tmp entries that appear while the agent runs are on its allowlist. ${quotes.join(' ')}`,
+  ];
+}
+
+/**
+ * @param {readonly Run[]} runs
+ * @param {(path: string) => string} readText
+ */
+function renderRuns(runs, readText) {
   const rows = runs.map(({ evidence: e, source }) => [
     code(e.trial.id),
     e.result.status === 'passed' ? code('passed') : `**${code('failed')}**`,
@@ -152,7 +198,10 @@ function renderRuns(runs) {
         codes.length === 1
           ? `each exited ${code(String(codes[0]))}`
           : `exited ${andList(e.checks.map((c) => code(String(c.exitCode))))}`;
-      return `${code(e.trial.id)} is ${code('failed')}: its checks ${andList(e.checks.map((c) => code(c.name)))} ${exits}, and its evidence names the failure ${andList(e.failures.map(code))}. Its code comes from ${code(source)}, and the report compares it like the others.`;
+      return [
+        `${code(e.trial.id)} is ${code('failed')}: its checks ${andList(e.checks.map((c) => code(c.name)))} ${exits}, and its evidence names the failure ${andList(e.failures.map(code))}. Its code comes from ${code(source)}, and the report compares it like the others.`,
+        ...explainOutsideReads(e, readText),
+      ].join(' ');
     });
   return [
     '## Runs',
@@ -178,6 +227,7 @@ function renderBaseline(checks, ids) {
         check.holds ? 'yes' : 'no',
       ]),
     ),
+    'A record with `agent.fake: true` stops the report before this table renders, so every run here ran the real agent. The template rows read `tooling/trial/todo-prompt.md` as committed, so a later prompt change shows `no` there, which is the new-baseline rule of ADR 0034.',
   ];
 }
 
@@ -185,8 +235,8 @@ function renderBaseline(checks, ids) {
 function renderMethod(comparison) {
   return [
     '## Method',
-    'Each dimension compares a normalized form, so names alone count as no difference: names reach only the written forms, which this report shows and the method skips. An invariant holds or breaks in each run on its own. A form is identical when every run has the same value; otherwise it sits inside the spec freedom a rule names, or outside the spec. The author may move an outside-spec aspect into a spec freedom only by a ruling that names the freedom.',
-    'The component rule reads "outside `web-routes` and `ui`" as a rule on feature components: the scaffold components the reference itself has, in `web-app` and `web-api-client`, are compared by signature.',
+    'Each dimension compares a normalized form. Names reach only written forms, which this report shows and the method skips, except that a router key breaks a tie between two `{ id }` mutations whose outputs match, and a type name the result does not declare stays as written. An invariant holds or breaks in each run on its own. A form is identical when every run has the same value; otherwise it sits inside the spec freedom a rule names, or outside the spec. An author note on an outside-spec aspect gives its cause and keeps it outside the spec; a note that names a freedom is a ruling and moves the aspect into that freedom.',
+    `The scaffold roles, ${andList(SCAFFOLD_ROLES.map(code))}, hold the code the reference scaffold fills in, so they are fixed: their files, components, hooks and export names count, and a difference there is outside the spec. Each file outside every role is compared by its text, with the own id as \`{id}\`. The component rule reads "outside \`web-routes\` and \`ui\`" as a rule on feature components, the components outside the scaffold roles; \`ui controls\` holds the components of every role.`,
     table(
       ['Dimension', 'Normalized form', 'Must be identical'],
       comparison.method.map((m) => [m.title, m.normalizedForm, m.mustBeIdentical]),
@@ -226,8 +276,13 @@ function renderDepartures(differences, ids) {
       : [
           '## Outside the spec',
           table(
-            ['Aspect', ...ids.map(code), 'Why'],
-            outside.map((d) => [code(d.key), ...cells(d, ids), d.why]),
+            ['Aspect', ...ids.map(code), 'Why', 'By'],
+            outside.map((d) => [
+              code(d.key),
+              ...cells(d, ids),
+              d.why,
+              d.by === 'note' ? "author's note" : 'script rule',
+            ]),
           ),
         ]),
     ...(inside.length === 0
@@ -294,7 +349,8 @@ function renderDiagrams(runs) {
 
 function renderVerdict(runs, comparison, checks) {
   const passed = runs.filter(({ evidence }) => evidence.result.status === 'passed').length;
-  const outside = comparison.differences.filter((d) => d.classification === 'outside-spec').length;
+  const outside = comparison.differences.filter((d) => d.classification === 'outside-spec');
+  const noted = outside.filter((d) => d.by === 'note').length;
   const inside = comparison.differences.filter((d) => d.classification === 'spec-freedom');
   const ruled = inside.filter((d) => d.by === 'ruling').length;
   const split = checks.filter((check) => !check.holds).map((check) => check.label);
@@ -302,7 +358,7 @@ function renderVerdict(runs, comparison, checks) {
     '## Verdict',
     [
       `- Full pass count ${passed}/${runs.length}`,
-      `- Consistency: ${code(comparison.consistent ? 'consistent' : 'inconsistent')}. ${count(outside, 'aspect sits', 'aspects sit')} outside the spec; ${inside.length} sit inside a spec freedom, ${inside.length - ruled} by the script's rules and ${ruled} by the author's ruling.`,
+      `- Consistency: ${code(comparison.consistent ? 'consistent' : 'inconsistent')}. ${count(outside.length, 'aspect sits', 'aspects sit')} outside the spec, ${noted} with an author's note; ${inside.length} sit inside a spec freedom, ${inside.length - ruled} by the script's rules and ${ruled} by an author's ruling.`,
       split.length === 0
         ? `- Baseline: shared. All ${checks.length} baseline checks hold.`
         : `- Baseline: differs at ${split.join(', ')}.`,
@@ -321,7 +377,7 @@ export function renderComparison(runs, readText) {
   const ids = runs.map(({ evidence }) => evidence.trial.id);
   const comparison = compareResults(
     runs.map((run) => run.facts),
-    RULINGS,
+    AUTHOR_NOTES,
   );
   const checks = proveBaseline(
     runs.map((run) => run.evidence),
@@ -332,7 +388,7 @@ export function renderComparison(runs, readText) {
     '# Todo trial comparison',
     'This report compares the Todo trial results under ADR 0035: the full pass count, the shared baseline, and every aspect of five dimensions, each identical, inside a named spec freedom, or outside the spec.',
     ...renderVerdict(runs, comparison, checks),
-    ...renderRuns(runs),
+    ...renderRuns(runs, readText),
     ...renderBaseline(checks, ids),
     ...renderMethod(comparison),
     ...renderDepartures(comparison.differences, ids),
@@ -369,36 +425,87 @@ function readRuns(root, readText) {
       return evidence;
     })
     .sort((a, b) => a.trial.number - b.trial.number);
-  const landed = listResults(root)
-    .filter((result) => result.root.startsWith('showcase/'))
-    .map((result) => result.id);
-  const passed = evidences.filter((e) => e.result.status === 'passed').map((e) => e.trial.id);
-  if (landed.join() !== passed.join()) {
+  checkLandedRuns(
+    listResults(root)
+      .filter((result) => result.root.startsWith('showcase/'))
+      .map((result) => result.id),
+    evidences.filter((e) => e.result.status === 'passed').map((e) => e.trial.id),
+  );
+  return evidences.map((evidence) => {
+    const run = readRunTree(root, evidence, readText);
+    checkRunEvidence(
+      evidence,
+      [...run.tree.keys()].map((path) => `${run.resultRoot}/${path}`),
+      evidence.stream.path === null ? null : readText(evidence.stream.path),
+    );
+    return run;
+  });
+}
+
+/** A passed run's tracked files under `showcase/<id>`, or a failed run's patch. */
+function readRunTree(root, evidence, readText) {
+  const id = evidence.trial.id;
+  const resultRoot = `showcase/${id}`;
+  if (evidence.result.status === 'passed') {
+    const files = execFileSync('git', ['ls-files', '-z', resultRoot], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+      .split('\0')
+      .filter(Boolean);
+    const tree = new Map(files.map((file) => [file.slice(resultRoot.length + 1), readText(file)]));
+    return { evidence, source: resultRoot, resultRoot, tree };
+  }
+  if (!evidence.result.patch) {
+    throw new Error(`compare: ${id} failed and records no patch.`);
+  }
+  const tree = treeFromPatch(readText(evidence.result.patch), resultRoot);
+  return { evidence, source: evidence.result.patch, resultRoot, tree };
+}
+
+const sortText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * Throws unless the result folders under `showcase/` are the passed runs,
+ * compared as sets.
+ *
+ * @param {readonly string[]} landed
+ * @param {readonly string[]} passed
+ */
+export function checkLandedRuns(landed, passed) {
+  const sorted = (ids) => [...ids].sort(sortText).join(', ');
+  if (sorted(landed) !== sorted(passed)) {
     throw new Error(
-      `compare: showcase/ holds ${landed.join(', ')}; the passed runs are ${passed.join(', ')}.`,
+      `compare: showcase/ holds ${sorted(landed) || 'no result'}; the passed runs are ${sorted(passed) || 'none'}.`,
     );
   }
-  return evidences.map((evidence) => {
-    const id = evidence.trial.id;
-    const resultRoot = `showcase/${id}`;
-    if (evidence.result.status === 'passed') {
-      const files = execFileSync('git', ['ls-files', '-z', resultRoot], {
-        cwd: root,
-        encoding: 'utf8',
-      })
-        .split('\0')
-        .filter(Boolean);
-      const tree = new Map(
-        files.map((file) => [file.slice(resultRoot.length + 1), readText(file)]),
-      );
-      return { evidence, source: resultRoot, resultRoot, tree };
-    }
-    if (!evidence.result.patch) {
-      throw new Error(`compare: ${id} failed and records no patch.`);
-    }
-    const tree = treeFromPatch(readText(evidence.result.patch), resultRoot);
-    return { evidence, source: evidence.result.patch, resultRoot, tree };
-  });
+}
+
+/**
+ * Throws unless the code read for a run is the code its evidence records: the
+ * repo-relative `files` equal `result.changedPaths` under `showcase/<id>/`, and
+ * the stream at `stream.path` hashes to `stream.sha256`.
+ *
+ * @param {TrialEvidence} evidence
+ * @param {readonly string[]} files
+ * @param {string | null} streamText
+ */
+export function checkRunEvidence(evidence, files, streamText) {
+  const id = evidence.trial.id;
+  const recorded = new Set(
+    evidence.result.changedPaths.filter((path) => path.startsWith(`showcase/${id}/`)),
+  );
+  const read = new Set(files);
+  const extra = [...read].filter((path) => !recorded.has(path)).sort(sortText);
+  const missing = [...recorded].filter((path) => !read.has(path)).sort(sortText);
+  if (extra.length > 0 || missing.length > 0) {
+    throw new Error(
+      `compare: ${id}'s code differs from result.changedPaths: read and unrecorded ${extra.join(', ') || '(none)'}; recorded and unread ${missing.join(', ') || '(none)'}.`,
+    );
+  }
+  if (evidence.stream.path !== null && sha256(streamText ?? '') !== evidence.stream.sha256) {
+    throw new Error(`compare: ${evidence.stream.path} differs from ${id}'s stream.sha256.`);
+  }
 }
 
 /**
@@ -417,6 +524,7 @@ export function comparisonReport(root) {
       id: evidence.trial.id,
       root: resultRoot,
       passed: evidence.result.status === 'passed',
+      verified: evidence.checks.some((check) => check.name === 'verify' && check.exitCode === 0),
       tree,
       contract,
     }),
