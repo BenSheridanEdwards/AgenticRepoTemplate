@@ -1,25 +1,49 @@
-// TEMPLATE — copy to apps/web/src/features/<feature-name>/<Feature>.test.tsx.
+// TEMPLATE — copy next to the component as __Name__.test.tsx, for example
+// <result>/web/src/routes/<route-name>/__Name__Page.test.tsx.
+// Model: apps/web/src/routes/greeting/GreetingPage.test.tsx.
+//
+// Render through TestApiProvider from the api client whenever the component
+// (or a hook it calls) reaches the api. Give one typed handler per procedure
+// path the test needs; a missing handler fails the call with its path. Drop
+// the provider for a component that never calls the api.
 // Assert on observable behaviour through the accessibility tree (roles, names,
-// live regions) — never on implementation detail. One `it` per behaviour.
-// See .claude/skills/write-unit-tests/SKILL.md.
+// live regions), one `it` per behaviour. See .claude/skills/write-unit-tests/SKILL.md.
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { __Feature__ } from './__Feature__';
+import { axe } from 'jest-axe';
+import { type TestApiHandlers, TestApiProvider } from '../../api-client';
+import { __Name__Page } from './__Name__Page';
 
-describe('__Feature__', () => {
-  it('__describes the default state a user sees__', () => {
-    render(<__Feature__ />);
+function renderPage(__procedure__: NonNullable<TestApiHandlers['__router__.__procedure__']>) {
+  const view = render(
+    <TestApiProvider handlers={{ '__router__.__procedure__': __procedure__ }}>
+      <__Name__Page />
+    </TestApiProvider>,
+  );
+  return { ...view, user: userEvent.setup() };
+}
 
-    expect(screen.getByRole('__role__', { name: /__accessible name__/i })).toBeInTheDocument();
-  });
+it('__describes what the user sees after an action that reaches the api__', async () => {
+  const __procedure__ = jest.fn((input: __Input__) => (__output__));
+  const { user } = renderPage(__procedure__);
 
-  it('__describes what happens after a user action__', async () => {
-    const user = userEvent.setup();
-    render(<__Feature__ />);
+  await user.click(screen.getByRole('button', { name: '__Action__' }));
 
-    await user.click(screen.getByRole('button', { name: /__action__/i }));
+  expect(await screen.findByRole('status')).toHaveTextContent('__expected outcome__');
+  expect(__procedure__).toHaveBeenCalledWith(__expected input__);
+});
 
-    expect(screen.getByRole('status')).toHaveTextContent('__expected outcome__');
-  });
+it('says so when the api fails', async () => {
+  const { user } = renderPage(() => Promise.reject(new Error('api down')));
+
+  await user.click(screen.getByRole('button', { name: '__Action__' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('__error message__');
+});
+
+it('has no axe-detectable violations', async () => {
+  const { container } = renderPage(() => (__output__));
+
+  expect(await axe(container)).toHaveNoViolations();
 });

@@ -18,25 +18,45 @@ specified here first.
 
 ## Process
 
-1. **Read the contract first.** Open `apps/web/e2e/app.spec.ts` to see existing
-   behaviour, and `.agents/project/ARCHITECTURE.md` for where behaviour belongs.
+1. **Read the contract first.** Each result keeps its behaviour map in
+   `<result>/web/e2e/*.spec.ts`. For the reference result, open
+   `apps/web/e2e/greeting.spec.ts` (the greeting journeys) and
+   `apps/web/e2e/accessibility.spec.ts` (the axe scan). Read
+   `.agents/project/ARCHITECTURE.md` for where behaviour belongs.
 2. **Write from the template.** Copy
-   `.agents/templates/e2e-flow.spec.ts.template`. Add a `test` per distinct user
-   journey inside a `test.describe` named for the feature.
+   `.agents/templates/e2e-flow.spec.ts.template` to
+   `<result>/web/e2e/<route-name>.spec.ts`. Add a `test` per distinct user
+   journey inside a `test.describe` named for the route. Add an axe scan of the
+   new states to the result's `accessibility.spec.ts`.
 3. **Drive the UI like a user.** Prefer `getByRole(role, { name })` and the
    accessibility tree. Leave CSS classes and internal state to the unit suite;
    the behaviour map asserts what a user sees.
 4. **Assert the user-visible outcome.** Use `expect(locator).toHaveText(...)`,
    `toBeVisible()`, the live `status` region, etc.
+5. **Exercise the real api.** The spec runs against the result's api process
+   through the Vite `/trpc` proxy. Wait on the procedure's response
+   (`page.waitForResponse` on `/trpc/<router>.<procedure>`), call a procedure
+   directly with the `request` fixture to prove server validation, and use
+   `page.route('**/trpc/**', ...)` to prove the error state, as
+   `apps/web/e2e/greeting.spec.ts` does.
 
 ## Commands
 
 ```bash
-pnpm e2e            # run the behaviour map (Playwright boots the dev server)
+pnpm e2e            # playwright test: every spec in each result's web/e2e/
 pnpm e2e:install    # one-time: install the Chromium browser
-pnpm exec playwright test apps/web/e2e/app.spec.ts --headed   # watch it run
-pnpm exec playwright show-report                              # open the last HTML report
+pnpm exec playwright test --project reference                      # only the apps/ result
+pnpm exec playwright test apps/web/e2e/greeting.spec.ts --headed   # watch one spec run
+pnpm exec playwright show-report                                   # open the last HTML report
 ```
+
+`playwright.config.ts` reads the results from `tooling/results.mjs` and gives
+each one a Chromium project named by its id (`reference` for `apps/`, the id
+for `showcase/<id>/`) and two servers: its api on Node and its web app on Vite.
+The reference uses ports 5173 and 3001; each further result adds 10. A new
+result and a new spec join the run with no config change. Set
+`E2E_BASE_URL` to point the reference project at a web server you run
+yourself, such as `pnpm preview` on :3000.
 
 ## Done when
 

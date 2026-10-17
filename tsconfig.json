@@ -1,40 +1,20 @@
 {
+  // The browser program: every web package and the ui kit. It has the DOM and
+  // no Node types, and it reaches the api only through the type-only
+  // `@repo/api` contract, whose source uses explicit `.ts` import extensions.
+  // The root configs and e2e specs run on Node: tsconfig.node.json.
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
 
-    /* Strictness — the type system is the first quality gate. */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-
-    /* Module hygiene. */
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-
-    "types": ["node", "jest", "@testing-library/jest-dom"]
+    "types": ["jest", "@testing-library/jest-dom"]
   },
-  "include": [
-    "apps/web/src",
-    "apps/web/e2e",
-    "apps/web/vite.config.ts",
-    "jest.config.ts",
-    "jest.setup.ts",
-    "commitlint.config.ts",
-    "playwright.config.ts"
-  ],
+  "include": ["apps/web/src", "showcase/*/web/src", "packages/ui/src"],
   "ts-node": {
     "transpileOnly": true,
     "compilerOptions": {

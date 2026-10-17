@@ -1,0 +1,180 @@
+// The architecture contract's banned imports, calls and effects per role
+// (ADR 0032). Fallow reads this pack through `rulePacks` in .fallowrc.jsonc and
+// reports each finding as `policy-violation` `contract/<rule id>`, an error.
+// Rules for one role name its zone. Rules that span roles name file globs, so
+// they also reach the reference web app's per-route and per-feature child
+// zones. Tests are excluded from those, since they never ship.
+{
+  "version": 1,
+  "name": "contract",
+  "description": "Banned imports, calls and effects per role of the reference monorepo contract.",
+  "rules": [
+    {
+      "id": "domain-pure",
+      "kind": "banned-import",
+      "zones": ["api-domain"],
+      "specifiers": [
+        "@trpc/server",
+        "effect",
+        "child_process",
+        "crypto",
+        "dgram",
+        "dns",
+        "fs",
+        "http",
+        "https",
+        "module",
+        "net",
+        "os",
+        "path",
+        "process",
+        "timers",
+        "tls",
+        "node:child_process",
+        "node:crypto",
+        "node:dgram",
+        "node:dns",
+        "node:fs",
+        "node:http",
+        "node:https",
+        "node:module",
+        "node:net",
+        "node:os",
+        "node:path",
+        "node:process",
+        "node:timers",
+        "node:tls",
+        "undici"
+      ],
+      "message": "Keep the domain free of tRPC, Effect and Node: move the effect to the feature's integrations module and call it from application."
+    },
+    {
+      "id": "application-without-trpc",
+      "kind": "banned-import",
+      "zones": ["api-application"],
+      "specifiers": ["@trpc/server"],
+      "message": "Application logic knows no transport: map errors to tRPC in the feature's procedures module."
+    },
+    {
+      "id": "effects-in-integrations",
+      "kind": "banned-call",
+      "files": [
+        "{apps,showcase/*}/web/src/**",
+        "packages/ui/src/**",
+        "{apps,showcase/*}/api/src/**"
+      ],
+      "exclude": [
+        "{apps,showcase/*}/api/src/{server,router}.ts",
+        "{apps,showcase/*}/api/src/features/*/integrations.ts",
+        "{apps,showcase/*}/api/src/features/*/integrations/**",
+        "**/*.test.{ts,tsx}"
+      ],
+      "callees": [
+        "fetch",
+        "globalThis.fetch",
+        "self.fetch",
+        "window.fetch",
+        "Effect.runPromise",
+        "Effect.runPromiseExit",
+        "Effect.runSync",
+        "Effect.runSyncExit",
+        "Effect.runFork",
+        "Effect.runCallback",
+        "effect/Effect.runPromise",
+        "effect/Effect.runPromiseExit",
+        "effect/Effect.runSync",
+        "effect/Effect.runSyncExit",
+        "effect/Effect.runFork",
+        "effect/Effect.runCallback"
+      ],
+      "message": "Run network calls and Effect programs only in the api's integrations module or composition root. Web code reaches the api through useTrpc() from the api client."
+    },
+    {
+      "id": "io-effects-in-integrations",
+      "kind": "banned-effect",
+      "files": [
+        "{apps,showcase/*}/web/src/**",
+        "packages/ui/src/**",
+        "{apps,showcase/*}/api/src/**"
+      ],
+      "exclude": [
+        "{apps,showcase/*}/api/src/{server,router}.ts",
+        "{apps,showcase/*}/api/src/features/*/integrations.ts",
+        "{apps,showcase/*}/api/src/features/*/integrations/**",
+        "**/*.test.{ts,tsx}"
+      ],
+      "effects": ["network", "storage", "process", "shell"],
+      "message": "Do network, file, process and shell work only in the api's integrations module or composition root."
+    },
+    {
+      "id": "node-io-in-integrations",
+      "kind": "banned-import",
+      "files": [
+        "{apps,showcase/*}/web/src/**",
+        "packages/ui/src/**",
+        "{apps,showcase/*}/api/src/**"
+      ],
+      "exclude": [
+        "{apps,showcase/*}/api/src/{server,router}.ts",
+        "{apps,showcase/*}/api/src/features/*/integrations.ts",
+        "{apps,showcase/*}/api/src/features/*/integrations/**",
+        "**/*.test.{ts,tsx}"
+      ],
+      "specifiers": [
+        "child_process",
+        "dgram",
+        "dns",
+        "fs",
+        "http",
+        "https",
+        "net",
+        "tls",
+        "node:child_process",
+        "node:dgram",
+        "node:dns",
+        "node:fs",
+        "node:http",
+        "node:https",
+        "node:net",
+        "node:tls",
+        "undici"
+      ],
+      "message": "Import Node IO only in the api's integrations module or composition root."
+    },
+    {
+      "id": "trpc-client-in-api-client",
+      "kind": "banned-import",
+      "files": [
+        "{apps,showcase/*}/web/src/**",
+        "packages/ui/src/**",
+        "{apps,showcase/*}/api/src/**"
+      ],
+      "exclude": ["{apps,showcase/*}/web/src/api-client/**", "**/*.test.{ts,tsx}"],
+      "specifiers": ["@trpc/client", "@trpc/tanstack-react-query"],
+      "message": "Reach the api through useTrpc() from the web api client, the one module that wires the tRPC client."
+    },
+    {
+      "id": "trpc-server-off-the-web",
+      "kind": "banned-import",
+      "files": ["{apps,showcase/*}/web/src/**", "packages/ui/src/**"],
+      "exclude": ["{apps,showcase/*}/web/src/api-client/**", "**/*.test.{ts,tsx}"],
+      "specifiers": ["@trpc/server"],
+      "message": "Web code reaches the api through the api client's useTrpc(), RouterInputs and RouterOutputs."
+    },
+    {
+      "id": "ui-without-logic",
+      "kind": "banned-import",
+      "zones": ["ui"],
+      "specifiers": [
+        "@tanstack/react-query",
+        "react-hook-form",
+        "@hookform/resolvers",
+        "effect",
+        "@trpc/client",
+        "@trpc/server",
+        "@trpc/tanstack-react-query"
+      ],
+      "message": "UI primitives hold no business logic: keep server state, forms and schemas in the route that composes the primitive."
+    }
+  ]
+}

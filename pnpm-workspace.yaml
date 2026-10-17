@@ -1,7 +1,10 @@
 # The workspace packages. Root configs own every gate and reach each package by
-# glob (ADR 0031).
+# glob (ADR 0031). `showcase/*/*` lists each showcase result's web and api, so
+# Fallow applies the contract rule pack to them (ADR 0032).
 packages:
   - 'apps/*'
+  - 'packages/*'
+  - 'showcase/*/*'
 
 # pnpm settings (pnpm ≥ 11 reads them here, not from package.json).
 # Native packages whose post-install build scripts we explicitly trust to run.

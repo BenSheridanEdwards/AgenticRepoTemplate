@@ -1,15 +1,15 @@
 # Accessibility
 
 The whole page meets WCAG 2.1 A and AA as axe measures it in real Chromium,
-including colour contrast. Every control is a native button that keyboard users
+including colour contrast, with and without the validation error showing. The
+`Name` field and the `Greet` button are native controls that keyboard users
 reach with Tab, in visual order.
 
 ## Sub-features
 
 - `a11y-axe` finds no violations for the tags `wcag2a`, `wcag2aa`, `wcag21a`,
-  and `wcag21aa`.
-- `a11y-keyboard` reaches `Decrease`, `Increase`, `Reset`, and `Refresh` in that
-  order with Tab.
+  and `wcag21aa`, on the fresh page and with the `Enter a name` alert.
+- `a11y-keyboard` reaches the `Name` field, then the `Greet` button, with Tab.
 
 ## How to get to it (user POV)
 
@@ -20,22 +20,17 @@ reach with Tab, in visual order.
 
 Preconditions:
 
-- `doctor` passes and the service list has loaded, so the scan covers the
-  success state.
+- `doctor` passes for the run.
 
-- **Scan.** Run `node $V drive accessibility --run <id>`. The first step prints
-  `PASS`. A failure prints each violation as `<rule-id>: <help>`.
-- **Keyboard.** The second step presses Tab four times from a fresh load. The
-  focused buttons are `Decrease`, `Increase`, `Reset`, `Refresh`.
-- **Proof.** The `.aria.yml` from step 1 is the accessibility tree the scan
+- **Scan.** Run `node $V drive accessibility --run <id>`. The first two steps
+  print `PASS`. A failure prints each violation as `<rule-id>: <help>`.
+- **Keyboard.** The third step presses Tab twice from a fresh load. Focus lands
+  on the `Name` field, then on `Greet`.
+- **Proof.** The `.aria.yml` from each step is the accessibility tree the scan
   saw. It is also what a screen reader reads, but no screen reader runs here.
 
 ## Gotchas
 
-- Scan after the list loads. A scan during loading misses the health pills,
-  which carry the colour-contrast risk.
-- The journey scans only the success state. To scan the error or empty state,
-  write a journey that intercepts `**/api/service-status` first.
 - axe opens a helper page, so its video is removed and only `video.webm` stays.
-- `page.goto` returns before React renders the buttons. Wait for a button to
-  be visible before the first Tab, or focus lands on nothing.
+- `page.goto` returns before React renders the form. Wait for the `Greet`
+  button to be visible before the first Tab, or focus lands on nothing.

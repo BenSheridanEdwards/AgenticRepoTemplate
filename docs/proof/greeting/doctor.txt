@@ -1,0 +1,9 @@
+PASS  process alive  (pid 334165)
+PASS  process is this run’s vite  (node /workspace/mono/pr2/apps/web/node_modules/.bin/../vite/bin/vite.js --host 127.0.0.1 --port 43605 --strictPort)
+PASS  api process alive  (pid 334164)
+PASS  process is this run’s api  (/home/box/.local/n/bin/node /workspace/mono/pr2/apps/api/src/server.ts)
+PASS  page answers 200  (status 200)
+PASS  greeting api answers through /trpc  (status 200, message "Hello, Ada!")
+PASS  app renders in Chromium  (heading "Greeting")
+PASS  build matches HEAD  (dev build 6a19651385a4, HEAD 6a19651385a4)
+run=pr2-proof mode=dev url=http://127.0.0.1:43605/

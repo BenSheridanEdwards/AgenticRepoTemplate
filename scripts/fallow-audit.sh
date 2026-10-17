@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Fallow's `audit` reports only the issues a change INTRODUCES versus a base
-# branch (dead code, cycles, complexity, architecture drift). That "introduced
-# only" framing is what makes it safe to drop onto a brownfield repo without
-# drowning in pre-existing findings.
+# Fallow's `audit` reviews the files a change touches versus a base branch
+# (dead code, cycles, complexity, architecture drift). `.fallowrc.jsonc` sets
+# `audit.gate` to "all", so every finding in a touched file fails, inherited
+# ones included (ADR 0032).
 #
 # `audit` needs a base ref to diff against. In normal use that is `origin/main`,
 # which the up-to-date check keeps fresh and CI compares against, or local `main`

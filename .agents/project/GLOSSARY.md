@@ -6,13 +6,19 @@ domain term appears, add it here in the same change.
 
 | Term | Meaning |
 | --- | --- |
-| **Feature** | A self-contained vertical slice under `apps/web/src/features/`, exposing a public surface via `index.ts`. The unit of work. |
-| **Public surface** | The exports in a feature's `index.ts` — the only things other modules may import. |
-| **Behaviour map** | The end-to-end specs in `apps/web/e2e/app.spec.ts` that define what the product does. The contract. |
+| **Result** | A pair of workspace packages, `<root>/web` and `<root>/api`, that together make one app. The reference result is `apps/`; each generated trial result is `showcase/<id>/`. `tooling/results.mjs` lists them. |
+| **Role** | One row of the role table in `ARCHITECTURE.md`: a set of files (a Fallow zone) and the roles it may import, such as `web-routes` or `api-domain`. Every source file has exactly one role. |
+| **Slice** | One folder under a package's `src/routes/` or `src/features/`, such as `routes/greeting` or `api/src/features/greeting`. A slice imports no sibling slice and exposes itself through `index.ts`. |
+| **Route** | A web slice under `web/src/routes/<route-name>/` that owns one page (`<Name>Page.tsx`) and its hooks and components. |
+| **Feature** | In the web, a shared slice under `web/src/features/<feature-name>/` that routes compose. In the api, a slice under `api/src/features/<name>/` with `procedures.ts`, `application.ts`, `domain.ts` and `integrations.ts`. |
+| **Procedure** | One tRPC endpoint, such as `greeting.greet`, declared in a feature's `procedures.ts`. Its path names it in `TestApiProvider` handlers. |
+| **Contract** | The architecture rules every result follows, and the checks that enforce them: the Fallow role zones and `contract/<id>` rule pack, the ESLint policy rules, and the TypeScript programs. Listed in `ARCHITECTURE.md`. |
+| **Public surface** | The exports in a slice's `index.ts` (or a package's `exports`), the only things other modules may import. Each has a committed API report in `etc/`. |
+| **Behaviour map** | The end-to-end specs in each result's `web/e2e/*.spec.ts`, such as `apps/web/e2e/greeting.spec.ts`, that define what the product does. The product contract. |
 | **Quality gate** | An automated check that can block a commit, a push, or a merge. Gates are code, not guidelines. |
 | **Health check** | Running the ArchitectPlaybook audits against this repo to grade its architecture and agentic setup (showcase #1). |
 | **Definition of Done** | The checklist in `DEFINITION_OF_DONE.md`; "done" means the gates that enforce it are green. |
-| **Status level** | In the reference feature: `low` / `warning` / `critical`, derived from the count by `statusForCount`. |
+| **Greeting** | The reference feature: the user submits a name and the api answers `Hello, <name>!` through `greeting.greet`. |
 
 This file pairs with **graphify**: the knowledge graph indexes the codebase, and
 this glossary names the concepts the graph connects.

@@ -63,7 +63,7 @@
   },
   "overrides": [
     {
-      "includes": ["apps/*/src/**"],
+      "includes": ["apps/*/src/**", "packages/*/src/**", "showcase/*/*/src/**"],
       "linter": {
         "rules": {
           "style": {
