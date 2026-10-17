@@ -116,8 +116,10 @@ mean the same thing. A green PR means "this change introduced nothing new".
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, and PR-body validation | [`.github/workflows/`](.github/workflows) |
 
 The gates always run. A
-[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any `--no-verify`,
-and weakening type, lint, or test configuration to turn red green is a named
+[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses the common ways to
+skip the git hooks (`--no-verify`, `git commit -n`, `HUSKY=0`, and rewrites of
+`core.hooksPath`, git aliases, or config includes), CI on a clean checkout is
+the backstop for the rest, and weakening type, lint, or test configuration to turn red green is a named
 violation. Honest red beats dishonest green.
 
 ### The definition of done: done is mechanical
@@ -277,7 +279,7 @@ AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.m
   templates/                Scaffolds for components, tests, and E2E.
 .claude/
   settings.json             Permission allowlist and PreToolUse hook.
-  hooks/block-gate-bypass.sh  Refuses --no-verify. Gates are not optional.
+  hooks/block-gate-bypass.sh  Refuses common hook bypasses. CI is the backstop.
   skills/                   This repo's own packaged processes.
     install-agentic-infrastructure/  Install repo guidance, hooks, CI, and PR proof.
     build-quality-gates/    Build pre-commit, pre-push, and CI gates.
