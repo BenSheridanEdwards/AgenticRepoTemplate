@@ -227,7 +227,8 @@ pnpm verify           # typecheck, biome, eslint, react doctor, fallow, architec
 pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
 ```
 
-Requires Node 22.18 or higher and pnpm. See [`.nvmrc`](.nvmrc).
+Requires Node 22.18 or higher and pnpm. See [`.nvmrc`](.nvmrc). If `nvm use`
+picks an installed Node 22 older than 22.18, run `nvm install`.
 
 ### Post-clone setup checklist
 
@@ -311,10 +312,12 @@ playwright.config.ts        Browser harness for the E2E behaviour map: one proje
 .size-limit.json            Bundle-size budget.
 lighthouserc.json           Lighthouse budget (accessibility floor and performance).
 .fallowrc.jsonc             Fallow config: the role zones and rules, the contract rule pack, plus runtime-loaded plugins.
-pnpm-workspace.yaml         Workspace packages (apps/*, packages/*), trusted builds, and security overrides.
+pnpm-workspace.yaml         Workspace packages (apps/*, packages/*, showcase/*/*), trusted builds, and security overrides.
 tsconfig.base.json          strict, with extra strictness; the first gate.
-tsconfig.json               The browser program: web packages, packages/ui, root configs.
-tsconfig.api.json           The Node program: api packages, .ts import extensions, erasable syntax only.
+tsconfig.json               The browser program: web packages and packages/ui.
+tsconfig.node.json          The Node program for root configs, Vite configs and e2e specs.
+tsconfig.api.json           The api program: api packages, .ts import extensions, erasable syntax only.
+tsconfig.domain.json        The domain program: api domain modules with no Node types.
 tooling/
   results.mjs               Lists the results (apps/ and each showcase/<id>/) for the per-result gates.
   architecture/contract.rules.jsonc  The contract's banned imports, calls and effects per role.

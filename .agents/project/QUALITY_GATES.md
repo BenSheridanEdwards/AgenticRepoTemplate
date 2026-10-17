@@ -32,11 +32,12 @@ only when a hook, script, workflow, or review checklist actually owns it.
   ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
 - **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
   ESLint plugin leaves out, such as duplicated JSX across files.
-- **TypeScript** owns type semantics through `tsc --noEmit` over three programs:
+- **TypeScript** owns type semantics through `tsc --noEmit` over four programs:
   `tsconfig.json` (web packages and `packages/ui`, with the DOM and no Node
   types), `tsconfig.node.json` (root configs, Vite configs and e2e specs, on
-  Node) and `tsconfig.api.json` (api packages, `NodeNext`, `.ts` import
-  extensions, `erasableSyntaxOnly`, no DOM). All three extend
+  Node), `tsconfig.api.json` (api packages, `NodeNext`, `.ts` import
+  extensions, `erasableSyntaxOnly`, no DOM) and `tsconfig.domain.json` (api
+  domain modules, as the api program but with no Node types). All four extend
   `tsconfig.base.json`.
 - **Jest + React Testing Library** own component, hook and api behaviour in
   three projects: `web` (jsdom, every web package and `packages/ui`), `api`

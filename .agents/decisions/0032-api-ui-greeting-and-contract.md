@@ -29,21 +29,29 @@ recipes leave ([0008](0008-convert-template-into-the-monorepo.md)).
 `showcase/<id>` and its id as scope. `tooling/results.mjs` (`listResults`) is
 the one place that discovers results, reference first, then each complete
 showcase result sorted by id, with ports 5173/3001 plus 10 per result.
-`pnpm-workspace.yaml` lists `apps/*` and `packages/*`.
+`pnpm-workspace.yaml` lists `apps/*`, `packages/*` and `showcase/*/*`. The
+showcase entry matches nothing until a trial writes a result. It is what puts
+a showcase result under the rule pack, because Fallow applies rule-pack rules
+only to files a workspace package reaches. The zones, ESLint and TypeScript
+reach showcase results by path glob without it.
 
 **Packages.**
 
 - `@repo/api` runs on Node's native type stripping (`node src/server.ts`), so
   no runner joins. `engines.node` becomes `>=22.18`, the first Node 22 that
-  strips types by default. `.nvmrc` stays `22`, which installs the newest Node
-  22 in CI, so CI runs at 22.18 or later without pinning an older patch.
+  strips types by default, and that is the floor. `.nvmrc` stays `22`, which
+  installs the newest Node 22 in CI, so CI runs at 22.18 or later without
+  pinning an older patch. Locally, `nvm use` picks the newest installed 22.x,
+  which can be older than 22.18. There `node src/server.ts` fails to strip
+  types, so `pnpm dev` and `pnpm e2e` fail. Run `nvm install` to get the
+  newest Node 22.
   `exports` names only `{ ".": { "types": "./src/router.ts" } }`, so the web
   bundle can never resolve a value import of the api.
 - `@repo/ui` holds `Button` and `TextField`, with `react` as its only peer.
 - `@repo/web` renders the greeting route inside `ApiProvider`. Vite proxies
   `/trpc` to `API_ORIGIN` (default `http://127.0.0.1:3001`) in dev and preview.
   Root `dev` runs web and api in parallel, `build` is `pnpm -r build`, and
-  `typecheck` runs both TypeScript programs.
+  `typecheck` runs four TypeScript programs: web, node, api and domain.
 
 **Role table.** Eleven roles, one Fallow zone each, matched by brace globs over
 `{apps,showcase/*}` and `packages/ui`:
@@ -70,22 +78,29 @@ test.
 | Routes own page composition | ESLint `policy/pages-in-routes`, Fallow `web-routes` |
 | Routes never import another route; sibling slices stand alone | ESLint `policy/slice-isolation` for every result, plus Fallow child zones for `apps/web` |
 | No extra layers, packages or loose slice files | Fallow `coverage.requireAllFiles`, `policy/slice-isolation` |
-| Procedures validate | ESLint `policy/procedure-input-schema` |
+| Procedures validate | ESLint `policy/procedure-input-schema` (`.input(...)` and `['input'](...)`) |
 | Procedures delegate to application logic | Fallow `api-procedures` value-imports only `api-trpc`, `api-application` |
-| Domain independent of tRPC and infrastructure | Fallow `api-domain` imports nothing; `contract/domain-pure`, `contract/application-without-trpc` |
-| Effectful integrations behind approved boundaries | `contract/effects-in-integrations` (`fetch`, `globalThis.fetch`, `window.fetch`, and every `Effect.run*` by name, namespace or named import), `contract/io-effects-in-integrations` (`banned-effect` network, storage, process, shell), `contract/node-io-in-integrations` |
+| Domain independent of tRPC and infrastructure | Fallow `api-domain` imports nothing; `contract/domain-pure` (including `module` and `node:module`), `contract/application-without-trpc`; `tsconfig.domain.json` (no Node types, no DOM), so `process`, `require`, `Buffer` and a Node module import, dynamic ones included, fail to compile in a domain module |
+| Effectful integrations behind approved boundaries | `contract/effects-in-integrations` (`fetch`, `globalThis.fetch`, `self.fetch`, `window.fetch`, and every `Effect.run*` by name, namespace or named import), `contract/io-effects-in-integrations` (`banned-effect` network, storage, process, shell), `contract/node-io-in-integrations` |
 | Frontend reaches the backend only through the type contract | Fallow `allowTypeOnly`, the `types`-only export, `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` |
 | UI primitives have no business logic | Fallow `ui` imports nothing; `contract/ui-without-logic` |
 | One React component per file | ESLint `policy/one-component-per-file` |
 | State, server state and forms in `use*` hooks | ESLint `policy/state-and-effects-in-hooks` (adds the TanStack Query hooks `useQuery`, `useQueries`, `useSuspenseQuery`, `useSuspenseQueries`, `useInfiniteQuery`, `useSuspenseInfiniteQuery`, `useMutation`, `useMutationState`, the React Hook Form hooks `useForm`, `useFieldArray`, `useController`, `useWatch`, `useFormState`, and React `useTransition`; a re-export of those modules fails too) |
 | Forms validate with Effect Schema | ESLint `policy/form-uses-effect-schema` (inline options, no spread) |
 | Every Fallow suppression names its reason | Fallow `require-suppression-reason` |
-| Web code has the DOM and no Node, api code has no DOM and only erasable syntax | `tsconfig.json` (web, ui; no Node types) and `tsconfig.api.json` over `tsconfig.base.json`; `tsconfig.node.json` types the configs and e2e specs |
+| Web code has the DOM and no Node, api code has no DOM and only erasable syntax, domain code has neither DOM nor Node | `tsconfig.json` (web, ui; no Node types), `tsconfig.api.json` and `tsconfig.domain.json` over `tsconfig.base.json`; `tsconfig.node.json` types the configs and e2e specs |
 
 The rule pack is `tooling/architecture/contract.rules.jsonc`, and a policy
-finding is an error. Its call and import bans are denylists: they name the
-calls and modules, and a constructor such as `new WebSocket()` sits outside
-what `banned-call` matches. `fallow architecture` honours a `fallow-ignore`
+finding is an error. Its call and import bans are denylists. They name the
+calls and modules, so these known shapes pass `pnpm arch:gate`:
+`new WebSocket()`, `new XMLHttpRequest()`, `new EventSource()`,
+`navigator.sendBeacon()`, and a banned call reached through an alias such as
+`const run = Effect.runSync; run(...)`. `policy/procedure-input-schema` reads
+the member name at the call, so an aliased `.input` is outside it too. In a
+domain module, `tsconfig.domain.json` closes the Node globals and imports the
+denylist misses. The pack reaches a showcase result through the
+`showcase/*/*` workspace entry, and a committed test seeds a showcase domain
+that imports `@trpc/server`. `fallow architecture` honours a `fallow-ignore`
 with no reason, and `fallow audit` fails it. `no-restricted-imports` also keeps
 routes on the api client's `index.ts`. `fallow audit` runs with `audit.gate: "all"`, which fails
 every finding in a changed file. The default `new-only` gate re-reads the base
@@ -131,10 +146,12 @@ Lighthouse scope adds `packages/ui/src/`, `packages/ui/package.json` and
 `tsconfig.base.json`. The role diagram renderer reads brace globs and fails when
 no import crosses two roles.
 
-**JS budget.** The stack this contract requires measures 125.97 kB brotli at
-head against the 80 kB budget. The budget raise to 130 kB is one separate commit
-and waits for Ben's decision. Effect 4 with `standardSchemaResolver` measured
-about 26 kB less, but `effectTsResolver` does not support it.
+**JS budget.** The stack this contract requires measures 125.91 kB brotli at
+head against the 80 kB budget. The budget raise to 130 kB, the measured size
+rounded up to the next 5 kB, is one separate commit and waits for Ben's
+decision. That commit's message cites 125.97 kB, the size before the review
+fixes. Effect 4 with `standardSchemaResolver` measured 106.79 kB, about 19 kB
+less, but `effectTsResolver` does not support it.
 
 ## Consequences
 

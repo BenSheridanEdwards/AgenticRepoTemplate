@@ -196,14 +196,14 @@ Each rule fails a check on a seeded violation in a committed test
 | A module is imported through its `index.ts`. | The public surface is a deliberate, reviewed list. | ESLint `no-restricted-imports`; API reports | `pnpm lint:policy`, `pnpm api:check` |
 | Procedures validate their input with Effect Schema. | Data from the network is untrusted until parsed. | ESLint `policy/procedure-input-schema` | `pnpm lint:policy` |
 | Procedures delegate to application logic. | Transport stays thin; logic stays testable. | Fallow `api-procedures` value-imports only `api-trpc`, `api-application` | `pnpm arch:gate` |
-| The domain is pure, and application knows no tRPC. | Rules test as plain functions. | Fallow `api-domain`; `contract/domain-pure`, `contract/application-without-trpc` | `pnpm arch:gate`, `pnpm fallow:audit` |
+| The domain is pure, and application knows no tRPC. | Rules test as plain functions. | Fallow `api-domain`; `contract/domain-pure`, `contract/application-without-trpc`; `tsconfig.domain.json` (no Node types) | `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
 | Effects run only in integrations or the api composition root. | One place to swap storage or IO. | `contract/effects-in-integrations`, `contract/io-effects-in-integrations`, `contract/node-io-in-integrations` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | The web reaches the api only through the api client and the router type. | The bundle carries no server code. | Fallow `allowTypeOnly`; the `types`-only export of `@repo/api`; `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | UI primitives hold no business logic. | The kit stays reusable across results. | Fallow `ui` imports nothing; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | One React component per file. | One file, one reason to change. | ESLint `policy/one-component-per-file` | `pnpm lint:policy` |
 | State, server state and form state live in `use*` hooks. | Components render; hooks wire. | ESLint `policy/state-and-effects-in-hooks` | `pnpm lint:policy` |
 | Forms validate with Effect Schema. | One schema language across web and api. | ESLint `policy/form-uses-effect-schema` | `pnpm lint:policy` |
-| Web code has the DOM and no Node; api code has no DOM and only erasable syntax. | The browser has no Node, and Node strips types and runs the source as is. | `tsconfig.json` (web, ui) and `tsconfig.api.json` over `tsconfig.base.json` | `pnpm typecheck` |
+| Web code has the DOM and no Node; api code has no DOM and only erasable syntax; domain code has neither. | The browser has no Node, and Node strips types and runs the source as is. | `tsconfig.json` (web, ui), `tsconfig.api.json` and `tsconfig.domain.json` over `tsconfig.base.json` | `pnpm typecheck` |
 | Behaviour is defined by each result's E2E specs. | The product contract survives refactors. | Playwright, one project per result | `pnpm e2e` |
 
 `contract/<id>` is a rule in

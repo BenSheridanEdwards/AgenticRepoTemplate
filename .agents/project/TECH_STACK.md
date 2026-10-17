@@ -9,7 +9,7 @@ each owner runs locally and in CI.
 | Concern | Owner | Notes |
 | --- | --- | --- |
 | Language | **TypeScript** (`strict`) | The first quality gate is the type system. |
-| Workspace | **pnpm workspaces** | `apps/*` and `packages/*`; the root configs own every gate. |
+| Workspace | **pnpm workspaces** | `apps/*`, `packages/*` and each showcase result (`showcase/*/*`); the root configs own every gate. |
 | UI | **React 19** | Function components + hooks only. |
 | UI primitives | **`@repo/ui`** (`packages/ui`) | `Button`, `TextField` and `styles.css`; `react` is its only peer. |
 | Build / dev server | **Vite** | The runnable carrier; the scaffolding is stack-agnostic. Its dev and preview servers proxy `/trpc` to `API_ORIGIN` (default `http://127.0.0.1:3001`). |
@@ -48,7 +48,9 @@ each owner runs locally and in CI.
   `standardSchemaResolver` would be smaller, and moving to it is an ADR-level
   change ([ADR 0032](../decisions/0032-api-ui-greeting-and-contract.md)).
 - **Native type stripping, no runner.** Node 22.18 is the first Node 22 that
-  strips types by default. `engines.node` is `>=22.18`, and `.nvmrc` stays `22`.
+  strips types by default. `engines.node` is `>=22.18`, the floor, and `.nvmrc`
+  stays `22`. Locally, `nvm use` can pick an installed 22.x older than 22.18,
+  where the api fails to start; `nvm install` gets the newest Node 22.
 - **The Vite proxy.** The browser calls `/trpc` on its own origin, so the web
   app needs no CORS setup and no api URL in its bundle.
 

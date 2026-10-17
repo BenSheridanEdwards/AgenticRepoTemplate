@@ -52,9 +52,9 @@ outside every rule.
 
 | Rule id | What it keeps |
 | --- | --- |
-| `contract/domain-pure` | `domain.ts` imports no `@trpc/server`, no `effect` and no Node module. |
+| `contract/domain-pure` | `domain.ts` imports no `@trpc/server`, no `effect` and no Node module. `tsconfig.domain.json` also gives it no Node globals. |
 | `contract/application-without-trpc` | `application.ts` imports no `@trpc/server`; procedures map errors to tRPC. |
-| `contract/effects-in-integrations` | `fetch`, `Effect.runPromise`, `Effect.runSync` and `Effect.runFork` run only in `integrations.ts` or the api `server.ts` and `router.ts`. |
+| `contract/effects-in-integrations` | `fetch`, `self.fetch`, `Effect.runPromise`, `Effect.runSync` and `Effect.runFork` run only in `integrations.ts` or the api `server.ts` and `router.ts`. |
 | `contract/io-effects-in-integrations` | Network, storage, process and shell work runs only there too. |
 | `contract/node-io-in-integrations` | Node IO modules (`fs`, `http`, `net`, `child_process`) are imported only there too. |
 | `contract/trpc-client-in-api-client` | `@trpc/client` and `@trpc/tanstack-react-query` are imported only in `web/src/api-client/`. |
