@@ -28,7 +28,9 @@ const REPOSITORY_ROOT = resolve(import.meta.dirname, '../../../..');
 const VERIFY_ROOT = join(REPOSITORY_ROOT, '.verify');
 const WEB_ROOT = join(REPOSITORY_ROOT, 'apps/web');
 const VITE_BIN = join(WEB_ROOT, 'node_modules/.bin/vite');
-const APP_HEADING = 'Agentic Project Template';
+const API_SERVER = join(REPOSITORY_ROOT, 'apps/api/src/server.ts');
+const APP_HEADING = 'Greeting';
+const GREETING_PROBE = `/trpc/greeting.greet?input=${encodeURIComponent(JSON.stringify({ name: 'Ada' }))}`;
 const READY_TIMEOUT_MS = 60_000;
 
 const runPaths = (runId) => {
@@ -38,6 +40,7 @@ const runPaths = (runId) => {
     instance: join(root, 'instance'),
     instanceFile: join(root, 'instance', 'instance.json'),
     serverLog: join(root, 'instance', 'server.log'),
+    apiLog: join(root, 'instance', 'api.log'),
     evidence: join(root, 'evidence'),
   };
 };
@@ -112,12 +115,18 @@ function ownsProcess(instance) {
   return commandLine.includes('vite') && tokens[portFlag + 1] === String(instance.port);
 }
 
+/** True only for the api process this run spawned from this checkout. */
+function ownsApiProcess(instance) {
+  return commandLineOf(instance.apiPid).includes(API_SERVER);
+}
+
+/** The page, and one greeting through the web server's `/trpc` proxy to the api. */
 async function probeHttp(url) {
   try {
     const page = await fetch(url);
-    const api = await fetch(new URL('/api/service-status', url));
-    const services = api.ok ? await api.json() : null;
-    return { pageStatus: page.status, apiStatus: api.status, services };
+    const api = await fetch(new URL(GREETING_PROBE, url));
+    const greeting = api.ok ? (await api.json())?.result?.data?.message : null;
+    return { pageStatus: page.status, apiStatus: api.status, greeting };
   } catch (error) {
     return { error: String(error) };
   }
@@ -129,9 +138,7 @@ async function probeRender(url) {
     const page = await browser.newPage();
     await page.goto(url);
     await expect(page.getByRole('heading', { level: 1, name: APP_HEADING })).toBeVisible();
-    await expect(
-      page.getByRole('region', { name: 'Service status' }).getByRole('listitem'),
-    ).toHaveCount(3);
+    await expect(page.getByRole('textbox', { name: 'Name' })).toBeVisible();
     return { rendered: true };
   } catch (error) {
     return { rendered: false, error: String(error).split('\n')[0] };
@@ -150,6 +157,7 @@ async function launch(options) {
   mkdirSync(paths.evidence, { recursive: true });
 
   const port = Number(options.port ?? (await freePort()));
+  const apiPort = Number(options['api-port'] ?? (await freePort()));
   const distDirectory = options.dist ? resolve(WEB_ROOT, options.dist) : undefined;
   if (distDirectory && !existsSync(join(distDirectory, 'index.html'))) {
     throw new Error(
@@ -173,17 +181,37 @@ async function launch(options) {
       ]
     : ['--host', '127.0.0.1', '--port', String(port), '--strictPort'];
 
+  const apiLog = openSync(paths.apiLog, 'a');
+  const api = spawn(process.execPath, [API_SERVER], {
+    cwd: REPOSITORY_ROOT,
+    detached: true,
+    env: { ...process.env, PORT: String(apiPort) },
+    stdio: ['ignore', apiLog, apiLog],
+  });
+  api.unref();
+
   const log = openSync(paths.serverLog, 'a');
   const server = spawn(VITE_BIN, viteArguments, {
     cwd: WEB_ROOT,
     detached: true,
+    env: { ...process.env, API_ORIGIN: `http://127.0.0.1:${apiPort}` },
     stdio: ['ignore', log, log],
   });
   server.unref();
 
   const url = `http://127.0.0.1:${port}/`;
   const build = distDirectory ? options.sha : gitHead();
-  const instance = { runId, mode, url, port, pid: server.pid, distDirectory, build };
+  const instance = {
+    runId,
+    mode,
+    url,
+    port,
+    pid: server.pid,
+    apiPort,
+    apiPid: api.pid,
+    distDirectory,
+    build,
+  };
   writeFileSync(paths.instanceFile, `${JSON.stringify(instance, null, 2)}\n`);
 
   const deadline = Date.now() + READY_TIMEOUT_MS;
@@ -191,11 +219,16 @@ async function launch(options) {
     if (!isAlive(server.pid)) {
       throw new Error(`Server exited during startup. Read ${paths.serverLog}.`);
     }
+    if (!isAlive(api.pid)) {
+      throw new Error(`The api exited during startup. Read ${paths.apiLog}.`);
+    }
     const probe = await probeHttp(url);
-    if (probe.pageStatus === 200 && Array.isArray(probe.services)) {
+    if (probe.pageStatus === 200 && probe.greeting === 'Hello, Ada!') {
       const render = await probeRender(url);
       if (render.rendered) {
-        console.log(`READY run=${runId} mode=${mode} url=${url} pid=${server.pid}`);
+        console.log(
+          `READY run=${runId} mode=${mode} url=${url} pid=${server.pid} api=${apiPort} apiPid=${api.pid}`,
+        );
         console.log(`evidence=${paths.evidence}`);
         return;
       }
@@ -218,11 +251,17 @@ async function doctor(options) {
       ownsProcess(instance),
       commandLineOf(instance.pid) || 'no process',
     ],
+    ['api process alive', isAlive(instance.apiPid), `pid ${instance.apiPid}`],
+    [
+      'process is this run’s api',
+      ownsApiProcess(instance),
+      commandLineOf(instance.apiPid) || 'no process',
+    ],
     ['page answers 200', http.pageStatus === 200, http.error ?? `status ${http.pageStatus}`],
     [
-      'service API answers',
-      Array.isArray(http.services) && http.services.length === 3,
-      http.error ?? `status ${http.apiStatus}, ${http.services?.length ?? 0} services`,
+      'greeting api answers through /trpc',
+      http.greeting === 'Hello, Ada!',
+      http.error ?? `status ${http.apiStatus}, message ${JSON.stringify(http.greeting)}`,
     ],
     ['app renders in Chromium', render.rendered, render.error ?? `heading "${APP_HEADING}"`],
     [
@@ -285,7 +324,7 @@ async function drive(options) {
     pageErrors: [],
   };
   page.on('response', (response) => {
-    if (new URL(response.url()).pathname.startsWith('/api/')) {
+    if (new URL(response.url()).pathname.startsWith('/trpc/')) {
       manifest.apiResponses.push(
         `${response.request().method()} ${response.url()} ${response.status()}`,
       );
@@ -363,6 +402,13 @@ function cleanup(options) {
     }
     process.kill(-instance.pid, 'SIGTERM');
     console.log(`Stopped pid ${instance.pid} (process group).`);
+  }
+  if (isAlive(instance.apiPid)) {
+    if (!ownsApiProcess(instance)) {
+      throw new Error(`pid ${instance.apiPid} is not this run’s api. Not killing it.`);
+    }
+    process.kill(-instance.apiPid, 'SIGTERM');
+    console.log(`Stopped api pid ${instance.apiPid} (process group).`);
   }
   rmSync(paths.instance, { recursive: true, force: true });
   console.log(`Removed ${paths.instance}. Evidence kept at ${paths.evidence}.`);
