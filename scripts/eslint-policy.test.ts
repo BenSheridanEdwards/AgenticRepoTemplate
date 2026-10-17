@@ -293,27 +293,100 @@ export class Fixture extends Component {
     expect(result.ruleIds).toContain('no-restricted-imports');
   });
 
-  it('blocks a disable comment without a reason (policy/disable-reason)', () => {
+  it('names the helper, not the exported component, when a helper comes first', () => {
     const result = lintPolicy(`
+function Icon() {
+  return <span>!</span>;
+}
 export function Fixture() {
-  // eslint-disable-next-line react-hooks/purity
-  const ticket = Math.random();
-  return <p>{ticket}</p>;
+  return <Icon />;
 }
 `);
-    expect(result.exitCode).toBe(1);
-    expect(result.ruleIds).toContain('policy/disable-reason');
+    expect(result.ruleIds).toEqual(['policy/one-component-per-file']);
+    expect(result.output).toContain('Move `Icon` into its own file');
   });
 
-  it('blocks a ts-expect-error without a description (@typescript-eslint/ban-ts-comment)', () => {
+  it('leaves a test harness component alone', () => {
+    const result = lintPolicy(
+      `
+import { useState } from 'react';
+export function Harness() {
+  const [value, setValue] = useState(0);
+  const bump = () => setValue(value + 1);
+  return <button type="button" onClick={bump}>{value}</button>;
+}
+`,
+      'src/features/policy/Fixture.test.tsx',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it.each([
+    [
+      'useActionState',
+      "import { useActionState } from 'react';",
+      'useActionState(async (x: number) => x, 0);',
+    ],
+  ])('blocks %s in a component (policy/state-and-effects-in-hooks)', (_label, importLine, call) => {
     const result = lintPolicy(`
+${importLine}
 export function Fixture() {
-  // @ts-expect-error
-  const count: number = 'one';
-  return <p>{count}</p>;
+  ${call}
+  return <p>state</p>;
 }
 `);
-    expect(result.exitCode).toBe(1);
-    expect(result.ruleIds).toContain('@typescript-eslint/ban-ts-comment');
+    expect(result.ruleIds).toContain('policy/state-and-effects-in-hooks');
+  });
+
+  it('blocks a React.useCallback without the handle prefix (policy/handler-names)', () => {
+    const result = lintPolicy(`
+import * as React from 'react';
+export function Fixture({ onSave }: { onSave: () => void }) {
+  const save = React.useCallback(() => onSave(), [onSave]);
+  return <button type="button" onClick={save}>Save</button>;
+}
+`);
+    expect(result.ruleIds).toContain('policy/handler-names');
+  });
+
+  it.each([
+    [
+      'an intersection',
+      'type FixtureProps = { label: string } & { save?: () => void };\nexport function Fixture({ save }: FixtureProps) {',
+    ],
+    [
+      'an extended interface',
+      'interface Base { save(): void }\ninterface FixtureProps extends Base { label: string }\nexport function Fixture({ save }: FixtureProps) {',
+    ],
+    [
+      'FC<Props>',
+      "import type { FC } from 'react';\ninterface FixtureProps { save: () => void }\nexport const Fixture: FC<FixtureProps> = ({ save }) => {",
+    ],
+  ])('blocks a callback prop without the on prefix through %s (policy/callback-prop-names)', (_label, header) => {
+    const result = lintPolicy(`
+${header}
+  return <button type="button" onClick={save}>Save</button>;
+};
+`);
+    expect(result.ruleIds).toContain('policy/callback-prop-names');
+  });
+
+  it('passes render props and children', () => {
+    const result = lintPolicy(`
+import type { ReactNode } from 'react';
+interface FixtureProps {
+  renderItem: (item: string) => ReactNode;
+  children: (open: boolean) => ReactNode;
+}
+export function Fixture({ renderItem, children }: FixtureProps) {
+  return <ul>{renderItem('one')}{children(true)}</ul>;
+}
+`);
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it('passes a __tests__ folder (policy/folder-names)', () => {
+    const result = lintPolicy('export const value = 1;', 'src/features/policy/__tests__/value.ts');
+    expect(result.ruleIds).toEqual([]);
   });
 });

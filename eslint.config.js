@@ -72,10 +72,6 @@ const singleOwnerOverrides = {
 const policyRules = {
   ...Object.fromEntries(Object.keys(policy.rules).map((rule) => [`policy/${rule}`, 'error'])),
   'react-doctor/prefer-function-component': 'error',
-  '@typescript-eslint/ban-ts-comment': [
-    'error',
-    { 'ts-expect-error': 'allow-with-description', minimumDescriptionLength: 10 },
-  ],
   // A feature, route, or shared module is imported only through its index.ts.
   'no-restricted-imports': [
     'error',
@@ -113,7 +109,6 @@ export default [
       ...reactHooksRecommended.plugins,
       ...reactDoctorRecommended.plugins,
       policy,
-      '@typescript-eslint': tseslint.plugin,
     },
     settings: reactDoctorRecommended.settings,
     rules: {
