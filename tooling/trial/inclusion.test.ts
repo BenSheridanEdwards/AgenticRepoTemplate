@@ -39,10 +39,11 @@ const TS = '@ts';
 const WEB_FILE = 'web/src/routes/greeting/GreetingPage.tsx';
 const API_FILE = 'api/src/features/greeting/procedures.ts';
 
-// Playwright refuses to run under a Jest worker's variables, and the copy's
-// git must not see the outer repository's.
+// Playwright refuses to run under a Jest worker's variables, the copy's git
+// must not see the outer repository's, and the gates run as they do locally,
+// not as in the pull request an outer CI run is checking.
 const env = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !/^(GIT|JEST)_/.test(key)),
+  Object.entries(process.env).filter(([key]) => !/^(GIT|JEST|GITHUB)_/.test(key)),
 );
 Object.assign(env, {
   GIT_CONFIG_GLOBAL: '/dev/null',
