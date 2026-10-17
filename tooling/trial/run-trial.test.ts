@@ -370,6 +370,7 @@ describe('runTrial', () => {
       'refs/remotes/origin/main',
     ]);
     expect(git(clone, 'rev-parse', 'origin/main')).toBe(scaffold);
+    expect(existsSync(join(planned.origin, 'FETCH_HEAD'))).toBe(false);
     const message = git(clone, 'log', '-1', '--format=%B');
     expect(message.split('\n')[0]).toBe('feat(showcase): add todo-01 trial result');
     expect(message.split('\n').at(-1)).toBe(SIGN_OFF);
@@ -673,6 +674,11 @@ emit({ type: 'assistant', message: { content: [
       CLAUDECODE: '1',
       CLAUDE_CODE_SESSION_ID: 'parent-session',
       CLAUDE_CODE_OAUTH_TOKEN: 'token',
+      ANTHROPIC_API_KEY: 'key',
+      ANTHROPIC_MODEL: 'claude-haiku',
+      MAX_THINKING_TOKENS: '1024',
+      DISABLE_AUTOUPDATER: '1',
+      LC_ALL: 'C.UTF-8',
       npm_lifecycle_event: 'trial',
       INIT_CWD: source,
     };
@@ -694,14 +700,66 @@ emit({ type: 'assistant', message: { content: [
     }
     const env = JSON.parse(readFileSync(seen, 'utf8'));
 
-    expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBe('token');
+    expect(env).toMatchObject({
+      CLAUDE_CODE_OAUTH_TOKEN: 'token',
+      ANTHROPIC_API_KEY: 'key',
+      LC_ALL: 'C.UTF-8',
+      HOME: process.env.HOME,
+    });
+    expect(env.PATH).toContain('/');
     for (const name of [
       'CLAUDECODE',
       'CLAUDE_CODE_SESSION_ID',
+      'ANTHROPIC_MODEL',
+      'MAX_THINKING_TOKENS',
+      'DISABLE_AUTOUPDATER',
+      'GIT_AUTHOR_NAME',
       'npm_lifecycle_event',
       'INIT_CWD',
     ]) {
       expect(env[name]).toBeUndefined();
+    }
+  });
+
+  it.each([
+    'remote-settings.json',
+    'rules/style.md',
+  ])('hashes the config entry %s into the user config hash', async (entry) => {
+    const userConfigHash = async (text: string) => {
+      write(sandbox, `claude-config/${entry}`, text);
+      clearEvidence();
+      const evidence = await runTrial(
+        plan({ agent: fakeAgent('config-hash', WRITES_RESULT) }),
+        quietDeps(),
+      );
+      return evidence.agent.userConfigSha256;
+    };
+
+    expect(await userConfigHash('one\n')).not.toBe(await userConfigHash('two\n'));
+  });
+
+  it.each([
+    'package.json',
+    '.size-limit.json',
+    'lighthouserc.json',
+    'jest.setup.ts',
+    '.npmrc',
+    '.mcp.json',
+  ])('moves the enforcement revision on a scaffold commit to %s', async (path) => {
+    write(source, path, `${JSON.stringify({ changed: path })}\n`);
+    try {
+      git(source, 'add', path);
+      git(source, 'commit', '-q', '-m', `change ${path}`);
+      const changed = git(source, 'rev-parse', 'HEAD');
+
+      const evidence = await runTrial(
+        plan({ agent: fakeAgent('enforcement', WRITES_RESULT), scaffoldRev: changed }),
+        quietDeps(),
+      );
+
+      expect(evidence.scaffold.enforcementRev).toBe(changed);
+    } finally {
+      git(source, 'checkout', '-q', scaffold);
     }
   });
 
