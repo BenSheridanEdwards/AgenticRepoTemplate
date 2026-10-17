@@ -323,6 +323,13 @@ describe('renderPrompt', () => {
     expect(template).toContain('keep the written diagram');
   });
 
+  it('tells the agent to read only inside its clone and how its page reaches the api', () => {
+    const template = readFileSync(join(REPOSITORY_ROOT, 'tooling/trial/todo-prompt.md'), 'utf8');
+
+    expect(template).toContain('Read only inside this clone.');
+    expect(template).toContain('The page reaches the api through `/trpc`, as the reference does.');
+  });
+
   it('throws on a placeholder it does not fill', () => {
     expect(() =>
       renderPrompt('Trial {{ID}} on {{DATE}}', { id: 'todo-01', trial: 1 } as never),
@@ -526,28 +533,43 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     expect(outOfScope.result).toMatchObject({ status: 'failed', outsideScope: ['pnpm-lock.yaml'] });
   });
 
-  it('fails a run whose agent reached where an earlier result lives, and only then', async () => {
+  it('fails a run whose agent named a path outside its workdir, and only then', async () => {
     const transcript = join(sandbox, 'claude-config/projects/earlier/session.jsonl');
     write(sandbox, 'claude-config/projects/earlier/session.jsonl', '{}\n');
-    const agent = fakeAgent(
-      'outside-read',
-      `${WRITES_RESULT}
+    write(sandbox, 'PLAN.md', '# plan\n');
+    const planned = plan({
+      agent: fakeAgent(
+        'outside-read',
+        `${WRITES_RESULT}
 const tool = (name, input) => ({ type: 'tool_use', name, input });
 emit({ type: 'assistant', message: { content: [
   tool('Read', { file_path: process.cwd() + '/apps/web/src/App.tsx' }),
+  tool('Read', { file_path: '../prompt.md' }),
   tool('Read', { file_path: ${JSON.stringify(join(source, 'apps/web/src/App.tsx'))} }),
   tool('Read', { file_path: ${JSON.stringify(transcript)} }),
+  tool('Read', { file_path: ${JSON.stringify(join(sandbox, 'PLAN.md'))} }),
   tool('Read', { file_path: ${JSON.stringify(join(sandbox, 'claude-config/settings.json'))} }),
+  tool('Grep', { pattern: 'todo', path: ${JSON.stringify(sandbox)} }),
   tool('Bash', { command: 'grep -rn "/trpc" showcase 2>/dev/null; ls /usr/bin ${REPOSITORY_ROOT}' }),
-  tool('Bash', { command: "cat <<'EOF'\\n<div>hi</div> // note\\nEOF" }),
+  tool('Bash', { command: "cat <<'EOF'\\n<div>hi</div> // note\\nimport { x } from '../../domain.ts';\\nEOF" }),
   tool('Bash', { command: 'ls ${source} ${source}/no-such-folder' }),
+  tool('Bash', { command: 'cd ../.. && ls; cat ../prompt.md' }),
 ] } });`,
-    );
+      ),
+    });
 
-    const evidence = await runTrial(plan({ agent }), quietDeps());
+    const evidence = await runTrial(planned, quietDeps());
 
     expect(evidence.result.outsideReads).toEqual(
-      [source, join(source, 'apps/web/src/App.tsx'), transcript].sort(),
+      [
+        REPOSITORY_ROOT,
+        sandbox,
+        join(sandbox, 'PLAN.md'),
+        source,
+        join(source, 'apps/web/src/App.tsx'),
+        transcript,
+        planned.trialsRoot,
+      ].sort(),
     );
     expect(evidence.result.status).toBe('failed');
   });
