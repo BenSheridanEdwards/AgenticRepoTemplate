@@ -1,0 +1,431 @@
+#!/usr/bin/env node
+/**
+ * Writes docs/trials/COMPARISON.md: the full pass count, the proof that the
+ * Todo trials shared one baseline, and every aspect of the results compared
+ * under ADR 0035, each identical, inside a named spec freedom, or outside the
+ * spec. `node tooling/trial/compare.mjs` writes it; compare.test.ts holds the
+ * committed report equal to a fresh one.
+ *
+ * @typedef {import('./evidence.mjs').TrialEvidence} TrialEvidence
+ * @typedef {import('./result-facts.mjs').ResultFacts} ResultFacts
+ * @typedef {import('./dimensions.mjs').Comparison} Comparison
+ * @typedef {import('./dimensions.mjs').Difference} Difference
+ * @typedef {{ readonly evidence: TrialEvidence, readonly source: string, readonly facts: ResultFacts }} Run
+ * @typedef {{
+ *   readonly label: string,
+ *   readonly proof: string,
+ *   readonly values: readonly string[],
+ *   readonly holds: boolean,
+ * }} BaselineCheck
+ */
+
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { listResults } from '../results.mjs';
+import { compareResults } from './dimensions.mjs';
+import { validateEvidence } from './evidence.mjs';
+import { readContract, readResultFacts, treeFromPatch } from './result-facts.mjs';
+import { renderPrompt } from './run-trial.mjs';
+
+export const REPORT_PATH = 'docs/trials/COMPARISON.md';
+const TRIALS = 'docs/trials';
+
+/** The author's rulings (PLAN, Risks): each turns one outside-spec aspect into the freedom it names. */
+const RULINGS = [
+  {
+    key: 'public-api · exports web:web-api-client',
+    freedom: /** @type {const} */ (2),
+    why: "RouterInputs is a type alias over AppRouter; todo-02's route hook types its inputs from `RouterOutputs` instead, so the type helpers split differently between web-api-client and web-routes; the runtime exports are equal.",
+  },
+];
+
+const sha256 = (text) => createHash('sha256').update(text).digest('hex');
+
+/** ADR 0034 "New baseline" fields that every run records alike. */
+const EQUAL = [
+  ['Scaffold rev', (e) => e.scaffold.rev],
+  ['Enforcement rev', (e) => e.scaffold.enforcementRev],
+  ['Lockfile SHA-256', (e) => e.scaffold.lockfileSha256],
+  ['Prompt template SHA-256', (e) => e.prompt.templateSha256],
+  ['Harness SHA-256', (e) => e.harness.sha256],
+  ['CLI version', (e) => e.agent.version],
+  ['Resolved model', (e) => e.agent.resolvedModel ?? '(none)'],
+  ['User config SHA-256', (e) => e.agent.userConfigSha256],
+];
+
+/**
+ * One row per baseline field: equal across runs, one fixed value in each run,
+ * re-derived from committed text, or distinct per run.
+ *
+ * @param {readonly TrialEvidence[]} evidences
+ * @param {(path: string) => string} readText
+ * @returns {readonly BaselineCheck[]}
+ */
+function proveBaseline(evidences, readText) {
+  const each = (label, proof, read, holds) => {
+    const values = evidences.map(read);
+    return { label, proof, values, holds: evidences.every((e, i) => holds(e, values[i])) };
+  };
+  const template = (e) => readText(e.prompt.path);
+  return [
+    ...EQUAL.map(([label, read]) =>
+      each(label, 'equal across runs', read, (_, value) => value === read(evidences[0])),
+    ),
+    each(
+      'Harness equals the scaffold copy',
+      '`true` in each run',
+      (e) => String(e.harness.matchesScaffold),
+      (_, v) => v === 'true',
+    ),
+    each(
+      'Real agent session',
+      '`agent.fake` is `false` in each run',
+      (e) => String(e.agent.fake),
+      (_, v) => v === 'false',
+    ),
+    each(
+      'Session id',
+      'distinct per run',
+      (e) => e.agent.sessionId,
+      (_, v) => evidences.filter((other) => other.agent.sessionId === v).length === 1,
+    ),
+    each(
+      'Template file hash',
+      're-derived from the template at `prompt.path`',
+      (e) => sha256(template(e)),
+      (e, v) => v === e.prompt.templateSha256,
+    ),
+    each(
+      'Rendered prompt SHA-256',
+      're-derived with `renderPrompt`',
+      (e) => sha256(renderPrompt(template(e), { id: e.trial.id, trial: e.trial.number })),
+      (e, v) => v === e.prompt.sha256,
+    ),
+    each(
+      'Recorded prompt text',
+      're-derived from `prompt.text`',
+      (e) => sha256(e.prompt.text),
+      (e, v) => v === e.prompt.sha256,
+    ),
+  ];
+}
+
+/** A code span safe inside a table cell; long hashes shortened. */
+function code(value) {
+  const short = /^[0-9a-f]{40,64}$/.test(value) ? `${value.slice(0, 12)}…` : value;
+  return `\`${short.replaceAll('|', '\\|').replaceAll('`', "'")}\``;
+}
+
+const row = (cells) => `| ${cells.join(' | ')} |`;
+const table = (head, rows) => [row(head), row(head.map(() => '---')), ...rows.map(row)].join('\n');
+const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const andList = (items) =>
+  items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+
+function duration(ms) {
+  if (ms === null) {
+    return code('(none)');
+  }
+  const seconds = Math.round(ms / 1000);
+  return code(`${Math.floor(seconds / 60)} min ${seconds % 60} s`);
+}
+
+/** @param {readonly Run[]} runs */
+function renderRuns(runs) {
+  const rows = runs.map(({ evidence: e, source }) => [
+    code(e.trial.id),
+    e.result.status === 'passed' ? code('passed') : `**${code('failed')}**`,
+    code(source),
+    e.result.commit ? code(e.result.commit.slice(0, 7)) : code('(none)'),
+    duration(e.run.agentDurationMs),
+    andList(e.checks.map((check) => `${code(check.name)} ${code(String(check.exitCode))}`)),
+    e.failures.map(code).join('<br>'),
+  ]);
+  const notes = runs
+    .filter(({ evidence: e }) => e.result.status === 'failed')
+    .map(({ evidence: e, source }) => {
+      const codes = [...new Set(e.checks.map((check) => check.exitCode))];
+      const exits =
+        codes.length === 1
+          ? `each exited ${code(String(codes[0]))}`
+          : `exited ${andList(e.checks.map((c) => code(String(c.exitCode))))}`;
+      return `${code(e.trial.id)} is ${code('failed')}: its checks ${andList(e.checks.map((c) => code(c.name)))} ${exits}, and its evidence names the failure ${andList(e.failures.map(code))}. Its code comes from ${code(source)}, and the report compares it like the others.`;
+    });
+  return [
+    '## Runs',
+    table(
+      ['Run', 'Status', 'Read from', 'Commit', 'Agent time', 'Checks (exit code)', 'Failure'],
+      rows,
+    ),
+    ...notes,
+  ];
+}
+
+/** @param {readonly BaselineCheck[]} checks */
+function renderBaseline(checks, ids) {
+  return [
+    '## Baseline',
+    'Every row comes from the committed evidence and files (ADR 0034, "New baseline").',
+    table(
+      ['Field', 'Proof', ...ids.map(code), 'Holds'],
+      checks.map((check) => [
+        check.label,
+        check.proof,
+        ...check.values.map(code),
+        check.holds ? 'yes' : 'no',
+      ]),
+    ),
+  ];
+}
+
+/** @param {Comparison} comparison */
+function renderMethod(comparison) {
+  return [
+    '## Method',
+    'Each dimension compares a normalized form, so names alone count as no difference: names reach only the written forms, which this report shows and the method skips. An invariant holds or breaks in each run on its own. A form is identical when every run has the same value; otherwise it sits inside the spec freedom a rule names, or outside the spec. The author may move an outside-spec aspect into a spec freedom only by a ruling that names the freedom.',
+    'The component rule reads "outside `web-routes` and `ui`" as a rule on feature components: the scaffold components the reference itself has, in `web-app` and `web-api-client`, are compared by signature.',
+    table(
+      ['Dimension', 'Normalized form', 'Must be identical'],
+      comparison.method.map((m) => [m.title, m.normalizedForm, m.mustBeIdentical]),
+    ),
+    '### Spec freedoms',
+    table(
+      ['Freedom', 'Text', 'Cited by'],
+      comparison.freedoms.map((f) => [String(f.number), f.text, f.cited.map(code).join(', ')]),
+    ),
+  ];
+}
+
+const cells = (difference, ids) =>
+  ids.map((id) => {
+    const { value } = difference.values.get(id);
+    return difference.kind === 'invariant' ? value : code(value);
+  });
+
+/** @param {readonly Difference[]} differences */
+function renderDepartures(differences, ids) {
+  const outside = differences.filter((d) => d.classification === 'outside-spec');
+  const inside = differences.filter((d) => d.classification === 'spec-freedom');
+  const ruled = inside.filter((d) => d.by === 'ruling');
+  return [
+    ...(ruled.length === 0
+      ? []
+      : [
+          '## Rulings by the author',
+          "The script classified each aspect below as `outside-spec`. The author's ruling moves it into the spec freedom it names (PLAN, Risks); the reason is the author's.",
+          table(
+            ['Aspect', 'Script classification', 'Freedom', 'Why'],
+            ruled.map((d) => [code(d.key), code('outside-spec'), String(d.freedom), d.why]),
+          ),
+        ]),
+    ...(outside.length === 0
+      ? []
+      : [
+          '## Outside the spec',
+          table(
+            ['Aspect', ...ids.map(code), 'Why'],
+            outside.map((d) => [code(d.key), ...cells(d, ids), d.why]),
+          ),
+        ]),
+    ...(inside.length === 0
+      ? []
+      : [
+          '## Inside a spec freedom',
+          table(
+            ['Aspect', ...ids.map(code), 'Freedom', 'By', 'Why'],
+            inside.map((d) => [
+              code(d.key),
+              ...cells(d, ids),
+              String(d.freedom),
+              d.by === 'ruling' ? "author's ruling" : 'script rule',
+              d.by === 'ruling' ? 'see Rulings by the author' : d.why,
+            ]),
+          ),
+        ]),
+  ];
+}
+
+const LABEL = {
+  identical: 'identical',
+  'spec-freedom': 'spec freedom',
+  'outside-spec': 'outside the spec',
+};
+
+/** @param {readonly Difference[]} differences */
+function renderDimension(title, differences, ids) {
+  const rows = differences.map((d) => [
+    code(d.aspect),
+    ...cells(d, ids),
+    d.classification === 'spec-freedom'
+      ? `${LABEL[d.classification]} ${d.freedom}`
+      : LABEL[d.classification],
+  ]);
+  const written = differences
+    .filter(
+      (d) =>
+        new Set(ids.map((id) => d.values.get(id).written)).size > 1 &&
+        ids.some((id) => d.values.get(id).written !== d.values.get(id).value),
+    )
+    .map(
+      (d) =>
+        `- ${code(d.aspect)}: ${ids.map((id) => `${code(id)} ${code(d.values.get(id).written)}`).join('; ')}`,
+    );
+  return [
+    `## ${title}`,
+    table(['Aspect', ...ids.map(code), 'Classification'], rows),
+    ...(written.length === 0 ? [] : ['Written forms where the runs differ:', written.join('\n')]),
+  ];
+}
+
+/** Each run's `architecture.mmd` without its header, as the Structure rows compare it. */
+function renderDiagrams(runs) {
+  return [
+    '## Diagrams',
+    'Each run generated its diagram with `pnpm arch:diagram`. The Structure rows compare their roles and edges.',
+    ...runs.flatMap(({ evidence, source, facts }) => [
+      `### ${code(evidence.trial.id)} (${code(evidence.result.status)}, from ${code(source)})`,
+      ['```mermaid', facts.diagram.text, '```'].join('\n'),
+    ]),
+  ];
+}
+
+function renderVerdict(runs, comparison, checks) {
+  const passed = runs.filter(({ evidence }) => evidence.result.status === 'passed').length;
+  const outside = comparison.differences.filter((d) => d.classification === 'outside-spec').length;
+  const inside = comparison.differences.filter((d) => d.classification === 'spec-freedom');
+  const ruled = inside.filter((d) => d.by === 'ruling').length;
+  const split = checks.filter((check) => !check.holds).map((check) => check.label);
+  return [
+    '## Verdict',
+    [
+      `- Full pass count ${passed}/${runs.length}`,
+      `- Consistency: ${code(comparison.consistent ? 'consistent' : 'inconsistent')}. ${count(outside, 'aspect sits', 'aspects sit')} outside the spec; ${inside.length} sit inside a spec freedom, ${inside.length - ruled} by the script's rules and ${ruled} by the author's ruling.`,
+      split.length === 0
+        ? `- Baseline: shared. All ${checks.length} baseline checks hold.`
+        : `- Baseline: differs at ${split.join(', ')}.`,
+    ].join('\n'),
+  ];
+}
+
+/**
+ * The report for `runs`, reading the prompt template through `readText`.
+ *
+ * @param {readonly Run[]} runs
+ * @param {(path: string) => string} readText
+ * @returns {string}
+ */
+export function renderComparison(runs, readText) {
+  const ids = runs.map(({ evidence }) => evidence.trial.id);
+  const comparison = compareResults(
+    runs.map((run) => run.facts),
+    RULINGS,
+  );
+  const checks = proveBaseline(
+    runs.map((run) => run.evidence),
+    readText,
+  );
+  const sections = [
+    '<!-- Generated by tooling/trial/compare.mjs (node tooling/trial/compare.mjs). Edit the generator, then regenerate. -->',
+    '# Todo trial comparison',
+    'This report compares the Todo trial results under ADR 0035: the full pass count, the shared baseline, and every aspect of five dimensions, each identical, inside a named spec freedom, or outside the spec.',
+    ...renderVerdict(runs, comparison, checks),
+    ...renderRuns(runs),
+    ...renderBaseline(checks, ids),
+    ...renderMethod(comparison),
+    ...renderDepartures(comparison.differences, ids),
+    ...renderDiagrams(runs),
+    ...comparison.method.flatMap(({ id, title }) =>
+      renderDimension(
+        title,
+        comparison.differences.filter((d) => d.dimension === id),
+        ids,
+      ),
+    ),
+  ];
+  return `${sections.join('\n\n')}\n`;
+}
+
+/**
+ * Every `docs/trials/<id>.json`, validated and sorted by trial number, with its
+ * result tree: a passed run's tracked files under `showcase/<id>`, a failed
+ * run's patch. Throws when the landed results differ from the passed runs.
+ */
+function readRuns(root, readText) {
+  const evidences = readdirSync(join(root, TRIALS))
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => {
+      const evidence = validateEvidence(JSON.parse(readText(`${TRIALS}/${name}`)));
+      if (name !== `${evidence.trial.id}.json`) {
+        throw new Error(`compare: ${TRIALS}/${name} records ${evidence.trial.id}.`);
+      }
+      if (evidence.agent.fake) {
+        throw new Error(
+          `compare: ${evidence.trial.id} ran a fake agent; a trial runs the real one.`,
+        );
+      }
+      return evidence;
+    })
+    .sort((a, b) => a.trial.number - b.trial.number);
+  const landed = listResults(root)
+    .filter((result) => result.root.startsWith('showcase/'))
+    .map((result) => result.id);
+  const passed = evidences.filter((e) => e.result.status === 'passed').map((e) => e.trial.id);
+  if (landed.join() !== passed.join()) {
+    throw new Error(
+      `compare: showcase/ holds ${landed.join(', ')}; the passed runs are ${passed.join(', ')}.`,
+    );
+  }
+  return evidences.map((evidence) => {
+    const id = evidence.trial.id;
+    const resultRoot = `showcase/${id}`;
+    if (evidence.result.status === 'passed') {
+      const files = execFileSync('git', ['ls-files', '-z', resultRoot], {
+        cwd: root,
+        encoding: 'utf8',
+      })
+        .split('\0')
+        .filter(Boolean);
+      const tree = new Map(
+        files.map((file) => [file.slice(resultRoot.length + 1), readText(file)]),
+      );
+      return { evidence, source: resultRoot, resultRoot, tree };
+    }
+    if (!evidence.result.patch) {
+      throw new Error(`compare: ${id} failed and records no patch.`);
+    }
+    const tree = treeFromPatch(readText(evidence.result.patch), resultRoot);
+    return { evidence, source: evidence.result.patch, resultRoot, tree };
+  });
+}
+
+/**
+ * The report for the repository at `root`, from committed files only.
+ *
+ * @param {string} root
+ * @returns {string}
+ */
+export function comparisonReport(root) {
+  const readText = (path) => readFileSync(join(root, path), 'utf8');
+  const contract = readContract(readText('.fallowrc.jsonc'));
+  const runs = readRuns(root, readText).map(({ evidence, source, resultRoot, tree }) => ({
+    evidence,
+    source,
+    facts: readResultFacts({
+      id: evidence.trial.id,
+      root: resultRoot,
+      passed: evidence.result.status === 'passed',
+      tree,
+      contract,
+    }),
+  }));
+  return renderComparison(runs, readText);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const root = resolve(import.meta.dirname, '../..');
+  writeFileSync(join(root, REPORT_PATH), comparisonReport(root));
+  console.log(`Wrote ${REPORT_PATH}`);
+}

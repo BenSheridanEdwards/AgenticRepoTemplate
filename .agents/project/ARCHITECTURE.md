@@ -285,6 +285,11 @@ lands in `docs/trials/<id>.json`.
   (`tooling/coverage-by-result.mjs`).
 - Besides its own `web/e2e/*.spec.ts`, Playwright runs the fixed acceptance
   spec `tooling/trial/acceptance/todo.spec.ts` against it as `<id>-acceptance`.
+- Its structure, public API, dependencies, component boundaries and
+  conventions are compared with every other run, failed runs included, in
+  `docs/trials/COMPARISON.md`, which `node tooling/trial/compare.mjs`
+  generates ([ADR 0035](../decisions/0035-trial-comparison.md)). Keep each
+  difference inside a spec freedom that ADR lists.
 
 ## What this template intentionally omits
 

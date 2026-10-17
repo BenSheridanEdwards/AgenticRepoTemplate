@@ -45,6 +45,13 @@ fails), and prints its workdir. Fetch the result branch, then remove the
 workdir before the next trial; the harness refuses to start while one
 remains. Pass `--retry` only after a failure from before the agent started.
 
+After the three trials, merge each passed result branch with `git merge --no-ff`,
+commit every record, stream and patch, and run
+`node tooling/trial/compare.mjs` to write `docs/trials/COMPARISON.md`: the
+full pass count, the shared baseline and each difference between the runs,
+classified against the spec freedoms of
+[ADR 0035](decisions/0035-trial-comparison.md).
+
 ## The golden rules
 
 1. **Read before you write.** Architecture, conventions, the Definition of Done,
