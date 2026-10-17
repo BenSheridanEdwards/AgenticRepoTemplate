@@ -16,10 +16,14 @@ just the runnable carrier — the scaffolding is the point (see `README.md`).
 ## Run it
 
 ```bash
-pnpm install          # install dependencies (Node ≥ 20, pnpm)
+pnpm install          # install dependencies (Node ≥ 22, pnpm)
 pnpm setup:agents     # install the external agentic toolkit (one time)
 pnpm dev              # run the app at http://localhost:5173
-pnpm verify           # the full local gate suite (typecheck → biome → fallow → tests → build)
+pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
+pnpm arch:check       # architecture gate, role diagram freshness, API report freshness
+pnpm arch:diagram     # regenerate docs/architecture/roles.mmd from .fallowrc.jsonc
+pnpm api:report       # regenerate etc/*.api.md after an intended export change
+pnpm verify           # the full local gate suite (typecheck → biome → eslint → react doctor → fallow → architecture → tests → build)
 pnpm e2e              # the end-to-end behaviour map
 ```
 
@@ -63,13 +67,16 @@ stdlib or native platform features before adding abstractions or dependencies.
 | Domain language | `.agents/project/GLOSSARY.md` |
 | Why a rule exists | `.agents/decisions/` (ADRs) |
 | Scaffolds to copy | `.agents/templates/` |
+| Drive the app and capture PR proof | `.claude/skills/verify-agentic-template/SKILL.md` |
 
 ## Safety
 
 - Do not commit secrets; CI runs a secret scan and a dependency audit.
-- Do not add a second linter, formatter, or test runner (see `TECH_STACK.md`).
-- Treat generated artefacts (`dist/`, `coverage/`, `__stylemaps__/`,
-  `graphify-out/`, `.gitnexus/`) as disposable; never edit them by hand.
+- Keep one owner per concern: Biome formats and runs general lint, ESLint runs
+  policy and React rules, Jest and Playwright run tests. A new tool for an owned
+  concern needs an ADR (see `TECH_STACK.md`).
+- Treat generated artefacts (`dist/`, `coverage/`, `graphify-out/`,
+  `.gitnexus/`) as disposable; never edit them by hand.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

@@ -19,9 +19,7 @@ migrations, permissions, dependencies, or public API changes. -->
 video from THIS branch, committed under docs/proof/<short-scope>/ and embedded
 inline: ![alt](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1).
 Bare links, local paths, and relative paths are not proof. If nothing renders,
-write `Not applicable` with the technical reason. The StyleProof visual gate
-posts its per-change report as the `<!-- styleproof-report -->` PR comment —
-review it there. -->
+write `Not applicable` with the technical reason. -->
 
 - Video:
 - Screenshots:
@@ -43,7 +41,6 @@ against the new head, then update it. -->
 - [ ] `pnpm verify`
 - [ ] `pnpm e2e`
 - [ ] Visual proof attached or embedded inline, or `Not applicable` with reason.
-- [ ] StyleProof `<!-- styleproof-report -->` comment reviewed, or `Not applicable` with reason.
 - [ ] Latest-sha GitHub Actions are green; any pending or failing checks are named with a fix plan.
 - [ ] Behaviour is covered by the E2E map when user-visible behaviour changed.
 - [ ] Logic is unit-tested where logic changed.

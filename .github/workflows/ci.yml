@@ -14,6 +14,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  up-to-date:
+    name: Branch contains main
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      # The default pull_request checkout is a merge commit that always
+      # contains main; check the PR head itself.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - run: sh scripts/require-up-to-date-main.sh
+
   quality:
     name: Type check · lint · format
     runs-on: ubuntu-latest
@@ -25,9 +38,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Install leaves the tree clean
+        run: git diff --exit-code
       - run: pnpm check:context
       - run: pnpm typecheck
       - run: pnpm check
+      - run: pnpm lint:policy
+      - run: pnpm react-doctor
 
   fallow:
     name: Code intelligence (Fallow)
@@ -39,12 +56,33 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: fallow-rs/fallow@v2
+      - uses: fallow-rs/fallow@v3.33.1
         with:
+          version: "3.33.1"
           command: audit
           no-cache: true
           comment: true
           review-comments: true
+      - name: Assert the Fallow CLI matches the package.json pin
+        if: ${{ !cancelled() }}
+        run: |
+          expected="fallow $(node -p "require('./package.json').devDependencies.fallow")"
+          actual="$(fallow --version | head -n 1)"
+          echo "pinned: ${expected}"
+          echo "ran:    ${actual}"
+          test "${actual}" = "${expected}"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Architecture gate (forbidden imports)
+        run: pnpm arch:gate
+      - name: Role diagram matches the rules file
+        run: pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd
+      - name: API reports match the public module entries
+        run: pnpm api:check
 
   test:
     name: Unit + component tests
@@ -131,3 +169,29 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The stable final result (ADR 0017). scripts/required-gates.mjs owns the
+  # lane list and the decision. always() keeps this job running when a lane
+  # fails or the run is cancelled: a skipped job reads as a pass in branch
+  # protection, so `!cancelled()` here would let a cancelled run through.
+  required-gates:
+    name: Required gates
+    if: always()
+    needs: [up-to-date, quality, fallow, test, build, e2e, security]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Workflows and inventory match the contract
+        run: node scripts/required-gates.mjs --check
+      - name: Every required lane passed
+        if: always()
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: node scripts/required-gates.mjs --decide

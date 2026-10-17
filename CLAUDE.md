@@ -30,6 +30,8 @@ This repo commits its own skills under `.claude/skills/`:
   visual evidence, latest-sha CI status, risk, and explicit gaps.
 - **`show-me`** — create the smallest grounded visual explanation that removes
   review ambiguity from a non-trivial PR.
+- **`verify-agentic-template`** — launch the app, drive it in Chromium like a
+  user, and capture screenshots, ARIA snapshots, and video as PR proof.
 
 Install the external skill libraries once with `pnpm setup:agents`:
 
@@ -79,7 +81,7 @@ This repo is wired for Claude Code with four tools:
 - **Show Me** — `/show-me` creates a concise visual explanation of a change.
   Use it selectively on non-trivial PRs. Ground every label in real files,
   symbols, states, or evidence. It supports the PR proof and never replaces
-  tests, StyleProof reports, screenshots, or exact-head CI. Read
+  tests, screenshots, or exact-head CI. Read
   `.claude/skills/show-me/REPOSITORY.md` with the upstream skill.
 
 <!-- gitnexus:start -->

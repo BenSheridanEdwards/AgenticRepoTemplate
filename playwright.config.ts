@@ -1,13 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright is the single browser harness for two jobs:
- *   1. `e2e/app.spec.ts`        — the behaviour map (what the product must do).
- *   2. `e2e/styleproof.spec.ts` — StyleProof's computed-style capture.
+ * Playwright is the browser harness for the behaviour map (`e2e/*.spec.ts`).
  *
- * `E2E_BASE_URL` lets CI point the run at a server it manages itself (the
- * StyleProof workflow builds + serves on :3000). When it is unset we boot the
- * Vite dev server for fast local pre-push runs.
+ * `E2E_BASE_URL` points the run at a server you manage yourself, such as the
+ * built preview on :3000. When it is unset we boot the Vite dev server for fast
+ * local pre-push runs.
  */
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const usesExternalServer = Boolean(process.env.E2E_BASE_URL);

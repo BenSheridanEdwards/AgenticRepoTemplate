@@ -13,7 +13,6 @@
       "!**/coverage",
       "!**/playwright-report",
       "!**/test-results",
-      "!**/__stylemaps__",
       "!**/.architect-audits",
       "!**/pnpm-lock.yaml",
       "!**/vendor"
@@ -46,7 +45,9 @@
       "preset": "recommended",
       "correctness": {
         "noUnusedImports": "error",
-        "noUnusedVariables": "error"
+        "noUnusedVariables": "error",
+        "useExhaustiveDependencies": "off",
+        "useHookAtTopLevel": "off"
       },
       "style": {
         "useImportType": "error",

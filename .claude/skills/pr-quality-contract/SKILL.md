@@ -25,9 +25,9 @@ asking for proof, or decide whether work is ready to report complete.
    changed files. Do not include unrelated local changes in the PR.
 2. **Run local proof.** Prefer `pnpm verify` and `pnpm e2e`. If a narrower
    command is appropriate, name why it is enough and list what remains unproven.
-3. **Collect visual proof.** For UI-visible or CSS changes, attach screenshots,
-   video, or a StyleProof report. For non-UI changes, write `N/A` with the
-   reason instead of pretending visual proof exists.
+3. **Collect visual proof.** For UI-visible or CSS changes, attach screenshots
+   or video. For non-UI changes, write `N/A` with the reason instead of
+   pretending visual proof exists.
 4. **Separate proof layers.** Keep local command proof, GitHub Actions status,
    deploy/runtime proof, and pending gaps in separate sentences.
 5. **Fill the template.** Use `.github/pull_request_template.md` exactly. The

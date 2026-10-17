@@ -243,32 +243,53 @@ function headCommitValue(lines, index) {
  * shape; anything else is an error, so a caller that forgets it fails closed.
  */
 function collectHeadCommitErrors(verificationBody, headSha) {
-  if (headSha !== null && !(typeof headSha === 'string' && FULL_SHA_PATTERN.test(headSha))) {
-    return [
-      `headSha must be the 40-character PR head SHA or null (shape only), got ${quoteValue(String(headSha))}.`,
-    ];
+  const shaErrors = headShaErrors(headSha);
+  if (shaErrors.length > 0) {
+    return shaErrors;
   }
   if (verificationBody === undefined) {
     // The missing section is already reported by `locateSections`.
     return [];
   }
+  const field = readHeadCommitField(verificationBody);
+  return field.errors ?? compareHeadCommit(field.value, headSha);
+}
+
+function headShaErrors(headSha) {
+  if (headSha === null || (typeof headSha === 'string' && FULL_SHA_PATTERN.test(headSha))) {
+    return [];
+  }
+  return [
+    `headSha must be the 40-character PR head SHA or null (shape only), got ${quoteValue(String(headSha))}.`,
+  ];
+}
+
+/** Find the single `- Head commit:` line: `{ value }`, or `{ errors }` when there is not exactly one. */
+function readHeadCommitField(verificationBody) {
   const lines = stripHtmlComments(verificationBody)
     .split('\n')
     .map((line) => line.trim());
   const labelIndexes = lines.flatMap((line, i) => (HEAD_COMMIT_LABEL.test(line) ? [i] : []));
   if (labelIndexes.length === 0) {
-    return [
-      'Section "Verification Summary" has no `- Head commit:` line. ' +
-        'Add one naming the SHA the whole body was checked against.',
-    ];
+    return {
+      errors: [
+        'Section "Verification Summary" has no `- Head commit:` line. ' +
+          'Add one naming the SHA the whole body was checked against.',
+      ],
+    };
   }
   if (labelIndexes.length > 1) {
-    return [
-      `Section "Verification Summary" has ${labelIndexes.length} \`- Head commit:\` lines. ` +
-        'Keep exactly one, naming the SHA the whole body was checked against.',
-    ];
+    return {
+      errors: [
+        `Section "Verification Summary" has ${labelIndexes.length} \`- Head commit:\` lines. ` +
+          'Keep exactly one, naming the SHA the whole body was checked against.',
+      ],
+    };
   }
-  const value = headCommitValue(lines, labelIndexes[0]);
+  return { value: headCommitValue(lines, labelIndexes[0]) };
+}
+
+function compareHeadCommit(value, headSha) {
   const named = HEAD_COMMIT_VALUE_PATTERN.exec(value)?.[2];
   if (named === undefined) {
     return [

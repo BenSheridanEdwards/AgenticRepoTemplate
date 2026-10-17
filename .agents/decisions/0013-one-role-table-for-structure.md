@@ -24,4 +24,4 @@ disagreed on whether one route may import another.
   may import.
 - Fallow zones mirror the table, so the table and the gate stay in step
   ([0014](0014-fallow-owns-architecture-checks.md)).
-- Plan PR 2 rewrites `ARCHITECTURE.md` around the table when it adds routes.
+- Plan PR 3 rewrites `ARCHITECTURE.md` around the table when it adds routes.
