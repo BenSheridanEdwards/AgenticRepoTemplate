@@ -50,7 +50,7 @@ Preconditions:
 ## Gotchas
 
 - React StrictMode in dev can fetch twice on mount. Count requests relative to
-  a click, never as an absolute number.
+  a click, as the change since the click.
 - Loading, empty, and error states need interception at
   `**/api/service-status`. The real endpoint always answers with three services.
 - An intercepted `500` logs a `Failed to load resource` console error. It is

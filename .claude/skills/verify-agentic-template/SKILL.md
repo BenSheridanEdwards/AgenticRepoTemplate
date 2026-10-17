@@ -133,8 +133,8 @@ An uncaught page error fails the journey even when every assertion passes.
 
 Proof standards:
 
-- Drive the real user path. Click buttons by name. Do not call hooks or set
-  state.
+- Drive the real user path. Click buttons by name, and change state only through
+  the UI.
 - Intercept the network only at `/api/service-status`. That is the boundary to
   the backend. It is the only way to reach loading, empty, and error states.
 - Check the side effect, not only the screen. `manifest.json` lists the API
@@ -153,8 +153,8 @@ node $V cleanup --run pr-123
 `cleanup` stops the process group of the pid in `instance.json`, only after it
 confirms that pid is this run's Vite on this run's port. It deletes
 `.verify/<run-id>/instance/` and keeps `.verify/<run-id>/evidence/`. Run it
-after every failed launch too. Never stop Vite by name: other agents and the
-user's `pnpm dev` on `:5173` may share the machine.
+after every failed launch too. Stop Vite only through that confirmed pid, because
+other agents and the user's `pnpm dev` on `:5173` may share the machine.
 
 ## Keep the map current
 
