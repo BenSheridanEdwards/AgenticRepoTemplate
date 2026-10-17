@@ -1,112 +1,183 @@
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findUnguardedSignOffPaths, isGuardedPath } from './check-sign-off-docs.mjs';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const CLI = join(REPOSITORY_ROOT, 'scripts/check-sign-off-docs.mjs');
+
+const TRACKED = [
+  '.husky/pre-commit',
+  '.husky/pre-push',
+  '.github/workflows/ci.yml',
+  '.github/pull_request_template.md',
+  '.claude/settings.json',
+  '.claude/hooks/block-gate-bypass.sh',
+  'biome.json',
+  'eslint.config.js',
+  'tsconfig.json',
+  'scripts/check-suppressions.mjs',
+  'scripts/enforcement-approval.mjs',
+  'scripts/validate-pr-body.mjs',
+];
+
+const find = (markdown: string, doc = '.agents/README.md') =>
+  findUnguardedSignOffPaths(markdown, doc, TRACKED);
 
 describe('isGuardedPath', () => {
   it.each([
     '.husky/pre-push',
+    '.husky',
+    '.husky/',
     '.husky/**',
-    '.github/workflows/ci.yml',
-    '.github/workflows/',
+    '.github/workflows',
+    '.github/workflows/*.yml',
     'biome.json',
+    'eslint.config.*',
     'scripts/check-suppressions.mjs',
   ])('guards %s', (path) => {
-    expect(isGuardedPath(path)).toBe(true);
+    expect(isGuardedPath(path, TRACKED)).toBe(true);
   });
 
   it.each([
     'tsconfig.json',
     'scripts/',
+    'scripts/**',
+    '.github/',
     '.claude/**',
     'package.json',
-    '.agents/README.md',
   ])('leaves %s unguarded', (path) => {
-    expect(isGuardedPath(path)).toBe(false);
+    expect(isGuardedPath(path, TRACKED)).toBe(false);
   });
 });
 
 describe('findUnguardedSignOffPaths reports', () => {
-  it('reports the stale rule row main kept after ADR 0023', () => {
+  it('the stale rule row main kept after ADR 0023', () => {
     const row =
       "| Gate config (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) changes with a maintainer's sign-off. | `enforcement-approval` status |";
-    expect(findUnguardedSignOffPaths(`# Rules\n\n${row}\n`, '.agents/README.md')).toEqual([
-      { line: 3, path: 'tsconfig.json' },
+    expect(find(`# Rules\n\n${row}\n`)).toEqual([{ line: 3, path: 'tsconfig.json' }]);
+  });
+
+  it('the sentence #81 rewrote by hand, at the line it starts on', () => {
+    const text =
+      'The hook lives in `.claude/hooks/block-gate-bypass.sh`.\nA PR that widens `.claude/settings.json` permissions waits for sign-off.';
+    expect(find(text, '.agents/CLAUDE_CODE.md')).toEqual([
+      { line: 2, path: '.claude/settings.json' },
     ]);
   });
 
-  it('reads a list item that wraps onto the next line as one block', () => {
-    const item = '- Changes to `.claude/**` and\n  `.husky/**` need enforcement sign-off.';
-    expect(findUnguardedSignOffPaths(item, 'docs/x.md')).toEqual([{ line: 1, path: '.claude/**' }]);
-  });
-
-  it('judges a linked code span by its target', () => {
-    const line =
-      '[`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml) waits for sign-off.';
-    expect(findUnguardedSignOffPaths(line, '.agents/project/QUALITY_GATES.md')).toEqual([]);
-    const stale = '[`check.mjs`](../../scripts/check.mjs) needs sign-off.';
-    expect(findUnguardedSignOffPaths(stale, '.agents/project/QUALITY_GATES.md')).toEqual([
-      { line: 1, path: 'scripts/check.mjs' },
-    ]);
+  it.each([
+    ['a folder only partly guarded', 'Edits to `scripts/` need sign-off.', 'scripts/'],
+    [
+      'an example after e.g.',
+      'Sign-off covers the gate config, e.g. `tsconfig.json`.',
+      'tsconfig.json',
+    ],
+    [
+      'signed off',
+      'Edits to `.claude/settings.json` are signed off by Ben.',
+      '.claude/settings.json',
+    ],
+    [
+      'a clause before a semicolon',
+      'Edits to `tsconfig.json` need sign-off; docs go without sign-off.',
+      'tsconfig.json',
+    ],
+    [
+      'a linked file',
+      'The [`validator`](../scripts/validate-pr-body.mjs) needs sign-off.',
+      'scripts/validate-pr-body.mjs',
+    ],
+  ])('%s', (_name, text, path) => {
+    expect(find(text).map((finding) => finding.path)).toEqual([path]);
   });
 });
 
-describe('findUnguardedSignOffPaths claim boundaries', () => {
+describe('findUnguardedSignOffPaths passes', () => {
   it.each([
     [
-      'a block that says the file needs no sign-off',
-      'Everything else, including `package.json`, needs no sign-off.',
+      'guarded paths in any spelling',
+      'Edits to `.husky`, `./biome.json` and `eslint.config.*` wait for sign-off.',
     ],
-    ['a block with no sign-off claim', 'Run `pnpm typecheck` after editing `tsconfig.json`.'],
+    ['a link to a guarded file', 'Edits to [`biome.json`](/biome.json) wait for sign-off.'],
+    ['a claim of no sign-off', 'Everything else, including `package.json`, needs no sign-off.'],
+    [
+      'a claim of outside the sign-off',
+      '`.claude/` sits outside the `enforcement-approval` sign-off.',
+    ],
+    [
+      'the gate script and docs as references',
+      'The sign-off comment comes from `scripts/enforcement-approval.mjs`; see `.agents/project/QUALITY_GATES.md` for sign-off.',
+    ],
     [
       'sign-off inside a code span only',
       'Run `scripts/check-sign-off-docs.mjs` on `tsconfig.json`.',
     ],
-    ['guarded paths only', 'Edits to `.husky/**` and `biome.json` wait for sign-off.'],
-    ['fenced code', '```md\n`tsconfig.json` needs sign-off\n```'],
+    [
+      'a table cell apart from the claim',
+      '| Doc phrasing | `scripts/check-doc-phrasing.mjs` | A doc ties sign-off to guarded files. |',
+    ],
     [
       'code spans that are not paths',
       'The `enforcement-approval` status and `pnpm verify` need sign-off.',
     ],
-  ])('passes %s', (_name, text) => {
-    expect(findUnguardedSignOffPaths(text, 'docs/x.md')).toEqual([]);
-  });
-
-  it('judges each sentence of a paragraph on its own', () => {
-    const text =
-      'The hook lives in `.claude/hooks/block-gate-bypass.sh`. A PR that edits\n`.claude/hooks/` waits for sign-off.';
-    expect(findUnguardedSignOffPaths(text, 'docs/x.md')).toEqual([
-      { line: 1, path: '.claude/hooks/' },
-    ]);
-  });
-
-  it('judges each table cell on its own', () => {
-    const row =
-      '| Doc phrasing | `scripts/check-doc-phrasing.mjs` | A doc that ties sign-off to a file names a guarded one. |';
-    expect(findUnguardedSignOffPaths(row, 'docs/x.md')).toEqual([]);
-  });
-
-  it('passes a file that sits outside the sign-off', () => {
-    const text =
-      '`.claude/` sits outside the `enforcement-approval` sign-off, so review catches it.';
-    expect(findUnguardedSignOffPaths(text, 'docs/x.md')).toEqual([]);
-  });
-
-  it('keeps blocks apart at a blank line', () => {
-    const text = 'Edit `tsconfig.json` freely.\n\nHooks need sign-off.';
-    expect(findUnguardedSignOffPaths(text, 'docs/x.md')).toEqual([]);
+    ['fenced code', '```md\n`tsconfig.json` needs sign-off\n```'],
+    [
+      'the generated GitNexus block',
+      '<!-- gitnexus:start -->\n`tsconfig.json` needs sign-off.\n<!-- gitnexus:end -->',
+    ],
+    ['a blank line between blocks', 'Edit `tsconfig.json` freely.\n\nHooks need sign-off.'],
+  ])('%s', (_name, text) => {
+    expect(find(text)).toEqual([]);
   });
 });
 
 describe('check-sign-off-docs CLI', () => {
-  it('passes on the repository docs', () => {
-    const run = spawnSync('node', ['scripts/check-sign-off-docs.mjs'], {
-      cwd: REPOSITORY_ROOT,
-      encoding: 'utf8',
+  it.each([
+    REPOSITORY_ROOT,
+    join(REPOSITORY_ROOT, 'scripts'),
+  ])('passes on the repository docs when run from %s', (cwd) => {
+    const result = spawnSync('node', [CLI], { cwd, encoding: 'utf8' });
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/OK: [1-9]\d* guidance docs/);
+  });
+
+  describe('on a repo with a stale doc', () => {
+    let directory: string;
+
+    beforeEach(() => {
+      directory = mkdtempSync(join(tmpdir(), 'sign-off-docs-'));
+      mkdirSync(join(directory, 'scripts'));
+      for (const script of [
+        'check-sign-off-docs.mjs',
+        'check-doc-phrasing.mjs',
+        'enforcement-approval.mjs',
+      ]) {
+        copyFileSync(join(REPOSITORY_ROOT, 'scripts', script), join(directory, 'scripts', script));
+      }
+      writeFileSync(join(directory, 'tsconfig.json'), '{}\n');
+      writeFileSync(
+        join(directory, 'README.md'),
+        '# Repo\n\nChanges to `tsconfig.json` need sign-off.\n',
+      );
+      spawnSync('git', ['init', '-q'], { cwd: directory });
+      spawnSync('git', ['add', '-A'], { cwd: directory });
     });
-    expect(run.stderr).toBe('');
-    expect(run.status).toBe(0);
+
+    afterEach(() => {
+      rmSync(directory, { recursive: true, force: true });
+    });
+
+    it('fails and names the doc, line and path', () => {
+      const result = spawnSync('node', [join(directory, 'scripts/check-sign-off-docs.mjs')], {
+        cwd: directory,
+        encoding: 'utf8',
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('README.md:3 `tsconfig.json`');
+    });
   });
 });
