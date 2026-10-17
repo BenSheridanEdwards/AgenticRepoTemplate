@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
 import { planTrial, renderPrompt, runTrial, systemDeps } from './run-trial.mjs';
@@ -141,6 +141,7 @@ function plan(options: { agent: string; trial?: number; scaffoldRev?: string; re
       sessionId: '0b7f6c1e-3f7a-4d2b-9c51-2f0e8f6b2a10',
       agentCommand: options.agent,
       claudeConfigDir: join(sandbox, 'claude-config'),
+      tmpDir: join(sandbox, 'tmp'),
       retry: options.retry ?? false,
     }),
     setup: [
@@ -549,10 +550,17 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     const transcript = join(sandbox, 'claude-config/projects/earlier/session.jsonl');
     write(sandbox, 'claude-config/projects/earlier/session.jsonl', '{}\n');
     write(sandbox, 'PLAN.md', '# plan\n');
-    const planned = plan({
-      agent: fakeAgent(
-        'outside-read',
-        `${WRITES_RESULT}
+    write(sandbox, 'tmp/earlier-scratch/result.txt', 'an earlier result\n');
+    const planned = plan({ agent: join(sandbox, 'outside-read.mjs') });
+    const slug = planned.clone.replace(/[^a-zA-Z0-9]/g, '-');
+    const claudeTmp = join(sandbox, 'tmp', `claude-${process.getuid?.()}`);
+    const otherTasks = join(claudeTmp, '-workspace-mono-pr5/1111/tasks/b1.output');
+    const otherSession = join(sandbox, 'claude-config/projects', slug, '2222/tool-results/x.txt');
+    const otherWorkdir = join(planned.trialsRoot, 'todo-02-20261001T000000Z/repo/README.md');
+    fakeAgent(
+      'outside-read',
+      `${WRITES_RESULT}
+put(${JSON.stringify(otherTasks)}, 'an earlier result\\n');
 const tool = (name, input) => ({ type: 'tool_use', name, input });
 emit({ type: 'assistant', message: { content: [
   tool('Read', { file_path: process.cwd() + '/apps/web/src/App.tsx' }),
@@ -562,13 +570,17 @@ emit({ type: 'assistant', message: { content: [
   tool('Read', { file_path: ${JSON.stringify(join(sandbox, 'PLAN.md'))} }),
   tool('Read', { file_path: ${JSON.stringify(join(sandbox, 'claude-config/settings.json'))} }),
   tool('Grep', { pattern: 'todo', path: ${JSON.stringify(sandbox)} }),
+  tool('Read', { file_path: ${JSON.stringify(otherTasks)} }),
+  tool('Read', { file_path: ${JSON.stringify(otherSession)} }),
+  tool('Read', { file_path: ${JSON.stringify(otherWorkdir)} }),
+  tool('Read', { file_path: '~/.ssh/config' }),
+  tool('Bash', { command: 'cat ${join(sandbox, 'tmp/earlier-scratch/result.txt')}' }),
   tool('Bash', { command: 'grep -rn "/trpc" showcase 2>/dev/null; ls /usr/bin ${REPOSITORY_ROOT}' }),
   tool('Bash', { command: "cat <<'EOF'\\n<div>hi</div> // note\\nimport { x } from '../../domain.ts';\\nEOF" }),
   tool('Bash', { command: 'ls ${source} ${source}/no-such-folder' }),
   tool('Bash', { command: 'cd ../.. && ls; cat ../prompt.md' }),
 ] } });`,
-      ),
-    });
+    );
 
     const evidence = await runTrial(planned, quietDeps());
 
@@ -577,13 +589,61 @@ emit({ type: 'assistant', message: { content: [
         REPOSITORY_ROOT,
         sandbox,
         join(sandbox, 'PLAN.md'),
+        join(sandbox, 'tmp/earlier-scratch/result.txt'),
         source,
         join(source, 'apps/web/src/App.tsx'),
         transcript,
+        otherTasks,
+        otherSession,
+        otherWorkdir,
+        join(homedir(), '.ssh/config'),
         planned.trialsRoot,
       ].sort(),
     );
     expect(evidence.result.status).toBe('failed');
+  });
+
+  it('passes a clean run whose agent reads its own session files, its scratch and caches, and cds about its clone', async () => {
+    const tmp = join(sandbox, 'tmp');
+    mkdirSync(tmp, { recursive: true });
+    const planned = plan({ agent: join(sandbox, 'clean-agent.mjs') });
+    const slug = planned.clone.replace(/[^a-zA-Z0-9]/g, '-');
+    const tasks = join(tmp, `claude-${process.getuid?.()}`, slug, planned.sessionId, 'tasks');
+    const toolResults = join(
+      sandbox,
+      'claude-config/projects',
+      slug,
+      planned.sessionId,
+      'tool-results/verify.txt',
+    );
+    const scratch = join(tmp, 'agent-scratch/notes.txt');
+    fakeAgent(
+      'clean-agent',
+      `${WRITES_RESULT}
+put(${JSON.stringify(join(tasks, 'b1.output'))}, 'verify ok\\n');
+put(${JSON.stringify(scratch)}, 'notes\\n');
+const tool = (name, input) => ({ type: 'tool_use', name, input });
+const bash = (command) => tool('Bash', { command });
+emit({ type: 'assistant', message: { content: [
+  bash('pnpm verify > /dev/null 2>&1'),
+  tool('Read', { file_path: ${JSON.stringify(join(tasks, 'b1.output'))} }),
+  tool('Read', { file_path: ${JSON.stringify(toolResults)} }),
+  tool('Read', { file_path: ${JSON.stringify(scratch)} }),
+  bash('cat ${scratch}'),
+  tool('Read', { file_path: '~/.cache/ms-playwright/chromium/INSTALLATION_COMPLETE' }),
+  tool('Glob', { pattern: '*', path: ${JSON.stringify(join(homedir(), '.cache/node/corepack'))} }),
+  bash('cd showcase/todo-01/web && ls ../..'),
+  bash('ls ../../../apps'),
+  bash('(cd src && ls ..) && ls ../../..'),
+  bash('cd ../../.. && git status'),
+  bash('cd .. && ls'),
+] } });`,
+    );
+
+    const evidence = await runTrial(planned, quietDeps());
+
+    expect(evidence.result.outsideReads).toEqual([]);
+    expect(evidence.result.status).toBe('passed');
   });
 
   it('keeps a run whose agent fails, with its evidence and its patch', async () => {
