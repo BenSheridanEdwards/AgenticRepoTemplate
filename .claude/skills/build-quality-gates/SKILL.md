@@ -25,7 +25,7 @@ point: commit, push, CI, or PR review.
 ## Process
 
 1. **Inventory the real gates.** Read hooks, workflows, scripts, and package
-   commands. Do not copy a checklist from another repo until the commands exist
+   commands. Copy a checklist from another repo only once its commands exist
    here.
 2. **Assign one owner per concern.** Keep the stack unambiguous: one formatter,
    one lint owner, one type checker, one unit runner, one E2E runner, one visual
@@ -51,7 +51,7 @@ point: commit, push, CI, or PR review.
 Biome owns formatting, import ordering, and general lint. ESLint owns policy
 rules, React hooks rules, React Compiler rules, and React Doctor rules through
 `eslint-plugin-react-doctor`; the React Doctor CLI owns the project-level
-checks the plugin cannot express (ADR 0010, ADR 0015). Each rule has exactly
+checks outside the plugin (ADR 0010, ADR 0015). Each rule has exactly
 one owner: when two engines implement the same check, turn it off in one and
 name the owner beside it. Other plugin concerns belong to the gate that owns
 the behaviour:

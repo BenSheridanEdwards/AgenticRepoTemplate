@@ -87,8 +87,8 @@ The gates enforce the first three rules. The last two are judgment calls.
 
 ## What this template intentionally omits
 
-No router, store, data layer, or backend — they are stack choices, not agentic
-principles. When you add them, give each its own boundary (e.g. `src/shared/api`)
+The template leaves out a router library, a store, a data layer, and a backend.
+They are stack choices, not agentic principles. When you add them, give each its own boundary (e.g. `src/shared/api`)
 with a public surface, and record the choice as an ADR in `../decisions/`.
 
 ## How to extend
