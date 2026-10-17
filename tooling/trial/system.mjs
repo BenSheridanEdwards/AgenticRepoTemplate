@@ -20,13 +20,54 @@ const GIT_LOCAL_ENV = (
 /** Variables pnpm sets for a script it runs, which point back at the invoking checkout. */
 const PNPM_SCRIPT_ENV = /^(npm_|INIT_CWD$|PNPM_SCRIPT_SRC_DIR$)/;
 
-/** The `CLAUDE*` variables an agent keeps: where its config lives and how it authenticates. */
-const AGENT_KEEPS = new Set([
+/**
+ * The variables an agent gets: what the shell and the toolchain need, and how
+ * Claude finds its config and authenticates. Anything else, such as
+ * `ANTHROPIC_MODEL` or `MAX_THINKING_TOKENS`, would change the session
+ * without a trace in the evidence.
+ */
+const AGENT_ENV = new Set([
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'LANG',
+  'LANGUAGE',
+  'TERM',
+  'TMPDIR',
+  'TZ',
+  'COREPACK_HOME',
+  'PNPM_HOME',
+  'XDG_CONFIG_HOME',
+  'XDG_DATA_HOME',
+  'XDG_CACHE_HOME',
+  'XDG_STATE_HOME',
+  'XDG_RUNTIME_DIR',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'NO_PROXY',
+  'http_proxy',
+  'https_proxy',
+  'no_proxy',
+  'NODE_EXTRA_CA_CERTS',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
   'CLAUDE_CONFIG_DIR',
   'CLAUDE_CODE_OAUTH_TOKEN',
   'CLAUDE_CODE_USE_BEDROCK',
   'CLAUDE_CODE_USE_VERTEX',
   'CLAUDE_CODE_USE_FOUNDRY',
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_AUTH_TOKEN',
+  'AWS_REGION',
+  'AWS_PROFILE',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
+  'CLOUD_ML_REGION',
+  'ANTHROPIC_VERTEX_PROJECT_ID',
+  'GOOGLE_APPLICATION_CREDENTIALS',
 ]);
 
 /**
@@ -49,15 +90,13 @@ function commandEnv() {
 }
 
 /**
- * The agent's environment: without the variables a parent Claude Code session
- * sets, so a harness started inside a session still starts a fresh top-level
- * one, but with its config folder and credentials.
+ * The agent's environment, from `AGENT_ENV` and the `LC_*` locale variables
+ * alone, so a harness started inside a Claude Code session still starts a
+ * fresh top-level one, with its config folder and credentials.
  */
 export function agentEnv() {
   return Object.fromEntries(
-    Object.entries(commandEnv()).filter(
-      ([name]) => !name.startsWith('CLAUDE') || AGENT_KEEPS.has(name),
-    ),
+    Object.entries(commandEnv()).filter(([name]) => AGENT_ENV.has(name) || name.startsWith('LC_')),
   );
 }
 

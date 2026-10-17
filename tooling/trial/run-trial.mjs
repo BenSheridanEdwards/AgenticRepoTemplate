@@ -24,6 +24,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -66,10 +67,16 @@ const ENFORCEMENT_PATHS = [
   '.github/workflows',
   '.claude',
   '.fallowrc.jsonc',
+  '.mcp.json',
+  '.npmrc',
+  '.size-limit.json',
   'biome.json',
   'commitlint.config.ts',
   'eslint.config.js',
   'jest.config.ts',
+  'jest.setup.ts',
+  'lighthouserc.json',
+  'package.json',
   'playwright.config.ts',
   'pnpm-workspace.yaml',
   'scripts',
@@ -84,6 +91,8 @@ const USER_CONFIG_ENTRIES = [
   'agents',
   'commands',
   'output-styles',
+  'remote-settings.json',
+  'rules',
   'skills',
   'plugins/installed_plugins.json',
 ];
@@ -331,6 +340,8 @@ async function prepareClone(plan, deps) {
     plan.root,
     `${plan.scaffoldRev}:refs/heads/main`,
   );
+  // FETCH_HEAD would name the evidence checkout inside the agent's workdir.
+  rmSync(join(plan.origin, 'FETCH_HEAD'), { force: true });
   await git(deps, plan.origin, 'config', 'uploadpack.allowFilter', 'true');
   await git(
     deps,

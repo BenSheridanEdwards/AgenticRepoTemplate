@@ -92,7 +92,8 @@ the evidence:
    started), when any entry is left in the trials root, when free disk is
    under 5 GB, or when port 5173, 3001, 5183 or 3011 is busy.
 2. It creates `<trials root>/<id>-<UTC stamp>/`, with a bare `origin.git`
-   that holds only the scaffold's history as `main`, and a blobless clone of
+   that holds only the scaffold's history as `main` (its `FETCH_HEAD`, which
+   names the invoking checkout, is removed), and a blobless clone of
    it at `repo/` on `trial/<id>`. No other branch of the invoking checkout is
    reachable from the clone. It asserts a clean tree and no `showcase/*`
    result, runs `pnpm install --frozen-lockfile` (which installs the hooks),
@@ -105,13 +106,18 @@ the evidence:
    prompt on stdin and a 90 minute limit:
    `claude -p --model opus --permission-mode bypassPermissions --output-format stream-json --verbose --session-id <fresh uuid>`.
    The argv never carries `--resume`, `-r`, `--continue` or `-c`. The agent's
-   environment drops every `CLAUDE*` variable except `CLAUDE_CONFIG_DIR` and
-   the credential switches (`CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_*`),
-   so a harness started inside a Claude Code session still starts a fresh
-   top-level session. Every command also loses git's per-repository
-   variables, pnpm's script variables (`npm_*`, `INIT_CWD`) and the
-   `node_modules/.bin` folders on the PATH, which point back at the invoking
-   checkout. The stream is written to `agent.stream.jsonl` and copied, with
+   environment comes from an allowlist: what the shell and the toolchain
+   need (`PATH`, `HOME`, the locale, `TMPDIR`, `COREPACK_HOME`, `XDG_*`, the
+   proxy and CA variables), `CLAUDE_CONFIG_DIR` and the credential variables
+   (`CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_*`, `ANTHROPIC_API_KEY`,
+   `ANTHROPIC_AUTH_TOKEN`, and the Bedrock and Vertex ones). So a harness
+   started inside a Claude Code session still starts a fresh top-level
+   session, and a variable such as `ANTHROPIC_MODEL` or
+   `MAX_THINKING_TOKENS` never changes a session unrecorded. Every command
+   also loses git's per-repository variables, pnpm's script variables
+   (`npm_*`, `INIT_CWD`) and the `node_modules/.bin` folders on the PATH,
+   which point back at the invoking checkout. The stream is written to
+   `agent.stream.jsonl` and copied, with
    the value of every secret-named variable (`TOKEN`, `KEY`, `SECRET`,
    `PASSWORD`, `CREDENTIAL`, `AUTH`) redacted, to
    `docs/trials/<id>.stream.jsonl`, so it outlives the workdir. The agent
@@ -183,11 +189,13 @@ only with a commit, a kept stream, empty scope and read lists, the four checks `
 record names at least one failure.
 
 `enforcementRev` is the last scaffold commit touching `.husky`,
-`.github/workflows`, `.claude`, `.fallowrc.jsonc`, `biome.json`,
-`commitlint.config.ts`, `eslint.config.js`, `jest.config.ts`,
-`playwright.config.ts`, `pnpm-workspace.yaml`, `scripts`, `tooling` or a
-`tsconfig*.json`. The user config SHA-256 covers `settings.json`, `CLAUDE.md`,
-`agents/`, `commands/`, `output-styles/`, `skills/` and
+`.github/workflows`, `.claude`, `.fallowrc.jsonc`, `.mcp.json`, `.npmrc`,
+`.size-limit.json`, `biome.json`, `commitlint.config.ts`, `eslint.config.js`,
+`jest.config.ts`, `jest.setup.ts`, `lighthouserc.json`, the root
+`package.json`, `playwright.config.ts`, `pnpm-workspace.yaml`, `scripts`,
+`tooling` or a `tsconfig*.json`. The user config SHA-256 covers
+`settings.json`, `CLAUDE.md`, `agents/`, `commands/`, `output-styles/`,
+`remote-settings.json`, `rules/`, `skills/` and
 `plugins/installed_plugins.json` in the Claude config folder, plus the
 `mcpServers` entry of `.claude.json`.
 
@@ -231,6 +239,11 @@ own packages on its own ports, so a reviewer can drive a showcase result.
   was not observed on a real session, so a fixed count could fail a clean
   trial. The kept stream is the proof of one prompt: a reader counts its user
   events and reads each one.
+- The project `.mcp.json` starts `npx -y gitnexus` with no version, so if
+  the agent loads project MCP servers under `-p` (not observed), that tool's
+  version comes from the registry at run time and no hash records it.
+  Pinning it changes every developer's MCP setup, so it is left to its own
+  change; `enforcementRev` moves when `.mcp.json` does.
 - The inclusion test adds about 35 seconds to `pnpm test`, because it runs
   each real tool. Its copy links `node_modules` into the checkout, so it
   runs pnpm with `verify-deps-before-run=false`; pnpm never reinstalls
