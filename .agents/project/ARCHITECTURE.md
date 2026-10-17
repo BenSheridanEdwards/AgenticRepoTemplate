@@ -117,21 +117,25 @@ resolve to. Both come from `pnpm arch:diagram`, with the same node names.
 `tooling/architecture/structure.mjs` checks every result alike, the reference
 included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.md)):
 
-- Each web package holds a file in `web-app`, `web-api-client` and
+- Each web package holds a source file in `web-app`, `web-api-client` and
   `web-routes`, and each api package in `api-app`, `api-trpc`,
-  `api-procedures`, `api-application` and `api-domain`.
+  `api-procedures`, `api-application` and `api-domain`. A test file holds no
+  role.
 - A result root holds `web/`, `api/` and `architecture.mmd`. A web package
   holds `package.json`, `index.html`, `vite.config.ts`, `src/`, `public/`,
   `e2e/` and `etc/`. An api package holds `package.json`, `src/` and `etc/`.
-  The root configs own every gate, so a package keeps its config at the root.
-- A manifest is named `@<scope>/<kind>`, is private and `type: module`, uses
-  the script names of the reference package of its kind, and lists a subset of
-  that package's dependencies with the same ranges. A web package lists its
+  The root configs own every gate, so every tool config, at any depth, lives
+  at the repository root. A result holds regular files, so copy a file
+  rather than link it.
+- A manifest is named `@<scope>/<kind>`. Its other fields, scripts included,
+  equal the reference package of its kind, and it lists a subset of that
+  package's dependencies with the same ranges. A web package lists its
   own `@<scope>/api` and `@repo/ui` as workspace dependencies; an api package
   lists only external ones.
 - A web package holds at least one `e2e/*.spec.ts`.
 - Each import stays inside its result or reaches `packages/ui`.
-- A result fixes each finding in code, so it holds no suppression directive.
+- A result fixes each finding in code, so it holds no suppression directive,
+  ESLint inline config, `/* global */` comment or coverage pragma.
 
 ## The api file roles
 

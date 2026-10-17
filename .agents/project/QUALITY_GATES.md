@@ -82,7 +82,7 @@ in CI as steps of the `Code intelligence (Fallow)` job:
 
 | Check | Command | Fails when |
 | --- | --- | --- |
-| Architecture gate | `pnpm arch:gate` (`fallow architecture -q`, then `node tooling/architecture/structure.mjs` and `node tooling/architecture/diagram.mjs --check`) | An import crosses a role boundary the rules file does not allow, a source file sits in no role, or a `contract/<id>` rule finds a banned import, call or effect. A result lacks a required role, holds a file outside its layout, departs from the reference manifest of its kind, has no e2e spec, imports another result or holds a suppression, or a showcase folder is incomplete. A diagram is missing, stale or extra. |
+| Architecture gate | `pnpm arch:gate` (`fallow architecture -q`, then `node tooling/architecture/structure.mjs` and `node tooling/architecture/diagram.mjs --check`) | An import crosses a role boundary the rules file does not allow, a source file sits in no role, or a `contract/<id>` rule finds a banned import, call or effect. A result lacks a required role, holds a file outside its layout, a nested tool config or a symlink, departs from the reference manifest of its kind, has no e2e spec, imports another result or holds a suppression, or a showcase folder is incomplete. A diagram is missing, stale or extra. |
 | Role diagram | `pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd` | The committed canonical diagram differs from a fresh render of the rules file. |
 | API reports | `pnpm api:check` | A public entry's exports differ from its committed report. Each package entry gives `<package>/etc/<name>.api.md`, and each route, feature and api-client `index.ts` gives `<package>/etc/<folder>-<name>.api.md`. |
 
