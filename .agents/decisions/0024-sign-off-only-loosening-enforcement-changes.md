@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md), which
-  sets the guarded paths
+  sets the guarded paths; this record adds the gate's own script and test
 - **Supersedes in part:** [0007](0007-protect-enforcement-paths-by-default.md),
   [0018](0018-dependency-manifests-are-not-enforcement-paths.md),
   [0023](0023-protect-only-the-files-that-run-the-gates.md)
@@ -124,22 +124,24 @@ Four paths stay open:
 
 ### What asks for a sign-off
 
-ADR 0023 decides which files are guarded. This record decides which changes to
-them ask. The gate compares each guarded file at the merge base with the same
-file at the head. The guard table `GUARDS` lists the guarded files in order, and
+ADR 0023 decides which files are guarded, and this record adds the gate's own
+script and test to them. This record decides which changes to them ask. The
+gate compares each guarded file at the merge base with the same file at the
+head. The guard table `GUARDS` lists the guarded files in order, and
 the first match decides the rule.
 
 | Area | Files | Asks for sign-off when |
 | --- | --- | --- |
-| Enforcement-approval gate | `.github/workflows/enforcement-approval.yml` | any edit |
+| Enforcement-approval gate | `.github/workflows/enforcement-approval.yml`, `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts` | any edit |
 | CI workflows | the rest of `.github/workflows/**` | any edit |
 | Git hooks | `.husky/**` | any edit |
 | Lint config | `eslint.config.js`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs` | any edit |
 | Biome config | `biome.json` | the config rules below |
 
 Code can loosen a gate in ways a text comparison cannot rank, and the gate never
-runs PR code, so any edit to a workflow, a hook, or a JavaScript or TypeScript
-lint file asks for a sign-off. Deleting a guarded file also asks.
+runs PR code, so any edit to a workflow, a hook, the gate's own script or test,
+or a JavaScript or TypeScript lint file asks for a sign-off. Deleting a guarded
+file also asks.
 
 The config rules read `biome.json` (comments and trailing commas allowed) and
 compare each value at the merge base with the same value at the head:
@@ -168,8 +170,8 @@ A PR that lists 3000 files or more, the most the files API returns, asks for a
 sign-off, because the gate cannot see every guarded file.
 
 A change to any other file passes without a comment. That includes app code,
-docs, `package.json`, `tsconfig.json`, `.claude/`, `.gitignore`, the rest of
-`scripts/`, and this gate's own script and tests, as ADR 0023 decides.
+docs, `package.json`, `tsconfig.json`, `.claude/`, `.gitignore`, and the rest
+of `scripts/`, as ADR 0023 decides.
 When a PR stops loosening enforcement, the gate replaces its comment
 with a short note that has no checkbox.
 
@@ -179,13 +181,15 @@ with a short note that has no checkbox.
   any reviewer with write access. ADR 0023 replaced its protected-path list.
 - From ADR 0018, nothing more: ADR 0023 replaced it, and `package.json` and
   `pnpm-lock.yaml` stay outside the gate.
-- From ADR 0023, this record keeps the path set and replaces the rest: the
+- From ADR 0023, this record keeps the path set, adds the gate's own script and
+  test to it, and replaces the rest: the
   approver is Ben alone, the tick is bound to the head commit and resets on each
   push, and only a change that loosens or rewrites a guarded file asks.
 
 ## Consequences
 
-- Only a change to a hook, a workflow, or a lint file can ask. Tightening
+- Only a change to a hook, a workflow, a lint file, or the gate's own script or
+  test can ask. Tightening
   `biome.json` merges without a tick, for example raising a rule to `error`.
 - Anyone acting with Ben's GitHub credentials can tick the box, a tool or an
   agent included. GitHub sends `BenSheridanEdwards` as the sender, and the gate
@@ -199,11 +203,12 @@ with a short note that has no checkbox.
   `tsconfig.json`, or another script a workflow runs stays with the reviewer, as
   ADR 0023 records.
 
-## Open question
+## Resolved: the gate guards its own script and test
 
-ADR 0023 does not guard `scripts/enforcement-approval.mjs` or its test, and this
-record follows it. The workflow file is guarded, but the script it runs is not,
-so a PR that changes the approver, `GUARDS`, or the judges asks for no sign-off.
-Main's copy judges every PR, so such a change takes effect only after it merges,
-on review alone. Ben decides whether the gate's own script and test join the
-guarded set.
+ADR 0023 left `scripts/enforcement-approval.mjs` and its test out of the guarded
+set, so a PR that changed the approver, `GUARDS`, or the judges reached main on
+review alone. Ben resolved this: the gate's own script and test are now guarded.
+They join `.github/workflows/enforcement-approval.yml` in the
+Enforcement-approval gate area, and any edit to them asks for a sign-off. Main's
+copy still judges every PR, so a change to the script takes effect once it
+merges, and Ben's tick comes first. ADR 0023's path set otherwise stands.

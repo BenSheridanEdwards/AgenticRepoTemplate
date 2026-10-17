@@ -285,15 +285,20 @@ const byJson =
 /**
  * The guard table, in order; the first guard with a pattern that matches a path
  * judges it. Only the files that run the gates are guarded: the git hooks, the
- * CI workflows and the lint files (ADR 0023). Code can loosen in ways a text
- * diff cannot rank, so code paths read any change as a rewrite.
+ * CI workflows, the lint files (ADR 0023), and this gate's own script and test
+ * (ADR 0024), so a change to the gate itself needs sign-off. Code can loosen in
+ * ways a text diff cannot rank, so code paths read any change as a rewrite.
  *
  * @type {ReadonlyArray<Guard>}
  */
 export const GUARDS = [
   {
     area: 'Enforcement-approval gate',
-    paths: [/^\.github\/workflows\/enforcement-approval\.yml$/],
+    paths: [
+      /^\.github\/workflows\/enforcement-approval\.yml$/,
+      /^scripts\/enforcement-approval\.mjs$/,
+      /^scripts\/enforcement-approval\.test\.ts$/,
+    ],
     judge: rewrite('edits the enforcement-approval gate'),
   },
   { area: 'CI workflows', paths: [/^\.github\/workflows\//], judge: rewrite() },
