@@ -25,11 +25,12 @@ the root docs into a second codebase.
 1. **Inventory before writing.** Verify real commands, scripts, hooks,
    workflows, test runners, formatters, and deployment surfaces from files. Do
    not trust stale prose.
-2. **Separate layers.** Keep `AGENTS.md` tool-agnostic. Put tool-specific
-   behaviour in `CLAUDE.md`, `.claude/settings.json`, hooks, and skills. Put
-   durable project knowledge in `.agents/`.
-3. **Keep root docs thin.** `AGENTS.md` should answer: what this repo is, how to
-   run it, golden rules, where to read next, and safety boundaries.
+2. **Separate layers.** Keep the start-here guide tool-agnostic. Put
+   tool-specific behaviour in `.agents/CLAUDE_CODE.md`, `.claude/settings.json`,
+   hooks, and skills. Put durable project knowledge in `.agents/`.
+3. **Root docs only point.** `CLAUDE.md` points to `AGENTS.md`, and `AGENTS.md`
+   points to `.agents/README.md`. The start-here guide answers: what this repo
+   is, how to run it, golden rules, where to read next, and safety boundaries.
 4. **Make `.agents/` canonical.** Put architecture, conventions, tech stack,
    glossary, Definition of Done, and ADRs under `.agents/`. If a rule needs more
    than a few lines, it belongs there, not in the root entry points.
@@ -37,18 +38,20 @@ the root docs into a second codebase.
    script, workflow, or command that enforces X. If no gate exists, either add
    one in a separate quality-gate change or state the rule as review-only.
 6. **Flag inconsistencies.** If existing code follows one pattern and docs claim
-   another, do not smooth it over. Update the docs to truth, fix the code, or
-   record the gap.
+   another, surface it. Update the docs to truth, fix the code, or record the
+   gap.
 7. **Verify the docs.** Run the repo's lightest relevant doc/format gate, then
    the full gate suite when guidance changes affect Definition of Done, scripts,
    hooks, or workflows.
 
 ## Layer Contract
 
-- `AGENTS.md`: portable operating contract for any agent or engineer.
-- `CLAUDE.md`: Claude-specific adapter, local skills, allowed commands, and
-  hooks.
-- `.agents/README.md`: index for project context.
+- `CLAUDE.md`: points to `AGENTS.md` (and imports it with `@AGENTS.md`).
+- `AGENTS.md`: points to `.agents/README.md`.
+- `.agents/README.md`: start here. Portable operating contract for any agent
+  or engineer, and the map of `.agents/`.
+- `.agents/CLAUDE_CODE.md`: Claude-specific adapter, local skills, allowed
+  commands, and hooks.
 - `.agents/project/`: durable standards and facts.
 - `.agents/decisions/`: ADRs for choices that future agents must understand.
 - `.agents/templates/`: copyable patterns for new code and tests.
@@ -56,9 +59,9 @@ the root docs into a second codebase.
 
 ## Anti-Patterns
 
-- Do not duplicate the same rule in three places with slightly different words.
-- Do not list tools that are not installed or gates that do not run.
-- Do not add private project names, secrets, customer data, or local paths to a
+- Keep each rule in one place, in one wording.
+- List only installed tools and gates that run.
+- Keep private project names, secrets, customer data, and local paths out of a
   public template.
 - Keep one owner per concern; a new tool for an owned concern changes the
   tech-stack contract through an ADR.

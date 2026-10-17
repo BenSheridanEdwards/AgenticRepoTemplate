@@ -10,8 +10,9 @@ Each layer has one job:
 
 | Layer | Artifact | Job |
 | --- | --- | --- |
-| Entry contract | `AGENTS.md` | Tool-agnostic rules every agent follows. |
-| Tool adapter | `CLAUDE.md` | Claude-specific skills, hooks, and workflow notes. |
+| Root pointers | `CLAUDE.md` → `AGENTS.md` | Send every agent to the start-here guide. No rules. |
+| Entry contract | `.agents/README.md` | Tool-agnostic rules every agent follows, and the map. |
+| Tool adapter | `.agents/CLAUDE_CODE.md` | Claude-specific skills, hooks, and workflow notes. |
 | Project context | `.agents/project/` | Durable standards and facts. |
 | Decisions | `.agents/decisions/` | Why the standards exist and when they changed. |
 | Templates | `.agents/templates/` | Copyable code and test shapes. |
@@ -26,9 +27,11 @@ Move the rule to the layer that owns it.
 
 1. **Inventory truth.** Read package scripts, workflows, hooks, tests, build
    config, dependency tooling, and deployment surfaces before writing guidance.
-2. **Write the thin entry points.** `AGENTS.md` says how to work here, where to
-   read next, what commands matter, and what must never be bypassed. `CLAUDE.md`
-   adds only Claude-specific skills, permissions, and hooks.
+2. **Write the pointers and the start-here guide.** `CLAUDE.md` points to
+   `AGENTS.md`, which points to `.agents/README.md`. That guide says how to work
+   here, where to read next, what commands matter, and which gates always run.
+   `.agents/CLAUDE_CODE.md` adds only Claude-specific skills, permissions, and
+   hooks.
 3. **Create project context.** Add architecture, conventions, tech stack,
    glossary, Definition of Done, ADRs, and templates under `.agents/`.
 4. **Make gates match the claims.** Every "done" rule should be enforced by a
@@ -40,17 +43,18 @@ Move the rule to the layer that owns it.
 
 ## Truth rules
 
-- Do not claim a gate exists unless the hook, script, or workflow exists.
-- Do not document commands that fail in a clean checkout.
-- Do not describe a future architecture as current fact. Mark it as a target or
-  create an ADR.
-- Do not let root instructions drift from `.agents/`. The root files point in;
-  `.agents/` carries the detail.
-- Do not put private project facts in this public template.
+- Claim a gate only when its hook, script, or workflow exists.
+- Document only commands that pass in a clean checkout.
+- Describe current architecture as fact, and mark future architecture as a
+  target or an ADR.
+- Keep rules out of the root files. `CLAUDE.md` and `AGENTS.md` point in;
+  `.agents/` carries everything else.
+- Keep private project facts out of this public template.
 
 ## What makes it north-star quality
 
-- Agents can start from `AGENTS.md` and find every relevant standard.
+- Agents can start from `AGENTS.md`, follow one link, and find every relevant
+  standard.
 - Tool-specific instructions are isolated and replaceable.
 - The Definition of Done maps to executable gates.
 - PR proof separates local checks, CI, visual/runtime evidence, and gaps.

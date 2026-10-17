@@ -24,8 +24,8 @@ specified here first.
    `.agents/templates/e2e-flow.spec.ts.template`. Add a `test` per distinct user
    journey inside a `test.describe` named for the feature.
 3. **Drive the UI like a user.** Prefer `getByRole(role, { name })` and the
-   accessibility tree. Do not assert on CSS classes or internal state — that is
-   the unit suite's job, not the behaviour map's.
+   accessibility tree. Leave CSS classes and internal state to the unit suite;
+   the behaviour map asserts what a user sees.
 4. **Assert the user-visible outcome.** Use `expect(locator).toHaveText(...)`,
    `toBeVisible()`, the live `status` region, etc.
 

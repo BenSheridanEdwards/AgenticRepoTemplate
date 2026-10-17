@@ -32,14 +32,14 @@ Four beliefs shape every file in this repository:
    intent, and it follows the mess. No `AGENTS.md` outvotes an inconsistent
    codebase.
 3. **Proof, not claims.** A change is done only when committed evidence matches
-   the claim. A passing build or green types are necessary but never
-   sufficient. Every user-visible change ships screenshots and video, inline in
+   the claim. A passing build and green types are necessary, and proof
+   completes them. Every user-visible change ships screenshots and video, inline in
    the PR.
-4. **Agents must see.** An agent that cannot look at a screenshot cannot QA the
-   user experience or validate its own work. Vision is a requirement of the
+4. **Agents must see.** An agent QAs the user experience and validates its own
+   work by looking at screenshots. Vision is a requirement of the
    proof loop, not an optimisation.
 
-And one rule that never bends: **the agent never merges and never deploys.**
+And one fixed rule: **a human merges and a human deploys.**
 Humans hold both ends of the loop, the intent and the merge. Every line is
 owned by a named engineer, whoever or whatever wrote it.
 
@@ -51,7 +51,7 @@ The same order every time, whether the repository is new or twenty years old:
    end-to-end tests. Nothing else is safe to assess or change without them.
 2. **Install the agentic infrastructure.** The context files, skills, hooks,
    gates, and PR contract in this template. This is the base plate, not the
-   starting point; it locks in each later fix so it cannot regress.
+   starting point; it locks in each later fix so it stays fixed.
 3. **Align standards and architecture.** Run the audits, fix what they surface,
    re-run. The loop is the point, not the passing grade at the end.
 4. **Accelerate with proof.** Now agents build features. Every PR carries
@@ -73,13 +73,15 @@ modes are. One set of files serves both. The test of this layer: a new
 engineer, or a new agent, is productive and safe within minutes of cloning,
 without asking anyone anything.
 
-- [`AGENTS.md`](AGENTS.md) is the tool-agnostic operating contract, written for
-  any agent. Golden rules, commands, and pointers into `.agents/`. It follows
-  the [agents.md](https://agents.md) convention and stays thin.
-- [`CLAUDE.md`](CLAUDE.md) is a vendor adapter. It defers to `AGENTS.md` and
-  adds only vendor-specific skills and tooling.
-  [`agents/openai.yaml`](agents/openai.yaml) does the same for other vendors,
-  so the method is not welded to one AI supplier.
+- [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) are the only agent
+  files at the root, and both are pointers. `CLAUDE.md` points to `AGENTS.md`
+  ([agents.md](https://agents.md) convention), which points to the start-here
+  guide.
+- [`.agents/README.md`](.agents/README.md) is the start-here guide: the
+  tool-agnostic operating contract, with golden rules, commands, and a map of
+  the rest. [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) adds the Claude Code
+  layer, and [`openai.yaml`](.agents/openai.yaml) lists the same entry points
+  for other vendors, so the method is not welded to one AI supplier.
 - [`.agents/`](.agents) is the single source of detail: the
   [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow,
   the [conventions](.agents/project/CONVENTIONS.md) for naming, imports,
@@ -92,16 +94,16 @@ without asking anyone anything.
   [decision records](.agents/decisions) that mark the difference between a
   mistake and a deliberate act, and [templates](.agents/templates) so the
   correct pattern is the path of least resistance.
-- [`PROGRESS.md`](PROGRESS.md) and [`TODO.md`](TODO.md) are the memory layer:
+- [`PROGRESS.md`](.agents/PROGRESS.md) and [`TODO.md`](.agents/TODO.md) are the memory layer:
   checkpointed work with verification status, and forward handoffs with
   acceptance criteria. They give agents audit-grade memory across sessions.
 
 The root files stay short and point inward, so there is exactly one place to
 update when the way you work changes. The standard ships as files, not written
-guidelines: adopt it by copying these files, never by retyping them, because
+guidelines: adopt it by copying these files rather than retyping them, because
 retyped standards drift.
 
-### The quality gates: standards you cannot skip
+### The quality gates: standards that always run
 
 Feedback speed determines placement. Fast checks run early, expensive checks
 run later, and local hooks mirror CI so "works on my machine" and "passes CI"
@@ -113,7 +115,7 @@ mean the same thing. A green PR means "this change introduced nothing new".
 | **On push** | The branch contains the latest main, logic tested with a coverage floor, a production build, the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green | [`.husky/pre-push`](.husky/pre-push) |
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, and PR-body validation | [`.github/workflows/`](.github/workflows) |
 
-The gates cannot be skipped. A
+The gates always run. A
 [PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any `--no-verify`,
 and weakening type, lint, or test configuration to turn red green is a named
 violation. Honest red beats dishonest green.
@@ -123,8 +125,8 @@ violation. Honest red beats dishonest green.
 The [Definition of Done](.agents/project/DEFINITION_OF_DONE.md) removes
 judgment from the word "done". A task is finished when the gates are green and
 the proof is present, and at no other time. Every item on the list is
-mechanically checkable, so an agent cannot honestly report a task complete
-until `pnpm verify` and `pnpm e2e` pass, no matter who or what wrote the code.
+mechanically checkable, so an agent honestly reports a task complete only
+once `pnpm verify` and `pnpm e2e` pass, no matter who or what wrote the code.
 
 ### The PR contract: proof, not claims
 
@@ -144,7 +146,7 @@ body; bare links, local paths, and "see attached" are not proof. Flows with
 motion include video. If no rendered proof applies, the PR says `Not
 applicable` with the technical reason. And every bug fix ships, in the same
 change, with the test that would have caught it, asserting the user-visible
-symptom. A reviewer should never have to guess what was actually verified.
+symptom. A reviewer reads exactly what was verified.
 
 ### Visual style checking
 
@@ -165,14 +167,13 @@ Each carries a vendor-neutral manifest.
 
 Binding on this repository and any repository built from it:
 
-- Do not claim a gate exists unless the hook, script, or workflow exists and
-  runs on a clean checkout.
-- Do not describe target architecture as current fact; label aspirations as
-  targets.
-- Never report "installed" from filesystem presence alone; prove the command,
-  hook, or workflow runs.
-- Do not claim enforcement from repository files alone when the gate depends on
-  platform settings. "The repo is right" and "the repo is enforced" are
+- Claim a gate only when its hook, script, or workflow exists and runs on a
+  clean checkout.
+- Describe current architecture as fact, and label aspirations as targets.
+- Report "installed" once the command, hook, or workflow runs; filesystem
+  presence alone is a claim.
+- Claim enforcement for a gate that depends on platform settings once those
+  settings are on. "The repo is right" and "the repo is enforced" are
   different claims, which is why the post-clone checklist below exists.
 
 ## The audit loop: health has an order
@@ -182,7 +183,7 @@ and end-to-end tests, because nothing else is safe to assess or change without
 them. Then structure, then maintainability, then security, then the
 non-functionals, in that order, because a weak floor makes everything above it
 shaky. The agentic infrastructure is not the headline; it is what locks each
-fix in so it cannot regress.
+fix in so it stays fixed.
 
 This repo grades itself with the
 [ArchitectPlaybook](https://github.com/BenSheridanEdwards/ArchitectPlaybook)
@@ -199,7 +200,7 @@ pnpm setup:agents      # installs the playbook and Fallow skills
 The committed history shows the loop working: the first run found real problems
 (missing static analysis, a live dependency advisory, weak test selectors) and
 each one being closed. Known deliberate trade-offs and open gaps are recorded
-in the reports themselves and in [`TODO.md`](TODO.md). Honest history is a
+in the reports themselves and in [`TODO.md`](.agents/TODO.md). Honest history is a
 feature; the loop is the point, not the passing grade at the end.
 
 Non-functionals are held continuously, not only at audit time: Lighthouse keeps
@@ -225,7 +226,7 @@ Requires Node 22 or higher and pnpm. See [`.nvmrc`](.nvmrc).
 
 ### Post-clone setup checklist
 
-Some enforcement lives in platform settings and cannot be committed, so a fresh
+Some enforcement lives in platform settings outside the repository, so a fresh
 repository has to finish this list before the gates truly block:
 
 - [ ] **Require the `PR quality` and CI status checks** in branch protection
@@ -256,10 +257,14 @@ optimise last. This is the same find, fix, and re-audit loop the committed
 ## Every file, and why it is here
 
 ```
-AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
-agents/openai.yaml        Vendor-neutral manifest; points at AGENTS.md and .agents/.
-PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptance criteria.
-.agents/                  The repo's knowledge (read before writing).
+AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.md.
+.agents/                  Every agent doc (read before writing).
+  README.md                 Start here: commands, golden rules, and the map.
+  CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
+  GITNEXUS.md               GitNexus impact analysis and change detection.
+  NORTH_STAR.md             Where the repo is heading and why.
+  PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptance criteria.
+  openai.yaml               Vendor-neutral manifest of the same entry points.
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.
