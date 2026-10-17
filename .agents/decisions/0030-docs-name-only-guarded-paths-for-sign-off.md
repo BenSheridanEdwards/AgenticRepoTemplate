@@ -15,7 +15,7 @@ stays green.
   the table to the git hooks, the CI workflows and the lint files. Main at
   `756a823` still says `tsconfig.json` and the scripts need sign-off, in the
   rule table of `.agents/README.md` and in `.agents/project/CONVENTIONS.md`.
-- Open #81 carried a sentence in `.agents/CLAUDE_CODE.md` saying edits to
+- #81 carried a sentence in `.agents/CLAUDE_CODE.md` saying edits to
   `.claude/settings.json` and `.claude/hooks/` wait for sign-off. When it
   merged main, its author found the sentence by reading the file and rewrote
   it by hand in `d60d25b`.
@@ -35,19 +35,17 @@ gate leaves unguarded.
   or one cell of a table row. Fenced code and the generated GitNexus block are
   skipped. "Sign-off", "sign off", "signs off" and "signed off" all count.
 - Each path-shaped code span in the claim is checked with the gate's own path
-  rules, imported from `scripts/enforcement-approval.mjs`. A linked code span
-  is judged by its link target. A folder or glob is guarded when every tracked
-  file it covers is guarded, so `.husky` and `eslint.config.*` pass and
-  `scripts/` fails.
+  rules, through the `guardedPaths` function that
+  `scripts/enforcement-approval.mjs` exports. A linked code span is judged by
+  its link target. A folder or glob is guarded when every tracked file it
+  covers is guarded, so `.husky` and `eslint.config.*` pass and `scripts/`
+  fails. In a glob, `**/` matches zero or more folders, so `.github/**/*.yml`
+  covers `.github/ci.yml` as well as the workflows.
 - A claim that a file needs no sign-off, goes without it, or sits outside it
   passes. Markdown files and the gate's own script are references to the gate,
   so they pass too.
 - The error names the doc, the line of the claim, and the path, and points to
   the gate and the Enforcement approval section of `QUALITY_GATES.md`.
-
-The script reads whichever path function the gate exports:
-`classifyProtectedFiles` on main, or `guardedPaths` once #81 lands. The second
-of the two to merge can then drop the branch it no longer needs.
 
 ### Alternative considered
 
@@ -64,8 +62,7 @@ be added later; this check would then keep the other docs pointing at it.
 - The check reads claims that name files in code spans. These shapes are
   outside it, so a reviewer still reads them:
   - prose names such as "hooks, workflows, scripts", or "enforcement paths are
-    protected by default" (`NORTH_STAR.md` holds such lines today, and #81
-    edits that file);
+    protected by default" (`NORTH_STAR.md` holds such lines);
   - "approval" in place of "sign-off";
   - a table whose header says "Needs sign-off", or a heading or lead-in
     sentence followed by a list of files;

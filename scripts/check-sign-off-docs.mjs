@@ -25,24 +25,22 @@ const CLAIM_END = /(?<!\b(?:e\.g|i\.e|etc|vs)\.)(?<=[.!?])\s+(?=[A-Z`[*])|;\s+/;
 const BLOCK_START = /^\s*(?:[-*+]\s|\d+\.\s|\||#)/;
 const PATH_SPAN = /^(?=[^`]*[/.])[\w.\-/*]+$/;
 const GATE_SCRIPT = 'scripts/enforcement-approval.mjs';
+// In a glob, `**` before a slash stands for zero or more folders, any other `**` for anything,
+// and `*` for part of one name.
+const GLOB_WILDCARDS = { '**/': '(?:.*/)?', '**': '.*', '*': '[^/]*' };
 
 /** True when the gate asks for sign-off on a change to the file at `path`. */
 function gateGuards(path) {
   const file = { filename: path, status: 'modified', additions: 1, deletions: 0 };
-  // Open PR #81 replaces `classifyProtectedFiles` with `guardedPaths`; either gate answers.
-  const guarded =
-    'guardedPaths' in gate ? gate.guardedPaths([file]) : gate.classifyProtectedFiles([file]);
-  return guarded.length > 0;
+  return gate.guardedPaths([file]).length > 0;
 }
 
 /** The tracked files a doc's `path` covers: the file itself, a folder's files, or a glob's matches. */
 function coveredFiles(path, trackedFiles) {
   if (path.includes('*')) {
-    const escapeRegExp = (text) => text.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
     const source = path
-      .split('**')
-      .map((part) => part.split('*').map(escapeRegExp).join('[^/]*'))
-      .join('.*');
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*\*\/|\*\*|\*/g, (wildcard) => GLOB_WILDCARDS[wildcard]);
     const pattern = new RegExp(`^${source}$`);
     return trackedFiles.filter((file) => pattern.test(file));
   }

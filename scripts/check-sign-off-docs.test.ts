@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findUnguardedSignOffPaths, isGuardedPath } from './check-sign-off-docs.mjs';
+import { guardedPaths } from './enforcement-approval.mjs';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const CLI = join(REPOSITORY_ROOT, 'scripts/check-sign-off-docs.mjs');
@@ -50,6 +51,20 @@ describe('isGuardedPath', () => {
     'package.json',
   ])('leaves %s unguarded', (path) => {
     expect(isGuardedPath(path, TRACKED)).toBe(false);
+  });
+
+  it.each(TRACKED)('agrees with the gate on %s', (path) => {
+    const file = { filename: path, status: 'modified', additions: 1, deletions: 0 };
+    expect(isGuardedPath(path, TRACKED)).toBe(guardedPaths([file]).length > 0);
+  });
+
+  it('reads **/ as zero or more folders, so a top-level unguarded match counts', () => {
+    const tracked = ['.github/ci.yml', '.github/workflows/ci.yml'];
+    expect(isGuardedPath('.github/workflows/**/*.yml', tracked)).toBe(true);
+    expect(isGuardedPath('.github/**/*.yml', tracked)).toBe(false);
+    expect(
+      findUnguardedSignOffPaths('Edits to `.github/**/*.yml` need sign-off.', 'README.md', tracked),
+    ).toEqual([{ line: 1, path: '.github/**/*.yml' }]);
   });
 });
 
