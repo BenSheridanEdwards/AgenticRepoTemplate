@@ -1,10 +1,13 @@
 # The workspace packages. Root configs own every gate and reach each package by
-# glob (ADR 0031). `showcase/*/*` lists each showcase result's web and api, so
-# Fallow applies the contract rule pack to them (ADR 0032).
+# glob (ADR 0031). `showcase/*/web` and `showcase/*/api` list each showcase
+# result's two packages, so Fallow applies the contract rule pack to them
+# (ADR 0032). Each glob holds one `*` per folder level, because React Doctor
+# expands only one wildcard per glob and skips a `*/*` (ADR 0034).
 packages:
   - 'apps/*'
   - 'packages/*'
-  - 'showcase/*/*'
+  - 'showcase/*/web'
+  - 'showcase/*/api'
 
 # pnpm settings (pnpm ≥ 11 reads them here, not from package.json).
 # Native packages whose post-install build scripts we explicitly trust to run.

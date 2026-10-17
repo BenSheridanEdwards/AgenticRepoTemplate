@@ -1,7 +1,9 @@
 {
   // The browser program: every web package and the ui kit. It has the DOM and
-  // no Node types, and it reaches the api only through the type-only
-  // `@repo/api` contract, whose source uses explicit `.ts` import extensions.
+  // no Node types. It reaches the api only through the type-only `@<scope>/api`
+  // contract, and the reference makes it read the declarations the api program
+  // writes to `.cache/types`, so api source, Node imports included, is checked
+  // by the api program alone. `pnpm typecheck` builds them with `tsc -b`.
   // The root configs and e2e specs run on Node: tsconfig.node.json.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
@@ -11,10 +13,12 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
+    "tsBuildInfoFile": ".cache/types/web.tsbuildinfo",
 
     "types": ["jest", "@testing-library/jest-dom"]
   },
   "include": ["apps/web/src", "showcase/*/web/src", "packages/ui/src"],
+  "references": [{ "path": "./tsconfig.api.json" }],
   "ts-node": {
     "transpileOnly": true,
     "compilerOptions": {

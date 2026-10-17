@@ -23,7 +23,7 @@ import { Extractor, ExtractorConfig } from '@microsoft/api-extractor';
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE_DIRECTORY = join(REPOSITORY_ROOT, '.cache/api');
-const DECLARATIONS_DIRECTORY = join(CACHE_DIRECTORY, 'dts');
+const DECLARATIONS_DIRECTORY = join(REPOSITORY_ROOT, '.cache/types');
 
 const PACKAGE_MANIFEST = /^(apps\/[^/]+|packages\/[^/]+|showcase\/[^/]+\/[^/]+)\/package\.json$/;
 const MODULE_ENTRY = /^src\/(?:(routes|features)\/([^/]+)|(api-client))\/index\.ts$/;
@@ -97,18 +97,23 @@ function workspaceFiles() {
     .filter((file) => existsSync(join(REPOSITORY_ROOT, file)));
 }
 
+/**
+ * The api program is composite and writes its declarations to `.cache/types`,
+ * where the browser program reads the api contract; the web declarations join them.
+ */
 function emitDeclarations() {
   rmSync(DECLARATIONS_DIRECTORY, { recursive: true, force: true });
-  for (const program of ['tsconfig.json', 'tsconfig.api.json']) {
-    execFileSync(
-      join(REPOSITORY_ROOT, 'node_modules/.bin/tsc'),
-      [
-        ...['-p', program, '--noEmit', 'false', '--declaration', '--emitDeclarationOnly'],
-        ...['--rootDir', REPOSITORY_ROOT, '--outDir', DECLARATIONS_DIRECTORY],
-      ],
-      { cwd: REPOSITORY_ROOT, stdio: 'inherit' },
-    );
-  }
+  const tsc = join(REPOSITORY_ROOT, 'node_modules/.bin/tsc');
+  const options = { cwd: REPOSITORY_ROOT, stdio: 'inherit' };
+  execFileSync(tsc, ['-p', 'tsconfig.api.json'], options);
+  execFileSync(
+    tsc,
+    [
+      ...['-p', 'tsconfig.json', '--noEmit', 'false', '--declaration', '--emitDeclarationOnly'],
+      ...['--rootDir', REPOSITORY_ROOT, '--outDir', DECLARATIONS_DIRECTORY],
+    ],
+    options,
+  );
 }
 
 function runExtractor({ name: reportName, entry, packageRoot }, localBuild) {

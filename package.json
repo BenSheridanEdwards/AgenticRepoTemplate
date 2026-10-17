@@ -13,7 +13,7 @@
     "dev": "pnpm --parallel --filter @repo/web --filter @repo/api dev",
     "build": "pnpm -r build",
     "preview": "pnpm --filter @repo/web preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.api.json --noEmit && tsc -p tsconfig.domain.json --noEmit",
+    "typecheck": "tsc -b --force tsconfig.json && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.domain.json --noEmit",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",
@@ -27,7 +27,7 @@
     "api:check": "node scripts/api-report.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "jest --coverage && node tooling/coverage-by-result.mjs",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",
@@ -43,6 +43,7 @@
     "validate:pr": "node scripts/validate-pr-body.mjs",
     "verify": "pnpm check:context && pnpm check:suppressions && pnpm check:docs && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm build && pnpm size",
     "setup:agents": "bash scripts/setup-agentic-toolkit.sh",
+    "trial": "node tooling/trial/run-trial.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
