@@ -77,7 +77,7 @@ that names the fix unless:
 - the Verification Summary has exactly one `- Head commit:` line naming one SHA
   (full or short) of the PR head, so a push that moves the head fails until the
   body is re-checked against it
-  ([ADR 0022](../decisions/0022-pr-body-names-its-head-commit.md)).
+  ([ADR 0027](../decisions/0027-pr-body-names-its-head-commit.md)).
 
 ## Proof judgment
 
