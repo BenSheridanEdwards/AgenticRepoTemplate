@@ -15,13 +15,13 @@ guidance docs themselves.
 
 Every path that shapes enforcement is protected by default:
 
-- every root config file
+- every root config file, except the dependency manifests `package.json` and
+  `pnpm-lock.yaml` ([0018](0018-dependency-manifests-are-not-enforcement-paths.md))
 - `.github/**`
 - `.claude/**`
 - `.husky/**`
 - `scripts/**`
 - `tooling/**`
-- `pnpm-lock.yaml`
 - the agent docs: `AGENTS.md`, `GUARDRAILS.md`, and `.agents/**`
 
 Content checks also flag:
