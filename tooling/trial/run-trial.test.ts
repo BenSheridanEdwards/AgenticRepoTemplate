@@ -311,6 +311,18 @@ describe('renderPrompt', () => {
     expect(renderPrompt(template, planned)).toContain('`showcase/todo-02/`');
   });
 
+  it('tells the agent what the structure validator and the diagram gate hold a result to', () => {
+    const template = readFileSync(join(REPOSITORY_ROOT, 'tooling/trial/todo-prompt.md'), 'utf8');
+
+    expect(template).toContain(
+      'Each `package.json` equals its reference package except the name and the dependencies.',
+    );
+    expect(template).toContain('`showcase/{{ID}}/web/e2e/`');
+    expect(template).toContain('`node tooling/architecture/structure.mjs`');
+    expect(template).toContain('`pnpm arch:diagram`');
+    expect(template).toContain('keep the written diagram');
+  });
+
   it('throws on a placeholder it does not fill', () => {
     expect(() =>
       renderPrompt('Trial {{ID}} on {{DATE}}', { id: 'todo-01', trial: 1 } as never),

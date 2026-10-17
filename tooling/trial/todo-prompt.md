@@ -21,6 +21,10 @@ Read it this way.
 - `showcase/{{ID}}/web` is the web package `@{{ID}}/web`, and `showcase/{{ID}}/api` is the api package `@{{ID}}/api`. Give them the same layout, roles, scripts and dependencies as `apps/web` and `apps/api`, which hold the reference greeting feature. Use `@repo/ui` for the primitives it has.
 - Write only inside `showcase/{{ID}}/`. `pnpm install` may update `pnpm-lock.yaml` for your two packages. Leave every other file as it is.
 - Use only dependencies that `apps/web` and `apps/api` already declare, at the same ranges.
+- Each `package.json` equals its reference package except the name and the dependencies.
+- Put the result's own Playwright specs in `showcase/{{ID}}/web/e2e/`.
+- `showcase/{{ID}}/` holds only `web/`, `api/` and its generated `architecture.mmd`. Add no tool config beyond the reference's, no symlink and no suppression directive. `node tooling/architecture/structure.mjs` checks this layout, and `pnpm verify` runs it.
+- Run `pnpm arch:diagram` to write `showcase/{{ID}}/architecture.mmd`, and keep the written diagram.
 
 ## The page
 
