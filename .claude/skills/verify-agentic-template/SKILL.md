@@ -133,8 +133,8 @@ An uncaught page error fails the journey even when every assertion passes.
 
 Proof standards:
 
-- Drive the real user path. Click buttons by name, and change state only through
-  the UI.
+- Drive the real user path. Click buttons by name, and leave hooks and component
+  state to the app.
 - Intercept the network only at `/api/service-status`. That is the boundary to
   the backend. It is the only way to reach loading, empty, and error states.
 - Check the side effect, not only the screen. `manifest.json` lists the API
