@@ -17,11 +17,11 @@ just the runnable carrier. The scaffolding is the point (see the root
 ```bash
 pnpm install          # install dependencies (Node ≥ 22, pnpm)
 pnpm setup:agents     # install the external agentic toolkit (one time)
-pnpm dev              # run the app at http://localhost:5173
+pnpm dev              # run the app (pnpm --filter @repo/web dev) at http://localhost:5173
 pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
 pnpm arch:check       # architecture gate, role diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd from .fallowrc.jsonc
-pnpm api:report       # regenerate etc/*.api.md after an intended export change
+pnpm api:report       # regenerate apps/web/etc/*.api.md after an intended export change
 pnpm verify           # the full local gate suite (typecheck → biome → eslint → react doctor → fallow → architecture → tests → build)
 pnpm e2e              # the end-to-end behaviour map
 ```
@@ -32,7 +32,7 @@ pnpm e2e              # the end-to-end behaviour map
    the glossary, and ADRs live in this folder.
 2. **Follow the patterns; copy the templates.** New files come from
    [`templates/`](templates/). Consistency is the deliverable.
-3. **Behaviour is defined by the E2E map** (`e2e/app.spec.ts`), not by the
+3. **Behaviour is defined by the E2E map** (`apps/web/e2e/app.spec.ts`), not by the
    implementation. Add behaviour there first.
 4. **When a gate fails, fix the cause.** Keep every gate and its config as it
    is; the checks below enforce this.
@@ -100,5 +100,5 @@ stdlib or native platform features before adding abstractions or dependencies.
   policy and React rules, Jest and Playwright run tests. A new tool for an owned
   concern needs an ADR (see [`project/TECH_STACK.md`](project/TECH_STACK.md));
   `pnpm check:adr` fails a new dependency that no new ADR names.
-- Treat generated artefacts (`dist/`, `coverage/`, `graphify-out/`,
+- Treat generated artefacts (`apps/web/dist/`, `coverage/`, `graphify-out/`,
   `.gitnexus/`) as disposable; regenerate them with their command.

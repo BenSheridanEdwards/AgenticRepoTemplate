@@ -7,7 +7,7 @@ description: Launch, drive, and prove the Agentic Project Template web app (Vite
 
 The app is one page at `/`: a `Capacity` region (threshold counter) and a
 `Service status` region (async list from `GET /api/service-status`). Vite serves
-that endpoint from `vite.config.ts` in dev and preview, so a launched instance
+that endpoint from `apps/web/vite.config.ts` in dev and preview, so a launched instance
 shows real data without mocks. The browser is the only user surface.
 
 `scripts/verify.mjs` owns the whole loop. Every run lives in `.verify/<run-id>/`
@@ -49,12 +49,15 @@ node $V launch --run pr-123-ci --dist "$DIST" --sha "$SHA"
 ```
 
 `--sha` is required with `--dist`. It is the commit the CI run built, and
-`doctor` compares it to `HEAD`.
+`doctor` compares it to `HEAD`. A relative `--dist` resolves from `apps/web`,
+so `--dist dist` serves a local `apps/web/dist/` build; an absolute path works
+as is.
 
 Keep the download outside the repo. `pnpm verify` runs react-doctor over the
 working tree, and it flags the minified bundle.
 
-`launch` picks a free port on `127.0.0.1` and starts Vite with `--strictPort`.
+`launch` picks a free port on `127.0.0.1` and starts Vite from `apps/web`
+(`apps/web/node_modules/.bin/vite`) with `--strictPort`.
 It returns only when the page answers 200, the API returns a JSON list, and
 Chromium renders the `Agentic Project Template` heading with three services.
 It prints `READY run=<id> mode=<dev|preview> url=<url> pid=<pid>`. Omit `--run`
@@ -160,5 +163,5 @@ other agents and the user's `pnpm dev` on `:5173` may share the machine.
 
 When a PR adds or changes a user-visible path, update the matching file in
 `features/` and its journey in `scripts/journeys.mjs` in the same PR. For a full pass, use the pstack
-`/maintain-verification-skill` skill when it is installed. The CI suite in `e2e/` is the
+`/maintain-verification-skill` skill when it is installed. The CI suite in `apps/web/e2e/` is the
 behaviour contract. This skill is the tool to drive the app and show proof.

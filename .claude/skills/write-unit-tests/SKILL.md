@@ -29,7 +29,8 @@ because they assert what a **user perceives**, through the public surface.
 ## Process
 
 1. Copy `.agents/templates/component.test.tsx.template` next to the unit under
-   test as `<Name>.test.tsx`.
+   test as `<Name>.test.tsx`. Jest picks up `apps/*/src/**/*.test.{ts,tsx}`
+   from the repo root.
 2. Cover the default state, each user action, and the edge cases (empty, floor,
    ceiling, error path).
 3. Run with coverage and close any gap the threshold reports.
