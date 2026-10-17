@@ -14,6 +14,9 @@ pnpm check:context
 step "Every suppression names a rule and a reason"
 pnpm check:suppressions
 
+step "Guidance docs state rules positively"
+pnpm check:docs
+
 step "Required-gate contract matches the workflows and inventory"
 pnpm gates:check
 

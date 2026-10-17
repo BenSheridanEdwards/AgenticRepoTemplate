@@ -13,7 +13,7 @@ matching feature file as the recipe.
   `/`. It has no routes, auth, or stored data.
 - `GET /api/service-status` returns `Web application` (Operational),
   `Public API` (Degraded), and `Background jobs` (Down).
-- Never drive an instance that this run did not launch.
+- Drive only an instance that this run launched.
 
 ## Driving conventions
 
@@ -32,7 +32,7 @@ matching feature file as the recipe.
   `.verify/<id>/evidence/<journey>/`.
 - `manifest.json` records the result, git `HEAD`, mode, and every `/api/` call.
 - Report a failed step with its `NN-<step>.failed.png` and the error line.
-- Do not report a path as verified through a different path.
+- Report a path as verified only after driving that same path.
 
 ## Feature entry contract
 
