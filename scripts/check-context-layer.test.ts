@@ -30,6 +30,9 @@ function createInMemoryFilesystem({ files = {}, symlinks = {} }) {
     readSymbolicLinkTarget(relativePath) {
       return symlinks[relativePath];
     },
+    listTrackedFiles() {
+      return [...Object.keys(files), ...Object.keys(symlinks)];
+    },
     listDirectory(relativePath) {
       const prefix = `${relativePath}/`;
       const children = new Map();
@@ -159,6 +162,84 @@ describe('checkContextLayer', () => {
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('description:');
+  });
+
+  it('fails, naming the file and lines, when a merge leaves a section in a doc twice', () => {
+    const files = buildPassingTree();
+    const approval = '## Enforcement approval\n\nTick the box.\n';
+    files['.agents/project/QUALITY_GATES.md'] =
+      `# Quality gates\n\n${approval}\n## Placement rules\n\n${approval}`;
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    const message = result.errors.join('\n');
+    expect(message).toContain(
+      '`.agents/project/QUALITY_GATES.md` has the section `## Enforcement approval` 2 times',
+    );
+    expect(message).toContain('lines 3, 9');
+  });
+
+  it('passes when the same heading sits under different parents or inside a code block', () => {
+    const files = buildPassingTree();
+    files['.agents/project/CONVENTIONS.md'] = [
+      '# Conventions',
+      '## Naming',
+      '### Example',
+      '## Imports',
+      '### Example',
+      '```md',
+      '## Naming',
+      '```',
+    ].join('\n');
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result).toEqual({ ok: true, errors: [] });
+  });
+
+  it('reports only the outermost copy when a whole section with sub-sections is duplicated', () => {
+    const files = buildPassingTree();
+    const section = '## Approval\n### Who\n### When\n';
+    files['README.md'] = `# Readme\n${section}## Other\n${section}`;
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(
+      '`README.md` has the section `## Approval` 2 times under `# Readme`',
+    );
+  });
+
+  it('skips front matter and nested or tilde fences, and matches closing hashes', () => {
+    const files = buildPassingTree();
+    files['.agents/project/GLOSSARY.md'] = [
+      '---',
+      '# a yaml comment',
+      '# a yaml comment',
+      '---',
+      '# Glossary',
+      '## Term',
+      '````md',
+      '```',
+      '## Term',
+      '```',
+      '````',
+      '~~~',
+      '## Term',
+      '~~~',
+    ].join('\n');
+    expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
+      ok: true,
+      errors: [],
+    });
+    files['.agents/project/GLOSSARY.md'] = '# Glossary\n## Term\n## Term ##\n';
+    expect(checkContextLayer(createInMemoryFilesystem({ files })).errors.join('\n')).toContain(
+      'has the section `## Term` 2 times',
+    );
+  });
+
+  it('ignores symlinked docs and Markdown outside the context layer', () => {
+    const files = buildPassingTree();
+    files['src/notes.md'] = '# A\n## B\n## B\n';
+    const result = checkContextLayer(
+      createInMemoryFilesystem({ files, symlinks: { '.agents/linked.md': 'elsewhere.md' } }),
+    );
+    expect(result).toEqual({ ok: true, errors: [] });
   });
 
   it('fails, naming both files, when two ADRs share a number', () => {
