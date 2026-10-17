@@ -26,10 +26,10 @@ changes — no drift between three half-maintained instruction files.
 
 ## The contract
 
-1. **Read before you write.** The patterns here are not suggestions; the quality
-   gates mechanically reject code that ignores them.
+1. **Read before you write.** The patterns here are the standard, and the
+   quality gates reject code that departs from them.
 2. **Follow the templates.** A new file should look like its template with the
    blanks filled in. Consistency is the product.
-3. **If a rule is wrong, change the rule — in the open.** Propose an ADR in
-   `decisions/`, do not quietly diverge. The setup is designed to evolve, not to
-   be worked around.
+3. **If a rule is wrong, change the rule in the open.** Propose an ADR in
+   `decisions/` and change the rule there. The setup is designed to evolve
+   through ADRs.

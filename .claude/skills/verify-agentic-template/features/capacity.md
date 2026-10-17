@@ -1,8 +1,8 @@
 # Capacity
 
 The Capacity card counts toward a limit of 8. A status pill reads `Healthy`
-below 4, `Approaching limit` from 4, and `At capacity` from 8. The count never
-goes below 0, and `Reset` returns it to 0.
+below 4, `Approaching limit` from 4, and `At capacity` from 8. The count stops
+at 0, and `Reset` returns it to 0.
 
 ## Sub-features
 
