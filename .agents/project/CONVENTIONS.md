@@ -43,15 +43,16 @@ feature.
 - **Fail loudly at boundaries.** `main.tsx` throws when `#root` is missing.
 - **Co-locate tests.** Each test sits beside its subject as `<Name>.test.tsx`.
 
-## Commits
+## Enforced commit and branch conventions
 
-- **Conventional Commits**, enforced on `commit-msg`:
-  `type(scope): subject`, for example `feat(threshold-counter): add reset action`.
-- Subject in the imperative mood, lower case, no trailing period.
-- One logical change per commit; keep the diff reviewable.
+| Convention | Enforced by |
+| --- | --- |
+| Commits use Conventional Commits, `type(scope): subject`, lower case with no trailing period. | commitlint on `commit-msg` |
+| PR titles use Conventional Commits. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
+| Branches are `<type>/<short-kebab-summary>`, for example `feat/threshold-reset`. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
+| A new dependency arrives with a new ADR. | `pnpm check:adr` in `pnpm verify` and CI |
 
-## Branches
+## Commit judgment
 
-- Name branches `<type>/<short-kebab-summary>`, where `<type>` is a Conventional
-  Commit type, for example `feat/threshold-reset`, `fix/coverage-gate`, or
-  `chore/bump-actions`.
+- Write the subject in the imperative mood.
+- Keep one logical change per commit, so the diff stays reviewable.
