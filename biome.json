@@ -52,11 +52,39 @@
       "style": {
         "useImportType": "error",
         "useConst": "error",
-        "noNonNullAssertion": "warn"
+        "noNonNullAssertion": "warn",
+        "useConsistentTypeDefinitions": "error"
       },
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noEmptyBlockStatements": "error"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": {
+              "level": "error",
+              "options": {
+                "strictCase": true,
+                "requireAscii": true
+              }
+            },
+            "useFilenamingConvention": {
+              "level": "error",
+              "options": {
+                "strictCase": true,
+                "requireAscii": true,
+                "filenameCases": ["camelCase", "PascalCase", "export"]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

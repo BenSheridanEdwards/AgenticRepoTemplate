@@ -91,7 +91,7 @@ const serviceStatusStates = {
   async run({ page, step, expect }) {
     const region = page.getByRole('region', { name: 'Service status' });
     let mode = 'hold';
-    let release = () => {};
+    let release = () => undefined;
     const held = new Promise((resolve) => {
       release = resolve;
     });
