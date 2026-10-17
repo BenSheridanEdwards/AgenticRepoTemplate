@@ -12,7 +12,7 @@ const ENDPOINT = '**/api/service-status';
 test.describe('Service status', () => {
   test('shows loading, then lists each service when the request succeeds', async ({ page }) => {
     // Hold the response open so the loading state is observable, then release it.
-    let release: () => void = () => {};
+    let release: () => void = () => undefined;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });

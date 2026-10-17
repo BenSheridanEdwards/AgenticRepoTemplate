@@ -41,6 +41,7 @@ jobs:
       - name: Install leaves the tree clean
         run: git diff --exit-code
       - run: pnpm check:context
+      - run: pnpm check:suppressions
       - run: pnpm typecheck
       - run: pnpm check
       - run: pnpm lint:policy
