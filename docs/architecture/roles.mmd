@@ -2,6 +2,8 @@
 flowchart LR
   app["app"]
   features["features"]
+  routes["routes"]
   shared["shared"]
-  app --> features
+  app --> routes
   features --> shared
+  routes --> features
