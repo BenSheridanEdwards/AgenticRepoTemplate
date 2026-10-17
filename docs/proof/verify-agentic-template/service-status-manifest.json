@@ -1,0 +1,31 @@
+{
+  "journey": "service-status",
+  "feature": "service-status",
+  "run": "proof-final",
+  "mode": "dev",
+  "url": "http://127.0.0.1:<port>/",
+  "build": "a8352fe9a27d6a01c476d655c4d6e30a2c6c2211",
+  "checkoutHead": "a8352fe9a27d6a01c476d655c4d6e30a2c6c2211",
+  "startedAt": "2026-10-17T08:26:54.319Z",
+  "steps": [
+    {
+      "name": "the live list shows every service with its health",
+      "result": "pass",
+      "screenshot": "01-the-live-list-shows-every-service-with-its-health.png"
+    },
+    {
+      "name": "refresh requests the API again and keeps the list",
+      "result": "pass",
+      "screenshot": "02-refresh-requests-the-api-again-and-keeps-the-list.png"
+    }
+  ],
+  "apiResponses": [
+    "GET http://127.0.0.1:<port>/api/service-status 200",
+    "GET http://127.0.0.1:<port>/api/service-status 200",
+    "GET http://127.0.0.1:<port>/api/service-status 200"
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "result": "pass",
+  "finishedAt": "2026-10-17T08:26:54.908Z"
+}
