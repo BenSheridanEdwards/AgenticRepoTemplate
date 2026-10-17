@@ -1,0 +1,3 @@
+interface:
+  display_name: "Verify Agentic Template"
+  short_description: "Launch the app, drive it in Chromium like a user, and keep screenshots, ARIA snapshots, and video as PR proof."

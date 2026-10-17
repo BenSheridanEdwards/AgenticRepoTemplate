@@ -33,6 +33,8 @@ Preconditions:
   and the status reads `At capacity`.
 - **Step back down.** Press `Decrease` once. The text contains `7/ 8` and the
   status reads `Approaching limit`.
+- **Keyboard entry.** Focus `Increase` and press Enter. The text contains `8/ 8`
+  and the status reads `At capacity`.
 - **Reset.** Press `Reset`. The text contains `0/ 8` and the status reads
   `Healthy`.
 - **Proof.** `04-four-more-increases-reach-at-capacity.png` shows the red

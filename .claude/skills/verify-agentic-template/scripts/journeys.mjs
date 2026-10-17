@@ -42,6 +42,12 @@ const capacity = {
       await expect(region).toContainText('7/ 8');
       await expect(status).toHaveText('Approaching limit');
     });
+    await step('keyboard enter on increase adds one', async () => {
+      await region.getByRole('button', { name: 'Increase' }).focus();
+      await page.keyboard.press('Enter');
+      await expect(region).toContainText('8/ 8');
+      await expect(status).toHaveText('At capacity');
+    });
     await step('reset returns to healthy at zero', async () => {
       await press('Reset', 1);
       await expect(region).toContainText('0/ 8');
@@ -111,7 +117,9 @@ const serviceStatusStates = {
     await step('a failing API shows the error message', async () => {
       mode = 'error';
       await region.getByRole('button', { name: 'Refresh' }).click();
-      await expect(region).toContainText('Could not load service status.');
+      await expect(region).toContainText(
+        'Could not load service status. Service status request failed with HTTP 500',
+      );
     });
     await step('refresh after recovery shows the live list', async () => {
       mode = 'live';
@@ -136,6 +144,8 @@ const accessibility = {
       expect(results.violations.map(({ id, help }) => `${id}: ${help}`)).toEqual([]);
     });
     await step('keyboard tab order reaches every button by name', async () => {
+      await page.goto('/');
+      await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
       const names = [];
       for (let index = 0; index < 4; index += 1) {
         await page.keyboard.press('Tab');

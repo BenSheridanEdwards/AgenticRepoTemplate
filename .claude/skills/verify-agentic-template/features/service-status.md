@@ -31,9 +31,9 @@ Preconditions:
 - **Live list.** Run `node $V drive service-status --run <id>`. The list has
   three items: `Web application Operational`, `Public API Degraded`, and
   `Background jobs Down`.
-- **Refresh.** The journey presses `Refresh`. `manifest.json` lists one more
-  `GET .../api/service-status 200` than before the press, and the list still
-  has three items.
+- **Refresh.** The journey presses `Refresh` and waits for a new request to
+  `/api/service-status`. The list still has three items. `manifest.json` lists
+  every `GET .../api/service-status 200` with the load calls first.
 - **States.** Run `node $V drive service-status-states --run <id>`. It holds the
   first request, then answers `[]`, then `500`, then lets the real endpoint
   answer.

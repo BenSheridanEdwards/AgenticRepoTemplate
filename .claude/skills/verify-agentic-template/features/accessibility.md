@@ -13,7 +13,7 @@ reach with Tab, in visual order.
 
 ## How to get to it (user POV)
 
-- Open `/` with a screen reader or keyboard only.
+- Open `/` and use the keyboard only.
 - Press Tab from the top of the page.
 
 ## Driving it with verify.mjs
@@ -28,7 +28,7 @@ Preconditions:
 - **Keyboard.** The second step presses Tab four times from a fresh load. The
   focused buttons are `Decrease`, `Increase`, `Reset`, `Refresh`.
 - **Proof.** The `.aria.yml` from step 1 is the accessibility tree the scan
-  saw.
+  saw. It is also what a screen reader reads, but no screen reader runs here.
 
 ## Gotchas
 
@@ -37,3 +37,5 @@ Preconditions:
 - The journey scans only the success state. To scan the error or empty state,
   write a journey that intercepts `**/api/service-status` first.
 - axe opens a helper page, so its video is removed and only `video.webm` stays.
+- `page.goto` returns before React renders the buttons. Wait for a button to
+  be visible before the first Tab, or focus lands on nothing.

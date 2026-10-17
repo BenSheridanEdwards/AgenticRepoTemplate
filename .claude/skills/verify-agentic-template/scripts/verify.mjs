@@ -20,6 +20,7 @@ import {
 import { createServer } from 'node:net';
 import { isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { stripVTControlCharacters } from 'node:util';
 import { chromium, expect } from '@playwright/test';
 import { JOURNEYS } from './journeys.mjs';
 
@@ -105,7 +106,9 @@ function commandLineOf(pid) {
 /** True only for the Vite process this run spawned on this run's port. */
 function ownsProcess(instance) {
   const commandLine = commandLineOf(instance.pid);
-  return commandLine.includes('vite') && commandLine.includes(`--port ${instance.port}`);
+  const tokens = commandLine.split(/\s+/);
+  const portFlag = tokens.indexOf('--port');
+  return commandLine.includes('vite') && tokens[portFlag + 1] === String(instance.port);
 }
 
 async function probeHttp(url) {
@@ -152,6 +155,9 @@ async function launch(options) {
       `${distDirectory} has no index.html. Build or download the dist artifact first.`,
     );
   }
+  if (distDirectory && !options.sha) {
+    throw new Error('Pass --sha <commit> with --dist: the headSha of the CI run that built it.');
+  }
   const mode = distDirectory ? 'preview' : 'dev';
   const viteArguments = distDirectory
     ? [
@@ -175,7 +181,8 @@ async function launch(options) {
   server.unref();
 
   const url = `http://127.0.0.1:${port}/`;
-  const instance = { runId, mode, url, port, pid: server.pid, distDirectory, gitHead: gitHead() };
+  const build = distDirectory ? options.sha : gitHead();
+  const instance = { runId, mode, url, port, pid: server.pid, distDirectory, build };
   writeFileSync(paths.instanceFile, `${JSON.stringify(instance, null, 2)}\n`);
 
   const deadline = Date.now() + READY_TIMEOUT_MS;
@@ -219,10 +226,8 @@ async function doctor(options) {
     ['app renders in Chromium', render.rendered, render.error ?? `heading "${APP_HEADING}"`],
     [
       'build matches HEAD',
-      instance.mode === 'dev' ? instance.gitHead === head : true,
-      instance.mode === 'dev'
-        ? `launched at ${instance.gitHead.slice(0, 12)}, HEAD ${head.slice(0, 12)}`
-        : `serving ${instance.distDirectory}`,
+      instance.build === head,
+      `${instance.mode} build ${instance.build.slice(0, 12)}, HEAD ${head.slice(0, 12)}`,
     ],
   ];
   for (const [name, passed, detail] of checks) {
@@ -270,7 +275,8 @@ async function drive(options) {
     run: runId,
     mode: instance.mode,
     url: instance.url,
-    gitHead: gitHead(),
+    build: instance.build,
+    checkoutHead: gitHead(),
     startedAt: new Date().toISOString(),
     steps: [],
     apiResponses: [],
@@ -304,7 +310,7 @@ async function drive(options) {
       manifest.steps.push({ name, result: 'pass', screenshot: `${slug}.png` });
     } catch (error) {
       await page.screenshot({ path: join(output, `${slug}.failed.png`), fullPage: true });
-      manifest.steps.push({ name, result: 'fail', error: String(error).split('\n')[0] });
+      manifest.steps.push({ name, result: 'fail', error: stripVTControlCharacters(String(error)) });
       throw error;
     }
   };

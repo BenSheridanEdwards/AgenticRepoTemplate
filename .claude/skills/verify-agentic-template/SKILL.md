@@ -1,6 +1,6 @@
 ---
 name: verify-agentic-template
-description: Launch, drive, and prove the Agentic Project Template web app (Vite + React, one page with Capacity and Service status) the way a user does, in real Chromium, from a dev server or a CI-built dist artifact. Use to prove a PR's user-visible behaviour, capture screenshots, ARIA snapshots, and video for the PR body, or check that a running instance is worth driving.
+description: Launch, drive, and prove the Agentic Project Template web app (Vite + React, one page with Capacity and Service status) the way a user does, in real Chromium, from a dev server or a CI-built dist artifact. Use to capture screenshots, ARIA snapshots, and video of a running instance as PR proof, or to check that an instance is worth driving. For the Playwright behaviour map that CI runs, use run-e2e-tests.
 ---
 
 # Verify the Agentic Project Template app
@@ -41,10 +41,18 @@ node $V launch --run pr-123
 From a CI-built bundle (the `dist` artifact of the `Production build` job):
 
 ```bash
-gh run list --workflow CI --branch <branch> --json databaseId,headSha --limit 1
-gh run download <run-id> -n dist -D .verify/ci-dist-<run-id>
-node $V launch --run pr-123-ci --dist .verify/ci-dist-<run-id>
+SHA=$(git rev-parse HEAD)
+gh run list --workflow CI --commit "$SHA" --status success --json databaseId --jq '.[0].databaseId'
+DIST=$(mktemp -d)
+gh run download <run-id> -n dist -D "$DIST"
+node $V launch --run pr-123-ci --dist "$DIST" --sha "$SHA"
 ```
+
+`--sha` is required with `--dist`. It is the commit the CI run built, and
+`doctor` compares it to `HEAD`.
+
+Keep the download outside the repo. `pnpm verify` runs react-doctor over the
+working tree, and it flags the minified bundle.
 
 `launch` picks a free port on `127.0.0.1` and starts Vite with `--strictPort`.
 It returns only when the page answers 200, the API returns a JSON list, and
@@ -62,9 +70,8 @@ node $V doctor --run pr-123
 
 It is read-only and exits 1 on any `FAIL`. It checks that the pid is alive and
 is this run's Vite on this run's port, the page and API answer, and the app
-renders in Chromium. In dev mode it also checks that the instance was launched
-at the current `HEAD`. In preview mode, match the CI run's `headSha` against
-the PR head yourself.
+renders in Chromium. It also checks that the build it serves matches `HEAD`:
+the launch commit in dev mode, or `--sha` in preview mode.
 
 ## Drive
 
@@ -93,7 +100,7 @@ export default {
     const region = page.getByRole('region', { name: 'Capacity' });
     await step('reach at capacity', async () => {
       await page.goto('/');
-      for (let i = 0; i < 8; i += 1) await region.getByRole('button', { name: 'Increase' }).click();
+      for (let press = 0; press < 8; press += 1) await region.getByRole('button', { name: 'Increase' }).click();
       await expect(region.getByRole('status')).toHaveText('At capacity');
     });
   },
@@ -116,7 +123,10 @@ two `status` regions.
   shows each action and its result, not only the final screen.
 - `NN-<step>.failed.png` for the step that failed.
 - `video.webm` of the whole journey.
-- `manifest.json` with the result, URL, mode, git `HEAD`, each step, every
+- A re-run of the same journey in the same run replaces its folder. Use a new
+  `--run` to keep both.
+- `manifest.json` with the result, URL, mode, the build commit, the checkout
+  `HEAD`, each step, every
   `/api/` response with its status, console errors, and uncaught page errors.
 
 An uncaught page error fails the journey even when every assertion passes.
@@ -149,6 +159,6 @@ user's `pnpm dev` on `:5173` may share the machine.
 ## Keep the map current
 
 When a PR adds or changes a user-visible path, update the matching file in
-`features/` and its journey in `scripts/journeys.mjs` in the same PR. Use
-`/maintain-verification-skill` for a full pass. The CI suite in `e2e/` is the
+`features/` and its journey in `scripts/journeys.mjs` in the same PR. For a full pass, use the pstack
+`/maintain-verification-skill` skill when it is installed. The CI suite in `e2e/` is the
 behaviour contract. This skill is the tool to drive the app and show proof.

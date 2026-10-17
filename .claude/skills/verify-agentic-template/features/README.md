@@ -20,6 +20,8 @@ matching feature file as the recipe.
 - Every recipe starts from a fresh page load. A reload resets all state.
 - Locate by ARIA role and accessible name. Scope to a region before you look
   for `status`, because the page has two.
+- Each bullet in a recipe names one step of the journey. `drive` prints that
+  step with `PASS` or `FAIL`.
 - Run a built-in journey with `node $V drive <journey> --run <id>`. Run new
   behaviour with `node $V drive ./journey.mjs --run <id>`.
 - Intercept the network only at `**/api/service-status`.
