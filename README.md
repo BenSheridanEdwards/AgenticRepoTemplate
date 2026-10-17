@@ -308,8 +308,10 @@ scripts/
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
   validate-pr-body.mjs      Validates the PR body sections, proof, and title (pnpm validate:pr).
   enforcement-approval.mjs  Lists protected files in a sticky comment and sets the enforcement-approval status.
+  required-gates.mjs        The required-check contract and the Required gates decision.
   verify-gates.sh           Local mirror of the CI gate suite.
 docs/architecture/roles.mmd  Generated role diagram (pnpm arch:diagram).
+docs/required-gates.md      Generated required-check inventory (pnpm gates:inventory).
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
 e2e/
   app.spec.ts               The behaviour map.

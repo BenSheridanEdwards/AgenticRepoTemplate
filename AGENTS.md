@@ -67,6 +67,7 @@ stdlib or native platform features before adding abstractions or dependencies.
 | Domain language | `.agents/project/GLOSSARY.md` |
 | Why a rule exists | `.agents/decisions/` (ADRs) |
 | Scaffolds to copy | `.agents/templates/` |
+| Drive the app and capture PR proof | `.claude/skills/verify-agentic-template/SKILL.md` |
 
 ## Safety
 

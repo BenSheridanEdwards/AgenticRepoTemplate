@@ -1,11 +1,11 @@
 name: Lighthouse
 
 # Performance + accessibility budget against the production build. Audits run
-# only when the pull request touches UI-relevant files; otherwise the job still
-# reports green under the same required check name. Accessibility and layout
-# shift are hard floors; performance, best-practices, and the noisy timing
-# metrics warn. Every assertion uses the median of three runs — see
-# lighthouserc.json.
+# only when scripts/lighthouse-scope.mjs finds UI-relevant files in the pull
+# request; otherwise the job still reports green under the same required check
+# name. Accessibility and layout shift are hard floors; performance,
+# best-practices, and the noisy timing metrics warn. Every assertion uses the
+# median of three runs — see lighthouserc.json.
 on: pull_request
 
 permissions:
@@ -27,23 +27,9 @@ jobs:
           fetch-depth: 2
       - id: changes
         name: Detect UI-relevant changes
-        shell: bash
-        run: |
-          # Test files never ship in the bundle; package.json/lockfile change it.
-          paths=(
-            src public index.html vite.config.ts tsconfig.json
-            package.json pnpm-lock.yaml .nvmrc lighthouserc.json
-            .github/workflows/lighthouse.yml
-            ':(glob,exclude)src/**/*.test.*'
-          )
-          files=$(git diff --name-only HEAD^1 HEAD -- "${paths[@]}")
-          if [ -n "$files" ]; then
-            echo "ui-changed=true" >> "$GITHUB_OUTPUT"
-            printf 'Lighthouse audits run for these UI-relevant files:\n\n```\n%s\n```\n' "$files" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "ui-changed=false" >> "$GITHUB_OUTPUT"
-            echo "Lighthouse audits skipped: this pull request touches only non-UI files." >> "$GITHUB_STEP_SUMMARY"
-          fi
+        # The runner's preinstalled Node runs this dependency-free script, so
+        # a skipped audit costs no install.
+        run: node scripts/lighthouse-scope.mjs
       - if: steps.changes.outputs.ui-changed == 'true'
         uses: pnpm/action-setup@v6
       - if: steps.changes.outputs.ui-changed == 'true'
