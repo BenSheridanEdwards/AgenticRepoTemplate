@@ -9,10 +9,10 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 | Check | Workflow job | Judged by | Applies when | Local mirror |
 | --- | --- | --- | --- | --- |
 | Branch contains main | `ci.yml` `up-to-date` | `Required gates` | `pull_request` into `main`. Skipped elsewhere. | pre-commit and pre-push hooks |
-| Type check · lint · format | `ci.yml` `quality` | `Required gates` | Every run. | `pnpm verify` |
-| Code intelligence (Fallow) | `ci.yml` `fallow` | `Required gates` | Every run. | `pnpm verify` |
+| Type check · lint · format | `ci.yml` `quality` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
+| Code intelligence (Fallow) | `ci.yml` `fallow` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Unit + component tests | `ci.yml` `test` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
-| Production build | `ci.yml` `build` | `Required gates` | Every run. | `pnpm verify` |
+| Production build | `ci.yml` `build` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | End-to-end behaviour map | `ci.yml` `e2e` | `Required gates` | Every run. | `pnpm e2e`, pre-push hook |
 | Security audit | `ci.yml` `security` | `Required gates` | Every run. | Hosted only. Pre-commit scans staged files for secrets. |
 | Analyze (javascript-typescript) | `codeql.yml` `analyze` | Branch protection | Every run. | Hosted only. |
