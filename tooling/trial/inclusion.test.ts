@@ -329,6 +329,27 @@ describe('a showcase result', () => {
     expect(errors[0]).toMatch(/^showcase\/x\/api\/src\/features\/greeting\/seed\.ts.*error TS2835/);
   });
 
+  it('passes the type check and the api report with a Node import in its api integrations', () => {
+    const application = 'showcase/x/api/src/features/greeting/application.ts';
+    const [checked, reported] = withSeed(
+      {
+        'showcase/x/api/src/features/greeting/integrations.ts':
+          "import { randomUUID } from 'node:crypto';\n\nexport function newGreetingId(): string {\n  return randomUUID();\n}\n",
+        [application]: readFileSync(join(copy, application), 'utf8')
+          .replace(
+            "from './domain.ts';\n",
+            "from './domain.ts';\nimport { newGreetingId } from './integrations.ts';\n",
+          )
+          .replace('  return {', '  newGreetingId();\n  return {'),
+      },
+      () => [script('typecheck'), script('api:check')],
+    );
+
+    expect(checked.output).not.toContain('error TS');
+    expect(checked.code).toBe(0);
+    expect(reported.code).toBe(0);
+  });
+
   it('runs its unit tests in the web and api projects and is held to coverage on its own', () => {
     const listed = run(['jest', '--listTests', '--selectProjects', 'web', 'api']);
     const covered = run([
