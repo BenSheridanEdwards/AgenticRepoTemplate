@@ -292,6 +292,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
 SECURITY.md                 Vulnerability disclosure policy.
 biome.json                  Format, import order, and general lint.
 eslint.config.js            Policy, React hooks, React Compiler, and React Doctor rules.
+tooling/eslint-plugin-policy.js  The repository's own ESLint policy rules (ADR 0019).
 commitlint.config.ts        Conventional Commits.
 jest.config.ts / jest.setup.ts  Unit and component tests (RTL and jest-axe), coverage gate.
 playwright.config.ts        Browser harness for the E2E behaviour map.
@@ -308,6 +309,7 @@ scripts/
   api-report.mjs            Writes and checks the etc/*.api.md API Extractor reports.
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
+  check-suppressions.mjs    Every lint or type suppression names a rule and a reason.
   validate-pr-body.mjs      Validates the PR body sections, proof, and title (pnpm validate:pr).
   enforcement-approval.mjs  Lists protected files in a sticky comment and sets the enforcement-approval status.
   required-gates.mjs        The required-check contract and the Required gates decision.
@@ -318,6 +320,7 @@ docs/proof/                 Committed screenshot/video proof, embedded inline in
 e2e/
   app.spec.ts               The behaviour map.
   accessibility.spec.ts     Real-browser axe scan (WCAG A and AA, including contrast).
+src/routes/home/            The one page; routes compose features.
 src/features/threshold-counter/  The one small but real feature.
 etc/                        Generated API Extractor reports, one per public module (pnpm api:report).
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
