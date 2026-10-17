@@ -39,7 +39,7 @@ const DEPENDENCY_FIELDS = [
  * suppressions, ESLint inline config and globals, and coverage pragmas.
  */
 const SUPPRESSION =
-  /(?:eslint-disable|@ts-(?:expect-error|ignore|nocheck)|biome-ignore|fallow-ignore|\/[*/]\s*eslint[\s-]|\/\*\s*globals?\s|(?:istanbul|c8|v8)\s+ignore)/;
+  /(?:eslint-disable|@ts-(?:expect-error|ignore|nocheck)|biome-ignore|fallow-ignore|\/\*\s*eslint(?:-env)?\s|\/\*\s*globals?\s|(?:istanbul|c8|v8)\s+ignore)/;
 
 /** Tool config a result could use to loosen a root gate; allowed only where `LAYOUT` names it. */
 const CONFIG_FILE =
@@ -198,8 +198,7 @@ function incompleteResults({ results, files }) {
 }
 
 const isE2eSpec = (result, file) =>
-  file.startsWith(`${result.web}/e2e/`) &&
-  /^[^/]+\.spec\.ts$/.test(file.slice(result.web.length + 5));
+  file.startsWith(`${result.web}/e2e/`) && file.endsWith('.spec.ts');
 
 function missingE2e({ results, files }) {
   return results
@@ -267,7 +266,7 @@ const RULES = {
   'missing-e2e': {
     find: missingE2e,
     describe: (violation) =>
-      `missing-e2e ${violation.package}: add at least one e2e/*.spec.ts, the result's behaviour map.`,
+      `missing-e2e ${violation.package}: add at least one e2e/**/*.spec.ts, the result's behaviour map.`,
   },
   'cross-result-import': {
     find: crossResultImports,

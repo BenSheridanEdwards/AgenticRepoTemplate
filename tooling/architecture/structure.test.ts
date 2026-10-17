@@ -270,6 +270,15 @@ describe('validateStructure', () => {
     ]);
   });
 
+  it('accepts a web package whose only e2e spec is in a nested folder, as Playwright runs it', () => {
+    expect(
+      validate({
+        'showcase/todo-01/web/e2e/greeting.spec.ts': null,
+        'showcase/todo-01/web/e2e/todos/add.spec.ts': '',
+      }),
+    ).toEqual([]);
+  });
+
   it('fails an import from one result into another, and allows the ui kit', () => {
     const edges = [
       { from: 'showcase/todo-01/web/src/api-client/index.ts', to: 'apps/api/src/router.ts' },
@@ -296,6 +305,15 @@ describe('validateStructure', () => {
     expect(
       validate({ 'showcase/todo-01/web/src/App.tsx': `${directive}\nexport const App = 1;\n` }),
     ).toEqual([{ kind: 'suppression', path: 'showcase/todo-01/web/src/App.tsx', line: 1 }]);
+  });
+
+  it.each([
+    '// eslint flags nested ternaries, so this uses an early return',
+    '// eslint-plugin-policy wants one component per file',
+  ])('passes the prose line comment %s', (comment) => {
+    expect(
+      validate({ 'showcase/todo-01/web/src/App.tsx': `${comment}\nexport const App = 1;\n` }),
+    ).toEqual([]);
   });
 
   it('fails every suppression directive under a result root, with its line', () => {

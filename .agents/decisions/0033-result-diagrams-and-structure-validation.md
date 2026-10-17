@@ -65,9 +65,9 @@ the reference included. Each rule has one violation kind:
 | A result holds regular files only. A symlink hides what it exposes from the file rules, and Fallow resolves no import through a symlink to a folder. | `symlink` |
 | A manifest is named `@<scope>/<kind>`. Every other field except the dependencies equals the reference package of its kind, with the reference scope read as the result's: `private`, `type`, `version`, `exports`, and the script names and commands. It lists only that package's external dependencies with the same ranges. A web package lists exactly its own `@<scope>/api` and `@repo/ui` as workspace dependencies; an api package lists none. | `manifest` |
 | A folder under `showcase/` has both `web/package.json` and `api/package.json`. | `incomplete-result` |
-| A web package holds at least one `e2e/*.spec.ts`. | `missing-e2e` |
+| A web package holds at least one `e2e/**/*.spec.ts`, the specs Playwright runs. | `missing-e2e` |
 | An import edge stays inside one result, or reaches `packages/ui`. | `cross-result-import` |
-| No line under a result root holds `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, `biome-ignore`, `fallow-ignore`, ESLint inline config (`/* eslint <rule>: off */`, `/* eslint-env */`), `/* global */`, or a coverage pragma (`istanbul`, `c8` or `v8` `ignore`). | `suppression` |
+| No line under a result root holds `eslint-disable`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, `biome-ignore`, `fallow-ignore`, ESLint inline config in a block comment (`/* eslint <rule>: off */`, `/* eslint-env */`; ESLint reads it from no line comment, so a prose `// eslint ...` passes), `/* global */`, or a coverage pragma (`istanbul`, `c8` or `v8` `ignore`). | `suppression` |
 
 PLAN's sketch named five kinds and compared script names only. A two-model
 review seeded a showcase result that passed the gate four ways: a symlink to
@@ -104,6 +104,6 @@ called it.
   of five interleaved `pnpm arch:check` runs was 7.43 s on `main` and 9.03 s
   with this change on the same box.
 - ESLint still honours inline config outside a result, and an
-  `e2e/*.spec.ts` with no test passes `missing-e2e`. Turning on ESLint's
+  `e2e/**/*.spec.ts` with no test passes `missing-e2e`. Turning on ESLint's
   `noInlineConfig` edits `eslint.config.js`, a guarded file, so it is left for
   a separate change.

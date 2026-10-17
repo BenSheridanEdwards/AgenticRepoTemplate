@@ -265,6 +265,7 @@ describe('node tooling/architecture/diagram.mjs on a temporary monorepo', () => 
     const check = runTool('diagram.mjs', repository.directory, '--check');
     expect(check.status).toBe(1);
     expect(check.output).toMatch(message);
+    expect(check.output).toContain('Run `pnpm arch:diagram` and keep the written diagrams.');
     expect(runTool('diagram.mjs', repository.directory).status).toBe(0);
     expect(runTool('diagram.mjs', repository.directory, '--check').status).toBe(0);
   });

@@ -135,7 +135,9 @@ function main(root) {
       ...extra,
     ];
     if (problems.length > 0) {
-      console.error([...problems, 'Run `pnpm arch:diagram` and commit the diagrams.'].join('\n'));
+      console.error(
+        [...problems, 'Run `pnpm arch:diagram` and keep the written diagrams.'].join('\n'),
+      );
       return false;
     }
     console.log(`OK: ${plan.size} diagrams match the contract and the import graph.`);

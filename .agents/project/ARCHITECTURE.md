@@ -132,10 +132,11 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
   package's dependencies with the same ranges. A web package lists its
   own `@<scope>/api` and `@repo/ui` as workspace dependencies; an api package
   lists only external ones.
-- A web package holds at least one `e2e/*.spec.ts`.
+- A web package holds at least one `e2e/**/*.spec.ts`, the specs Playwright runs.
 - Each import stays inside its result or reaches `packages/ui`.
 - A result fixes each finding in code, so it holds no suppression directive,
-  ESLint inline config, `/* global */` comment or coverage pragma.
+  ESLint inline config in a block comment, `/* global */` comment or coverage
+  pragma.
 
 ## The api file roles
 
