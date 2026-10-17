@@ -116,8 +116,10 @@ mean the same thing. A green PR means "this change introduced nothing new".
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, and PR-body validation | [`.github/workflows/`](.github/workflows) |
 
 The gates always run. A
-[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses any `--no-verify`,
-and weakening type, lint, or test configuration to turn red green is a named
+[PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses the common ways to
+skip the git hooks (`--no-verify`, `git commit -n`, `HUSKY=0`, and rewrites of
+`core.hooksPath`, git aliases, or config includes), CI on a clean checkout is
+the backstop for the rest, and weakening type, lint, or test configuration to turn red green is a named
 violation. Honest red beats dishonest green.
 
 ### The definition of done: done is mechanical
@@ -278,7 +280,7 @@ AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.m
   templates/                Scaffolds for components, tests, and E2E.
 .claude/
   settings.json             Permission allowlist and PreToolUse hook.
-  hooks/block-gate-bypass.sh  Refuses --no-verify. Gates are not optional.
+  hooks/block-gate-bypass.sh  Refuses common hook bypasses. CI is the backstop.
   skills/                   This repo's own packaged processes.
     install-agentic-infrastructure/  Install repo guidance, hooks, CI, and PR proof.
     build-quality-gates/    Build pre-commit, pre-push, and CI gates.
@@ -294,7 +296,7 @@ AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.m
     pr-quality.yml          Validates the PR body and title (scripts/validate-pr-body.mjs).
     codeql.yml              CodeQL static analysis (security-events).
     lighthouse.yml          Performance and accessibility budget on UI-relevant PRs.
-    enforcement-approval.yml  Sign-off gate for enforcement-path changes (main's copy judges each PR).
+    enforcement-approval.yml  Ben's sign-off on changes that loosen enforcement (main's copy judges each PR).
 SECURITY.md                 Vulnerability disclosure policy.
 biome.json                  Format, import order, and general lint.
 eslint.config.js            Policy, React hooks, React Compiler, and React Doctor rules.
@@ -317,7 +319,7 @@ scripts/
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
   check-suppressions.mjs    Every lint or type suppression names a rule and a reason.
   validate-pr-body.mjs      Validates the PR body sections, proof, and title (pnpm validate:pr).
-  enforcement-approval.mjs  Lists protected files in a sticky comment and sets the enforcement-approval status.
+  enforcement-approval.mjs  Finds loosening changes, keeps the head-bound sign-off comment, sets the status.
   required-gates.mjs        The required-check contract and the Required gates decision.
   verify-gates.sh           Local mirror of the CI gate suite.
 docs/architecture/roles.mmd  Generated role diagram (pnpm arch:diagram).

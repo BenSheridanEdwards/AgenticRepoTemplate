@@ -21,7 +21,7 @@ feature.
 | Callback props start with `on` (`onReset`). | ESLint `policy/callback-prop-names` |
 | Page components live in `src/routes/<route-name>/`. | ESLint `policy/pages-in-routes`, Fallow `routes` zone |
 | Another module imports a feature, route, or shared module only through its `index.ts`. | ESLint `no-restricted-imports` |
-| `strict` TypeScript with `noUncheckedIndexedAccess` and `noUnusedLocals`. | `pnpm typecheck`; changes to `tsconfig.json` need enforcement sign-off |
+| `strict` TypeScript with `noUncheckedIndexedAccess` and `noUnusedLocals`. | `pnpm typecheck`; review of the diff catches a loosened `tsconfig.json` ([ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)) |
 | `unknown` and narrowing in place of `any`. | Biome `suspicious/noExplicitAny` |
 | `import type` for type-only imports. | Biome `style/useImportType`, `verbatimModuleSyntax` |
 | `interface` for object shapes, `type` for unions and aliases. | Biome `style/useConsistentTypeDefinitions` |

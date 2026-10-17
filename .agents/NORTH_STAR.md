@@ -51,8 +51,9 @@ quality. Skills guide how the agent works.
 
 A standard with no gate behind it is a target and is labelled as one. A rule is
 finished when the routes around it are closed too: aliases, re-exports, inline
-disables, and edits to the rule's own config. Enforcement paths are protected
-by default, so a change to any rule needs a human sign-off.
+disables, and edits to the rule's own config. A change that loosens or rewrites
+a rule waits for Ben's sign-off on the exact commit
+([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)).
 
 Each lint engine owns its own concerns. Biome owns format and general lint.
 ESLint owns policy rules and the React hooks and Compiler rules. React Doctor
@@ -154,7 +155,8 @@ Fallow 3.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
 and Fallow 3.x also checks dead code, cycles, and complexity. The repo runs
 `strict` TypeScript, Biome with its recommended preset for lint and format,
 Jest, Playwright, and axe. Husky hooks run the CI checks that work locally. A
-script validates PR bodies, and a hook refuses `--no-verify`.
+script validates PR bodies, and a hook refuses `--no-verify` and the other
+common hook bypasses.
 
 **The plan.** PR0 moves the app into `apps/web`. Plan PRs 1 to 9 follow in
 order, with the Effect PR ahead of PR 4. Each PR that changes a tool also
@@ -168,7 +170,7 @@ with acceptance criteria lives in [`TODO.md`](TODO.md).
 | React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 2 |
 | Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 4 |
 | State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
-| Protected enforcement paths | Enforcement-change detection, then checkbox approval with an audit trail | Decided, PRs 1 and 9 |
+| Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) | Installed |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
 | Role-named folders | `lib/` and `utils/` folders fail a check | Target |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, `AGENTS.md` and `CONVENTIONS.md` |

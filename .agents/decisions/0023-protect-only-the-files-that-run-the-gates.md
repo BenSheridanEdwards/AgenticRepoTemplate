@@ -1,6 +1,7 @@
 # 23. Protect only the files that run the gates
 
-- **Status:** Accepted
+- **Status:** Accepted; superseded in part by
+  [0024](0024-sign-off-only-loosening-enforcement-changes.md)
 - **Date:** 2026-10-17
 
 ## Context
