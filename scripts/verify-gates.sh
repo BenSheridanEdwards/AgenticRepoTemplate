@@ -11,6 +11,9 @@ step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
 step "Context layer invariants (files, manifest, docs, skills)"
 pnpm check:context
 
+step "Guidance docs state rules positively"
+pnpm check:docs
+
 step "Required-gate contract matches the workflows and inventory"
 pnpm gates:check
 

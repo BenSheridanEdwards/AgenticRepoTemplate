@@ -36,10 +36,11 @@
     "license:check": "node scripts/license-check.mjs",
     "check:context": "node scripts/check-context-layer.mjs",
     "check:adr": "node scripts/check-dependency-adr.mjs",
+    "check:docs": "node scripts/check-doc-phrasing.mjs",
     "gates:inventory": "node scripts/required-gates.mjs --write",
     "gates:check": "node scripts/required-gates.mjs --check",
     "validate:pr": "node scripts/validate-pr-body.mjs",
-    "verify": "pnpm check:context && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm build && pnpm size",
+    "verify": "pnpm check:context && pnpm check:docs && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm build && pnpm size",
     "setup:agents": "bash scripts/setup-agentic-toolkit.sh",
     "prepare": "husky"
   },

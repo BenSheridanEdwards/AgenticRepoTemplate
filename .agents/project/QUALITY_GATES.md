@@ -10,9 +10,9 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan. |
-| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
+| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, positive doc phrasing, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
-| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. |
+| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, positive doc phrasing, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files, as decided by the tested `scripts/lighthouse-scope.mjs`; other PRs report the same check green with audits skipped. |
 | PR contract | `.github/workflows/pr-quality.yml` (`scripts/validate-pr-body.mjs`) | Template sections in order, inline proof or `Not applicable` with a reason, renderable https images, Conventional title, `<type>/<short-kebab-summary>` branch. |
@@ -28,7 +28,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
   The repository's own rules live in `tooling/eslint-plugin-policy.js`
   ([ADR 0018](../decisions/0018-local-eslint-policy-plugin.md)).
 - **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
-  ESLint plugin cannot express, such as duplicated JSX across files.
+  ESLint plugin leaves out, such as duplicated JSX across files.
 - **TypeScript** owns type semantics through `tsc --noEmit`.
 - **Jest + React Testing Library** own component and hook behaviour.
 - **jest-axe, @axe-core/playwright, and Lighthouse** own accessibility.
@@ -83,7 +83,7 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
   reads as a pass. A superseded push therefore ends with a red or cancelled
   `Required gates` on the old commit.
 - **Why three checks stay outside it.** CodeQL, Lighthouse, and the PR body
-  check run on triggers `ci.yml` does not share, so `needs` cannot reach them.
+  check run on triggers `ci.yml` does not share, so they sit outside `needs`.
   Branch protection requires them directly. The contract still pins their job
   names and job-level `if:`.
 - **Freshness.** `pnpm gates:check` runs in `pnpm verify` and in the aggregate
@@ -140,7 +140,8 @@ changes to the files that define the gates wait for a maintainer's sign-off.
 - Put the fastest deterministic checks in pre-commit.
 - Put expensive behaviour checks in pre-push and CI.
 - Run security and dependency checks in CI, with staged secret scanning locally.
-- Keep CI as the clean-checkout backstop. Local hooks can be bypassed; CI cannot.
+- Keep CI as the clean-checkout backstop. CI runs every gate, whatever happened
+  locally.
 - Every branch must contain the latest origin/main
   (`scripts/require-up-to-date-main.sh`). The fix is
   `git fetch origin && git merge origin/main`. This is the one networked

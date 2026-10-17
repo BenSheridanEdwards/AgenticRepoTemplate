@@ -43,6 +43,7 @@ jobs:
       - name: Install leaves the tree clean
         run: git diff --exit-code
       - run: pnpm check:context
+      - run: pnpm check:docs
       - run: pnpm check:adr
       - run: pnpm typecheck
       - run: pnpm check
