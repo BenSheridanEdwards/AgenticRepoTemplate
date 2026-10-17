@@ -23,7 +23,8 @@ ask for an ADR with each new dependency, and nothing checked that either.
   - a GitHub blob image URL without `?raw=1` or `?raw=true`;
   - a plain link to an image file in the proof section, since proof is
     embedded;
-  - `Not applicable` with no reason on the same line or the next one;
+  - `Not applicable` without a reason of at least two words on its line or
+    the next non-empty line;
   - a head branch outside `<type>/<short-kebab-summary>`. The workflow passes
     the branch through `PR_HEAD_REF` as JSON, the same way it passes the title
     and body. Nested, versioned, and GitHub revert branch names pass.
