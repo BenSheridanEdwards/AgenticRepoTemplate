@@ -29,12 +29,22 @@ only) and `@repo/ui`. No result depends on another.
 `tooling/trial/inclusion.test.ts` proves it on a temporary copy of the
 checkout with `showcase/x`, a renamed copy of the reference greeting (never a
 Todo), committed on a branch off `main` as a trial would be. It runs each
-gate's real tool on the copy: the Playwright projects, the pnpm workspace and
-build, the ESLint config (equal to the reference's, every `policy/*` rule on),
-the Biome naming override, the four TypeScript programs, Jest and coverage,
-`pnpm arch:diagram` and `pnpm arch:gate`, `fallow architecture`, the
-dependency ADR check and `fallow audit`. Each gate also fails on a seeded
-violation inside the showcase result.
+gate's real tool on the copy and asserts the showcase result is in scope: the
+Playwright projects (`--list`), the pnpm workspace and a build of `@x/web`,
+the ESLint config (equal to the reference's, every `policy/*` rule on), React
+Doctor's project list, the four TypeScript programs (`--listFilesOnly`), Jest
+and coverage per result, `pnpm arch:diagram` and `pnpm arch:gate` (which runs
+the PR3 structure validator once that lands), the dependency ADR check and
+`fallow audit`. Seeded violations inside the showcase result fail ESLint
+policy, the Biome naming override, the api type check, `fallow architecture`
+(a value import of the router, a file in no role), the dependency ADR check, the
+suppression check and `fallow audit`.
+
+**Workspace globs.** `pnpm-workspace.yaml` lists `showcase/*/web` and
+`showcase/*/api` in place of `showcase/*/*`. pnpm reads both the same way, but
+React Doctor 0.9.18 expands one `*` per glob and read `showcase/*/*` as the
+literal folder `showcase/<id>/*`, so it scanned no showcase result. The
+inclusion test fails on the old glob.
 
 **Coverage per result.** `tooling/coverage-by-result.mjs` runs in
 `pnpm test:coverage` after Jest and fails when any result is under 80 percent
@@ -64,30 +74,49 @@ the evidence:
    that holds only the scaffold's history as `main`, and a blobless clone of
    it at `repo/` on `trial/<id>`. No other branch of the invoking checkout is
    reachable from the clone. It asserts a clean tree and no `showcase/*`
-   result, then runs `pnpm install --frozen-lockfile`, which installs the hooks.
-3. It writes the rendered prompt to `prompt.md` in the workdir and runs, in
-   the clone, with the prompt on stdin and a 90 minute limit:
+   result, runs `pnpm install --frozen-lockfile` (which installs the hooks),
+   checks that every check's entry point exists in the scaffold, and reads
+   `claude --version`. A failure here ends the run before the agent, so
+   `--retry` may run it again.
+3. It writes the rendered prompt to `prompt.md` in the workdir, then a
+   provisional record (`agentExitCode: -1`, failed), so a harness stopped
+   mid-session still leaves a final record. It runs, in the clone, with the
+   prompt on stdin and a 90 minute limit:
    `claude -p --model opus --permission-mode bypassPermissions --output-format stream-json --verbose --session-id <fresh uuid>`.
    The argv never carries `--resume`, `-r`, `--continue` or `-c`. The agent's
-   environment drops every `CLAUDE*` variable except `CLAUDE_CONFIG_DIR`, so a
-   harness started from inside a Claude Code session still starts a fresh
-   top-level session. The stream is kept as `agent.stream.jsonl`. The agent
-   gets no second prompt; it repairs its own mistakes within the session.
+   environment drops every `CLAUDE*` variable except `CLAUDE_CONFIG_DIR` and
+   the credential switches (`CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_USE_*`),
+   so a harness started inside a Claude Code session still starts a fresh
+   top-level session. Every command also loses git's per-repository
+   variables, pnpm's script variables (`npm_*`, `INIT_CWD`) and the
+   `node_modules/.bin` folders on the PATH, which point back at the invoking
+   checkout. The stream is kept as `agent.stream.jsonl`. The agent gets no
+   second prompt; it repairs its own mistakes within the session. SIGINT or
+   SIGTERM stops the agent's process group with the harness.
 4. It lists every changed path (`<scaffold>..HEAD`, the working tree and
-   untracked files). A path outside `showcase/<id>/` fails the run, and so
-   does a `pnpm-lock.yaml` change outside the importer entries of
-   `showcase/<id>/web` and `showcase/<id>/api`. It also fails the run when a
-   tool call named a path outside the clone (a file tool's path argument, or
-   an absolute path word in a shell command), other than the Claude config
-   folder, the pnpm store, `/dev` and the temp folder, and records each one in
-   `outsideReads`.
-5. It commits `showcase/<id>` and the lockfile as
+   untracked files, with renames split into a deletion and an addition). A
+   path outside `showcase/<id>/` fails the run, and so does a
+   `pnpm-lock.yaml` change outside the importer entries of
+   `showcase/<id>/web` and `showcase/<id>/api`. A tool call that named a path
+   where an earlier result can live (the checkout that keeps the evidence,
+   the trials root, or the Claude config folder outside the entries the agent
+   loads, which holds earlier session transcripts) fails the run and is
+   recorded in `outsideReads`. A file tool's path argument always counts; a
+   shell word counts when it is an absolute path that exists, so URL paths
+   such as `/trpc` and markup never count.
+5. It rewinds the clone to the scaffold on `trial/<id>`, keeping the agent's
+   tree, so whatever the agent committed, the harness makes the one result
+   commit: `showcase/<id>` and the lockfile as
    `feat(showcase): add <id> trial result` with the sign-off trailer and the
-   hooks on, then runs `pnpm install --frozen-lockfile`, `pnpm verify`,
-   `pnpm e2e` and `node tooling/architecture/structure.mjs` in the clone.
-6. A failed run also writes `docs/trials/<id>.patch` (the commits since the
+   hooks on.
+6. It clones that commit into `check/` and runs `pnpm install --frozen-lockfile`,
+   `pnpm verify`, `pnpm e2e` and `node tooling/architecture/structure.mjs`
+   there with `CI=1`, as a pull request runs them: the checks see the commit
+   and nothing the agent left in its tree, `test.only` fails, and no stray
+   server is reused.
+7. A failed run also writes `docs/trials/<id>.patch` (the commits since the
    scaffold plus everything uncommitted), so its code is kept.
-7. It writes `docs/trials/<id>.json`, formatted by Biome, into the invoking
+8. It writes `docs/trials/<id>.json`, formatted by Biome, into the invoking
    checkout, and prints the workdir. It never deletes the workdir: the
    orchestrator fetches `trial/<id>` from it and removes it before the next
    trial.
@@ -102,15 +131,19 @@ a record at the boundary and throws, naming the field, on a missing, mistyped
 or unknown field. Its fields: `schema: 1`; `trial` (number, id, branch,
 workdir folder name only); `prompt` (template path, template SHA-256, rendered
 SHA-256 and text); `scaffold` (rev, `enforcementRev`, lockfile SHA-256);
+`harness` (a SHA-256 of `tooling/trial/*.mjs` as run, and whether it equals
+the scaffold's copy);
 `agent` (cli, version, argv, session id, resolved model from the stream's
 init event or null, user config SHA-256, fake); `run` (start, finish and
 duration; the agent's exit code and duration, null when the agent never
-started; turns and cost from the result event or null); `result` (status,
+started and -1 in the provisional record; turns and cost from the result
+event or null); `result` (status,
 commit, changed paths, `outsideScope`, `outsideReads`, patch path); `checks`
 (name, command, exit code, duration, last 200 lines of output); `failures`;
 `retries` (each earlier attempt's start and failures). A record is `passed`
-only with a commit, empty scope and read lists, every check at exit 0 and no
-failure, and a `failed` record names at least one failure.
+only with a commit, empty scope and read lists, the four checks `install`,
+`verify`, `e2e` and `structure` all at exit 0, and no failure; a `failed`
+record names at least one failure.
 
 `enforcementRev` is the last scaffold commit touching `.husky`,
 `.github/workflows`, `.claude`, `.fallowrc.jsonc`, `biome.json`,
@@ -122,8 +155,8 @@ failure, and a `failed` record names at least one failure.
 `mcpServers` entry of `.claude.json`.
 
 **New baseline.** A different scaffold rev, enforcement rev, lockfile hash,
-prompt template hash, CLI version, resolved model id or user config hash
-between the three runs starts a new baseline, and all three run again. The
+prompt template hash, harness hash, CLI version, resolved model id or user
+config hash between the three runs starts a new baseline, and all three run again. The
 command keeps the brief's `--model opus` alias; the resolved model id pins
 what it meant.
 
@@ -148,10 +181,17 @@ own packages on its own ports, so a reviewer can drive a showcase result.
 - A change to any gate config that drops showcase results fails
   `inclusion.test.ts`, and a showcase result under the coverage threshold fails
   by name.
-- `outsideReads` is evidence, not a sandbox. A shell command that leaves the
-  clone through a relative path (`cd ../..`) is not detected; the per-trial
-  workdir, the pinned origin and the cleanup between trials keep earlier
-  results out of reach.
-- The inclusion test adds about 30 seconds to `pnpm test`, because it runs
-  each real tool.
+- `outsideReads` is evidence, not a sandbox. It sees file tool paths and
+  absolute shell paths. A shell command that leaves the clone through a
+  relative path (`cd ../..`) is not detected, and the agent runs with
+  `bypassPermissions`, so an earlier result in the evidence checkout is
+  readable in principle. The pinned origin, the empty trials root and the
+  per-trial workdir keep earlier results off every path the agent is pointed
+  at; they do not make them unreadable.
+- The inclusion test adds about 35 seconds to `pnpm test`, because it runs
+  each real tool. Its copy links `node_modules` into the checkout, so it
+  runs pnpm with `verify-deps-before-run=false`; pnpm never reinstalls
+  through those links.
+- Running the checks on a second clone costs one more `pnpm install` per
+  trial (hard links from the store, about a minute).
 - No dependency is added.
