@@ -640,6 +640,8 @@ emit({ type: 'assistant', message: { content: [
   bash('(cd src && ls ..) && ls ../../..'),
   bash('cd ../../.. && git status'),
   bash('cd .. && ls'),
+  bash('cd ~/.cache && ls'),
+  bash('ls ..'),
 ] } });`,
     );
 
