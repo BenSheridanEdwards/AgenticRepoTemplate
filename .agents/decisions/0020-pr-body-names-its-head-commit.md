@@ -1,4 +1,4 @@
-# 19. The PR body names the head commit it was checked against
+# 20. The PR body names the head commit it was checked against
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-16

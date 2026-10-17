@@ -72,7 +72,7 @@ Verification Summary's `- Head commit:` line is missing or repeated, is anything
 other than one commit SHA, or names a commit that is not the PR head: every push
 re-runs it, so a body written for an older head fails until it is re-checked
 against the new head and the field is updated
-([ADR 0019](../decisions/0019-pr-body-names-its-head-commit.md)).
+([ADR 0020](../decisions/0020-pr-body-names-its-head-commit.md)).
 
 ## PR Proof Law
 
