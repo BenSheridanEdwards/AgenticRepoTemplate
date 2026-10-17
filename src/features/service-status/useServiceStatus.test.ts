@@ -15,7 +15,7 @@ function stubFetch(response: Partial<Response> & { ok: boolean }) {
 function stubPendingFetch() {
   global.fetch = jest
     .fn()
-    .mockReturnValue(new Promise<Response>(() => {})) as unknown as typeof fetch;
+    .mockReturnValue(new Promise<Response>(() => undefined)) as unknown as typeof fetch;
 }
 
 const SAMPLE: ServiceStatus[] = [
