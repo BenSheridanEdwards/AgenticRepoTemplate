@@ -43,6 +43,12 @@ const UNPROTECTED_ROOT_FILES = new Set([
   'team-walkthrough.html',
 ]);
 
+/**
+ * Dependency manifests: a dependency update is not a change to the gates, so
+ * Dependabot and toolchain bumps do not wait on a sign-off (ADR 0018).
+ */
+const DEPENDENCY_MANIFESTS = new Set(['package.json', 'pnpm-lock.yaml']);
+
 const AGENT_DOC_FILES = new Set(['AGENTS.md', 'CLAUDE.md', 'GUARDRAILS.md']);
 
 /** @param {string} prefix */
@@ -56,7 +62,6 @@ const under = (prefix) => (/** @type {string} */ path) => path.startsWith(prefix
  * @type {ReadonlyArray<{ area: string, matches: (path: string) => boolean }>}
  */
 export const PROTECTED_PATH_RULES = [
-  { area: 'Lockfile', matches: (path) => path === 'pnpm-lock.yaml' },
   {
     area: 'Agent docs',
     matches: (path) =>
@@ -69,7 +74,8 @@ export const PROTECTED_PATH_RULES = [
   { area: 'Tooling', matches: under('tooling/') },
   {
     area: 'Root config',
-    matches: (path) => !path.includes('/') && !UNPROTECTED_ROOT_FILES.has(path),
+    matches: (path) =>
+      !path.includes('/') && !UNPROTECTED_ROOT_FILES.has(path) && !DEPENDENCY_MANIFESTS.has(path),
   },
 ];
 
