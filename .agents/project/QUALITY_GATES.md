@@ -134,12 +134,19 @@ PR passes with no comment.
   rule.
 - **One comment, one box, one approver.** The comment lists each change and
   names the head commit, and its box reads `Approve these enforcement changes
-  at <sha>`. The status turns green only when the GitHub user
-  `BenSheridanEdwards` ticks it. A tick from any other account is cleared, and
-  the gate posts a short note that names the editor.
+  at <sha>`. The status turns green only on the edit in which the GitHub user
+  `BenSheridanEdwards` turns that head's unticked box into a ticked one. The
+  gate reads that from the edit event alone, not from the comment text. Any other
+  edit clears the box. When the gate clears a tick from any other account, the
+  comment names that account in a one-line note.
+- **The label records the tick.** On Ben's tick the gate adds a small italic
+  note on the box line, such as `Approved by Ben @BenSheridanEdwards on
+  Monday, the 8th of October, at 3 pm` in London time. Unticking removes it.
+  The gate writes the label for people to read. The edit event and the gate's
+  own status decide the sign-off, and the label text plays no part.
 - **Each push resets it.** A new head commit, merging `main` in included, gets
-  a fresh unticked comment, and the status for that head stays red until Ben
-  ticks again.
+  a fresh unticked comment with no label, and the status for that head stays
+  red until Ben ticks again.
 - **Main's copy judges the PR.** The workflow uses `pull_request_target`,
   checks out only the default branch's script, and reads file contents through
   the API. It runs no PR code. Require the `enforcement-approval` status in
