@@ -10,52 +10,143 @@
   // used by every test run — exclude it from dead-file analysis.
   "ignorePatterns": ["jest.style-stub.cjs", "vendor/**"],
 
-  // Architecture boundaries enforce the role rules from
-  // .agents/project/ARCHITECTURE.md. The "app" zone is the composition root
-  // (main.tsx, App.tsx, index.css under apps/web/src). Each folder under
-  // apps/web/src/routes and under apps/web/src/features becomes its own zone
-  // (via autoDiscover), and a single "shared" zone holds cross-feature code.
-  // The "patterns" on routes and features zone a file that sits directly in
-  // that folder under the group's own rule, and keep the config valid on a tree
-  // where the folder is missing, such as the base revision `fallow audit` reads.
+  // The contract's banned imports and calls per role (ADR 0032).
+  "rulePacks": ["tooling/architecture/contract.rules.jsonc"],
+
+  // `fallow audit` fails on every finding in the files a change touches, not
+  // only the ones it introduces. That needs no base-revision pass, which reads
+  // the base tree with this config and fails when the base predates a file the
+  // config names, such as the rule pack above.
+  "audit": { "gate": "all" },
+
+  "rules": {
+    // A rule-pack finding fails the gate, like a boundary violation.
+    "policy-violation": "error",
+    // Every fallow-ignore comment names its reason.
+    "require-suppression-reason": "error"
+  },
+
+  // Architecture boundaries enforce the role table in
+  // .agents/project/ARCHITECTURE.md (ADR 0032). Each role is a zone whose
+  // patterns match every result by brace glob: the reference in `apps/` and
+  // each `showcase/<id>/`. The reference web app also keeps one child zone per
+  // route and per feature folder (autoDiscover), so a route that imports
+  // another route, or a feature that imports another feature, fails here as
+  // well as in ESLint `policy/slice-isolation`, which owns sibling isolation
+  // for every result. The routes and features patterns name only files inside
+  // a slice folder, so a loose file directly under `routes/` or `features/`
+  // sits in no zone and `coverage.requireAllFiles` fails it. The patterns also
+  // keep the config valid on a tree where those folders are missing, such as
+  // the base revision `fallow audit` reads.
   // The rules below make Fallow FAIL (boundary-violation defaults to error) on
-  // any import they do not allow: app may import routes, routes may import
-  // features and shared, features may import shared, and shared imports no
-  // other role. This file is also the source for the role diagram
-  // (pnpm arch:diagram) and the list of public module entries that get API
-  // reports (pnpm api:report).
+  // any import they do not allow. This file is also the source for the role
+  // diagram (pnpm arch:diagram).
   "boundaries": {
     "zones": [
       {
-        "name": "app",
-        "patterns": ["apps/web/src/main.tsx", "apps/web/src/App.tsx", "apps/web/src/index.css"]
+        "name": "web-app",
+        "patterns": [
+          "{apps,showcase/*}/web/src/main.tsx",
+          "{apps,showcase/*}/web/src/App.tsx",
+          "{apps,showcase/*}/web/src/index.css"
+        ]
       },
+      { "name": "web-api-client", "patterns": ["{apps,showcase/*}/web/src/api-client/**"] },
       {
-        "name": "routes",
+        "name": "web-routes",
         "autoDiscover": ["apps/web/src/routes"],
-        "patterns": ["apps/web/src/routes/**"]
+        "patterns": ["{apps,showcase/*}/web/src/routes/*/**"]
       },
       {
-        "name": "features",
+        "name": "web-features",
         "autoDiscover": ["apps/web/src/features"],
-        "patterns": ["apps/web/src/features/**"]
+        "patterns": ["{apps,showcase/*}/web/src/features/*/**"]
       },
-      { "name": "shared", "patterns": ["apps/web/src/shared/**"] }
+      { "name": "ui", "patterns": ["packages/ui/src/**"] },
+      {
+        "name": "api-app",
+        "patterns": ["{apps,showcase/*}/api/src/server.ts", "{apps,showcase/*}/api/src/router.ts"]
+      },
+      { "name": "api-trpc", "patterns": ["{apps,showcase/*}/api/src/trpc.ts"] },
+      {
+        "name": "api-procedures",
+        "patterns": [
+          "{apps,showcase/*}/api/src/features/*/{index,procedures}.ts",
+          "{apps,showcase/*}/api/src/features/*/procedures/**"
+        ]
+      },
+      {
+        "name": "api-application",
+        "patterns": [
+          "{apps,showcase/*}/api/src/features/*/application.ts",
+          "{apps,showcase/*}/api/src/features/*/application/**"
+        ]
+      },
+      {
+        "name": "api-domain",
+        "patterns": [
+          "{apps,showcase/*}/api/src/features/*/domain.ts",
+          "{apps,showcase/*}/api/src/features/*/domain/**"
+        ]
+      },
+      {
+        "name": "api-integrations",
+        "patterns": [
+          "{apps,showcase/*}/api/src/features/*/integrations.ts",
+          "{apps,showcase/*}/api/src/features/*/integrations/**"
+        ]
+      }
     ],
     "rules": [
-      // The composition root mounts routes into the DOM.
-      { "from": "app", "allow": ["routes"] },
-      // A route composes a page from features and shared code. A route never
-      // imports another route.
-      { "from": "routes", "allow": ["features", "shared"] },
-      // "features" is the logical group of every autoDiscovered feature zone.
-      // A group rule applies to each child feature: a feature may import shared
-      // and its own files, and nothing else. A cross-feature import, or an
-      // import of the app zone, matches no allow entry, so boundary-violation
-      // (error) fails the audit.
-      { "from": "features", "allow": ["shared"] },
-      // Shared code is a leaf: it imports only its own files.
-      { "from": "shared", "allow": [] }
-    ]
+      // The composition root mounts the routes inside the api providers.
+      { "from": "web-app", "allow": ["web-routes", "web-api-client", "ui"] },
+      // The api client is the one web role that names the api, and only its
+      // router type.
+      { "from": "web-api-client", "allow": [], "allowTypeOnly": ["api-app"] },
+      // A route composes a page from features, the api client and the ui kit.
+      // Each route folder is its own child zone, so a route never imports
+      // another route.
+      { "from": "web-routes", "allow": ["web-features", "web-api-client", "ui"] },
+      // A feature is shared web code that routes compose; one feature never
+      // imports another.
+      { "from": "web-features", "allow": ["web-api-client", "ui"] },
+      // UI primitives import nothing from any role.
+      { "from": "ui", "allow": [] },
+      // The api composition root mounts the feature routers on the tRPC base.
+      { "from": "api-app", "allow": ["api-trpc", "api-procedures"] },
+      { "from": "api-trpc", "allow": [] },
+      // Procedures validate input and delegate to application logic; they may
+      // name domain types, never call domain code.
+      {
+        "from": "api-procedures",
+        "allow": ["api-trpc", "api-application"],
+        "allowTypeOnly": ["api-domain"]
+      },
+      { "from": "api-application", "allow": ["api-domain", "api-integrations"] },
+      // The domain is pure: it imports no other role.
+      { "from": "api-domain", "allow": [] },
+      { "from": "api-integrations", "allow": ["api-domain"] }
+    ],
+    "coverage": {
+      // Every source file belongs to a role; no extra layers.
+      "requireAllFiles": true,
+      "allowUnmatched": [
+        "**/*.test.{ts,tsx}",
+        "**/*.d.ts",
+        "**/*.d.mts",
+        "{commitlint,jest,playwright}.config.ts",
+        "jest.setup.ts",
+        "jest.style-stub.cjs",
+        "eslint.config.js",
+        "team-walkthrough.html",
+        "{apps,showcase/*}/web/{index.html,vite.config.ts}",
+        "{apps,showcase/*}/web/e2e/**",
+        "{apps,showcase/*,packages}/**/etc/**",
+        ".claude/**",
+        "scripts/**",
+        "tooling/**",
+        "vendor/**"
+      ]
+    }
   }
 }

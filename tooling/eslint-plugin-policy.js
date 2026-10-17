@@ -1,6 +1,6 @@
 // Repository policy rules that no installed plugin expresses (ADR 0019). Each
 // message names the fix, so an agent can act on the error alone.
-import { basename, dirname, extname, relative, sep } from 'node:path';
+import { basename, dirname, extname, posix, relative, sep } from 'node:path';
 
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/;
 const HOOK_NAME = /^use[A-Z0-9]/;
@@ -9,15 +9,30 @@ const FOLDER_NAME = /^([a-z0-9]+(-[a-z0-9]+)*|__[a-z]+__)$/;
 const PACKAGE_ROUTES = /^(?:(?!src\/)[^/]+\/)*src\/routes\//;
 const UNPREFIXED_CALLBACK_PROPS = /^(render[A-Z].*|children)$/;
 const COMPONENT_WRAPPERS = new Set(['memo', 'forwardRef']);
-const STATE_AND_EFFECT_HOOKS = new Set([
-  'useState',
-  'useReducer',
-  'useEffect',
-  'useLayoutEffect',
-  'useInsertionEffect',
-  'useActionState',
-  'useOptimistic',
-  'useSyncExternalStore',
+// The package source root is the first `src` folder on the path; `routes/` and
+// `features/` under it hold one folder per slice.
+const PACKAGE_SOURCE = /^((?:(?!src\/)[^/]+\/)*)src\/(.*)$/;
+const SLICE_KINDS = new Set(['routes', 'features']);
+/** The hooks that hold state or effects, by the module that exports them (ADR 0012). */
+const STATE_AND_EFFECT_HOOKS = new Map([
+  [
+    'react',
+    new Set([
+      'useState',
+      'useReducer',
+      'useEffect',
+      'useLayoutEffect',
+      'useInsertionEffect',
+      'useActionState',
+      'useOptimistic',
+      'useSyncExternalStore',
+    ]),
+  ],
+  [
+    '@tanstack/react-query',
+    new Set(['useQuery', 'useSuspenseQuery', 'useInfiniteQuery', 'useMutation']),
+  ],
+  ['react-hook-form', new Set(['useForm', 'useFieldArray'])],
 ]);
 
 const isFunctionNode = (node) =>
@@ -116,13 +131,16 @@ const oneComponentPerFile = {
   },
 };
 
+const importedName = (specifier) => specifier.imported.name ?? specifier.imported.value;
+
 const stateAndEffectsInHooks = {
   meta: {
     type: 'problem',
     messages: {
       outsideHook:
-        'Move `{{hook}}` into a named custom hook (for example `useServiceStatus` in ' +
-        '`useServiceStatus.ts`) and call that hook here. State and effects live only in `use*` hooks.',
+        'Move `{{hook}}` into a named custom hook (for example `useGreeting` in ' +
+        '`useGreeting.ts`) and call that hook here. State, effects, server state and form ' +
+        'state live only in `use*` hooks.',
     },
     schema: [],
   },
@@ -130,18 +148,17 @@ const stateAndEffectsInHooks = {
     if (isTestFile(context.filename)) {
       return {};
     }
-    const reactNames = new Map();
-    const reactNamespaces = new Set();
+    const hookNames = new Map();
+    const hookNamespaces = new Map();
     const restrictedHook = (callee) => {
       if (callee.type === 'Identifier') {
-        return reactNames.get(callee.name);
+        return hookNames.get(callee.name);
       }
       if (
         callee.type === 'MemberExpression' &&
         callee.object.type === 'Identifier' &&
-        reactNamespaces.has(callee.object.name) &&
         callee.property.type === 'Identifier' &&
-        STATE_AND_EFFECT_HOOKS.has(callee.property.name)
+        hookNamespaces.get(callee.object.name)?.has(callee.property.name)
       ) {
         return callee.property.name;
       }
@@ -149,17 +166,15 @@ const stateAndEffectsInHooks = {
     };
     return {
       ImportDeclaration(node) {
-        if (node.source.value !== 'react') {
+        const hooks = STATE_AND_EFFECT_HOOKS.get(node.source.value);
+        if (!hooks) {
           return;
         }
         for (const specifier of node.specifiers) {
-          if (specifier.type === 'ImportSpecifier') {
-            const imported = specifier.imported.name ?? specifier.imported.value;
-            if (STATE_AND_EFFECT_HOOKS.has(imported)) {
-              reactNames.set(specifier.local.name, imported);
-            }
-          } else {
-            reactNamespaces.add(specifier.local.name);
+          if (specifier.type !== 'ImportSpecifier') {
+            hookNamespaces.set(specifier.local.name, hooks);
+          } else if (hooks.has(importedName(specifier))) {
+            hookNames.set(specifier.local.name, importedName(specifier));
           }
         }
       },
@@ -304,7 +319,7 @@ const pagesInRoutes = {
     messages: {
       location:
         'Move `{{name}}` to `src/routes/<route-name>/{{name}}.tsx` in its package. Page ' +
-        'components live in `src/routes/`, which composes features and shared code.',
+        'components live in `src/routes/`, which composes features and the ui kit.',
     },
     schema: [],
   },
@@ -368,7 +383,7 @@ const folderNames = {
   meta: {
     type: 'problem',
     messages: {
-      kebab: 'Rename the folder `{{folder}}` to kebab-case, for example `threshold-counter`.',
+      kebab: 'Rename the folder `{{folder}}` to kebab-case, for example `name-input`.',
     },
     schema: [],
   },
@@ -386,6 +401,200 @@ const folderNames = {
   },
 };
 
+/** The slice a path under a package's `src/` sits in: `{ kind, slice, rest }`, or null. */
+function sliceOf(pathInSource) {
+  const [kind, slice, ...rest] = pathInSource.split('/');
+  return SLICE_KINDS.has(kind) && slice ? { kind, slice, rest } : null;
+}
+
+/** The literal module specifiers a file imports or re-exports. */
+function moduleSources(report) {
+  const check = (node) => {
+    if (node.source?.type === 'Literal' && typeof node.source.value === 'string') {
+      report(node, node.source.value);
+    }
+  };
+  return {
+    ImportDeclaration: check,
+    ExportNamedDeclaration: check,
+    ExportAllDeclaration: check,
+    ImportExpression: check,
+  };
+}
+
+const sliceIsolation = {
+  meta: {
+    type: 'problem',
+    messages: {
+      sibling:
+        'Remove this import of the sibling slice `{{target}}`. Folders under `src/{{kind}}/` ' +
+        'never import each other: compose them in a route, or move the shared code into ' +
+        '`packages/ui` or the one slice that owns it.',
+      loose:
+        'Move `{{file}}` into a folder of its own under `src/{{kind}}/`, for example ' +
+        '`src/{{kind}}/<name>/{{file}}`. Every file under `src/{{kind}}/` belongs to one slice.',
+      leavesPackage:
+        'Import `{{source}}` by its package name instead of a relative path out of ' +
+        '`{{packageRoot}}`. A package reaches another only through its name and public exports.',
+    },
+    schema: [],
+  },
+  create(context) {
+    const path = repositoryPath(context);
+    const source = PACKAGE_SOURCE.exec(path);
+    if (!source) {
+      return {};
+    }
+    const [, packageRoot, pathInSource] = source;
+    const own = sliceOf(pathInSource);
+    return {
+      Program(program) {
+        if (own && own.rest.length === 0) {
+          context.report({
+            node: program,
+            messageId: 'loose',
+            data: { file: own.slice, kind: own.kind },
+          });
+        }
+      },
+      ...moduleSources((node, specifier) => {
+        if (!specifier.startsWith('.')) {
+          return;
+        }
+        const target = posix.join(posix.dirname(path), specifier);
+        if (!target.startsWith(packageRoot)) {
+          context.report({
+            node,
+            messageId: 'leavesPackage',
+            data: { source: specifier, packageRoot: packageRoot.replace(/\/$/, '') || '.' },
+          });
+          return;
+        }
+        const targetSlice = target.startsWith(`${packageRoot}src/`)
+          ? sliceOf(target.slice(`${packageRoot}src/`.length))
+          : null;
+        if (own?.rest.length && targetSlice?.kind === own.kind && targetSlice.slice !== own.slice) {
+          context.report({
+            node,
+            messageId: 'sibling',
+            data: { target: `${targetSlice.kind}/${targetSlice.slice}`, kind: own.kind },
+          });
+        }
+      }),
+    };
+  },
+};
+
+/** Local names bound to `name` imported from `source`, including `import * as` namespaces. */
+function importTracker(source, name) {
+  const locals = new Set();
+  const namespaces = new Set();
+  return {
+    ImportDeclaration(node) {
+      if (node.source.value !== source) {
+        return;
+      }
+      for (const specifier of node.specifiers) {
+        if (specifier.type !== 'ImportSpecifier') {
+          namespaces.add(specifier.local.name);
+        } else if (importedName(specifier) === name) {
+          locals.add(specifier.local.name);
+        }
+      }
+    },
+    /** Whether `node` names the import: `name`, an alias of it, or `namespace.name`. */
+    names(node) {
+      if (node?.type === 'Identifier') {
+        return locals.has(node.name);
+      }
+      return (
+        node?.type === 'MemberExpression' &&
+        node.object.type === 'Identifier' &&
+        namespaces.has(node.object.name) &&
+        node.property.type === 'Identifier' &&
+        node.property.name === name
+      );
+    },
+  };
+}
+
+const API_SOURCE = /(^|\/)api\/src\//;
+
+const procedureInputSchema = {
+  meta: {
+    type: 'problem',
+    messages: {
+      schema:
+        'Pass the procedure input as `Schema.standardSchemaV1(<schema>)` with `Schema` from ' +
+        '`effect`, so the procedure validates its input with Effect Schema (ADR 0011).',
+    },
+    schema: [],
+  },
+  create(context) {
+    if (!API_SOURCE.test(repositoryPath(context)) || isTestFile(context.filename)) {
+      return {};
+    }
+    const schema = importTracker('effect', 'Schema');
+    const isStandardSchema = (argument) =>
+      argument?.type === 'CallExpression' &&
+      argument.callee.type === 'MemberExpression' &&
+      argument.callee.property.type === 'Identifier' &&
+      argument.callee.property.name === 'standardSchemaV1' &&
+      schema.names(argument.callee.object);
+    return {
+      ImportDeclaration: schema.ImportDeclaration,
+      CallExpression(node) {
+        const { callee } = node;
+        if (
+          callee.type === 'MemberExpression' &&
+          !callee.computed &&
+          callee.property.name === 'input' &&
+          !isStandardSchema(node.arguments[0])
+        ) {
+          context.report({ node, messageId: 'schema' });
+        }
+      },
+    };
+  },
+};
+
+const formUsesEffectSchema = {
+  meta: {
+    type: 'problem',
+    messages: {
+      resolver:
+        'Pass `useForm({ resolver: effectTsResolver(<schema>) })` with `effectTsResolver` from ' +
+        '`@hookform/resolvers/effect-ts` and the schema in Effect Schema (ADR 0011).',
+    },
+    schema: [],
+  },
+  create(context) {
+    const useForm = importTracker('react-hook-form', 'useForm');
+    const resolver = importTracker('@hookform/resolvers/effect-ts', 'effectTsResolver');
+    const isEffectResolver = (property) =>
+      property.type === 'Property' &&
+      !property.computed &&
+      (property.key.name ?? property.key.value) === 'resolver' &&
+      property.value.type === 'CallExpression' &&
+      resolver.names(property.value.callee);
+    return {
+      ImportDeclaration(node) {
+        useForm.ImportDeclaration(node);
+        resolver.ImportDeclaration(node);
+      },
+      CallExpression(node) {
+        if (!useForm.names(node.callee)) {
+          return;
+        }
+        const [options] = node.arguments;
+        if (!(options?.type === 'ObjectExpression' && options.properties.some(isEffectResolver))) {
+          context.report({ node, messageId: 'resolver' });
+        }
+      },
+    };
+  },
+};
+
 export default {
   meta: { name: 'policy' },
   rules: {
@@ -396,5 +605,8 @@ export default {
     'pages-in-routes': pagesInRoutes,
     'file-matches-export': fileMatchesExport,
     'folder-names': folderNames,
+    'slice-isolation': sliceIsolation,
+    'procedure-input-schema': procedureInputSchema,
+    'form-uses-effect-schema': formUsesEffectSchema,
   },
 };

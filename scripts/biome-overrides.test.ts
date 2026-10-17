@@ -36,19 +36,23 @@ function lintSeed(path: string, source: string): { status: number | null; rules:
 describe('Biome naming overrides', () => {
   jest.setTimeout(30_000);
 
-  it('blocks a snake_case identifier in a workspace package source file', () => {
-    const result = lintSeed('apps/web/src/features/x/bad.ts', 'export const bad_name = 1;\n');
-    expect(result.status).toBe(1);
-    expect(result.rules).toContain('lint/style/useNamingConvention');
+  it.each([
+    'apps/web/src/features/x',
+    'apps/api/src/features/x',
+    'packages/ui/src',
+    'showcase/todo-01/web/src/routes/x',
+    'showcase/todo-01/api/src/features/x',
+  ])('blocks a snake_case identifier and file name in %s', (folder) => {
+    const identifier = lintSeed(`${folder}/bad.ts`, 'export const bad_name = 1;\n');
+    expect(identifier.status).toBe(1);
+    expect(identifier.rules).toContain('lint/style/useNamingConvention');
+
+    const fileName = lintSeed(`${folder}/bad_name.ts`, 'export const value = 1;\n');
+    expect(fileName.status).toBe(1);
+    expect(fileName.rules).toContain('lint/style/useFilenamingConvention');
   });
 
-  it('blocks a snake_case file name in a workspace package source folder', () => {
-    const result = lintSeed('apps/web/src/features/x/bad_name.ts', 'export const value = 1;\n');
-    expect(result.status).toBe(1);
-    expect(result.rules).toContain('lint/style/useFilenamingConvention');
-  });
-
-  it('leaves the same seed alone outside apps/*/src', () => {
+  it('leaves the same seed alone outside every package src folder', () => {
     const result = lintSeed('scripts/bad_name.ts', 'export const bad_name = 1;\n');
     expect(result).toEqual({ status: 0, rules: [] });
   });

@@ -3,8 +3,8 @@
  * Decide whether a pull request is UI-relevant, so `lighthouse.yml` audits it.
  *
  * A pull request is UI-relevant when it changes a file that can change the
- * shipped bundle or the audit itself. Test files under `apps/web/src/` never
- * ship, so they do not count. When nothing UI-relevant changes, the Lighthouse job
+ * shipped bundle or the audit itself: the web app and the ui kit it bundles.
+ * Test files under their `src/` folders never ship, so they do not count. When nothing UI-relevant changes, the Lighthouse job
  * reports green without auditing; this rule is that skip, kept here so it is
  * tested (ADR 0017).
  *
@@ -19,18 +19,20 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-/** Directories whose files ship in the bundle. */
-const UI_DIRECTORIES = ['apps/web/src/', 'apps/web/public/'];
+/** Source folders whose files ship in the bundle; their test files never ship. */
+const SOURCE_DIRECTORIES = ['apps/web/src/', 'packages/ui/src/'];
 
-/** Test files under the source folder never ship; `public/` ships every file as is. */
-const SOURCE_DIRECTORY = 'apps/web/src/';
+/** Directories whose files ship in the bundle; `public/` ships every file as is. */
+const UI_DIRECTORIES = [...SOURCE_DIRECTORIES, 'apps/web/public/'];
 
 /** Files that change the bundle, the build, or the audit. */
 const UI_FILES = new Set([
   'apps/web/index.html',
   'apps/web/vite.config.ts',
   'apps/web/package.json',
+  'packages/ui/package.json',
   'pnpm-workspace.yaml',
+  'tsconfig.base.json',
   'tsconfig.json',
   'package.json',
   'pnpm-lock.yaml',
@@ -44,7 +46,7 @@ const TEST_FILE = /\.test\.[^/]*$/;
 
 /** @param {string} path */
 function isUiRelevant(path) {
-  if (path.startsWith(SOURCE_DIRECTORY) && TEST_FILE.test(path)) {
+  if (SOURCE_DIRECTORIES.some((directory) => path.startsWith(directory)) && TEST_FILE.test(path)) {
     return false;
   }
   return UI_FILES.has(path) || UI_DIRECTORIES.some((directory) => path.startsWith(directory));

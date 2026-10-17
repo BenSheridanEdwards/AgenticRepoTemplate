@@ -73,14 +73,22 @@ const policyRules = {
   ...Object.fromEntries(Object.keys(policy.rules).map((rule) => [`policy/${rule}`, 'error'])),
   'react-doctor/prefer-function-component': 'error',
   // A feature, route, or shared module is imported only through its index.ts.
+  // The api names that file with its `.ts` extension, because NodeNext
+  // resolution has no directory imports.
   'no-restricted-imports': [
     'error',
     {
       patterns: [
         {
-          group: ['**/features/*/*', '**/shared/*/*', '**/routes/*/*'],
+          group: [
+            '**/features/*/*',
+            '**/shared/*/*',
+            '**/routes/*/*',
+            '!**/features/*/index.ts',
+            '!**/routes/*/index.ts',
+          ],
           message:
-            'Import the module through its public surface, for example `../features/service-status`.',
+            'Import the module through its public surface, for example `../../features/name-input` or `./features/greeting/index.ts` in the api.',
         },
       ],
     },
@@ -103,7 +111,9 @@ export default [
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
   {
-    files: ['apps/*/src/**/*.{ts,tsx}'],
+    // Every package source file of every result: apps/web, apps/api,
+    // packages/ui and each showcase/<id>/{web,api}.
+    files: ['{apps,packages}/*/src/**/*.{ts,tsx}', 'showcase/*/*/src/**/*.{ts,tsx}'],
     languageOptions: { parser: tseslint.parser },
     plugins: {
       ...reactHooksRecommended.plugins,
