@@ -54,7 +54,7 @@ the code-level rules and their checks.
 | Rule | Enforced by |
 | --- | --- |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
-| Every hook runs; `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides are refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code, [ADR 0023](decisions/0023-block-common-hook-bypasses.md)); CI re-runs every gate |
+| Every hook runs; `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides are refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code, [ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI re-runs every gate |
 | Gate config (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) changes with a maintainer's sign-off. | `enforcement-approval` status ([ADR 0007](decisions/0007-protect-enforcement-paths-by-default.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
