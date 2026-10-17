@@ -193,7 +193,7 @@
         <div class="eqcap">No task is done until both pass, whoever or whatever wrote the code.</div>
         <ul class="sharp">
           <li><b>Fail fast.</b> Every standard is an executable gate, run at the earliest point it can fail.</li>
-          <li><b>No skipping.</b> A PreToolUse hook refuses <span class="mono">--no-verify</span>.</li>
+          <li><b>No skipping.</b> A PreToolUse hook refuses <span class="mono">--no-verify</span>, <span class="mono">-n</span>, <span class="mono">HUSKY=0</span>, and <span class="mono">core.hooksPath</span> rewrites; CI catches the rest.</li>
           <li><b>No "works on my machine."</b> Local hooks and CI run the exact same checks.</li>
         </ul>
       </div>

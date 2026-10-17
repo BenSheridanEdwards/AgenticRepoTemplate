@@ -7,11 +7,12 @@ only when a hook, script, workflow, or review checklist actually owns it.
 
 | Stage | Owner | Gates |
 | --- | --- | --- |
+| Agent commands | `.claude/hooks/block-gate-bypass.sh` | Refuses the common hook bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and writes to `core.hooksPath`, git aliases, or config includes) before Claude Code runs them. CI is the backstop for the gaps listed in ADR 0027. |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression reasons, positive doc phrasing, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
-| Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | The pointer chain `CLAUDE.md` → `AGENTS.md` → `.agents/README.md` holds; the start-here guide, manifest, project docs, ledgers, and house skills exist as real files. |
+| Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | The pointer chain `CLAUDE.md` → `AGENTS.md` → `.agents/README.md` holds; the start-here guide, manifest, project docs, ledgers, and house skills exist as real files. Each ADR is named `NNNN-slug.md`, uses its number once, and opens with a matching `# N.` title. No context doc has the same section twice under one parent. |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression reasons, positive doc phrasing, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files, as decided by the tested `scripts/lighthouse-scope.mjs`; other PRs report the same check green with audits skipped. |
