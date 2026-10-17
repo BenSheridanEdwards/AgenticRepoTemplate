@@ -19,14 +19,14 @@ Repeat that across many contributors and many agents and the codebase degrades,
 approvals slow down, and velocity falls. The fix is a repository that refuses
 bad changes and closes every route around each refusal.
 
-This extends the beliefs in the [README](README.md): executable standards beat
+This extends the beliefs in the [README](../README.md): executable standards beat
 written standards, and consistency is infrastructure. Domain docs in the repo
 inform the agent. The gates decide what lands.
 
-For day-to-day operating rules see [`AGENTS.md`](AGENTS.md). For what is
-installed today see [`.agents/project/TECH_STACK.md`](.agents/project/TECH_STACK.md)
-and [`.agents/project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md).
-Settled decisions live as ADRs in [`.agents/decisions/`](.agents/decisions/).
+For day-to-day operating rules see [Start here](README.md). For what is
+installed today see [`.agents/project/TECH_STACK.md`](project/TECH_STACK.md)
+and [`.agents/project/QUALITY_GATES.md`](project/QUALITY_GATES.md).
+Settled decisions live as ADRs in [`.agents/decisions/`](decisions/).
 
 **What success looks like.** Any person's agent, on any harness or model, can
 clone a repository built from this template and open only pull requests a named
@@ -53,7 +53,7 @@ A standard with no gate behind it is a target and is labelled as one. A rule is
 finished when the routes around it are closed too: aliases, re-exports, inline
 disables, and edits to the rule's own config. A change that loosens or rewrites
 a rule waits for Ben's sign-off on the exact commit
-([ADR 0022](.agents/decisions/0022-sign-off-only-loosening-enforcement-changes.md)).
+([ADR 0023](decisions/0023-sign-off-only-loosening-enforcement-changes.md)).
 
 Each lint engine owns its own concerns. Biome owns format and general lint.
 ESLint owns policy rules and the React hooks and Compiler rules. React Doctor
@@ -62,7 +62,7 @@ enforces the rest in CI.
 
 ### 2. One role table defines the structure
 
-[ARCHITECTURE.md](.agents/project/ARCHITECTURE.md) holds one table that maps
+[ARCHITECTURE.md](project/ARCHITECTURE.md) holds one table that maps
 each role to its folder, its allowed imports, and the Fallow zone that enforces
 it. Routes compose pages from features and the UI package, and each route
 imports only features and the UI package. Features hold domain code with co-located tests. Shared
@@ -106,7 +106,7 @@ Every piece of work ends as one pull request that is:
 - **Green** on every required check, on the latest commit.
 - **Up to date with `main`**.
 - **Described well enough to approve from**, following the
-  [PR quality contract](.agents/project/PR_QUALITY.md).
+  [PR quality contract](project/PR_QUALITY.md).
 
 A person approves, merges, and deploys.
 
@@ -114,8 +114,8 @@ A person approves, merges, and deploys.
 
 The 2026-10-15 gap review settled eight decisions that shape the plan. The
 reasoning lives as ADRs in
-[`.agents/decisions/`](.agents/decisions/), indexed by
-[0006](.agents/decisions/0006-gap-review-decision-set.md).
+[`.agents/decisions/`](decisions/), indexed by
+[0006](decisions/0006-gap-review-decision-set.md).
 
 1. **Protected enforcement paths.** Root configs, `.github/**`, `.claude/**`,
    `.husky/**`, `scripts/**`, `tooling/**`, the lockfile, and the agent docs are
@@ -169,7 +169,7 @@ with acceptance criteria lives in [`TODO.md`](TODO.md).
 | React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 2 |
 | Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 4 |
 | State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
-| Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0022](.agents/decisions/0022-sign-off-only-loosening-enforcement-changes.md)) | Installed |
+| Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0023](decisions/0023-sign-off-only-loosening-enforcement-changes.md)) | Installed |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
 | Role-named folders | `lib/` and `utils/` folders fail a check | Target |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, `AGENTS.md` and `CONVENTIONS.md` |

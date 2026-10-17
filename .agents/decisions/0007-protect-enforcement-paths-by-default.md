@@ -1,6 +1,6 @@
 # 7. Protect enforcement paths by default
 
-- **Status:** Superseded in part by [0022](0022-sign-off-only-loosening-enforcement-changes.md)
+- **Status:** Superseded in part by [0023](0023-sign-off-only-loosening-enforcement-changes.md)
 - **Date:** 2026-10-15
 
 ## Context
@@ -32,7 +32,7 @@ Content checks also flag:
 
 A change to any of these fails CI at PR time until Ben signs it off.
 
-[ADR 0022](0022-sign-off-only-loosening-enforcement-changes.md) replaces
+[ADR 0023](0023-sign-off-only-loosening-enforcement-changes.md) replaces
 this list, the content checks, and the reviewer rule. The gate now asks Ben to
 sign off only the changes that loosen or rewrite enforcement, and the tick is
 bound to the head commit.

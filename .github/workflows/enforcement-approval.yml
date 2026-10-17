@@ -1,5 +1,5 @@
-# Enforcement sign-off gate, ADR 0022
-# (.agents/decisions/0022-sign-off-only-loosening-enforcement-changes.md).
+# Enforcement sign-off gate, ADR 0023
+# (.agents/decisions/0023-sign-off-only-loosening-enforcement-changes.md).
 #
 # pull_request_target runs the default branch's copy of this workflow and of
 # scripts/enforcement-approval.mjs, so main's trusted rules judge every PR. The
