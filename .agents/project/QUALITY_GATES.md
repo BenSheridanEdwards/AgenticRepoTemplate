@@ -26,7 +26,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 - **ESLint** (`pnpm lint:policy`) owns policy rules, React hooks rules, React
   Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
   The repository's own rules live in `tooling/eslint-plugin-policy.js`
-  ([ADR 0018](../decisions/0018-local-eslint-policy-plugin.md)).
+  ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
 - **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
   ESLint plugin cannot express, such as duplicated JSX across files.
 - **TypeScript** owns type semantics through `tsc --noEmit`.
@@ -119,11 +119,13 @@ changes to the files that define the gates wait for a maintainer's sign-off.
 
 - **Protected areas**, checked in order by
   [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs):
-  `pnpm-lock.yaml`; agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
+  agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
   `.agents/**`, `agents/**`); `.github/**`; `.claude/**`; `.husky/**`;
   `scripts/**`; `tooling/**`; and every root file outside a short prose and app
-  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). A rename counts
-  when either side is protected.
+  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). `package.json`
+  and `pnpm-lock.yaml` are not protected
+  ([ADR 0018](../decisions/0018-dependency-manifests-are-not-enforcement-paths.md)).
+  A rename counts when either side is protected.
 - **One sticky comment** lists the protected files with a single
   `Approve these enforcement changes` box. Ticking it, with write access, turns
   the `enforcement-approval` commit status green. Any later change to a

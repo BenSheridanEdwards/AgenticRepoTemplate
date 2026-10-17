@@ -39,3 +39,6 @@ graphify-out/*
 
 # Claude Code agent tooling (GitNexus index, Graphify output, local settings)
 graphify-out/
+
+# Verification runs from .claude/skills/verify-agentic-template (instance state + evidence)
+.verify/

@@ -292,7 +292,7 @@ PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptanc
 SECURITY.md                 Vulnerability disclosure policy.
 biome.json                  Format, import order, and general lint.
 eslint.config.js            Policy, React hooks, React Compiler, and React Doctor rules.
-tooling/eslint-plugin-policy.js  The repository's own ESLint policy rules (ADR 0018).
+tooling/eslint-plugin-policy.js  The repository's own ESLint policy rules (ADR 0019).
 commitlint.config.ts        Conventional Commits.
 jest.config.ts / jest.setup.ts  Unit and component tests (RTL and jest-axe), coverage gate.
 playwright.config.ts        Browser harness for the E2E behaviour map.
