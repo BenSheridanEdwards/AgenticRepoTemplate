@@ -28,7 +28,8 @@ complete once `pnpm verify` and `pnpm e2e` are green.
       circular dependency, complexity, architecture or `contract/<id>` finding
       in any file the change touches.
 - [ ] **Architecture checks pass.** `pnpm arch:check` passes: every file sits
-      in a role, no forbidden import, `docs/architecture/roles.mmd` matches
+      in a role, no forbidden import, every result passes the structure check,
+      `docs/architecture/roles.mmd` and each result's `architecture.mmd` match
       `pnpm arch:diagram`, and every package's `etc/*.api.md` matches the code
       (`pnpm api:report` after an intended export change).
 - [ ] **Build succeeds.** `pnpm build` produces a clean production bundle.
