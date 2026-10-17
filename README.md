@@ -73,13 +73,15 @@ modes are. One set of files serves both. The test of this layer: a new
 engineer, or a new agent, is productive and safe within minutes of cloning,
 without asking anyone anything.
 
-- [`AGENTS.md`](AGENTS.md) is the tool-agnostic operating contract, written for
-  any agent. Golden rules, commands, and pointers into `.agents/`. It follows
-  the [agents.md](https://agents.md) convention and stays thin.
-- [`CLAUDE.md`](CLAUDE.md) is a vendor adapter. It defers to `AGENTS.md` and
-  adds only vendor-specific skills and tooling.
-  [`agents/openai.yaml`](agents/openai.yaml) does the same for other vendors,
-  so the method is not welded to one AI supplier.
+- [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) are the only agent
+  files at the root, and both are pointers. `CLAUDE.md` points to `AGENTS.md`
+  ([agents.md](https://agents.md) convention), which points to the start-here
+  guide.
+- [`.agents/README.md`](.agents/README.md) is the start-here guide: the
+  tool-agnostic operating contract, with golden rules, commands, and a map of
+  the rest. [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) adds the Claude Code
+  layer, and [`openai.yaml`](.agents/openai.yaml) lists the same entry points
+  for other vendors, so the method is not welded to one AI supplier.
 - [`.agents/`](.agents) is the single source of detail: the
   [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow,
   the [conventions](.agents/project/CONVENTIONS.md) for naming, imports,
@@ -92,7 +94,7 @@ without asking anyone anything.
   [decision records](.agents/decisions) that mark the difference between a
   mistake and a deliberate act, and [templates](.agents/templates) so the
   correct pattern is the path of least resistance.
-- [`PROGRESS.md`](PROGRESS.md) and [`TODO.md`](TODO.md) are the memory layer:
+- [`PROGRESS.md`](.agents/PROGRESS.md) and [`TODO.md`](.agents/TODO.md) are the memory layer:
   checkpointed work with verification status, and forward handoffs with
   acceptance criteria. They give agents audit-grade memory across sessions.
 
@@ -198,7 +200,7 @@ pnpm setup:agents      # installs the playbook and Fallow skills
 The committed history shows the loop working: the first run found real problems
 (missing static analysis, a live dependency advisory, weak test selectors) and
 each one being closed. Known deliberate trade-offs and open gaps are recorded
-in the reports themselves and in [`TODO.md`](TODO.md). Honest history is a
+in the reports themselves and in [`TODO.md`](.agents/TODO.md). Honest history is a
 feature; the loop is the point, not the passing grade at the end.
 
 Non-functionals are held continuously, not only at audit time: Lighthouse keeps
@@ -255,10 +257,14 @@ optimise last. This is the same find, fix, and re-audit loop the committed
 ## Every file, and why it is here
 
 ```
-AGENTS.md / CLAUDE.md     Agent contract. Thin entry points into .agents/.
-agents/openai.yaml        Vendor-neutral manifest; points at AGENTS.md and .agents/.
-PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptance criteria.
-.agents/                  The repo's knowledge (read before writing).
+AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.md.
+.agents/                  Every agent doc (read before writing).
+  README.md                 Start here: commands, golden rules, and the map.
+  CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
+  GITNEXUS.md               GitNexus impact analysis and change detection.
+  NORTH_STAR.md             Where the repo is heading and why.
+  PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptance criteria.
+  openai.yaml               Vendor-neutral manifest of the same entry points.
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.
