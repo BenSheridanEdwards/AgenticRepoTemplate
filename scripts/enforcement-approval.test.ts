@@ -8,6 +8,7 @@ import {
   GUARDS,
   guardedPaths,
   judgeSignoff,
+  LIST_FILES_LIMIT,
   planApproval,
   run,
   STATUS_CONTEXT,
@@ -55,7 +56,6 @@ describe('GUARDS', () => {
     expect(GUARDS.map((guard: { area: string }) => guard.area)).toEqual([
       'Enforcement-approval gate',
       'Required-gates contract',
-      'Gate tests',
       'Gate scripts',
       'ESLint config and local rules',
       'Biome config',
@@ -66,7 +66,7 @@ describe('GUARDS', () => {
       'Claude Code settings and hooks',
       'Claude Code settings and hooks',
       'Test and commit config',
-      'Biome ignore file',
+      'Ignore files Biome reads',
     ]);
   });
 
@@ -75,7 +75,7 @@ describe('GUARDS', () => {
     ['scripts/enforcement-approval.mjs', 'Enforcement-approval gate'],
     ['scripts/enforcement-approval.test.ts', 'Enforcement-approval gate'],
     ['docs/required-gates.md', 'Required-gates contract'],
-    ['scripts/required-gates.test.ts', 'Gate tests'],
+    ['scripts/required-gates.test.ts', 'Gate scripts'],
     ['scripts/required-gates.mjs', 'Gate scripts'],
     ['scripts/fallow-audit.sh', 'Gate scripts'],
     ['eslint.config.js', 'ESLint config and local rules'],
@@ -89,11 +89,15 @@ describe('GUARDS', () => {
     ['.github/workflows/ci.yml', 'CI workflows'],
     ['.husky/pre-commit', 'Git hooks'],
     ['.claude/settings.json', 'Claude Code settings and hooks'],
+    ['.claude/settings.local.json', 'Claude Code settings and hooks'],
     ['.claude/hooks/block-gate-bypass.sh', 'Claude Code settings and hooks'],
     ['jest.config.ts', 'Test and commit config'],
     ['playwright.config.ts', 'Test and commit config'],
     ['commitlint.config.ts', 'Test and commit config'],
-    ['.gitignore', 'Biome ignore file'],
+    ['.commitlintrc.json', 'Test and commit config'],
+    ['.gitignore', 'Ignore files Biome reads'],
+    ['src/.gitignore', 'Ignore files Biome reads'],
+    ['.ignore', 'Ignore files Biome reads'],
   ])('guards %s as %s', (path, area) => {
     expect(guardedPaths([{ filename: path }])).toEqual([path]);
     expect(enforcementProblems([{ path, before: '{}', after: null }])[0]?.area).toBe(area);
@@ -108,7 +112,6 @@ describe('GUARDS', () => {
     '.github/pull_request_template.md',
     '.claude/skills/show-me/SKILL.md',
     'apps/web/jest.config.ts',
-    'src/.gitignore',
   ])('leaves %s unguarded', (path) => {
     expect(guardedPaths([{ filename: path }])).toEqual([]);
     expect(enforcementProblems([{ path, before: 'a', after: null }])).toEqual([]);
@@ -152,30 +155,11 @@ describe('rewrite judge', () => {
 });
 
 describe('lines judge', () => {
-  const testFile = ["it('counts', () => {", '  expect(count(1)).toBe(1);', '});', ''].join('\n');
-
-  it('flags a removed test line', () => {
-    const after = testFile.replace('  expect(count(1)).toBe(1);\n', '');
-    expect(reasons('scripts/count.test.ts', testFile, after)).toEqual([
-      'removes or rewrites 1 line',
-    ]);
-  });
-
   it.each([
-    "it.only('resets', () => {",
-    "describe.skip('reset', () => {",
-    "xit('resets', () => {",
-  ])('flags an added %s', (line) => {
-    const after = `${testFile}\n${line}\n  expect(reset()).toBe(0);\n});\n`;
-    expect(reasons('scripts/count.test.ts', testFile, after)).toEqual([
-      expect.stringContaining('skips or focuses tests'),
-    ]);
-  });
-
-  it('passes a pure test addition', () => {
-    const after = `${testFile}\nit('resets', () => {\n  expect(reset()).toBe(0);\n});\n`;
-    expect(reasons('scripts/count.test.ts', testFile, after)).toEqual([]);
-    expect(reasons('scripts/count.test.ts', null, testFile)).toEqual([]);
+    ["it('counts', () => {});\n", "it('counts', () => {});\nit('resets', () => {});\n"],
+    ["it('counts', () => {});\n", "const it = () => {};\nit('counts', () => {});\n"],
+  ])('reads any edit to a gate test as an edit to enforcement code', (before, after) => {
+    expect(reasons('scripts/count.test.ts', before, after)).toEqual(['edits enforcement code']);
   });
 
   it('flags removed lines in the required-gates contract and passes added ones', () => {
@@ -196,6 +180,12 @@ describe('lines judge', () => {
   it('passes a negation, a comment, a blank line, or a removed entry in .gitignore', () => {
     expect(reasons('.gitignore', 'dist\n', 'dist\n\n# build output\n!dist/keep.ts\n')).toEqual([]);
     expect(reasons('.gitignore', 'dist\ncoverage\n', 'dist\n')).toEqual([]);
+  });
+
+  it('flags a removed re-include, which ignores more files', () => {
+    expect(reasons('.gitignore', 'docs/*\n!docs/keep.md\n', 'docs/*\n')).toEqual([
+      'removes re-include `!docs/keep.md`',
+    ]);
   });
 });
 
@@ -508,6 +498,52 @@ describe('json judge', () => {
   });
 });
 
+describe('coverage lists created from nothing', () => {
+  it('flags a new Biome linter.includes, which narrows linting from every file', () => {
+    expect(
+      reasons(
+        'biome.json',
+        '{"linter":{"enabled":true}}',
+        '{"linter":{"enabled":true,"includes":["src/App.tsx"]}}',
+      ),
+    ).toEqual(['starts `linter.includes`, which limits the files it covers']);
+  });
+
+  it('passes a new Claude Code deny list', () => {
+    expect(
+      reasons(
+        '.claude/settings.json',
+        '{"permissions":{}}',
+        '{"permissions":{"deny":["Bash(rm:*)"]}}',
+      ),
+    ).toEqual([]);
+  });
+
+  it('asks when Biome import sorting is turned off', () => {
+    expect(
+      reasons(
+        'biome.json',
+        '{"assist":{"actions":{"source":{"organizeImports":"on"}}}}',
+        '{"assist":{"actions":{"source":{"organizeImports":"off"}}}}',
+      ),
+    ).toEqual(['changes `assist.actions.source.organizeImports`']);
+  });
+});
+
+describe('TypeScript flags that turn checking off', () => {
+  it.each([
+    ['{"compilerOptions":{"strict":null}}', 'removes `compilerOptions.strict`'],
+    [
+      '{"compilerOptions":{"strict":true,"noCheck":true}}',
+      'sets `compilerOptions.noCheck` to `true`',
+    ],
+  ])('flags %s', (after, reason) => {
+    expect(reasons('tsconfig.json', '{"compilerOptions":{"strict":true}}', after)).toEqual([
+      reason,
+    ]);
+  });
+});
+
 describe('enforcementProblems', () => {
   it('orders problems by path and ignores unguarded changes', () => {
     expect(
@@ -536,6 +572,17 @@ describe('signoffComment', () => {
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
       `- [ ] Approve these enforcement changes at \`${HEAD}\``,
     ]);
+  });
+
+  it('shows at most 100 rows', () => {
+    const problems = Array.from({ length: 150 }, (_, index) => ({
+      path: `scripts/s${index}.mjs`,
+      area: 'Gate scripts',
+      reason: 'edits enforcement code',
+    }));
+    const body = signoffComment({ head: 'a'.repeat(40), problems });
+    expect(body.split('\n').filter((line) => line.startsWith('| `scripts/'))).toHaveLength(100);
+    expect(body).toContain('| | | and 50 more changes |');
   });
 
   it('renders a hostile path inert, keeping a single approval line', () => {
@@ -865,6 +912,16 @@ describe('run', () => {
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.calls.createComment).toHaveLength(1);
     expect(fake.calls.createCommitStatus).toEqual([expect.objectContaining({ state: 'failure' })]);
+  });
+
+  it('asks for sign-off when the PR lists as many files as the API returns', async () => {
+    const files = Array.from({ length: LIST_FILES_LIMIT }, (_, index) => ({
+      filename: `src/file${index}.ts`,
+    }));
+    const { github, comments, calls } = fakeGitHub({ files, contents: {} });
+    await run({ github, context: pullRequestContext, core });
+    expect(comments[0]?.body).toContain('| `this PR` | Gate input |');
+    expect(calls.createCommitStatus).toEqual([expect.objectContaining({ state: 'failure' })]);
   });
 
   it('sets a green status and posts nothing when nothing loosens enforcement', async () => {

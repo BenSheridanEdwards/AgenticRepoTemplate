@@ -11,7 +11,7 @@
  * the `enforcement-approval` commit status. The status turns green only when
  * that comment, unchanged apart from the tick, was last edited by APPROVER as a
  * GitHub user. A new head rewrites the comment, which clears the tick. See
- * `.agents/decisions/0022-sign-off-only-loosening-enforcement-changes.md`.
+ * `.agents/decisions/0023-sign-off-only-loosening-enforcement-changes.md`.
  *
  * `GUARDS`, `enforcementProblems`, `judgeSignoff` and `planApproval` are the
  * pure core. `run` is the thin GitHub shell. Invoked directly,
@@ -93,25 +93,24 @@ function linesOnlyIn(left, right) {
 }
 
 /**
- * Compare trimmed lines as multisets: removed lines loosen when
- * `removedLoosen`, and an added line loosens when `addedReason` names it.
+ * Compare trimmed lines as multisets and let the policy name the removed and
+ * added lines that loosen.
  *
- * @param {{ removedLoosen: boolean, addedReason: (line: string) => string | null }} policy
+ * @param {{ removed: (lines: string[]) => string[], added: (lines: string[]) => string[] }} policy
  * @returns {Judge}
  */
 const byLines =
-  ({ removedLoosen, addedReason }) =>
+  (policy) =>
   ({ before, after }) => {
     if (after === null) return ['deletes the file'];
-    const removed = linesOnlyIn(lineList(before), lineList(after));
-    const added = linesOnlyIn(lineList(after), lineList(before));
     return [
-      ...(removedLoosen && removed.length ? [`removes or rewrites ${lines(removed.length)}`] : []),
-      ...added.flatMap((line) => addedReason(line) ?? []),
+      ...policy.removed(linesOnlyIn(lineList(before), lineList(after))),
+      ...policy.added(linesOnlyIn(lineList(after), lineList(before))),
     ];
   };
 
-const SKIPPED_OR_FOCUSED = /\.(skip|only|todo|failing)\b|\bx(it|describe|test)\b/;
+/** @param {string} line */
+const isNegation = (line) => line.startsWith('!');
 
 /**
  * Parse JSONC: comments and trailing commas outside strings go, then JSON.parse.
@@ -134,7 +133,7 @@ function parseJsonc(text) {
 
 /**
  * @typedef {{ id: string, path: (string | number)[], member: boolean, value: unknown }} Leaf
- * @typedef {Leaf & { before: unknown, after: unknown, change: 'added' | 'removed' | 'changed' }} LeafChange
+ * @typedef {Leaf & { before: unknown, after: unknown, change: 'added' | 'removed' | 'changed', listIsNew: boolean }} LeafChange
  */
 
 /**
@@ -167,14 +166,39 @@ function leaves(value, path = []) {
 function leafChanges(before, after) {
   const beforeLeaves = new Map(leaves(before).map((leaf) => [leaf.id, leaf]));
   const afterLeaves = new Map(leaves(after).map((leaf) => [leaf.id, leaf]));
-  return [...new Set([...beforeLeaves.keys(), ...afterLeaves.keys()])].flatMap((id) => {
-    const was = beforeLeaves.get(id);
-    const now = afterLeaves.get(id);
-    const leaf = /** @type {Leaf} */ (now ?? was);
-    if (was && now && Object.is(was.value, now.value)) return [];
-    const change = !was ? 'added' : !now ? 'removed' : 'changed';
-    return [{ ...leaf, before: was?.value, after: now?.value, change }];
+  const beforeLists = new Set(
+    [...beforeLeaves.values()]
+      .filter((leaf) => leaf.member)
+      .map((leaf) => JSON.stringify(leaf.path)),
+  );
+  /** @type {LeafChange[]} */
+  const removed = [...beforeLeaves.values()]
+    .filter((leaf) => !afterLeaves.has(leaf.id))
+    .map((leaf) => ({
+      ...leaf,
+      before: leaf.value,
+      after: undefined,
+      change: 'removed',
+      listIsNew: false,
+    }));
+  /** @type {LeafChange[]} */
+  const added = [...afterLeaves.values()]
+    .filter((leaf) => !beforeLeaves.has(leaf.id))
+    .map((leaf) => ({
+      ...leaf,
+      before: undefined,
+      after: leaf.value,
+      change: 'added',
+      listIsNew: leaf.member && !beforeLists.has(JSON.stringify(leaf.path)),
+    }));
+  /** @type {LeafChange[]} */
+  const changed = [...afterLeaves.values()].flatMap((leaf) => {
+    const was = beforeLeaves.get(leaf.id);
+    return was && !Object.is(was.value, leaf.value)
+      ? [{ ...leaf, before: was.value, after: leaf.value, change: 'changed', listIsNew: false }]
+      : [];
   });
+  return [...removed, ...added, ...changed];
 }
 
 /** @param {(string | number)[]} path */
@@ -189,7 +213,9 @@ const dotted = (path) =>
 const isUnder = (path, prefix) =>
   path === prefix || path.startsWith(`${prefix}.`) || path.startsWith(`${prefix}[`);
 
-const RESTRICTIVE = new Set(['include', 'includes', 'files', 'deny', 'ask']);
+/** Lists that name what a tool covers; an absent list means it covers everything. */
+const COVERAGE = new Set(['include', 'includes', 'files']);
+const RESTRICTIVE = new Set([...COVERAGE, 'deny', 'ask']);
 const PERMISSIVE = /ignore|exclude|allow/i;
 /** @type {Record<string, number>} */
 const LEVELS = { off: 0, info: 1, warn: 2, on: 2, error: 3 };
@@ -231,6 +257,7 @@ const LOOSE_WHEN_TRUE = new Set([
   'useIgnoreFile',
   'ignoreUnknown',
   'disableAllHooks',
+  'noCheck',
 ]);
 
 /** The value of each strictness flag that loosens the gate. */
@@ -245,11 +272,13 @@ const isFlag = (leaf) => typeof leaf.before === 'boolean' || typeof leaf.after =
 /** @param {LeafChange} leaf @param {boolean} loosening @param {string} at */
 function flagReason(leaf, loosening, at) {
   if (leaf.after === loosening) return `sets ${at} to ${inert(loosening)}`;
-  return leaf.before === !loosening && leaf.after === undefined ? `removes ${at}` : '';
+  // TypeScript reads `null` as unset, so it counts as removing the flag.
+  return leaf.before === !loosening && leaf.after == null ? `removes ${at}` : '';
 }
 
 /** @param {unknown} value */
-const rank = (value) => (typeof value === 'string' ? LEVELS[value] : undefined);
+const rank = (value) =>
+  typeof value === 'string' && Object.hasOwn(LEVELS, value) ? LEVELS[value] : undefined;
 
 /** @param {{ member: boolean, path: (string | number)[], before: unknown, after: unknown }} leaf @param {string} key */
 const isSeverity = (leaf, key) =>
@@ -281,6 +310,10 @@ const SEVERITY_REASONS = {
  * @type {LeafRule[]}
  */
 const LEAF_RULES = [
+  (leaf, key, at) =>
+    leaf.listIsNew && leaf.change === 'added' && COVERAGE.has(key)
+      ? `starts ${at}, which limits the files it covers`
+      : undefined,
   (leaf, key, at) => {
     if (!leaf.member) return undefined;
     const restrictive = RESTRICTIVE.has(key);
@@ -360,15 +393,10 @@ export const GUARDS = [
   {
     area: 'Required-gates contract',
     matches: (path) => path === 'docs/required-gates.md',
-    judge: byLines({ removedLoosen: true, addedReason: () => null }),
-  },
-  {
-    area: 'Gate tests',
-    matches: matching(/^scripts\/.+\.test\.ts$/),
     judge: byLines({
-      removedLoosen: true,
-      addedReason: (line) =>
-        SKIPPED_OR_FOCUSED.test(line) ? `adds ${inert(line)}, which skips or focuses tests` : null,
+      removed: (removed) =>
+        removed.length ? [`removes or rewrites ${lines(removed.length)}`] : [],
+      added: () => [],
     }),
   },
   { area: 'Gate scripts', matches: under('scripts/'), judge: rewrite() },
@@ -387,7 +415,6 @@ export const GUARDS = [
       'javascript.formatter',
       'json.formatter',
       'css.formatter',
-      'assist',
     ]),
   },
   {
@@ -404,26 +431,40 @@ export const GUARDS = [
   { area: 'Git hooks', matches: under('.husky/'), judge: rewrite() },
   {
     area: 'Claude Code settings and hooks',
-    matches: (path) => path === '.claude/settings.json',
+    matches: matching(/^\.claude\/settings(\.local)?\.json$/),
     judge: byJson(['$schema']),
   },
   { area: 'Claude Code settings and hooks', matches: under('.claude/hooks/'), judge: rewrite() },
   {
     area: 'Test and commit config',
-    matches: matching(/^(jest|playwright|commitlint)\.config\.[^/]+$/),
+    matches: matching(/^((jest|playwright|commitlint)\.config\.[^/]+|\.commitlintrc(\.[^/]+)?)$/),
     judge: rewrite(),
   },
   {
-    area: 'Biome ignore file',
-    matches: (path) => path === '.gitignore',
+    area: 'Ignore files Biome reads',
+    matches: matching(/(^|\/)\.(git)?ignore$/),
     judge: byLines({
-      removedLoosen: false,
-      addedReason: (line) => (/^[#!]/.test(line) ? null : `adds ignore pattern ${inert(line)}`),
+      removed: (removed) =>
+        removed.filter(isNegation).map((line) => `removes re-include ${inert(line)}`),
+      added: (added) =>
+        added
+          .filter((line) => !line.startsWith('#') && !isNegation(line))
+          .map((line) => `adds ignore pattern ${inert(line)}`),
     }),
   },
 ];
 
 const MAX_REASONS = 10;
+
+/** The most files "list pull request files" returns; past it, guarded files can hide. */
+export const LIST_FILES_LIMIT = 3000;
+
+/** @type {Problem} */
+const TOO_MANY_FILES = {
+  path: 'this PR',
+  area: 'Gate input',
+  reason: `changes ${LIST_FILES_LIMIT} or more files, past what the API lists, so the gate cannot see every guarded file`,
+};
 
 /** @param {string} path */
 const guardFor = (path) => GUARDS.find((guard) => guard.matches(path));
@@ -459,6 +500,9 @@ export function enforcementProblems(changes) {
     .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
 }
 
+/** Keeps the comment well inside GitHub's comment size limit. */
+const MAX_ROWS = 100;
+
 const APPROVAL_LINE = '\n- [ ] Approve these enforcement changes at ';
 
 /**
@@ -475,9 +519,12 @@ export function signoffComment({ head, problems }) {
     '',
     '| File | Area | Change |',
     '| --- | --- | --- |',
-    ...problems.map(
-      (problem) => `| ${inert(problem.path)} | ${problem.area} | ${problem.reason} |`,
-    ),
+    ...problems
+      .slice(0, MAX_ROWS)
+      .map((problem) => `| ${inert(problem.path)} | ${problem.area} | ${problem.reason} |`),
+    ...(problems.length > MAX_ROWS
+      ? [`| | | and ${problems.length - MAX_ROWS} more changes |`]
+      : []),
     '',
     `@${APPROVER} signs off by ticking the box below in GitHub. The tick counts for commit ${inert(head)} only. A new push clears it, and a tick from any other account is cleared.`,
     `${APPROVAL_LINE}${inert(head)}`,
@@ -591,6 +638,27 @@ async function findSignoffComment(github, comments) {
 }
 
 /**
+ * Create or update the gate's comment when its body changes, then post any
+ * refusal note.
+ *
+ * @param {{ github: any, repo: { owner: string, repo: string }, number: number, existing: { id: number, body: string } | undefined, plan: { commentBody: string | null, refusal: string | null } }} input
+ */
+async function writeComments({ github, repo, number, existing, plan }) {
+  const post = (/** @type {string} */ body) =>
+    github.rest.issues.createComment({ ...repo, issue_number: number, body });
+  if (plan.commentBody !== null && plan.commentBody !== existing?.body) {
+    await (existing
+      ? github.rest.issues.updateComment({
+          ...repo,
+          comment_id: existing.id,
+          body: plan.commentBody,
+        })
+      : post(plan.commentBody));
+  }
+  if (plan.refusal) await post(plan.refusal);
+}
+
+/**
  * The `actions/github-script` entry point. Idempotent: a rerun with nothing new
  * makes no comment write.
  */
@@ -617,7 +685,10 @@ export async function run({ github, context, core }) {
       after: await readFile(github, repo, path, head),
     })),
   );
-  const problems = enforcementProblems(changes);
+  const problems = [
+    ...(files.length >= LIST_FILES_LIMIT ? [TOO_MANY_FILES] : []),
+    ...enforcementProblems(changes),
+  ];
 
   const comments = await github.paginate(github.rest.issues.listComments, {
     ...repo,
@@ -627,19 +698,7 @@ export async function run({ github, context, core }) {
   const existing = await findSignoffComment(github, comments);
 
   const plan = planApproval({ head, problems, comment: existing });
-  const post = (/** @type {string} */ body) =>
-    github.rest.issues.createComment({ ...repo, issue_number: number, body });
-
-  if (plan.commentBody !== null && plan.commentBody !== existing?.body) {
-    await (existing
-      ? github.rest.issues.updateComment({
-          ...repo,
-          comment_id: existing.id,
-          body: plan.commentBody,
-        })
-      : post(plan.commentBody));
-  }
-  if (plan.refusal) await post(plan.refusal);
+  await writeComments({ github, repo, number, existing, plan });
 
   await github.rest.repos.createCommitStatus({
     ...repo,
