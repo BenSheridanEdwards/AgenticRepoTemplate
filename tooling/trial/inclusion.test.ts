@@ -34,6 +34,8 @@ const PACKAGES_WITH_MODULES = ['apps/api', 'packages/ui'];
  * the showcase importers, so pnpm must never try to reinstall (and purge) them.
  */
 const PNPM_IN_COPY = ['--config.verify-deps-before-run=false'];
+/** Split, so this file holds no directive the suppression check would read. */
+const TS = '@ts';
 const WEB_FILE = 'web/src/routes/greeting/GreetingPage.tsx';
 const API_FILE = 'api/src/features/greeting/procedures.ts';
 
@@ -274,7 +276,7 @@ describe('a showcase result', () => {
     const file = `showcase/x/${API_FILE}`;
     const checked = withCommittedSeed(
       'suppression',
-      { [file]: `// @ts-ignore\n${readFileSync(join(copy, file), 'utf8')}` },
+      { [file]: `// ${TS}-ignore\n${readFileSync(join(copy, file), 'utf8')}` },
       () => run(['node', 'scripts/check-suppressions.mjs']),
     );
 
