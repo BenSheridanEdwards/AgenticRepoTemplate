@@ -48,7 +48,7 @@ const config: Config = {
       displayName: 'api',
       testEnvironment: 'node',
       roots: existingRoots('apps', 'showcase'),
-      testMatch: ['<rootDir>/{apps,showcase/*}/api/src/**/*.test.ts'],
+      testMatch: ['<rootDir>/{apps,showcase/*}/api/src/**/*.test.{ts,tsx}'],
     },
     {
       ...shared,

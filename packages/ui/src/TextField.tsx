@@ -5,7 +5,7 @@ export interface TextFieldProps extends Omit<ComponentProps<'input'>, 'id'> {
   readonly error?: string | undefined;
 }
 
-export function TextField({ label, error, ...inputProps }: TextFieldProps) {
+export function TextField({ label, error, className, ...inputProps }: TextFieldProps) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
   return (
@@ -14,11 +14,11 @@ export function TextField({ label, error, ...inputProps }: TextFieldProps) {
         {label}
       </label>
       <input
+        {...inputProps}
         id={inputId}
-        className="ui-text-field__input"
+        className={['ui-text-field__input', className].filter(Boolean).join(' ')}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        {...inputProps}
       />
       {error ? (
         <p id={errorId} role="alert" className="ui-text-field__error">

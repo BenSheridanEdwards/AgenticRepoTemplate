@@ -203,7 +203,7 @@ Each rule fails a check on a seeded violation in a committed test
 | One React component per file. | One file, one reason to change. | ESLint `policy/one-component-per-file` | `pnpm lint:policy` |
 | State, server state and form state live in `use*` hooks. | Components render; hooks wire. | ESLint `policy/state-and-effects-in-hooks` | `pnpm lint:policy` |
 | Forms validate with Effect Schema. | One schema language across web and api. | ESLint `policy/form-uses-effect-schema` | `pnpm lint:policy` |
-| Web code has the DOM; api code has no DOM and only erasable syntax. | Node strips types and runs the source as is. | `tsconfig.json` and `tsconfig.api.json` over `tsconfig.base.json` | `pnpm typecheck` |
+| Web code has the DOM and no Node; api code has no DOM and only erasable syntax. | The browser has no Node, and Node strips types and runs the source as is. | `tsconfig.json` (web, ui) and `tsconfig.api.json` over `tsconfig.base.json` | `pnpm typecheck` |
 | Behaviour is defined by each result's E2E specs. | The product contract survives refactors. | Playwright, one project per result | `pnpm e2e` |
 
 `contract/<id>` is a rule in

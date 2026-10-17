@@ -72,7 +72,8 @@ const singleOwnerOverrides = {
 const policyRules = {
   ...Object.fromEntries(Object.keys(policy.rules).map((rule) => [`policy/${rule}`, 'error'])),
   'react-doctor/prefer-function-component': 'error',
-  // A feature, route, or shared module is imported only through its index.ts.
+  // A feature, route, shared module or the api client is imported only through
+  // its index.ts.
   // The api names that file with its `.ts` extension, because NodeNext
   // resolution has no directory imports.
   'no-restricted-imports': [
@@ -84,6 +85,7 @@ const policyRules = {
             '**/features/*/*',
             '**/shared/*/*',
             '**/routes/*/*',
+            '**/api-client/*',
             '!**/features/*/index.ts',
             '!**/routes/*/index.ts',
           ],

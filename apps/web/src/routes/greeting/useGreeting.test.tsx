@@ -38,17 +38,26 @@ it('loads, then holds the greeting for the requested name', async () => {
   );
 });
 
-it('reports a failed request and asks again when the same name is requested', async () => {
+it('reports a failed request, then loads again when the same name is requested', async () => {
+  let answer: (value: { message: string }) => void = () => undefined;
   const greet = jest
     .fn<Promise<{ message: string }>, [{ name: string }]>()
     .mockRejectedValueOnce(new Error('api down'))
-    .mockResolvedValueOnce({ message: 'Hello, Ada!' });
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
   const { result } = renderGreeting(greet);
 
   act(() => result.current.requestGreeting('Ada'));
   await waitFor(() => expect(result.current.greeting).toEqual({ status: 'error' }));
 
   act(() => result.current.requestGreeting('Ada'));
+  await waitFor(() => expect(result.current.greeting).toEqual({ status: 'loading' }));
+
+  act(() => answer({ message: 'Hello, Ada!' }));
   await waitFor(() =>
     expect(result.current.greeting).toEqual({ status: 'success', message: 'Hello, Ada!' }),
   );

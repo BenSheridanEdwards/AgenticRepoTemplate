@@ -17,9 +17,9 @@ complete once `pnpm verify` and `pnpm e2e` are green.
       Jest tests; hooks and pages have `web` Jest tests that render through
       `TestApiProvider`. Coverage stays at/above the threshold in
       `jest.config.ts` (80%).
-- [ ] **Types check.** `pnpm typecheck` passes both programs, `tsconfig.json`
-      (web and ui) and `tsconfig.api.json` (api), with no `any` and no weakened
-      config.
+- [ ] **Types check.** `pnpm typecheck` passes its three programs,
+      `tsconfig.json` (web and ui), `tsconfig.node.json` (configs and e2e) and
+      `tsconfig.api.json` (api), with no `any` and no weakened config.
 - [ ] **Lint + format clean.** `pnpm check` (Biome), `pnpm lint:policy`
       (ESLint), and `pnpm react-doctor` pass; every disabled rule carries a
       written reason.

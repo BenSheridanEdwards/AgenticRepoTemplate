@@ -13,7 +13,7 @@
     "dev": "pnpm --parallel --filter @repo/web --filter @repo/api dev",
     "build": "pnpm -r build",
     "preview": "pnpm --filter @repo/web preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.api.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.api.json --noEmit",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",

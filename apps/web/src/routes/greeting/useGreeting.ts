@@ -24,6 +24,8 @@ export function useGreeting() {
   let greeting: GreetingState;
   if (name === null) {
     greeting = { status: 'idle' };
+  } else if (query.isFetching) {
+    greeting = { status: 'loading' };
   } else if (query.isError) {
     greeting = { status: 'error' };
   } else if (query.data) {

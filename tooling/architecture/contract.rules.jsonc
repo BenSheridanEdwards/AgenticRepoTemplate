@@ -18,6 +18,8 @@
         "effect",
         "child_process",
         "crypto",
+        "dgram",
+        "dns",
         "fs",
         "http",
         "https",
@@ -25,15 +27,22 @@
         "os",
         "path",
         "process",
+        "timers",
+        "tls",
         "node:child_process",
         "node:crypto",
+        "node:dgram",
+        "node:dns",
         "node:fs",
         "node:http",
         "node:https",
         "node:net",
         "node:os",
         "node:path",
-        "node:process"
+        "node:process",
+        "node:timers",
+        "node:tls",
+        "undici"
       ],
       "message": "Keep the domain free of tRPC, Effect and Node: move the effect to the feature's integrations module and call it from application."
     },
@@ -58,7 +67,23 @@
         "{apps,showcase/*}/api/src/features/*/integrations/**",
         "**/*.test.{ts,tsx}"
       ],
-      "callees": ["fetch", "Effect.runPromise", "Effect.runSync", "Effect.runFork"],
+      "callees": [
+        "fetch",
+        "globalThis.fetch",
+        "window.fetch",
+        "Effect.runPromise",
+        "Effect.runPromiseExit",
+        "Effect.runSync",
+        "Effect.runSyncExit",
+        "Effect.runFork",
+        "Effect.runCallback",
+        "effect/Effect.runPromise",
+        "effect/Effect.runPromiseExit",
+        "effect/Effect.runSync",
+        "effect/Effect.runSyncExit",
+        "effect/Effect.runFork",
+        "effect/Effect.runCallback"
+      ],
       "message": "Run network calls and Effect programs only in the api's integrations module or composition root. Web code reaches the api through useTrpc() from the api client."
     },
     {
@@ -94,13 +119,22 @@
       ],
       "specifiers": [
         "child_process",
+        "dgram",
+        "dns",
         "fs",
         "http",
+        "https",
         "net",
+        "tls",
         "node:child_process",
+        "node:dgram",
+        "node:dns",
         "node:fs",
         "node:http",
-        "node:net"
+        "node:https",
+        "node:net",
+        "node:tls",
+        "undici"
       ],
       "message": "Import Node IO only in the api's integrations module or composition root."
     },

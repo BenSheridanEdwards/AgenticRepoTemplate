@@ -29,7 +29,7 @@ The ESLint rules and the Biome naming override run on every package source:
 | A relative import stays inside its package; other packages are imported by name (`@repo/ui`). | ESLint `policy/slice-isolation` |
 | Another module imports a route, feature or api feature only through its `index.ts`: `./routes/greeting` in the web, `./features/greeting/index.ts` in the api. | ESLint `no-restricted-imports` |
 | Every relative import in an api package names its `.ts` extension (`./application.ts`). | `pnpm typecheck` (`tsconfig.api.json`, `NodeNext`) and Node at runtime |
-| Api code uses only erasable TypeScript syntax and sees no DOM; web code has the DOM. | `pnpm typecheck` (`tsconfig.api.json` with `erasableSyntaxOnly`, `tsconfig.json` with the DOM libs) |
+| Api code uses only erasable TypeScript syntax and sees no DOM; web code has the DOM and no Node globals. | `pnpm typecheck` (`tsconfig.api.json` with `erasableSyntaxOnly`; `tsconfig.json` with the DOM libs and no Node types) |
 | Every source file belongs to one architecture role. | Fallow `coverage.requireAllFiles` (`pnpm arch:gate`) |
 | Imports follow the role table in [`ARCHITECTURE.md`](ARCHITECTURE.md). | Fallow boundaries (`pnpm arch:gate`) |
 | Banned imports, calls and effects per role. | Fallow rule pack, reported as `contract/<id>` (`pnpm arch:gate`, `pnpm fallow:audit`) |

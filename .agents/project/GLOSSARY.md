@@ -12,7 +12,7 @@ domain term appears, add it here in the same change.
 | **Route** | A web slice under `web/src/routes/<route-name>/` that owns one page (`<Name>Page.tsx`) and its hooks and components. |
 | **Feature** | In the web, a shared slice under `web/src/features/<feature-name>/` that routes compose. In the api, a slice under `api/src/features/<name>/` with `procedures.ts`, `application.ts`, `domain.ts` and `integrations.ts`. |
 | **Procedure** | One tRPC endpoint, such as `greeting.greet`, declared in a feature's `procedures.ts`. Its path names it in `TestApiProvider` handlers. |
-| **Contract** | The architecture rules every result follows, and the checks that enforce them: the Fallow role zones and `contract/<id>` rule pack, the ESLint policy rules, and the two TypeScript programs. Listed in `ARCHITECTURE.md`. |
+| **Contract** | The architecture rules every result follows, and the checks that enforce them: the Fallow role zones and `contract/<id>` rule pack, the ESLint policy rules, and the TypeScript programs. Listed in `ARCHITECTURE.md`. |
 | **Public surface** | The exports in a slice's `index.ts` (or a package's `exports`), the only things other modules may import. Each has a committed API report in `etc/`. |
 | **Behaviour map** | The end-to-end specs in each result's `web/e2e/*.spec.ts`, such as `apps/web/e2e/greeting.spec.ts`, that define what the product does. The product contract. |
 | **Quality gate** | An automated check that can block a commit, a push, or a merge. Gates are code, not guidelines. |

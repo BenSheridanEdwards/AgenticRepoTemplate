@@ -26,13 +26,26 @@ const STATE_AND_EFFECT_HOOKS = new Map([
       'useActionState',
       'useOptimistic',
       'useSyncExternalStore',
+      'useTransition',
     ]),
   ],
   [
     '@tanstack/react-query',
-    new Set(['useQuery', 'useSuspenseQuery', 'useInfiniteQuery', 'useMutation']),
+    new Set([
+      'useQuery',
+      'useQueries',
+      'useSuspenseQuery',
+      'useSuspenseQueries',
+      'useInfiniteQuery',
+      'useSuspenseInfiniteQuery',
+      'useMutation',
+      'useMutationState',
+    ]),
   ],
-  ['react-hook-form', new Set(['useForm', 'useFieldArray'])],
+  [
+    'react-hook-form',
+    new Set(['useForm', 'useFieldArray', 'useController', 'useWatch', 'useFormState']),
+  ],
 ]);
 
 const isFunctionNode = (node) =>
@@ -141,6 +154,9 @@ const stateAndEffectsInHooks = {
         'Move `{{hook}}` into a named custom hook (for example `useGreeting` in ' +
         '`useGreeting.ts`) and call that hook here. State, effects, server state and form ' +
         'state live only in `use*` hooks.',
+      reexport:
+        'Call `{{hook}}` inside a named custom hook instead of re-exporting it. A re-export ' +
+        'hides the hook from this rule.',
     },
     schema: [],
   },
@@ -165,6 +181,20 @@ const stateAndEffectsInHooks = {
       return undefined;
     };
     return {
+      ExportNamedDeclaration(node) {
+        const hooks = STATE_AND_EFFECT_HOOKS.get(node.source?.value);
+        for (const specifier of hooks ? node.specifiers : []) {
+          const hook = specifier.local.name ?? specifier.local.value;
+          if (hooks.has(hook)) {
+            context.report({ node: specifier, messageId: 'reexport', data: { hook } });
+          }
+        }
+      },
+      ExportAllDeclaration(node) {
+        if (STATE_AND_EFFECT_HOOKS.has(node.source.value)) {
+          context.report({ node, messageId: 'reexport', data: { hook: node.source.value } });
+        }
+      },
       ImportDeclaration(node) {
         const hooks = STATE_AND_EFFECT_HOOKS.get(node.source.value);
         if (!hooks) {
@@ -407,18 +437,39 @@ function sliceOf(pathInSource) {
   return SLICE_KINDS.has(kind) && slice ? { kind, slice, rest } : null;
 }
 
-/** The literal module specifiers a file imports or re-exports. */
+/** A string literal, or a template literal with no expressions, as its text. */
+function staticText(node) {
+  if (node?.type === 'Literal' && typeof node.value === 'string') {
+    return node.value;
+  }
+  return node?.type === 'TemplateLiteral' && node.expressions.length === 0
+    ? node.quasis[0].value.cooked
+    : undefined;
+}
+
+/**
+ * The static module specifiers a file imports, re-exports or requires: `import`,
+ * `export ... from`, `import()`, `require()` and `import x = require()`.
+ */
 function moduleSources(report) {
-  const check = (node) => {
-    if (node.source?.type === 'Literal' && typeof node.source.value === 'string') {
-      report(node, node.source.value);
+  const check = (node, source) => {
+    const specifier = staticText(source);
+    if (specifier !== undefined) {
+      report(node, specifier);
     }
   };
+  const checkSource = (node) => check(node, node.source);
   return {
-    ImportDeclaration: check,
-    ExportNamedDeclaration: check,
-    ExportAllDeclaration: check,
-    ImportExpression: check,
+    ImportDeclaration: checkSource,
+    ExportNamedDeclaration: checkSource,
+    ExportAllDeclaration: checkSource,
+    ImportExpression: checkSource,
+    TSExternalModuleReference: (node) => check(node, node.expression),
+    CallExpression(node) {
+      if (node.callee.type === 'Identifier' && node.callee.name === 'require') {
+        check(node, node.arguments[0]);
+      }
+    },
   };
 }
 
@@ -535,14 +586,19 @@ const procedureInputSchema = {
       return {};
     }
     const schema = importTracker('effect', 'Schema');
+    const schemaModule = importTracker('effect/Schema', 'standardSchemaV1');
     const isStandardSchema = (argument) =>
       argument?.type === 'CallExpression' &&
-      argument.callee.type === 'MemberExpression' &&
-      argument.callee.property.type === 'Identifier' &&
-      argument.callee.property.name === 'standardSchemaV1' &&
-      schema.names(argument.callee.object);
+      (schemaModule.names(argument.callee) ||
+        (argument.callee.type === 'MemberExpression' &&
+          argument.callee.property.type === 'Identifier' &&
+          argument.callee.property.name === 'standardSchemaV1' &&
+          schema.names(argument.callee.object)));
     return {
-      ImportDeclaration: schema.ImportDeclaration,
+      ImportDeclaration(node) {
+        schema.ImportDeclaration(node);
+        schemaModule.ImportDeclaration(node);
+      },
       CallExpression(node) {
         const { callee } = node;
         if (
@@ -564,7 +620,8 @@ const formUsesEffectSchema = {
     messages: {
       resolver:
         'Pass `useForm({ resolver: effectTsResolver(<schema>) })` with `effectTsResolver` from ' +
-        '`@hookform/resolvers/effect-ts` and the schema in Effect Schema (ADR 0011).',
+        '`@hookform/resolvers/effect-ts` and the schema in Effect Schema (ADR 0011). Write ' +
+        'the options inline, with no spread that could replace the resolver.',
     },
     schema: [],
   },
@@ -587,7 +644,11 @@ const formUsesEffectSchema = {
           return;
         }
         const [options] = node.arguments;
-        if (!(options?.type === 'ObjectExpression' && options.properties.some(isEffectResolver))) {
+        const valid =
+          options?.type === 'ObjectExpression' &&
+          options.properties.some(isEffectResolver) &&
+          !options.properties.some((property) => property.type === 'SpreadElement');
+        if (!valid) {
           context.report({ node, messageId: 'resolver' });
         }
       },

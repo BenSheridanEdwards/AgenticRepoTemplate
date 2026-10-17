@@ -453,6 +453,23 @@ describe('ESLint contract rules', () => {
     expect(result.ruleIds).toEqual(['no-restricted-imports']);
   });
 
+  it('blocks a route that reaches past the api client index.ts (no-restricted-imports)', () => {
+    const result = lintPolicy(
+      "export { createQueryClient } from '../../api-client/trpc';",
+      'apps/web/src/routes/greeting/index.ts',
+    );
+    expect(result.ruleIds).toEqual(['no-restricted-imports']);
+  });
+
+  it.each([
+    ['an alias', "export { useQuery as useQ } from '@tanstack/react-query';"],
+    ['everything', "export * from 'react-hook-form';"],
+  ])('blocks re-exporting a state hook module as %s (policy/state-and-effects-in-hooks)', (_label, source) => {
+    const result = lintPolicy(source, 'apps/web/src/routes/greeting/hooks.ts');
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/state-and-effects-in-hooks']);
+  });
+
   it.each([
     ['a route imports another route', 'apps/web/src/routes/a/A.tsx', "import { B } from '../b';"],
     [
@@ -469,6 +486,17 @@ describe('ESLint contract rules', () => {
       'a showcase route imports another route',
       'showcase/todo-01/web/src/routes/a/A.tsx',
       "import { B } from '../b';",
+    ],
+    ['a route requires another route', 'apps/web/src/routes/a/a.ts', "const b = require('../b');"],
+    [
+      'a route imports another route through a template literal',
+      'apps/web/src/routes/a/a.ts',
+      'const b = import(`../b`);',
+    ],
+    [
+      'a route import-equals another route',
+      'apps/web/src/routes/a/a.ts',
+      "import b = require('../b');",
     ],
     [
       'a relative import leaves its package',
@@ -530,6 +558,19 @@ export const unused = [z, greetInputSchema];
     expect(result.ruleIds).toEqual(['policy/procedure-input-schema']);
   });
 
+  it('passes a procedure input wrapped in standardSchemaV1 from effect/Schema', () => {
+    const result = lintPolicy(
+      `
+import * as Schema from 'effect/Schema';
+import { procedure } from '../../trpc.ts';
+const greetInputSchema = Schema.Struct({ name: Schema.String });
+export const greet = procedure.input(Schema.standardSchemaV1(greetInputSchema)).query(({ input }) => input);
+`,
+      'apps/api/src/features/greeting/procedures.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
   it('passes a procedure input wrapped in Schema.standardSchemaV1', () => {
     const result = lintPolicy(
       `
@@ -548,15 +589,17 @@ export const greet = procedure.input(Schema.standardSchemaV1(greetInputSchema)).
     ['no resolver', "useForm({ defaultValues: { name: '' } })"],
     ['another resolver', 'useForm({ resolver: zodResolver(schema) })'],
     ['options built elsewhere', 'useForm(options)'],
+    ['a spread after the resolver', 'useForm({ resolver: effectTsResolver(schema), ...options })'],
   ])('blocks a form with %s (policy/form-uses-effect-schema)', (_label, call) => {
     const result = lintPolicy(
       `
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 declare const schema: never;
 declare const options: never;
 export function useNameForm() {
-  return [${call}, zodResolver];
+  return [${call}, zodResolver, effectTsResolver];
 }
 `,
       'apps/web/src/routes/greeting/useNameForm.ts',
@@ -584,9 +627,17 @@ export function useGreetingForm() {
     ['useQuery', '@tanstack/react-query', 'useQuery(options);'],
     ['useSuspenseQuery', '@tanstack/react-query', 'useSuspenseQuery(options);'],
     ['useInfiniteQuery', '@tanstack/react-query', 'useInfiniteQuery(options);'],
+    ['useQueries', '@tanstack/react-query', 'useQueries(options);'],
+    ['useSuspenseQueries', '@tanstack/react-query', 'useSuspenseQueries(options);'],
+    ['useSuspenseInfiniteQuery', '@tanstack/react-query', 'useSuspenseInfiniteQuery(options);'],
     ['useMutation', '@tanstack/react-query', 'useMutation(options);'],
+    ['useMutationState', '@tanstack/react-query', 'useMutationState(options);'],
+    ['useTransition', 'react', 'useTransition();'],
     ['useForm', 'react-hook-form', 'useForm(options);'],
     ['useFieldArray', 'react-hook-form', 'useFieldArray(options);'],
+    ['useController', 'react-hook-form', 'useController(options);'],
+    ['useWatch', 'react-hook-form', 'useWatch(options);'],
+    ['useFormState', 'react-hook-form', 'useFormState(options);'],
   ])('blocks %s called directly in a component (policy/state-and-effects-in-hooks)', (hook, source, call) => {
     const result = lintPolicy(
       `

@@ -1,0 +1,22 @@
+{
+  // The Node program for the code around the packages: root configs, the
+  // Vite config and the e2e specs of every result.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node", "jest"]
+  },
+  "include": [
+    "apps/web/e2e",
+    "apps/web/vite.config.ts",
+    "showcase/*/web/e2e",
+    "showcase/*/web/vite.config.ts",
+    "tooling/results.d.mts",
+    "jest.config.ts",
+    "jest.setup.ts",
+    "commitlint.config.ts",
+    "playwright.config.ts"
+  ]
+}

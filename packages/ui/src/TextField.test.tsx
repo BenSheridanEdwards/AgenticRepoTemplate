@@ -31,3 +31,15 @@ it('forwards a ref to the input', () => {
 
   expect(ref.current).toBe(screen.getByRole('textbox', { name: 'Name' }));
 });
+
+it('keeps the error tied to the input when the caller passes its own description', () => {
+  render(<TextField label="Name" error="Enter a name" aria-describedby="elsewhere" />);
+
+  expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAccessibleDescription('Enter a name');
+});
+
+it('adds a caller class name to its own', () => {
+  render(<TextField label="Name" className="wide" />);
+
+  expect(screen.getByRole('textbox', { name: 'Name' })).toHaveClass('ui-text-field__input', 'wide');
+});

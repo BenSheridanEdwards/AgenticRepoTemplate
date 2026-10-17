@@ -73,17 +73,21 @@ test.
 | Procedures validate | ESLint `policy/procedure-input-schema` |
 | Procedures delegate to application logic | Fallow `api-procedures` value-imports only `api-trpc`, `api-application` |
 | Domain independent of tRPC and infrastructure | Fallow `api-domain` imports nothing; `contract/domain-pure`, `contract/application-without-trpc` |
-| Effectful integrations behind approved boundaries | `contract/effects-in-integrations` (`fetch`, `Effect.runPromise`, `Effect.runSync`, `Effect.runFork`), `contract/io-effects-in-integrations` (`banned-effect` network, storage, process, shell), `contract/node-io-in-integrations` |
+| Effectful integrations behind approved boundaries | `contract/effects-in-integrations` (`fetch`, `globalThis.fetch`, `window.fetch`, and every `Effect.run*` by name, namespace or named import), `contract/io-effects-in-integrations` (`banned-effect` network, storage, process, shell), `contract/node-io-in-integrations` |
 | Frontend reaches the backend only through the type contract | Fallow `allowTypeOnly`, the `types`-only export, `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` |
 | UI primitives have no business logic | Fallow `ui` imports nothing; `contract/ui-without-logic` |
 | One React component per file | ESLint `policy/one-component-per-file` |
-| State, server state and forms in `use*` hooks | ESLint `policy/state-and-effects-in-hooks` (adds `useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`, `useForm`, `useFieldArray`) |
-| Forms validate with Effect Schema | ESLint `policy/form-uses-effect-schema` |
+| State, server state and forms in `use*` hooks | ESLint `policy/state-and-effects-in-hooks` (adds the TanStack Query hooks `useQuery`, `useQueries`, `useSuspenseQuery`, `useSuspenseQueries`, `useInfiniteQuery`, `useSuspenseInfiniteQuery`, `useMutation`, `useMutationState`, the React Hook Form hooks `useForm`, `useFieldArray`, `useController`, `useWatch`, `useFormState`, and React `useTransition`; a re-export of those modules fails too) |
+| Forms validate with Effect Schema | ESLint `policy/form-uses-effect-schema` (inline options, no spread) |
 | Every Fallow suppression names its reason | Fallow `require-suppression-reason` |
-| Web code has the DOM, api code has none and only erasable syntax | `tsconfig.json` and `tsconfig.api.json` over `tsconfig.base.json` |
+| Web code has the DOM and no Node, api code has no DOM and only erasable syntax | `tsconfig.json` (web, ui; no Node types) and `tsconfig.api.json` over `tsconfig.base.json`; `tsconfig.node.json` types the configs and e2e specs |
 
 The rule pack is `tooling/architecture/contract.rules.jsonc`, and a policy
-finding is an error. `fallow audit` runs with `audit.gate: "all"`, which fails
+finding is an error. Its call and import bans are denylists: they name the
+calls and modules, and a constructor such as `new WebSocket()` sits outside
+what `banned-call` matches. `fallow architecture` honours a `fallow-ignore`
+with no reason, and `fallow audit` fails it. `no-restricted-imports` also keeps
+routes on the api client's `index.ts`. `fallow audit` runs with `audit.gate: "all"`, which fails
 every finding in a changed file. The default `new-only` gate re-reads the base
 revision with this config, and a base without the rule pack fails to load.
 

@@ -206,6 +206,11 @@ describe('Fallow contract over the reference result', () => {
       'export const loose = 1;\n',
     ],
     ['the api grows a stray layer', `${API}/utils/format.ts`, 'export const format = 1;\n'],
+    [
+      'the api hides a stray layer in an etc folder',
+      `${API}/etc/format.ts`,
+      'export const format = 1;\n',
+    ],
     ['the web app grows a stray layer', `${WEB}/utils/format.ts`, 'export const format = 1;\n'],
     ['a new package appears', 'packages/kit/src/index.ts', 'export const kit = 1;\n'],
   ])('fails when %s, a file outside every role', (_label, path, source) => {
@@ -247,10 +252,34 @@ describe('Fallow contract over the reference result', () => {
       ['policy contract/effects-in-integrations'],
     ],
     [
+      'application logic runs an Effect program through a namespace import',
+      `${GREETING}/application.ts`,
+      "import * as E from 'effect/Effect';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => ({ message: formatGreeting(E.runSync(E.succeed(name))) });\n",
+      ['policy contract/effects-in-integrations'],
+    ],
+    [
+      'application logic runs an Effect program through a named import',
+      `${GREETING}/application.ts`,
+      "import { runPromiseExit, succeed } from 'effect/Effect';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => { void runPromiseExit(succeed(name)); return { message: formatGreeting(name) }; };\n",
+      ['policy contract/effects-in-integrations'],
+    ],
+    [
+      'application logic calls globalThis.fetch',
+      `${GREETING}/application.ts`,
+      "import { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => { void globalThis.fetch('https://example.com'); return { message: formatGreeting(name) }; };\n",
+      ['policy contract/effects-in-integrations'],
+    ],
+    [
+      'application logic imports Node DNS',
+      `${GREETING}/application.ts`,
+      "import { lookup } from 'node:dns';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => ({ message: formatGreeting(name + String(lookup)) });\n",
+      ['policy contract/node-io-in-integrations'],
+    ],
+    [
       'application logic opens an HTTPS request',
       `${GREETING}/application.ts`,
       "import { request } from 'node:https';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => { request('https://example.com'); return { message: formatGreeting(name) }; };\n",
-      ['policy contract/io-effects-in-integrations'],
+      ['policy contract/io-effects-in-integrations', 'policy contract/node-io-in-integrations'],
     ],
     [
       'a procedure imports Node file IO',

@@ -3,7 +3,6 @@
  */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,16 +11,15 @@ const TSC_BIN = resolve(REPOSITORY_ROOT, 'node_modules/.bin/tsc');
 
 /**
  * Type-checks `files` as an ES module package whose tsconfig extends the
- * repo's real `program` config, and returns the TypeScript error codes.
+ * repo's real `program` config, and returns the TypeScript error codes. The
+ * package sits in the gitignored `.cache/` so the program's `types` resolve
+ * from the repo's node_modules, as they do for a real package.
  */
 function typeCheck(program: 'tsconfig.json' | 'tsconfig.api.json', files: Record<string, string>) {
-  const directory = mkdtempSync(join(tmpdir(), 'typescript-programs-'));
+  mkdirSync(join(REPOSITORY_ROOT, '.cache'), { recursive: true });
+  const directory = mkdtempSync(join(REPOSITORY_ROOT, '.cache/typescript-programs-'));
   try {
-    const tsconfig = {
-      extends: join(REPOSITORY_ROOT, program),
-      compilerOptions: { types: [], typeRoots: [] },
-      include: ['src'],
-    };
+    const tsconfig = { extends: join(REPOSITORY_ROOT, program), include: ['src'] };
     const tree = {
       'package.json': '{ "type": "module" }\n',
       'tsconfig.json': JSON.stringify(tsconfig),
@@ -89,5 +87,13 @@ describe('TypeScript programs', () => {
       'src/title.ts': 'export const title = document.title;\n',
     });
     expect(result).toEqual({ status: 0, errors: [] });
+  });
+
+  it.each([
+    ['process.env', 'export const origin = process.env.API_ORIGIN;\n'],
+    ['Buffer', "export const bytes = Buffer.from('Ada');\n"],
+  ])('fails web code that reads the Node global %s', (_label, source) => {
+    const result = typeCheck('tsconfig.json', { 'src/apiOrigin.ts': source });
+    expect(result).toEqual({ status: 2, errors: ['TS2591'] });
   });
 });
