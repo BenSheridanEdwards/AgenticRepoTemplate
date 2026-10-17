@@ -144,7 +144,7 @@ Every other PR passes with no comment.
   comment names that account in a one-line note.
 - **The label records the tick.** On Ben's tick the gate adds a small italic
   note on the box line, such as `Approved by Ben @BenSheridanEdwards on
-  Monday, the 8th of October, at 3 pm` in London time. Unticking removes it.
+  Monday, the 12th of October, at 3 pm` in London time. Unticking removes it.
   The gate writes the label for people to read. The edit event and the gate's
   own status decide the sign-off, and the label text plays no part.
 - **Each push resets it.** A new head commit, merging `main` in included, gets

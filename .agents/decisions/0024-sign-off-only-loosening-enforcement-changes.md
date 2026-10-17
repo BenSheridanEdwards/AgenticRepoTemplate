@@ -50,7 +50,7 @@ repo's gate. The repo keeps one gate, one status, and one checkbox.
 ### The approval label
 
 On a fresh tick the gate rewrites the box line as
-`- [x] Approve these enforcement changes at <sha> <sub><i>Approved by Ben @BenSheridanEdwards on Monday, the 8th of October, at 3 pm</i></sub>`.
+`- [x] Approve these enforcement changes at <sha> <sub><i>Approved by Ben @BenSheridanEdwards on Monday, the 12th of October, at 3 pm</i></sub>`.
 The name comes from the ticker's GitHub profile, or their login when the
 profile has none. The login comes from the event sender. The time is the
 comment's `updated_at` in Europe/London, so it reads GMT in winter and BST in
