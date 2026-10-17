@@ -101,8 +101,9 @@ called it.
 - The parser keeps its loud failure on an empty dot parse, and the exact
   Fallow pin protects the dot and config formats.
 - Each architecture CLI runs `fallow config` and `fallow viz` once. The median
-  of five interleaved `pnpm arch:check` runs was 7.43 s on `main` and 9.03 s
-  with this change on the same box.
+  of five interleaved `pnpm arch:check` runs was 6.80 s on `main` and 7.76 s
+  with this change on the same box (`docs/proof/architecture/seeds.txt`). An
+  earlier run measured 7.43 s and 9.03 s.
 - ESLint still honours inline config outside a result, and an
   `e2e/**/*.spec.ts` with no test passes `missing-e2e`. Turning on ESLint's
   `noInlineConfig` edits `eslint.config.js`, a guarded file, so it is left for
