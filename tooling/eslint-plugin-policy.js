@@ -603,8 +603,7 @@ const procedureInputSchema = {
         const { callee } = node;
         if (
           callee.type === 'MemberExpression' &&
-          !callee.computed &&
-          callee.property.name === 'input' &&
+          (callee.computed ? callee.property.value : callee.property.name) === 'input' &&
           !isStandardSchema(node.arguments[0])
         ) {
           context.report({ node, messageId: 'schema' });

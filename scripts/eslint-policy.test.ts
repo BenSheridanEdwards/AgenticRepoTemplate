@@ -542,6 +542,7 @@ describe('ESLint contract rules', () => {
     ['a cast instead of a schema', '.input((value) => value as { name: string })'],
     ['a bare Effect schema', '.input(greetInputSchema)'],
     ['another standard schema', '.input(z.object({ name: z.string() }))'],
+    ['a cast through a computed member', "['input']((value) => value as { name: string })"],
   ])('blocks a procedure input given %s (policy/procedure-input-schema)', (_label, input) => {
     const result = lintPolicy(
       `
