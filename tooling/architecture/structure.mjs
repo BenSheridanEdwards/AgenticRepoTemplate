@@ -1,0 +1,268 @@
+#!/usr/bin/env node
+/**
+ * Validate the structure of every result against the contract: the reference
+ * in `apps/` and each `showcase/<id>/` alike, with no per-result entry.
+ *
+ * `validateStructure` is pure. `RULES` holds one entry per rule: how to find
+ * its violations and how to describe one. The CLI (`node
+ * tooling/architecture/structure.mjs`, part of `pnpm arch:gate`) reads the
+ * repository through Fallow and git, prints `OK` with the number of results,
+ * or prints each violation and exits 1. `--root <dir>` targets another
+ * repository.
+ */
+
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { readRepository, runCli } from './graph.mjs';
+
+/** What a result root and each package may hold. Anything else is an unexpected file. */
+const LAYOUT = {
+  root: { files: ['architecture.mmd'], folders: ['web', 'api'] },
+  web: {
+    files: ['package.json', 'index.html', 'vite.config.ts'],
+    folders: ['src', 'public', 'e2e', 'etc'],
+  },
+  api: { files: ['package.json'], folders: ['src', 'etc'] },
+};
+
+const DEPENDENCY_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+];
+
+const SUPPRESSION =
+  /(?:eslint-disable|@ts-(?:expect-error|ignore|nocheck)|biome-ignore|fallow-ignore)/;
+
+const PACKAGE_KINDS = ['web', 'api'];
+
+const sameList = (left, right) => left.join('\n') === right.join('\n');
+
+const resultOf = (results, file) => results.find((result) => file.startsWith(`${result.root}/`));
+
+/** True when `path` (relative to a root or package) fits `layout`. */
+function fits(layout, path) {
+  const [first, ...rest] = path.split('/');
+  return rest.length === 0 ? layout.files.includes(first) : layout.folders.includes(first);
+}
+
+function isAllowed(result, file) {
+  const path = file.slice(result.root.length + 1);
+  const [first, ...rest] = path.split('/');
+  if (!fits(LAYOUT.root, path)) {
+    return false;
+  }
+  return rest.length === 0 || fits(LAYOUT[first], rest.join('/'));
+}
+
+function missingRoles({ contract, results, files }) {
+  return results.flatMap((result) =>
+    PACKAGE_KINDS.flatMap((kind) => {
+      const held = new Set(
+        files.filter((file) => file.startsWith(`${result[kind]}/`)).map(contract.roleOf),
+      );
+      return contract.requiredRoles[kind]
+        .filter((role) => !held.has(role))
+        .map((role) => ({ kind: 'missing-role', result: result.root, role }));
+    }),
+  );
+}
+
+function unexpectedFiles({ results, files }) {
+  return files.flatMap((file) => {
+    const result = resultOf(results, file);
+    return result && !isAllowed(result, file)
+      ? [{ kind: 'unexpected-file', result: result.root, path: file }]
+      : [];
+  });
+}
+
+function dependencyProblems(manifest, reference, referenceDirectory) {
+  const workspace = [];
+  const problems = [];
+  for (const field of DEPENDENCY_FIELDS) {
+    for (const [name, range] of Object.entries(manifest[field] ?? {})) {
+      if (range.startsWith('workspace:')) {
+        workspace.push(name);
+      } else if (reference[field]?.[name] !== range) {
+        problems.push(
+          `${field} "${name}": "${range}" is not in ${referenceDirectory}/package.json; use only its dependencies and ranges`,
+        );
+      }
+    }
+  }
+  return { workspace: workspace.sort(), problems };
+}
+
+function manifestProblems(manifest, reference, referenceDirectory, { scope, kind }) {
+  const name = `@${scope}/${kind}`;
+  const scripts = Object.keys(manifest.scripts ?? {}).sort();
+  const referenceScripts = Object.keys(reference.scripts ?? {}).sort();
+  const expectedWorkspace = kind === 'web' ? [`@${scope}/api`, '@repo/ui'].sort() : [];
+  const { workspace, problems } = dependencyProblems(manifest, reference, referenceDirectory);
+  return [
+    manifest.name !== name && `name is "${manifest.name}"; name it "${name}"`,
+    manifest.private !== true && 'set "private": true',
+    manifest.type !== 'module' && `"type" is "${manifest.type}"; set "type": "module"`,
+    !sameList(scripts, referenceScripts) &&
+      `scripts are [${scripts}]; use the script names of ${referenceDirectory}: [${referenceScripts}]`,
+    ...problems,
+    !sameList(workspace, expectedWorkspace) &&
+      `workspace dependencies are [${workspace}]; list exactly [${expectedWorkspace}]`,
+  ].filter(Boolean);
+}
+
+function manifests({ results, manifests: byDirectory }) {
+  const [reference] = results;
+  return results.flatMap((result) =>
+    PACKAGE_KINDS.flatMap((kind) => {
+      const directory = result[kind];
+      const manifest = byDirectory.get(directory);
+      const problems = manifest
+        ? manifestProblems(manifest, byDirectory.get(reference[kind]) ?? {}, reference[kind], {
+            scope: result.scope,
+            kind,
+          })
+        : ['is missing'];
+      return problems.map((problem) => ({ kind: 'manifest', package: directory, problem }));
+    }),
+  );
+}
+
+function incompleteResults({ results, files }) {
+  const roots = new Set(
+    files
+      .filter((file) => file.startsWith('showcase/') && file.split('/').length > 2)
+      .map((file) => file.split('/').slice(0, 2).join('/'))
+      .filter((root) => !results.some((result) => result.root === root)),
+  );
+  return [...roots].flatMap((root) =>
+    PACKAGE_KINDS.map((kind) => `${root}/${kind}/package.json`)
+      .filter((manifest) => !files.includes(manifest))
+      .map((missing) => ({ kind: 'incomplete-result', root, missing })),
+  );
+}
+
+const isE2eSpec = (result, file) =>
+  file.startsWith(`${result.web}/e2e/`) &&
+  /^[^/]+\.spec\.ts$/.test(file.slice(result.web.length + 5));
+
+function missingE2e({ results, files }) {
+  return results
+    .filter((result) => !files.some((file) => isE2eSpec(result, file)))
+    .map((result) => ({ kind: 'missing-e2e', package: result.web }));
+}
+
+function crossResultImports({ results, edges }) {
+  return edges
+    .filter((edge) => {
+      const from = resultOf(results, edge.from);
+      const to = resultOf(results, edge.to);
+      return from && to && from !== to;
+    })
+    .map(({ from, to }) => ({ kind: 'cross-result-import', from, to }));
+}
+
+function suppressions({ results, files, readText }) {
+  return files
+    .filter((file) => resultOf(results, file))
+    .flatMap((path) =>
+      readText(path)
+        .split('\n')
+        .flatMap((text, index) =>
+          SUPPRESSION.test(text) ? [{ kind: 'suppression', path, line: index + 1 }] : [],
+        ),
+    );
+}
+
+const ROLE_TABLE = 'see .agents/project/ARCHITECTURE.md';
+
+/** One entry per rule: `find` gives its violations, `describe` one line naming the fix. */
+const RULES = {
+  'missing-role': {
+    find: missingRoles,
+    describe: (violation) =>
+      `missing-role ${violation.result}: no file holds the ${violation.role} role; add it (${ROLE_TABLE}).`,
+  },
+  'unexpected-file': {
+    find: unexpectedFiles,
+    describe: (violation) =>
+      `unexpected-file ${violation.path}: a result holds only web/, api/ and architecture.mmd; a web package only package.json, index.html, vite.config.ts, src/, public/, e2e/ and etc/; an api package only package.json, src/ and etc/. Move or delete it.`,
+  },
+  manifest: {
+    find: manifests,
+    describe: (violation) => `manifest ${violation.package}/package.json: ${violation.problem}.`,
+  },
+  'incomplete-result': {
+    find: incompleteResults,
+    describe: (violation) =>
+      `incomplete-result ${violation.root}: ${violation.missing} is missing; a result is a web and an api package.`,
+  },
+  'missing-e2e': {
+    find: missingE2e,
+    describe: (violation) =>
+      `missing-e2e ${violation.package}: add at least one e2e/*.spec.ts, the result's behaviour map.`,
+  },
+  'cross-result-import': {
+    find: crossResultImports,
+    describe: (violation) =>
+      `cross-result-import ${violation.from} -> ${violation.to}: a result imports only its own packages and packages/ui.`,
+  },
+  suppression: {
+    find: suppressions,
+    describe: (violation) =>
+      `suppression ${violation.path}:${violation.line}: a result holds no suppression directive; fix the finding instead.`,
+  },
+};
+
+/**
+ * Every violation of the structure rules, in rule order. Pure.
+ *
+ * @param {{
+ *   contract: import('./contract.mjs').Contract,
+ *   results: readonly import('../results.d.mts').Result[],
+ *   files: readonly string[],
+ *   edges: readonly import('./graph.mjs').FileEdge[],
+ *   manifests: ReadonlyMap<string, Record<string, any>>,
+ *   readText: (path: string) => string,
+ * }} input
+ */
+export function validateStructure(input) {
+  const sorted = { ...input, files: [...input.files].sort() };
+  return Object.values(RULES).flatMap((rule) => rule.find(sorted));
+}
+
+function main(root) {
+  const repository = readRepository(root);
+  const manifestPaths = repository.results
+    .flatMap((result) => PACKAGE_KINDS.map((kind) => result[kind]))
+    .filter((directory) => existsSync(join(root, directory, 'package.json')));
+  const violations = validateStructure({
+    ...repository,
+    manifests: new Map(
+      manifestPaths.map((directory) => [
+        directory,
+        JSON.parse(readFileSync(join(root, directory, 'package.json'), 'utf8')),
+      ]),
+    ),
+    readText: (path) => readFileSync(join(root, path), 'utf8'),
+  });
+  if (violations.length > 0) {
+    console.error(
+      violations.map((violation) => RULES[violation.kind].describe(violation)).join('\n'),
+    );
+    return false;
+  }
+  const { results } = repository;
+  const count = `${results.length} result${results.length === 1 ? '' : 's'}`;
+  console.log(
+    `OK: ${count} checked against the structure contract (${results.map((result) => result.id).join(', ')}).`,
+  );
+  return true;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runCli(main);
+}
