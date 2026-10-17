@@ -34,6 +34,18 @@ export function isGuidanceDoc(path) {
 
 const proseOf = (line) => line.replace(/`[^`]*`/g, '').replace(/\]\([^)]*\)/g, ']');
 
+/** The open fence marker after `line`: a fence closes only on the marker that opened it. */
+function nextFence(fence, line) {
+  const marker = line.match(/^\s*(`{3,}|~{3,})/)?.[1];
+  if (!marker) {
+    return fence;
+  }
+  if (!fence) {
+    return marker;
+  }
+  return marker.startsWith(fence) && line.trim() === marker ? '' : fence;
+}
+
 /**
  * Each `{ line, phrase }` where `text` phrases a rule as what to skip. Pure.
  *
@@ -41,13 +53,13 @@ const proseOf = (line) => line.replace(/`[^`]*`/g, '').replace(/\]\([^)]*\)/g, '
  */
 export function findNegativePhrasing(text) {
   const findings = [];
-  let inFence = false;
+  let fence = '';
   let inGenerated = false;
   for (const [index, line] of text.split('\n').entries()) {
-    inFence = /^\s*(```|~~~)/.test(line) ? !inFence : inFence;
+    fence = nextFence(fence, line);
     inGenerated = /<!-- gitnexus:(start|end) -->/.test(line) ? !inGenerated : inGenerated;
     const phrase =
-      inFence || inGenerated
+      fence || inGenerated
         ? undefined
         : (proseOf(line).match(NEGATIVE_PHRASE) ?? line.match(LEADING_NO))?.[1];
     if (phrase) {

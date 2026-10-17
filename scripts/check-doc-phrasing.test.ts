@@ -30,6 +30,13 @@ describe('findNegativePhrasing', () => {
     expect(findNegativePhrasing(text)).toEqual([]);
   });
 
+  it('closes a fence only on a matching marker', () => {
+    const text = ['````md', '```', 'do not run this', '```', '````', 'Never skip a gate.'].join(
+      '\n',
+    );
+    expect(findNegativePhrasing(text)).toEqual([{ line: 6, phrase: 'Never' }]);
+  });
+
   it('skips the generated GitNexus block', () => {
     const text = [
       'Intro.',
