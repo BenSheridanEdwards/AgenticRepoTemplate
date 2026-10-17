@@ -1,0 +1,113 @@
+# Seeded runs of the architecture gate at cc11e82, each in its own git-archive copy (scratch lanes.sh).
+
+## arch-check-trunk
+# seed: none, trunk
+$ pnpm arch:check
+Wrote docs/architecture/roles.mmd
+exit 0
+
+## arch-check-head
+# seed: none, head
+$ pnpm arch:check
+OK: 1 result checked against the structure contract (reference).
+OK: 2 diagrams match the contract and the import graph.
+Wrote docs/architecture/roles.mmd
+Wrote apps/architecture.mmd
+exit 0
+
+## missing-role
+# seed: delete apps/api/src/trpc.ts
+$ pnpm arch:gate
+missing-role apps: no file holds the api-trpc role; add it (see .agents/project/ARCHITECTURE.md).
+exit 1
+
+## cross-result
+# seed: copy apps to showcase/x and showcase/y; showcase/x/web imports types from @y/api
+$ pnpm arch:gate
+manifest showcase/x/web/package.json: workspace dependencies are [@repo/ui,@y/api]; list exactly [@repo/ui,@x/api].
+cross-result-import showcase/x/web/src/api-client/trpc.ts -> showcase/y/api/src/router.ts: a result imports only its own packages and packages/ui.
+exit 1
+
+## extra-dep
+# seed: copy apps to showcase/x; add lodash to showcase/x/web/package.json
+$ pnpm arch:gate
+manifest showcase/x/web/package.json: dependencies "lodash": "^4.17.21" is not in apps/web/package.json; use only its dependencies and ranges.
+exit 1
+
+## unexpected-file
+# seed: add apps/web/tsconfig.json
+$ pnpm arch:gate
+unexpected-file apps/web/tsconfig.json: a result root holds architecture.mmd, web/, api/; a web package holds package.json, index.html, vite.config.ts, src/, public/, e2e/, etc/; an api package holds package.json, src/, etc/; a tool config lives only at the repository root. Move or delete it.
+exit 1
+
+## suppression
+# seed: add an eslint-disable-next-line with a reason to GreetingPage.tsx
+$ pnpm arch:gate
+suppression apps/web/src/routes/greeting/GreetingPage.tsx:1: a result holds no suppression directive; fix the finding instead.
+exit 1
+
+## stale
+# seed: edit the api-integrations rule in .fallowrc.jsonc
+$ pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd
+Wrote docs/architecture/roles.mmd
+Wrote apps/architecture.mmd
+diff --git a/docs/architecture/roles.mmd b/docs/architecture/roles.mmd
+index 28423d7..9168bfc 100644
+--- a/docs/architecture/roles.mmd
++++ b/docs/architecture/roles.mmd
+@@ -21,7 +21,6 @@ flowchart LR
+   api_app --> api_trpc
+   api_application --> api_domain
+   api_application --> api_integrations
+-  api_integrations --> api_domain
+   api_procedures --> api_application
+   api_procedures -.-> api_domain
+   api_procedures --> api_trpc
+exit 1
+
+## missing-diagram
+# seed: delete apps/architecture.mmd
+$ pnpm arch:gate
+OK: 1 result checked against the structure contract (reference).
+missing diagram: apps/architecture.mmd
+Run `pnpm arch:diagram` and commit the diagrams.
+exit 1
+
+## review-symlink
+# seed: showcase/x links src/routes/shared to showcase/y and imports through it
+$ pnpm arch:gate
+symlink showcase/x/web/src/routes/shared: a result holds regular files only, so every gate reads them; copy the file or import the package.
+exit 1
+
+## review-nested-config
+# seed: add showcase/x/web/src/biome.json and src/package.json
+$ node tooling/architecture/structure.mjs
+unexpected-file showcase/x/web/src/biome.json: a result root holds architecture.mmd, web/, api/; a web package holds package.json, index.html, vite.config.ts, src/, public/, e2e/, etc/; an api package holds package.json, src/, etc/; a tool config lives only at the repository root. Move or delete it.
+unexpected-file showcase/x/web/src/package.json: a result root holds architecture.mmd, web/, api/; a web package holds package.json, index.html, vite.config.ts, src/, public/, e2e/, etc/; an api package holds package.json, src/, etc/; a tool config lives only at the repository root. Move or delete it.
+exit 1
+
+## review-inline-config
+# seed: add /* eslint policy/one-component-per-file: off */ to GreetingPage.tsx
+$ node tooling/architecture/structure.mjs
+suppression apps/web/src/routes/greeting/GreetingPage.tsx:1: a result holds no suppression directive; fix the finding instead.
+exit 1
+
+## review-script
+# seed: set "build": "true" in showcase/x/web/package.json
+$ node tooling/architecture/structure.mjs
+manifest showcase/x/web/package.json: "scripts" is {"build":"true","dev":"vite","preview":"vite preview --port 3000"}; apps/web/package.json has {"build":"vite build","dev":"vite","preview":"vite preview --port 3000"}.
+exit 1
+
+## perf: pnpm arch:check wall time in seconds, interleaved trunk (origin/main c0c4ff4) and head
+1 trunk 6.65 exit=0
+1 head 7.76 exit=0
+2 trunk 8.59 exit=0
+2 head 10.54 exit=0
+3 trunk 8.49 exit=0
+3 head 7.44 exit=0
+4 trunk 6.80 exit=0
+4 head 7.49 exit=0
+5 trunk 6.14 exit=0
+5 head 7.92 exit=0
+trunk median 6.80
+head median 7.76
