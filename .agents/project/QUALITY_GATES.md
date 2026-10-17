@@ -9,7 +9,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | --- | --- | --- |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan. |
+| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, then `pnpm verify` (the full local gate suite) and `pnpm e2e` (Playwright E2E and axe scan). A clean merge from main skips pre-commit, so this is where it gets checked. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression reasons, required-gate contract, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression reasons, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. |

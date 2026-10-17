@@ -251,6 +251,13 @@ describe('gate wiring', () => {
     expect(prePush.indexOf('require-up-to-date-main.sh')).toBeLessThan(prePush.indexOf('pnpm '));
   });
 
+  it('runs the full local gate suite before the behaviour map at push, since a clean merge skips pre-commit', () => {
+    const prePush = read('.husky/pre-push');
+    expect(prePush).toMatch(/^pnpm verify$/m);
+    expect(prePush).toMatch(/^pnpm e2e$/m);
+    expect(prePush.indexOf('pnpm verify')).toBeLessThan(prePush.indexOf('pnpm e2e'));
+  });
+
   it('runs the strict check in CI against the PR head commit, not the merge commit', () => {
     const ci = read('.github/workflows/ci.yml');
     const headSha = '$' + '{{ github.event.pull_request.head.sha }}';

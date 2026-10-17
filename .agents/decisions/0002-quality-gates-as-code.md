@@ -1,6 +1,6 @@
 # 2. Quality gates are code, enforced locally and in CI
 
-- **Status:** Accepted
+- **Status:** Accepted, amended by [0024](0024-pre-push-runs-the-full-local-gate-suite.md)
 - **Date:** 2026-06-17
 
 ## Context

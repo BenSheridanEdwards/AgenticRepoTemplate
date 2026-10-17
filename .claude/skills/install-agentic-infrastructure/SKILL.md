@@ -53,7 +53,9 @@ Layer the infrastructure so every instruction has one owner.
    - `commit-msg`: Conventional Commits.
    - `pre-commit`: fast staged checks: typecheck, Biome, code intelligence,
      staged secret scan.
-   - `pre-push`: slower proof: coverage, production build, E2E behaviour map.
+   - `pre-push`: the full local gate suite (static checks, coverage,
+     production build) and the E2E behaviour map. Git skips pre-commit for a
+     merge with no conflicts, so this is where a clean merge gets checked.
      If those checks create or inspect other Git repos, clear Git-local hook
      variables before running them: `unset $(git rev-parse --local-env-vars)`.
 5. **Install CI as the clean-room mirror.** Split jobs by concern and keep names
