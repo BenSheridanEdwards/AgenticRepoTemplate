@@ -4,7 +4,7 @@ set -e
 # Pre-push = the Definition of Done: the full local gate suite, then the E2E
 # behaviour map. Nothing leaves the machine until both are green. Pre-commit
 # runs only on staged files, and git skips it for a merge with no conflicts, so
-# this is the one local gate a clean merge from main passes through (ADR 0024).
+# this is the one local gate a clean merge from main passes through (ADR 0026).
 
 echo "› pushed branches up to date with origin/main"
 sh scripts/require-up-to-date-main.sh --pushed-refs
