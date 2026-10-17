@@ -25,11 +25,12 @@ the root docs into a second codebase.
 1. **Inventory before writing.** Verify real commands, scripts, hooks,
    workflows, test runners, formatters, and deployment surfaces from files. Do
    not trust stale prose.
-2. **Separate layers.** Keep `AGENTS.md` tool-agnostic. Put tool-specific
-   behaviour in `CLAUDE.md`, `.claude/settings.json`, hooks, and skills. Put
-   durable project knowledge in `.agents/`.
-3. **Keep root docs thin.** `AGENTS.md` should answer: what this repo is, how to
-   run it, golden rules, where to read next, and safety boundaries.
+2. **Separate layers.** Keep the start-here guide tool-agnostic. Put
+   tool-specific behaviour in `.agents/CLAUDE_CODE.md`, `.claude/settings.json`,
+   hooks, and skills. Put durable project knowledge in `.agents/`.
+3. **Root docs only point.** `CLAUDE.md` points to `AGENTS.md`, and `AGENTS.md`
+   points to `.agents/README.md`. The start-here guide answers: what this repo
+   is, how to run it, golden rules, where to read next, and safety boundaries.
 4. **Make `.agents/` canonical.** Put architecture, conventions, tech stack,
    glossary, Definition of Done, and ADRs under `.agents/`. If a rule needs more
    than a few lines, it belongs there, not in the root entry points.
@@ -45,10 +46,12 @@ the root docs into a second codebase.
 
 ## Layer Contract
 
-- `AGENTS.md`: portable operating contract for any agent or engineer.
-- `CLAUDE.md`: Claude-specific adapter, local skills, allowed commands, and
-  hooks.
-- `.agents/README.md`: index for project context.
+- `CLAUDE.md`: points to `AGENTS.md` (and imports it with `@AGENTS.md`).
+- `AGENTS.md`: points to `.agents/README.md`.
+- `.agents/README.md`: start here. Portable operating contract for any agent
+  or engineer, and the map of `.agents/`.
+- `.agents/CLAUDE_CODE.md`: Claude-specific adapter, local skills, allowed
+  commands, and hooks.
 - `.agents/project/`: durable standards and facts.
 - `.agents/decisions/`: ADRs for choices that future agents must understand.
 - `.agents/templates/`: copyable patterns for new code and tests.
