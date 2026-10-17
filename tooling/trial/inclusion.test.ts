@@ -81,8 +81,20 @@ function write(path: string, text: string) {
   writeFileSync(join(copy, path), text);
 }
 
-/** Writes `files` into the copy for the length of `check`, then restores what was there. */
-function withSeed<T>(files: Record<string, string>, check: () => T): T {
+/** Writes `text`, or deletes the file when `text` is null. */
+function put(path: string, text: string | null) {
+  if (text !== null) {
+    write(path, text);
+  } else if (existsSync(join(copy, path))) {
+    unlinkSync(join(copy, path));
+  }
+}
+
+/**
+ * Writes `files` into the copy, deleting each one given as null, for the
+ * length of `check`, then restores what was there.
+ */
+function withSeed<T>(files: Record<string, string | null>, check: () => T): T {
   const before = Object.fromEntries(
     Object.keys(files).map((path) => [
       path,
@@ -91,16 +103,12 @@ function withSeed<T>(files: Record<string, string>, check: () => T): T {
   );
   try {
     for (const [path, text] of Object.entries(files)) {
-      write(path, text);
+      put(path, text);
     }
     return check();
   } finally {
     for (const [path, text] of Object.entries(before)) {
-      if (text === null) {
-        unlinkSync(join(copy, path));
-      } else {
-        write(path, text);
-      }
+      put(path, text);
     }
   }
 }
@@ -375,6 +383,19 @@ describe('a showcase result', () => {
       code: 0,
     });
     expect(gate).toMatchObject({ code: 0 });
+    expect(gate.output).toContain(
+      'OK: 2 results checked against the structure contract (reference, x).',
+    );
+    expect(gate.output).toContain('OK: 3 diagrams match the contract and the import graph.');
+  });
+
+  it('fails the structure validator on a missing api domain role', () => {
+    const checked = withSeed({ 'showcase/x/api/src/features/greeting/domain.ts': null }, () =>
+      run(['node', 'tooling/architecture/structure.mjs']),
+    );
+
+    expect(checked.code).toBe(1);
+    expect(checked.output).toContain('missing-role showcase/x');
   });
 
   it.each([
