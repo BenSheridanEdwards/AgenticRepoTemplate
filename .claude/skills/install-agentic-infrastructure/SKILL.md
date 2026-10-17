@@ -25,9 +25,11 @@ to degrade. Install only what the target repo can actually run and prove.
 
 Layer the infrastructure so every instruction has one owner.
 
-- **Portable contract:** `AGENTS.md` tells any agent how to work here.
-- **Tool adapter:** `CLAUDE.md`, `.claude/settings.json`, hooks, and skills add
-  Claude-specific affordances.
+- **Root pointers:** `CLAUDE.md` points to `AGENTS.md`, which points to
+  `.agents/README.md`.
+- **Portable contract:** `.agents/README.md` tells any agent how to work here.
+- **Tool adapter:** `.agents/CLAUDE_CODE.md`, `.claude/settings.json`, hooks,
+  and skills add Claude-specific affordances.
 - **Project memory:** `.agents/project/` holds architecture, conventions,
   Definition of Done, tech stack, glossary, and PR quality expectations.
 - **Decisions:** `.agents/decisions/` records durable tradeoffs as ADRs.
