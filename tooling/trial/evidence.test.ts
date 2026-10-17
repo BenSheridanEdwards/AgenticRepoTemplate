@@ -16,6 +16,7 @@ const passed = () => ({
     text: '# Todo trial todo-02\n',
   },
   scaffold: { rev: REV, enforcementRev: REV, lockfileSha256: SHA256 },
+  harness: { sha256: SHA256, matchesScaffold: true },
   agent: {
     cli: 'claude',
     version: '2.1.300 (Claude Code)',
@@ -42,9 +43,13 @@ const passed = () => ({
     outsideReads: [],
     patch: null,
   },
-  checks: [
-    { name: 'verify', command: 'pnpm verify', exitCode: 0, durationMs: 90_000, outputTail: 'ok' },
-  ],
+  checks: ['install', 'verify', 'e2e', 'structure'].map((name) => ({
+    name,
+    command: name,
+    exitCode: 0,
+    durationMs: 1_000,
+    outputTail: 'ok',
+  })),
   failures: [],
   retries: [],
 });
@@ -172,6 +177,8 @@ describe('validateEvidence', () => {
       'a recorded failure',
       (value: ReturnType<typeof passed>) => value.failures.push('agent exited 1'),
     ],
+    ['the e2e check missing', (value: ReturnType<typeof passed>) => value.checks.splice(2, 1)],
+    ['no check at all', (value: ReturnType<typeof passed>) => value.checks.splice(0)],
   ])('throws on a passed status with %s', (_case, spoil) => {
     const value = passed();
     spoil(value);

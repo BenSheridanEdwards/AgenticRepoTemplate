@@ -9,6 +9,7 @@
  *   trial: { number: 1 | 2 | 3, id: string, branch: string, workdir: string },
  *   prompt: { path: 'tooling/trial/todo-prompt.md', templateSha256: string, sha256: string, text: string },
  *   scaffold: { rev: string, enforcementRev: string, lockfileSha256: string },
+ *   harness: { sha256: string, matchesScaffold: boolean },
  *   agent: { cli: string, version: string, argv: string[], sessionId: string, resolvedModel: string | null, userConfigSha256: string, fake: boolean },
  *   run: { startedAt: string, finishedAt: string, durationMs: number, agentExitCode: number | null, agentDurationMs: number | null, turns: number | null, costUsd: number | null },
  *   result: { status: 'passed' | 'failed', commit: string | null, changedPaths: string[], outsideScope: string[], outsideReads: string[], patch: string | null },
@@ -17,8 +18,9 @@
  *   retries: { startedAt: string, failures: string[] }[],
  * }} TrialEvidence
  *
- * `run.agentExitCode` is null when the agent never started; `retries` holds
- * the earlier attempts that failed that way (`--retry`).
+ * `run.agentExitCode` is null when the agent never started, and -1 in the
+ * provisional record written as it starts; `retries` holds the earlier
+ * attempts that failed before the agent (`--retry`).
  */
 
 /** @typedef {(value: unknown, path: string) => void} Check */
@@ -108,6 +110,7 @@ const SCHEMA = shape({
     text: text(),
   }),
   scaffold: shape({ rev: REV, enforcementRev: REV, lockfileSha256: SHA256 }),
+  harness: shape({ sha256: SHA256, matchesScaffold: oneOf(true, false) }),
   agent: shape({
     cli: text(),
     version: text(),
@@ -147,11 +150,15 @@ const SCHEMA = shape({
   retries: list(shape({ startedAt: TIME, failures: list(text()) })),
 });
 
+/** The checks a passed run has run, each at exit 0. */
+export const REQUIRED_CHECKS = ['install', 'verify', 'e2e', 'structure'];
+
 /** @param {TrialEvidence} evidence */
 const passes = ({ result, checks, failures }) =>
   result.commit !== null &&
   result.outsideScope.length === 0 &&
   result.outsideReads.length === 0 &&
+  REQUIRED_CHECKS.every((name) => checks.some((check) => check.name === name)) &&
   checks.every((check) => check.exitCode === 0) &&
   failures.length === 0;
 
@@ -170,7 +177,7 @@ const CONSISTENCY = [
   {
     path: 'evidence.result.status',
     holds: (evidence) => evidence.result.status !== 'passed' || passes(evidence),
-    rule: '"passed" needs a commit, an empty scope and read check, every check at exit 0 and no failure',
+    rule: `"passed" needs a commit, empty scope and read lists, the checks ${REQUIRED_CHECKS.join(', ')}, every check at exit 0 and no failure`,
   },
   {
     path: 'evidence.failures',

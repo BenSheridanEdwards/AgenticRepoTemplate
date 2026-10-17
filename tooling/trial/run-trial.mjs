@@ -7,32 +7,32 @@
  *
  * It clones the invoking checkout at the scaffold revision into a fresh
  * workdir, runs one fresh Claude session on the fixed prompt, commits the
- * result, runs every check and writes `docs/trials/<id>.json` (plus a patch
- * when the run fails) into the invoking checkout. It never deletes the
- * workdir; it prints the path for whoever runs the next trial.
+ * result, runs every check on a clean clone of that commit and writes
+ * `docs/trials/<id>.json` (plus a patch when the run fails) into the invoking
+ * checkout. It never deletes the workdir; it prints the path for whoever runs
+ * the next trial.
  *
  * `planTrial` and `renderPrompt` are pure. `runTrial` reaches the system only
  * through the injected `Deps`, so the tests drive it with a fake agent.
  */
 
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  createWriteStream,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   renameSync,
-  statfsSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { createServer } from 'node:net';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { validateEvidence } from './evidence.mjs';
+import { REQUIRED_CHECKS, validateEvidence } from './evidence.mjs';
+import { findOutsideReads, streamEvents, summarizeStream } from './stream.mjs';
+import { agentEnv, checkEnv, stopAll, systemDeps } from './system.mjs';
 
 const HARNESS_ROOT = resolve(import.meta.dirname, '../..');
 const TEMPLATE_PATH = 'tooling/trial/todo-prompt.md';
@@ -43,6 +43,8 @@ const MIN_FREE_DISK_BYTES = 5e9;
 const OUTPUT_TAIL_LINES = 200;
 /** The reference result's ports and the ports `listResults` gives the one showcase result in a trial clone. */
 const TRIAL_PORTS = [5173, 3001, 5183, 3011];
+/** The files that make up the harness, hashed into `harness.sha256`. */
+const HARNESS_FILES = ['run-trial.mjs', 'evidence.mjs', 'stream.mjs', 'system.mjs'];
 
 /** The brief's command, plus the flags that make the session recordable. Never `--resume` or `--continue`. */
 const AGENT_FLAGS = [
@@ -90,10 +92,10 @@ const USER_CONFIG_ENTRIES = [
  * @typedef {{ name: string, argv: readonly string[], timeoutMs: number }} Command
  * @typedef {{
  *   trial: 1 | 2 | 3, id: string, scaffoldRev: string, root: string, trialsRoot: string,
- *   workdir: string, origin: string, clone: string, branch: string,
+ *   workdir: string, origin: string, clone: string, checkClone: string, branch: string,
  *   evidencePath: string, patchPath: string, promptPath: string, streamPath: string,
  *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
- *   claudeConfigDir: string, claudeStateFile: string, readRoots: readonly string[],
+ *   claudeConfigDir: string, claudeStateFile: string,
  *   setup: readonly Command[], checks: readonly Command[],
  * }} TrialPlan
  * @typedef {{ code: number, timedOut: boolean, stdout: string, output: string, ms: number }} ExecResult
@@ -111,7 +113,7 @@ const SETUP = [
   { name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'], timeoutMs: 15 * MINUTE },
 ];
 
-/** After the commit: every gate, as a pull request would run them. */
+/** After the commit, on a clean clone of it: every gate, as a pull request runs them. */
 const CHECKS = [
   { name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'], timeoutMs: 15 * MINUTE },
   { name: 'verify', argv: ['pnpm', 'verify'], timeoutMs: 45 * MINUTE },
@@ -127,7 +129,7 @@ const CHECKS = [
  * @param {{
  *   trial: number, scaffoldRev: string, root: string, trialsRoot: string, now: Date,
  *   sessionId: string, agentCommand?: string, claudeConfigDir: string, claudeStateFile?: string,
- *   readRoots: readonly string[], retry: boolean,
+ *   retry: boolean,
  * }} options
  * @returns {TrialPlan}
  */
@@ -154,6 +156,7 @@ export function planTrial(options) {
     workdir,
     origin: join(workdir, 'origin.git'),
     clone: join(workdir, 'repo'),
+    checkClone: join(workdir, 'check'),
     branch: `trial/${id}`,
     evidencePath: join(root, 'docs/trials', `${id}.json`),
     patchPath: join(root, 'docs/trials', `${id}.patch`),
@@ -166,7 +169,6 @@ export function planTrial(options) {
     claudeConfigDir: options.claudeConfigDir,
     claudeStateFile:
       options.claudeStateFile ?? join(dirname(options.claudeConfigDir), '.claude.json'),
-    readRoots: options.readRoots,
     setup: SETUP,
     checks: CHECKS,
   };
@@ -188,11 +190,7 @@ export function renderPrompt(template, plan) {
 }
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
-const tail = (text) =>
-  text
-    .split('\n')
-    .slice(-OUTPUT_TAIL_LINES - 1)
-    .join('\n');
+const tail = (text) => text.split('\n').slice(-OUTPUT_TAIL_LINES).join('\n');
 const commandText = (argv) => argv.join(' ');
 
 /** @param {Deps} deps */
@@ -204,25 +202,48 @@ async function git(deps, cwd, ...args) {
   return run.stdout.trim();
 }
 
+/** A file's bytes at the scaffold, or null when the scaffold lacks it. */
+async function atScaffold(plan, deps, path) {
+  const shown = await deps.exec(['git', 'show', `${plan.scaffoldRev}:${path}`], { cwd: plan.root });
+  return shown.code === 0 ? shown.stdout : null;
+}
+
 /**
- * The inputs every trial must share: the prompt, the lockfile and the
- * enforcement revision, all read from the scaffold commit.
+ * The harness that judges this run: a hash of its files, and whether they
+ * equal the scaffold's copy, so a harness change between trials shows.
+ */
+async function readHarness(plan, deps) {
+  const files = HARNESS_FILES.map((name) => ({
+    name,
+    text: readFileSync(join(HARNESS_ROOT, 'tooling/trial', name), 'utf8'),
+  }));
+  const scaffold = await Promise.all(
+    files.map(({ name }) => atScaffold(plan, deps, `tooling/trial/${name}`)),
+  );
+  return {
+    sha256: sha256(files.map(({ name, text }) => `${name}\0${sha256(text)}`).join('\n')),
+    matchesScaffold: files.every(({ text }, index) => scaffold[index] === text),
+  };
+}
+
+/**
+ * The inputs every trial must share, read from the scaffold commit: the
+ * prompt, the lockfile and the enforcement revision, plus the harness itself.
  *
  * @param {TrialPlan} plan
  * @param {Deps} deps
  */
 async function readScaffold(plan, deps) {
-  const at = async (path) => {
-    const shown = await deps.exec(['git', 'show', `${plan.scaffoldRev}:${path}`], {
-      cwd: plan.root,
-    });
-    if (shown.code !== 0) {
+  const template = await atScaffold(plan, deps, TEMPLATE_PATH);
+  const lockfile = await atScaffold(plan, deps, LOCKFILE);
+  for (const [path, text] of [
+    [TEMPLATE_PATH, template],
+    [LOCKFILE, lockfile],
+  ]) {
+    if (text === null) {
       throw new Error(`The scaffold ${plan.scaffoldRev} has no ${path}.`);
     }
-    return shown.stdout;
-  };
-  const template = await at(TEMPLATE_PATH);
-  const lockfile = await at(LOCKFILE);
+  }
   const enforcementRev = await git(
     deps,
     plan.root,
@@ -233,8 +254,13 @@ async function readScaffold(plan, deps) {
     '--',
     ...ENFORCEMENT_PATHS,
   );
-  const prompt = renderPrompt(template, plan);
-  return { template, prompt, lockfile, enforcementRev: enforcementRev || plan.scaffoldRev };
+  return {
+    template,
+    prompt: renderPrompt(template, plan),
+    lockfile,
+    enforcementRev: enforcementRev || plan.scaffoldRev,
+    harness: await readHarness(plan, deps),
+  };
 }
 
 /**
@@ -268,7 +294,7 @@ async function checkPreconditions(plan, deps) {
       `Remove the earlier trial workdirs before this run, so no result is in reach: ${others.map((name) => join(plan.trialsRoot, name)).join(', ')}`,
     );
   }
-  const free = deps.freeDiskBytes(plan.trialsRoot);
+  const free = deps.freeDiskBytes(plan.root);
   if (free < MIN_FREE_DISK_BYTES) {
     throw new Error(`Only ${(free / 1e9).toFixed(1)} GB free disk; a trial needs 5 GB.`);
   }
@@ -318,11 +344,10 @@ async function prepareClone(plan, deps) {
   if (status !== '') {
     throw new Error(`the fresh clone is not clean:\n${status}`);
   }
-  if (existsSync(join(plan.clone, 'showcase'))) {
-    const results = readdirSync(join(plan.clone, 'showcase'));
-    if (results.length > 0) {
-      throw new Error(`the scaffold already holds showcase results: ${results.join(', ')}`);
-    }
+  const showcase = join(plan.clone, 'showcase');
+  const results = existsSync(showcase) ? readdirSync(showcase) : [];
+  if (results.length > 0) {
+    throw new Error(`the scaffold already holds showcase results: ${results.join(', ')}`);
   }
 }
 
@@ -330,11 +355,12 @@ async function prepareClone(plan, deps) {
  * @param {readonly Command[]} commands
  * @param {string} cwd
  * @param {Deps} deps
+ * @param {NodeJS.ProcessEnv} [env]
  */
-async function runCommands(commands, cwd, deps) {
+async function runCommands(commands, cwd, deps, env) {
   const records = [];
   for (const command of commands) {
-    const run = await deps.exec(command.argv, { cwd, timeoutMs: command.timeoutMs });
+    const run = await deps.exec(command.argv, { cwd, timeoutMs: command.timeoutMs, env });
     records.push({
       name: command.name,
       command: commandText(command.argv),
@@ -344,6 +370,29 @@ async function runCommands(commands, cwd, deps) {
     });
   }
   return records;
+}
+
+/**
+ * The checks whose entry point the scaffold lacks: a `node <file>` that is
+ * missing, or a `pnpm <script>` the root manifest does not define. Found
+ * before the agent starts, so a broken scaffold costs no trial.
+ *
+ * @param {TrialPlan} plan
+ */
+function missingCheckEntries(plan) {
+  const manifest = join(plan.clone, 'package.json');
+  const scripts = existsSync(manifest)
+    ? (JSON.parse(readFileSync(manifest, 'utf8')).scripts ?? {})
+    : {};
+  return plan.checks.flatMap(({ name, argv: [tool, entry] }) => {
+    const missing =
+      (tool === 'node' &&
+        entry &&
+        !entry.startsWith('-') &&
+        !existsSync(join(plan.clone, entry))) ||
+      (tool === 'pnpm' && entry && entry !== 'install' && !(entry in scripts));
+    return missing ? [`check ${name} needs ${entry}, which the scaffold lacks`] : [];
+  });
 }
 
 /** Every file under `path`, or `path` itself, as `<relative path>\0<sha256>` lines. */
@@ -370,66 +419,6 @@ function userConfigSha256(plan) {
   return sha256([...files, `mcpServers\0${sha256(mcpServers)}`].join('\n'));
 }
 
-/** Each JSON line of a stream-json transcript; a line that is not JSON is skipped. */
-function streamEvents(text) {
-  return text.split('\n').flatMap((line) => {
-    try {
-      const event = JSON.parse(line);
-      return event && typeof event === 'object' ? [event] : [];
-    } catch {
-      return [];
-    }
-  });
-}
-
-/** The resolved model, turns and cost, or null for a field the stream does not carry. */
-function summarizeStream(events) {
-  const init = events.find((event) => event.type === 'system' && event.subtype === 'init');
-  const result = events.findLast((event) => event.type === 'result');
-  const numberOrNull = (value) => (typeof value === 'number' ? value : null);
-  return {
-    resolvedModel: typeof init?.model === 'string' ? init.model : null,
-    turns: numberOrNull(result?.num_turns),
-    costUsd: numberOrNull(result?.total_cost_usd),
-  };
-}
-
-/** Absolute paths in a shell command: after a space, a quote, `=`, `<`, `>` or `(`. */
-const SHELL_PATH = /(?:^|[\s'"=<>(])(~?\/[^\s'"`;|&<>(){}$,]+)/g;
-
-/**
- * Paths the agent's tool calls named outside its clone. File tools are read
- * from their path argument, and shell commands from their absolute path
- * words. The Claude config folder, the pnpm store, `/dev` and the temp folder
- * are allowed.
- *
- * @param {readonly object[]} events
- * @param {TrialPlan} plan
- */
-function findOutsideReads(events, plan) {
-  const allowed = [plan.clone, plan.claudeConfigDir, ...plan.readRoots, '/dev', tmpdir()];
-  const inside = (path) =>
-    allowed.some((root) => path === root || path.startsWith(`${root.replace(/\/$/, '')}/`));
-  const named = events.flatMap((event) =>
-    (Array.isArray(event.message?.content) ? event.message.content : [])
-      .filter(
-        (block) => block?.type === 'tool_use' && block.input && typeof block.input === 'object',
-      )
-      .flatMap(({ input }) => [
-        ...[input.file_path, input.path, input.notebook_path].filter(
-          (path) => typeof path === 'string',
-        ),
-        ...(typeof input.command === 'string'
-          ? [...input.command.matchAll(SHELL_PATH)].map((match) => match[1])
-          : []),
-      ]),
-  );
-  const resolved = named.map((path) =>
-    resolve(plan.clone, path.startsWith('~/') ? join(homedir(), path.slice(2)) : path),
-  );
-  return [...new Set(resolved.filter((path) => !inside(path)))].sort();
-}
-
 /** The lockfile without the importer entries of this trial's two packages. */
 function withoutOwnImporters(lockfile, id) {
   const own = new RegExp(`^  showcase/${id}/(web|api):$`);
@@ -448,7 +437,8 @@ function withoutOwnImporters(lockfile, id) {
 /**
  * Every path the agent changed, committed or not, and the ones outside its
  * scope: anything but `showcase/<id>/`, and any lockfile change beyond its own
- * two importers.
+ * two importers. Renames count as a deletion and an addition, so a file moved
+ * out of `apps/` shows.
  *
  * @param {TrialPlan} plan
  * @param {string} scaffoldLockfile
@@ -459,8 +449,8 @@ async function inspectChanges(plan, scaffoldLockfile, deps) {
     (await git(deps, plan.clone, ...args)).split('\n').filter(Boolean);
   const changedPaths = [
     ...new Set([
-      ...(await lines('diff', '--name-only', plan.scaffoldRev, 'HEAD')),
-      ...(await lines('diff', '--name-only', 'HEAD')),
+      ...(await lines('diff', '--name-only', '--no-renames', plan.scaffoldRev, 'HEAD')),
+      ...(await lines('diff', '--name-only', '--no-renames', 'HEAD')),
       ...(await lines('ls-files', '--others', '--exclude-standard')),
     ]),
   ].sort();
@@ -473,6 +463,20 @@ async function inspectChanges(plan, scaffoldLockfile, deps) {
     path === LOCKFILE ? !lockfileInScope : !path.startsWith(`showcase/${plan.id}/`),
   );
   return { changedPaths, outsideScope };
+}
+
+/**
+ * Puts the clone back on `trial/<id>` at the scaffold, keeping the agent's
+ * work in the tree, so the harness makes the one result commit with the hooks
+ * on whatever the agent committed or checked out.
+ *
+ * @param {TrialPlan} plan
+ * @param {Deps} deps
+ */
+async function rewindToScaffold(plan, deps) {
+  await git(deps, plan.clone, 'reset', '-q', '--mixed', plan.scaffoldRev);
+  await git(deps, plan.clone, 'checkout', '-q', '-B', plan.branch);
+  await git(deps, plan.clone, 'update-ref', 'refs/heads/main', plan.scaffoldRev);
 }
 
 /**
@@ -490,30 +494,28 @@ async function commitResult(plan, deps) {
     await git(deps, plan.clone, 'add', '-A', '--', ...paths);
   }
   const staged = await git(deps, plan.clone, 'diff', '--cached', '--name-only');
-  if (staged !== '') {
-    const commit = await deps.exec(
-      [
-        'git',
-        'commit',
-        '-q',
-        '-m',
-        `feat(showcase): add ${plan.id} trial result`,
-        '-m',
-        `Trial ${plan.trial} of the Todo trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
-      ],
-      { cwd: plan.clone, timeoutMs: 15 * MINUTE },
-    );
-    if (commit.code !== 0) {
-      return {
-        commit: null,
-        failure: `commit hooks failed (exit ${commit.code}):\n${tail(commit.output)}`,
-      };
-    }
+  if (staged === '') {
+    return { commit: null, failure: `the agent left no change under showcase/${plan.id}/` };
   }
-  const head = await git(deps, plan.clone, 'rev-parse', 'HEAD');
-  return head === plan.scaffoldRev
-    ? { commit: null, failure: `the agent left no change under showcase/${plan.id}/` }
-    : { commit: head, failure: null };
+  const commit = await deps.exec(
+    [
+      'git',
+      'commit',
+      '-q',
+      '-m',
+      `feat(showcase): add ${plan.id} trial result`,
+      '-m',
+      `Trial ${plan.trial} of the Todo trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
+    ],
+    { cwd: plan.clone, timeoutMs: 15 * MINUTE },
+  );
+  if (commit.code !== 0) {
+    return {
+      commit: null,
+      failure: `commit hooks failed (exit ${commit.code}):\n${tail(commit.output)}`,
+    };
+  }
+  return { commit: await git(deps, plan.clone, 'rev-parse', 'HEAD'), failure: null };
 }
 
 /**
@@ -569,6 +571,7 @@ async function writeEvidence(plan, evidence, deps) {
 /**
  * @typedef {{
  *   plan: TrialPlan, deps: Deps, scaffold: Awaited<ReturnType<typeof readScaffold>>,
+ *   startedAt: Date, retries: TrialEvidence['retries'],
  *   failures: string[], checks: TrialEvidence['checks'],
  *   agent: { version: string, userConfigSha256: string, resolvedModel: string | null },
  *   run: { agentExitCode: number | null, agentDurationMs: number | null, turns: number | null, costUsd: number | null },
@@ -583,6 +586,7 @@ async function setupStage({ plan, deps, failures, agent }) {
       failures.push(`setup ${setup.name} exited ${setup.exitCode}`);
     }
   }
+  failures.push(...missingCheckEntries(plan));
   const version = await deps.exec([plan.agentArgv[0], '--version'], { cwd: plan.clone });
   agent.version = version.stdout.trim();
   if (version.code !== 0) {
@@ -593,15 +597,28 @@ async function setupStage({ plan, deps, failures, agent }) {
   agent.userConfigSha256 = userConfigSha256(plan);
 }
 
-/** @param {RunState} state */
-async function agentStage({ plan, deps, scaffold, failures, agent, run, result }) {
+/**
+ * Runs the one agent session. Before it starts, a provisional record marks
+ * the trial as run (`agentExitCode: -1`), so a harness stopped mid-session
+ * still leaves a failed record that `--retry` refuses.
+ *
+ * @param {RunState} state
+ */
+async function agentStage(state) {
+  const { plan, deps, scaffold, failures, agent, run, result } = state;
   writeFileSync(plan.promptPath, scaffold.prompt);
+  run.agentExitCode = -1;
+  await writeEvidence(
+    plan,
+    toEvidence({ ...state, failures: ['the harness stopped while the agent ran'] }, deps.now()),
+    deps,
+  );
   const session = await deps.exec(plan.agentArgv, {
     cwd: plan.clone,
     input: scaffold.prompt,
     timeoutMs: AGENT_TIMEOUT_MS,
     stdoutFile: plan.streamPath,
-    env: agentEnv(childEnv()),
+    env: agentEnv(),
   });
   run.agentExitCode = session.code;
   run.agentDurationMs = session.ms;
@@ -614,7 +631,15 @@ async function agentStage({ plan, deps, scaffold, failures, agent, run, result }
   const { resolvedModel, turns, costUsd } = summarizeStream(events);
   Object.assign(agent, { resolvedModel });
   Object.assign(run, { turns, costUsd });
-  result.outsideReads = findOutsideReads(events, plan);
+  result.outsideReads = findOutsideReads(events, {
+    clone: plan.clone,
+    deniedRoots: [plan.root, plan.trialsRoot, plan.claudeConfigDir, plan.claudeStateFile],
+    allowedRoots: [
+      plan.workdir,
+      ...USER_CONFIG_ENTRIES.map((entry) => join(plan.claudeConfigDir, entry)),
+      join(plan.claudeConfigDir, 'plugins'),
+    ],
+  });
   if (result.outsideReads.length > 0) {
     failures.push(`named paths outside the clone: ${result.outsideReads.join(', ')}`);
   }
@@ -626,6 +651,7 @@ async function resultStage({ plan, deps, scaffold, failures, result }) {
   if (result.outsideScope.length > 0) {
     failures.push(`changed outside showcase/${plan.id}/: ${result.outsideScope.join(', ')}`);
   }
+  await rewindToScaffold(plan, deps);
   const committed = await commitResult(plan, deps);
   result.commit = committed.commit;
   if (committed.failure) {
@@ -633,15 +659,36 @@ async function resultStage({ plan, deps, scaffold, failures, result }) {
   }
 }
 
-/** @param {RunState} state */
+/**
+ * Runs the checks on a fresh clone of the result commit, with CI's
+ * environment, so they see exactly what was committed and nothing the agent
+ * left behind in its tree.
+ *
+ * @param {RunState} state
+ */
 async function checksStage(state) {
   const { plan, deps, failures, result } = state;
   if (result.commit === null) {
     return;
   }
-  state.checks = await runCommands(plan.checks, plan.clone, deps);
+  await git(
+    deps,
+    plan.workdir,
+    'clone',
+    '-q',
+    '--branch',
+    plan.branch,
+    plan.clone,
+    plan.checkClone,
+  );
+  state.checks = await runCommands(plan.checks, plan.checkClone, deps, checkEnv());
   for (const check of state.checks.filter(({ exitCode }) => exitCode !== 0)) {
     failures.push(`check ${check.name} exited ${check.exitCode}`);
+  }
+  for (const name of REQUIRED_CHECKS.filter((required) =>
+    state.checks.every((check) => check.name !== required),
+  )) {
+    failures.push(`check ${name} did not run`);
   }
 }
 
@@ -675,11 +722,11 @@ async function runStages(state) {
 
 /**
  * @param {RunState} state
- * @param {{ startedAt: Date, finishedAt: Date, retries: TrialEvidence['retries'] }} times
+ * @param {Date} finishedAt
  * @returns {TrialEvidence}
  */
-function toEvidence({ plan, scaffold, failures, checks, agent, run, result }, times) {
-  const { startedAt, finishedAt, retries } = times;
+function toEvidence(state, finishedAt) {
+  const { plan, scaffold, startedAt, retries, failures, checks, agent, run, result } = state;
   return {
     schema: 1,
     trial: {
@@ -699,6 +746,7 @@ function toEvidence({ plan, scaffold, failures, checks, agent, run, result }, ti
       enforcementRev: scaffold.enforcementRev,
       lockfileSha256: sha256(scaffold.lockfile),
     },
+    harness: scaffold.harness,
     agent: {
       cli: plan.agentArgv[0],
       version: agent.version,
@@ -732,13 +780,14 @@ function toEvidence({ plan, scaffold, failures, checks, agent, run, result }, ti
 export async function runTrial(plan, deps) {
   const scaffold = await readScaffold(plan, deps);
   const retries = await checkPreconditions(plan, deps);
-  const startedAt = deps.now();
   mkdirSync(plan.workdir, { recursive: true });
   /** @type {RunState} */
   const state = {
     plan,
     deps,
     scaffold,
+    startedAt: deps.now(),
+    retries,
     failures: [],
     checks: [],
     agent: { version: '', userConfigSha256: sha256(''), resolvedModel: null },
@@ -749,112 +798,12 @@ export async function runTrial(plan, deps) {
   if (state.failures.length > 0 && state.run.agentExitCode !== null) {
     state.result.patch = await writePatch(plan, deps);
   }
-  const evidence = toEvidence(state, { startedAt, finishedAt: deps.now(), retries });
+  const evidence = toEvidence(state, deps.now());
   await writeEvidence(plan, evidence, deps);
   return validateEvidence(evidence);
 }
 
-/**
- * The agent's environment: the caller's, without the variables a parent Claude
- * Code session sets, so the trial is a fresh top-level session.
- *
- * @param {NodeJS.ProcessEnv} env
- */
-function agentEnv(env) {
-  return Object.fromEntries(
-    Object.entries(env).filter(
-      ([name]) => !name.startsWith('CLAUDE') || name === 'CLAUDE_CONFIG_DIR',
-    ),
-  );
-}
-
-/** Git's per-repository variables, which a hook exports and a child repository must not inherit. */
-const GIT_LOCAL_ENV = spawnSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' })
-  .stdout.split('\n')
-  .filter(Boolean);
-
-/** The environment every command gets: the caller's, without git's per-repository variables, with `COREPACK_HOME`. */
-function childEnv() {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !GIT_LOCAL_ENV.includes(name)),
-  );
-  env.COREPACK_HOME ??= join(homedir(), '.cache/node/corepack');
-  return env;
-}
-
-/** @returns {Deps} */
-export function systemDeps() {
-  return {
-    exec: (argv, { cwd, input, timeoutMs, stdoutFile, env = childEnv() }) =>
-      new Promise((done) => {
-        const started = Date.now();
-        const child = spawn(argv[0], argv.slice(1), {
-          cwd,
-          env,
-          detached: true,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        });
-        const file = stdoutFile ? createWriteStream(stdoutFile) : null;
-        let stdout = '';
-        let output = '';
-        let timedOut = false;
-        child.stdout.on('data', (chunk) => {
-          file?.write(chunk);
-          if (!file) {
-            stdout += chunk;
-          }
-          output += chunk;
-        });
-        child.stderr.on('data', (chunk) => {
-          output += chunk;
-        });
-        // A command that exits without reading its input closes the pipe early.
-        child.stdin.on('error', () => undefined);
-        child.stdin.end(input ?? '');
-        const stopGroup = (signal) => {
-          try {
-            process.kill(-child.pid, signal);
-          } catch {
-            // The group has already exited.
-          }
-        };
-        const timer = timeoutMs
-          ? setTimeout(() => {
-              timedOut = true;
-              stopGroup('SIGTERM');
-              setTimeout(() => stopGroup('SIGKILL'), 10_000).unref();
-            }, timeoutMs)
-          : undefined;
-        const finish = (code) => {
-          clearTimeout(timer);
-          // A server the command left running would hold a port the next step needs.
-          stopGroup('SIGKILL');
-          const result = { code, timedOut, stdout, output, ms: Date.now() - started };
-          if (file) {
-            file.end(() => done(result));
-          } else {
-            done(result);
-          }
-        };
-        child.on('error', (error) => {
-          output += String(error);
-          finish(127);
-        });
-        child.on('close', (code, signal) => finish(code ?? (signal ? 128 : 1)));
-      }),
-    now: () => new Date(),
-    freeDiskBytes: (path) => {
-      const stats = statfsSync(path);
-      return stats.bavail * stats.bsize;
-    },
-    isPortBusy: (port) =>
-      new Promise((done) => {
-        const server = createServer();
-        server.once('error', () => done(true));
-        server.listen(port, '127.0.0.1', () => server.close(() => done(false)));
-      }),
-  };
-}
+export { systemDeps };
 
 function parseArguments(argv) {
   const options = { dryRun: false, retry: false };
@@ -910,7 +859,6 @@ function planFromArguments(options) {
   const { root, scaffoldRev } = resolveCheckout(options.scaffold);
   const configDirFromEnv = process.env.CLAUDE_CONFIG_DIR;
   const claudeConfigDir = configDirFromEnv ?? join(homedir(), '.claude');
-  const pnpmStore = options.dryRun ? null : output(['pnpm', 'store', 'path'], root);
   return planTrial({
     trial: Number(options.trial),
     scaffoldRev,
@@ -921,17 +869,16 @@ function planFromArguments(options) {
     agentCommand: options.agentCommand && resolve(options.agentCommand),
     claudeConfigDir,
     claudeStateFile: configDirFromEnv && join(configDirFromEnv, '.claude.json'),
-    readRoots: [pnpmStore].filter(Boolean),
     retry: options.retry,
   });
 }
 
 /** @param {TrialPlan} plan */
 async function printDryRun(plan, deps) {
-  const { prompt } = await readScaffold(plan, deps);
+  const { prompt, harness } = await readScaffold(plan, deps);
   const { trial, id, scaffoldRev, branch, workdir, clone, evidencePath, agentArgv, fake } = plan;
   const printed = { trial, id, scaffoldRev, branch, workdir, clone, evidencePath, agentArgv, fake };
-  console.log(JSON.stringify({ ...printed, promptSha256: sha256(prompt) }, null, 2));
+  console.log(JSON.stringify({ ...printed, promptSha256: sha256(prompt), harness }, null, 2));
 }
 
 /**
@@ -957,7 +904,13 @@ async function main(argv) {
     await printDryRun(plan, deps);
     return 0;
   }
-  mkdirSync(plan.trialsRoot, { recursive: true });
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.on(signal, () => {
+      stopAll();
+      console.error(`Stopped by ${signal}. The provisional evidence and the workdir stay.`);
+      process.exit(130);
+    });
+  }
   const evidence = await runTrial(plan, deps);
   printOutcome(plan, evidence);
   return evidence.result.status === 'passed' ? 0 : 1;
