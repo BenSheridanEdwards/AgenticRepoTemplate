@@ -30,9 +30,9 @@ write `Not applicable` with the technical reason. -->
 
 <!-- Exact commands and pass/fail results after the final code change. Keep local
 proof, GitHub Actions status, and unverified gaps in separate lines.
-Head commit: one SHA, nothing else, never None: the commit the whole body was last
-checked against. CI fails when a push moves the PR head past it; re-check the body
-against the new head, then update it. -->
+Head commit: the one SHA the whole body was last checked against, and nothing
+else. CI fails when a push moves the PR head past it; re-check the body against
+the new head, then update it. -->
 
 - Head commit:
 - Commands run (e.g. `pnpm verify`, `pnpm e2e`):
