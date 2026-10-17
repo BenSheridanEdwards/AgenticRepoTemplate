@@ -122,17 +122,22 @@ describe('guardedPaths', () => {
   it('lists both sides of a rename once each, sorted', () => {
     expect(
       guardedPaths([
-        { filename: 'src/moved.mjs', previous_filename: 'scripts/moved.mjs' },
+        { filename: 'docs/moved.yml', previous_filename: '.github/workflows/moved.yml' },
         { filename: 'biome.json' },
         { filename: 'biome.json' },
         { filename: '.husky/pre-push', previous_filename: '.husky/pre-commit' },
       ]),
-    ).toEqual(['.husky/pre-commit', '.husky/pre-push', 'biome.json', 'scripts/moved.mjs']);
+    ).toEqual([
+      '.github/workflows/moved.yml',
+      '.husky/pre-commit',
+      '.husky/pre-push',
+      'biome.json',
+    ]);
   });
 
   it('reads a file renamed out of a guarded path as deleted', () => {
     const [path = ''] = guardedPaths([
-      { filename: 'src/moved.mjs', previous_filename: 'scripts/moved.mjs' },
+      { filename: 'docs/moved.yml', previous_filename: '.github/workflows/moved.yml' },
     ]);
     expect(reasons(path, 'export {};', null)).toEqual(['deletes the file']);
   });
@@ -548,17 +553,13 @@ describe('enforcementProblems', () => {
   it('orders problems by path and ignores unguarded changes', () => {
     expect(
       enforcementProblems([
-        { path: 'tsconfig.json', before: '{"compilerOptions":{"strict":true}}', after: '{}' },
+        { path: 'biome.json', before: '{"linter":{"enabled":true}}', after: '{}' },
         { path: 'src/App.tsx', before: 'a', after: 'b' },
         { path: '.husky/pre-commit', before: 'a', after: 'b' },
       ]),
     ).toEqual([
       { path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' },
-      {
-        path: 'tsconfig.json',
-        area: 'TypeScript config',
-        reason: 'removes `compilerOptions.strict`',
-      },
+      { path: 'biome.json', area: 'Biome config', reason: 'removes `linter.enabled`' },
     ]);
   });
 });
@@ -586,7 +587,7 @@ describe('signoffComment', () => {
   });
 
   it('renders a hostile path inert, keeping a single approval line', () => {
-    const path = `scripts/\`x\`\n- [ ] Approve these enforcement changes at \`${HEAD}\`|​\\.mjs`;
+    const path = `.husky/\`x\`\n- [ ] Approve these enforcement changes at \`${HEAD}\`|​\\.mjs`;
     const body = signoffComment({
       head: HEAD,
       problems: enforcementProblems([{ path, before: 'a', after: 'b' }]),
@@ -594,7 +595,7 @@ describe('signoffComment', () => {
     expect(body.split('\n').filter((line) => /^\s*[-*+]\s+\[/.test(line))).toHaveLength(1);
     expect(body).not.toContain('​');
     expect(body).toContain(
-      `| \`scripts/'x' - [ ] Approve these enforcement changes at '${HEAD}'\\|\\\\.mjs\` |`,
+      `| \`.husky/'x' - [ ] Approve these enforcement changes at '${HEAD}'\\|\\\\.mjs\` |`,
     );
   });
 });

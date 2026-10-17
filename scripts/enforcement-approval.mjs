@@ -36,7 +36,7 @@ export const APPROVER = 'BenSheridanEdwards';
  * @typedef {{ path: string, before: string | null, after: string | null }} FileChange  null = absent at that commit
  * @typedef {{ path: string, area: string, reason: string }} Problem
  * @typedef {(change: FileChange) => string[]} Judge  returns reasons; [] = no loosening
- * @typedef {{ area: string, matches: (path: string) => boolean, judge: Judge }} Guard
+ * @typedef {{ area: string, paths: RegExp[], judge: Judge }} Guard
  * @typedef {{ login: string, type: string } | null} Editor
  * @typedef {{ body: string, editor: Editor }} SignoffComment
  * @typedef {{ state: 'missing' } | { state: 'stale' } | { state: 'awaiting' } | { state: 'refused', by: string } | { state: 'approved' }} Verdict
@@ -366,49 +366,41 @@ const byJson =
     });
   };
 
-/** @param {string} prefix */
-const under = (prefix) => (/** @type {string} */ path) => path.startsWith(prefix);
-/** @param {RegExp} pattern */
-const matching = (pattern) => (/** @type {string} */ path) => pattern.test(path);
-
-const GATE_FILES = new Set([
-  '.github/workflows/enforcement-approval.yml',
-  'scripts/enforcement-approval.mjs',
-  'scripts/enforcement-approval.test.ts',
-]);
-
 /**
- * The guard registry, in order; the first guard that matches a path judges it.
- * Code can loosen in ways a text diff cannot rank, so code paths read any change
- * as a rewrite.
+ * The guard table, in order; the first guard with a pattern that matches a path
+ * judges it. Code can loosen in ways a text diff cannot rank, so code paths read
+ * any change as a rewrite.
  *
  * @type {ReadonlyArray<Guard>}
  */
 export const GUARDS = [
   {
     area: 'Enforcement-approval gate',
-    matches: (path) => GATE_FILES.has(path),
+    paths: [
+      /^\.github\/workflows\/enforcement-approval\.yml$/,
+      /^scripts\/enforcement-approval\.mjs$/,
+      /^scripts\/enforcement-approval\.test\.ts$/,
+    ],
     judge: rewrite('edits the enforcement-approval gate'),
   },
   {
     area: 'Required-gates contract',
-    matches: (path) => path === 'docs/required-gates.md',
+    paths: [/^docs\/required-gates\.md$/],
     judge: byLines({
       removed: (removed) =>
         removed.length ? [`removes or rewrites ${lines(removed.length)}`] : [],
       added: () => [],
     }),
   },
-  { area: 'Gate scripts', matches: under('scripts/'), judge: rewrite() },
+  { area: 'Gate scripts', paths: [/^scripts\//], judge: rewrite() },
   {
     area: 'ESLint config and local rules',
-    matches: (path) =>
-      /(^|\/)eslint\.config\.[cm]?[jt]s$/.test(path) || path.startsWith('tooling/'),
+    paths: [/(^|\/)eslint\.config\.[cm]?[jt]s$/, /^tooling\//],
     judge: rewrite(),
   },
   {
     area: 'Biome config',
-    matches: matching(/(^|\/)biome\.jsonc?$/),
+    paths: [/(^|\/)biome\.jsonc?$/],
     judge: byJson([
       '$schema',
       'formatter',
@@ -419,30 +411,30 @@ export const GUARDS = [
   },
   {
     area: 'Fallow config',
-    matches: matching(/(^|\/)\.fallowrc\.jsonc?$/),
+    paths: [/(^|\/)\.fallowrc\.jsonc?$/],
     judge: byJson(['$schema']),
   },
   {
     area: 'TypeScript config',
-    matches: matching(/(^|\/)tsconfig[^/]*\.json$/),
+    paths: [/(^|\/)tsconfig[^/]*\.json$/],
     judge: byJson(['$schema', 'compilerOptions', 'ts-node']),
   },
-  { area: 'CI workflows', matches: under('.github/workflows/'), judge: rewrite() },
-  { area: 'Git hooks', matches: under('.husky/'), judge: rewrite() },
+  { area: 'CI workflows', paths: [/^\.github\/workflows\//], judge: rewrite() },
+  { area: 'Git hooks', paths: [/^\.husky\//], judge: rewrite() },
   {
     area: 'Claude Code settings and hooks',
-    matches: matching(/^\.claude\/settings(\.local)?\.json$/),
+    paths: [/^\.claude\/settings(\.local)?\.json$/],
     judge: byJson(['$schema']),
   },
-  { area: 'Claude Code settings and hooks', matches: under('.claude/hooks/'), judge: rewrite() },
+  { area: 'Claude Code settings and hooks', paths: [/^\.claude\/hooks\//], judge: rewrite() },
   {
     area: 'Test and commit config',
-    matches: matching(/^((jest|playwright|commitlint)\.config\.[^/]+|\.commitlintrc(\.[^/]+)?)$/),
+    paths: [/^((jest|playwright|commitlint)\.config\.[^/]+|\.commitlintrc(\.[^/]+)?)$/],
     judge: rewrite(),
   },
   {
     area: 'Ignore files Biome reads',
-    matches: matching(/(^|\/)\.(git)?ignore$/),
+    paths: [/(^|\/)\.(git)?ignore$/],
     judge: byLines({
       removed: (removed) =>
         removed.filter(isNegation).map((line) => `removes re-include ${inert(line)}`),
@@ -467,7 +459,8 @@ const TOO_MANY_FILES = {
 };
 
 /** @param {string} path */
-const guardFor = (path) => GUARDS.find((guard) => guard.matches(path));
+const guardFor = (path) =>
+  GUARDS.find((guard) => guard.paths.some((pattern) => pattern.test(path)));
 
 /**
  * Every guarded path on either side of a "list pull request files" response.
