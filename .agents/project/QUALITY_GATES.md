@@ -47,7 +47,9 @@ only when a hook, script, workflow, or review checklist actually owns it.
 - **jest-axe, @axe-core/playwright, and Lighthouse** own accessibility.
 - **Playwright** owns user-visible behaviour through the E2E map. It runs one
   Chromium project per result from `tooling/results.mjs`, each with its own api
-  and Vite servers, over every spec in `<result>/web/e2e/`.
+  and Vite servers, over every spec in `<result>/web/e2e/`. Each showcase result
+  also gets `<id>-acceptance`, which runs the fixed Todo acceptance spec in
+  `tooling/trial/acceptance/` against its servers.
 - **Fallow** owns dead code, circular dependencies, complexity, the dependency
   graph, the architecture gate, the contract rule pack, and the role diagram.
 - **API Extractor** owns the committed report of each public module's exported
@@ -147,6 +149,18 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
   listed under "Checks to require" in the inventory. Compare the live settings:
   `gh api repos/OWNER/REPO/branches/main/protection/required_status_checks | node scripts/required-gates.mjs --protection`.
   Until a maintainer requires `Required gates`, it reports without blocking.
+
+## Showcase results and trials
+
+Every gate reaches a showcase result by the globs it uses for the reference
+([ADR 0034](../decisions/0034-trial-harness-and-evidence.md)).
+
+| Check | Command | Fails when |
+| --- | --- | --- |
+| Inclusion | `pnpm test` (`tooling/trial/inclusion.test.ts`) | A gate config stops reaching a showcase result: the test copies the reference greeting into a temporary `showcase/x/`, runs each gate's real tool on it, and seeds one violation per gate. |
+| Coverage per result | `pnpm test:coverage` (`tooling/coverage-by-result.mjs`) | Any one result is under 80 percent in lines, statements, functions or branches, whatever the global total. |
+| Todo acceptance | `pnpm e2e` (project `<id>-acceptance`) | A showcase result breaks the fixed UI contract in `tooling/trial/todo-prompt.md`. |
+| Trial harness | `pnpm test` (`tooling/trial/run-trial.test.ts`, `evidence.test.ts`) | The harness drifts from the run protocol: the exact agent argv, the pinned clone, the scope and read checks, the patch for a failed run, or the evidence schema. The tests run a fake agent in place of Claude, so CI runs them offline. |
 
 ## Visual style checking
 
