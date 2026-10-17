@@ -73,8 +73,10 @@ title). It also states the rules of the ADR 0033 structure validator that a
 reference copy would not reveal: each `package.json` equals its reference
 package except the name and the dependencies, the result's own specs go in
 `web/e2e/`, the result root holds no tool config, symlink or suppression, and
-the agent keeps the diagram `pnpm arch:diagram` writes. Every trial gets the
-same template.
+the agent keeps the diagram `pnpm arch:diagram` writes. It tells the agent to
+read only inside its clone, and that the page reaches the api through
+`/trpc`, as the reference does, because the acceptance spec waits on those
+requests. Every trial gets the same template.
 
 **The fixed acceptance spec.** `tooling/trial/acceptance/todo.spec.ts` runs as
 the Playwright project `<id>-acceptance` for every showcase result, against
@@ -121,12 +123,16 @@ the evidence:
    path outside `showcase/<id>/` fails the run, and so does a
    `pnpm-lock.yaml` change outside the importer entries of
    `showcase/<id>/web` and `showcase/<id>/api`. A tool call that named a path
-   where an earlier result can live (the checkout that keeps the evidence,
-   the trials root, or the Claude config folder outside the entries the agent
-   loads, which holds earlier session transcripts) fails the run and is
-   recorded in `outsideReads`. A file tool's path argument always counts; a
-   shell word counts when it is an absolute path that exists, so URL paths
-   such as `/trpc` and markup never count.
+   outside the trial's workdir fails the run and is recorded in
+   `outsideReads`. The allowlist is the workdir, the Claude config entries
+   the agent loads, the pnpm store and the system folders (`/dev`, `/proc`,
+   `/sys`, `/usr`, `/bin`, `/sbin`, `/lib`, `/lib64`, `/etc`); the rest of
+   the Claude config folder holds earlier session transcripts. A file or
+   search tool's path argument always counts, so a search rooted at an
+   ancestor of the workdir counts. A shell word counts when it is absolute,
+   under `~/` or starts with `..`, and exists, so URL paths such as `/trpc`
+   and markup never count. Relative words resolve from the clone. The
+   prompt tells the agent to read only inside its clone.
 5. It rewinds the clone to the scaffold on `trial/<id>`, keeping the agent's
    tree, so whatever the agent committed, the harness makes the one result
    commit: `showcase/<id>` and the lockfile as
@@ -206,11 +212,12 @@ own packages on its own ports, so a reviewer can drive a showcase result.
 - A change to any gate config that drops showcase results fails
   `inclusion.test.ts`, and a showcase result under the coverage threshold fails
   by name.
-- `outsideReads` is evidence, not a sandbox. It sees file tool paths and
-  absolute shell paths. A shell command that leaves the clone through a
-  relative path (`cd ../..`) is not detected, and the agent runs with
-  `bypassPermissions`, so an earlier result in the evidence checkout is
-  readable in principle. The pinned origin, the empty trials root and the
+- `outsideReads` is evidence, not a sandbox. It sees file and search tool
+  paths and the path words of shell commands. A path a command builds at run
+  time (`$(dirname $PWD)`, a variable, a script's own file reads) is not
+  detected, and a relative word resolves from the clone even after a `cd`.
+  The agent runs with `bypassPermissions`, so an earlier result in the
+  evidence checkout is readable in principle. The pinned origin, the empty trials root and the
   per-trial workdir keep earlier results off every path the agent is pointed
   at; they do not make them unreadable.
 - `userTextEvents` is recorded, not judged. Whether the CLI echoes the

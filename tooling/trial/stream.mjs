@@ -10,11 +10,14 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 /**
- * An absolute path word in a shell command: after a space, a quote, `=`,
- * `<`, `>` or `(`, and starting with a name character, so `//` comments and
- * `</div>` tags are not words.
+ * A path word in a shell command: absolute, under `~/`, or relative with a
+ * leading `..`, after a space, a quote, `=`, `<`, `>` or `(`. A word starts
+ * with a name character after its first `/`, so `//` comments are not words.
  */
-const SHELL_PATH = /(?:^|[\s'"=<>(])(~?\/[\w.~-][^\s'"`;|&<>(){}$,]*)/g;
+const SHELL_PATH = /(?:^|[\s'"=<>(])((?:~|\.\.)?\/[\w.~-][^\s'"`;|&<>(){}$,]*|\.\.(?=$|[\s;|&)]))/g;
+
+/** System folders, which hold no repository, so a tool may name them. */
+const SYSTEM_ROOTS = ['/dev', '/proc', '/sys', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/etc'];
 
 /** Each JSON line of a transcript; a line that is not a JSON object is skipped. */
 export function streamEvents(text) {
@@ -82,25 +85,22 @@ const toolInputs = (events) =>
 const expandHome = (path) => (path.startsWith('~/') ? join(homedir(), path.slice(2)) : path);
 
 /**
- * Paths the agent's tool calls named inside `deniedRoots`, the places where an
- * earlier result can live (the checkout that keeps the evidence, the trials
- * root, Claude's session transcripts), unless they sit inside `allowedRoots`
- * (the trial's own workdir, the config the agent loads). A file tool's path
- * argument always counts. A shell word counts only when it exists on disk,
- * because shell text also holds URL paths (`/trpc`) and markup. Relative
- * shell paths are not read: a `cd ..` escape is outside what this can see.
+ * Paths the agent's tool calls named outside `allowedRoots` (the trial's own
+ * workdir, the config entries the agent loads, the pnpm store) and the system
+ * folders. A file or search tool's path argument always counts, so a search
+ * rooted at an ancestor of the workdir shows. A shell word counts only when it
+ * exists on disk, because shell text also holds URL paths (`/trpc`) and
+ * markup. Relative words resolve from the clone, where every shell starts.
  *
  * @param {readonly object[]} events
- * @param {{ clone: string, deniedRoots: readonly string[], allowedRoots: readonly string[] }} scope
+ * @param {{ clone: string, allowedRoots: readonly string[] }} scope
  */
-export function findOutsideReads(events, { clone, deniedRoots, allowedRoots }) {
-  const within = (roots) => (path) =>
-    roots.some((root) => {
+export function findOutsideReads(events, { clone, allowedRoots }) {
+  const allowed = (path) =>
+    [...allowedRoots, ...SYSTEM_ROOTS].some((root) => {
       const base = root.replace(/\/$/, '');
       return path === base || path.startsWith(`${base}/`);
     });
-  const denied = within(deniedRoots);
-  const allowed = within([clone, ...allowedRoots]);
   const inputs = toolInputs(events);
   const fromFileTools = inputs
     .flatMap((input) => [input.file_path, input.path, input.notebook_path])
@@ -114,7 +114,5 @@ export function findOutsideReads(events, { clone, deniedRoots, allowedRoots }) {
     )
     .map((path) => resolve(clone, expandHome(path)))
     .filter((path) => existsSync(path));
-  return [...new Set([...fromFileTools, ...fromShell])]
-    .filter((path) => denied(path) && !allowed(path))
-    .sort();
+  return [...new Set([...fromFileTools, ...fromShell])].filter((path) => !allowed(path)).sort();
 }

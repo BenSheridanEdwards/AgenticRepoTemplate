@@ -19,7 +19,7 @@ Read it this way.
 ## Where it goes
 
 - `showcase/{{ID}}/web` is the web package `@{{ID}}/web`, and `showcase/{{ID}}/api` is the api package `@{{ID}}/api`. Give them the same layout, roles, scripts and dependencies as `apps/web` and `apps/api`, which hold the reference greeting feature. Use `@repo/ui` for the primitives it has.
-- Write only inside `showcase/{{ID}}/`. `pnpm install` may update `pnpm-lock.yaml` for your two packages. Leave every other file as it is.
+- Read only inside this clone. Write only inside `showcase/{{ID}}/`. `pnpm install` may update `pnpm-lock.yaml` for your two packages. Leave every other file as it is.
 - Use only dependencies that `apps/web` and `apps/api` already declare, at the same ranges.
 - Each `package.json` equals its reference package except the name and the dependencies.
 - Put the result's own Playwright specs in `showcase/{{ID}}/web/e2e/`.
@@ -35,6 +35,7 @@ The fixed acceptance test `tooling/trial/acceptance/todo.spec.ts` drives your pa
 - Submitting a blank title adds nothing and shows an alert.
 - The todos appear in a list named `Todos`. Each item has a checkbox named by the todo's title, which toggles it, and a button named `Delete <title>`, which deletes it.
 - Todos survive a page reload while the api runs.
+- The page reaches the api through `/trpc`, as the reference does.
 
 ## Done
 

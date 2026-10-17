@@ -95,7 +95,7 @@ const USER_CONFIG_ENTRIES = [
  *   workdir: string, origin: string, clone: string, checkClone: string, branch: string,
  *   evidencePath: string, patchPath: string, keptStreamPath: string, promptPath: string, streamPath: string,
  *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
- *   claudeConfigDir: string, claudeStateFile: string,
+ *   claudeConfigDir: string, claudeStateFile: string, pnpmStore: string | null,
  *   setup: readonly Command[], checks: readonly Command[],
  * }} TrialPlan
  * @typedef {{ code: number, timedOut: boolean, stdout: string, output: string, ms: number }} ExecResult
@@ -129,7 +129,7 @@ const CHECKS = [
  * @param {{
  *   trial: number, scaffoldRev: string, root: string, trialsRoot: string, now: Date,
  *   sessionId: string, agentCommand?: string, claudeConfigDir: string, claudeStateFile?: string,
- *   retry: boolean,
+ *   pnpmStore?: string | null, retry: boolean,
  * }} options
  * @returns {TrialPlan}
  */
@@ -170,6 +170,7 @@ export function planTrial(options) {
     claudeConfigDir: options.claudeConfigDir,
     claudeStateFile:
       options.claudeStateFile ?? join(dirname(options.claudeConfigDir), '.claude.json'),
+    pnpmStore: options.pnpmStore ?? null,
     setup: SETUP,
     checks: CHECKS,
   };
@@ -643,11 +644,11 @@ async function agentStage(state) {
   };
   result.outsideReads = findOutsideReads(events, {
     clone: plan.clone,
-    deniedRoots: [plan.root, plan.trialsRoot, plan.claudeConfigDir, plan.claudeStateFile],
     allowedRoots: [
       plan.workdir,
       ...USER_CONFIG_ENTRIES.map((entry) => join(plan.claudeConfigDir, entry)),
       join(plan.claudeConfigDir, 'plugins'),
+      ...(plan.pnpmStore ? [plan.pnpmStore] : []),
     ],
   });
   if (result.outsideReads.length > 0) {
@@ -882,6 +883,7 @@ function planFromArguments(options) {
     agentCommand: options.agentCommand && resolve(options.agentCommand),
     claudeConfigDir,
     claudeStateFile: configDirFromEnv && join(configDirFromEnv, '.claude.json'),
+    pnpmStore: output(['pnpm', 'store', 'path'], root),
     retry: options.retry,
   });
 }
