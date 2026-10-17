@@ -1,4 +1,4 @@
-# 24. Check that each ADR number is used once
+# 25. Check that each ADR number is used once
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-16
@@ -25,7 +25,9 @@ It kept happening on 2026-10-17. #74 and `feat/react-policy-lint` (#76)
 each added an ADR 0018. #74 merged first, and #76 was renumbered to 0019
 by hand before it merged. The head-commit branch from the day before then
 held a second 0019 once it merged main in. Then #77 merged its own 0020
-while open PR #78 also held 0020. This ADR itself moved from 0018 to 0024
+while open PR #78 also held 0020. #78 then held 0021 alongside #79's
+0021, moved to 0023 and merged as 0023 while five unpushed branches held
+0023 to 0027. #81 moved to 0024. This ADR itself moved from 0018 to 0025
 as main kept taking the numbers it had picked.
 
 ## Decision
