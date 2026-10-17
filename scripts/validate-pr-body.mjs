@@ -3,8 +3,9 @@
  * Validate a pull-request body and title against the repo's PR contract.
  *
  * The body, title, and head branch arrive through environment variables
- * (`PR_BODY`, `PR_TITLE`, `PR_HEAD_REF`) rather than as command arguments or interpolated workflow text, so
- * an attacker-controlled PR body can never be evaluated as shell or YAML. The
+ * (`PR_BODY`, `PR_TITLE`, `PR_HEAD_REF`) rather than as command arguments or
+ * interpolated workflow text, so an attacker-controlled PR body can never be
+ * evaluated as shell or YAML. The
  * workflow populates them with `${{ toJSON(github.event.pull_request.body) }}`,
  * so each env var holds a JSON-encoded string (quoted, with escaped newlines);
  * the CLI runner JSON-parses it back to the raw text. See
@@ -294,8 +295,8 @@ function hasNotApplicableReason(line) {
 }
 
 /**
- * Validate a PR title, body, and head branch (`branch` is optional). Returns `{ ok, errors }`; `errors` is an array
- * of actionable strings. Pure and side-effect free so it can be unit-tested.
+ * Validate a PR title, body, and head branch (`branch` is optional). Returns
+ * `{ ok, errors }`; `errors` is an array of actionable strings. Pure and side-effect free so it can be unit-tested.
  */
 export function validatePullRequest({ title, body, branch }) {
   const sections = splitSections(typeof body === 'string' ? body : '');

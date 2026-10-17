@@ -2,10 +2,10 @@ name: PR quality
 
 # The PR body and title are the review-facing proof. This gate keeps them honest:
 # the four template sections must be present, in order, and non-empty; the proof
-# section must carry an inline image or an explicit "Not applicable"; and the
-# title must be Conventional Commits. It runs on `edited` too, so fixing the body
-# re-checks it without a new push.
-# Images must be renderable https URLs, and the head branch must be `<type>/<kebab-summary>`.
+# section must carry an inline image or "Not applicable" with a reason; every
+# image must be a renderable https URL; the title must be Conventional Commits;
+# and the head branch must be `<type>/<short-kebab-summary>`. It runs on `edited`
+# too, so fixing the body re-checks it without a new push.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]

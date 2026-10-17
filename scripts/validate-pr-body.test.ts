@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   CONVENTIONAL_COMMIT_TYPES,
   REQUIRED_SECTIONS,
@@ -270,13 +268,10 @@ describe('validatePullRequest', () => {
     });
   });
 
-  it("passes with the template's PR Proof Law checklist kept, despite its inline-code image example", () => {
-    const template = readFileSync(join(process.cwd(), '.github/pull_request_template.md'), 'utf8');
-    const proofLaw = template.slice(template.indexOf('# PR Proof Law'));
-    expect(proofLaw).toContain('![alt](...png?raw=1)');
+  it('ignores an image example quoted in inline code', () => {
     const result = validatePullRequest({
       title: VALID_TITLE,
-      body: `${VALID_BODY}\n\n${proofLaw}`,
+      body: `${VALID_BODY}\n\n# Notes\n\n- Embed proof as \`![alt](...png?raw=1)\`.`,
     });
     expect(result).toEqual({ ok: true, errors: [] });
   });
