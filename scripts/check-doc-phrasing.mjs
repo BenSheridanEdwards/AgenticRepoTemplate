@@ -32,10 +32,10 @@ export function isGuidanceDoc(path) {
   return !path.includes('/') || GUIDANCE_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
-const proseOf = (line) => line.replace(/`[^`]*`/g, '').replace(/\]\([^)]*\)/g, ']');
+export const proseOf = (line) => line.replace(/`[^`]*`/g, '').replace(/\]\([^)]*\)/g, ']');
 
 /** The open fence marker after `line`: a fence closes only on the marker that opened it. */
-function nextFence(fence, line) {
+export function nextFence(fence, line) {
   const marker = line.match(/^\s*(`{3,}|~{3,})/)?.[1];
   if (!marker) {
     return fence;
