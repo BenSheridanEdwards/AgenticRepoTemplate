@@ -14,7 +14,7 @@
  * line when every invariant holds, and exits 1 listing every failure otherwise.
  */
 
-import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -66,6 +66,12 @@ export function createNodeFilesystem(rootDirectory) {
     },
     readSymbolicLinkTarget(relativePath) {
       return readlinkSync(toAbsolute(relativePath));
+    },
+    listDirectory(relativePath) {
+      return readdirSync(toAbsolute(relativePath), { withFileTypes: true }).map((entry) => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+      }));
     },
   };
 }
@@ -173,6 +179,68 @@ function checkClaudeLayer(filesystem, errors) {
   }
 }
 
+/** Where ADRs live, and the `NNNN-slug.md` name each one has. */
+const DECISIONS_DIRECTORY = '.agents/decisions';
+const ADR_FILE_NAME = /^(\d{4})-[^/]+\.md$/;
+
+/** The Markdown files in `.agents/decisions/`. */
+function listDecisionFiles(filesystem) {
+  return filesystem
+    .listDirectory(DECISIONS_DIRECTORY)
+    .filter(({ name, isDirectory }) => !isDirectory && name.endsWith('.md'))
+    .map(({ name }) => ({ name, path: `${DECISIONS_DIRECTORY}/${name}` }));
+}
+
+/** The `N` in an ADR's first line, `# N. Title`, or NaN when it has none. */
+function titleNumber(text) {
+  const firstLine = text.replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0];
+  return Number(/^# (\d+)\./.exec(firstLine)?.[1]);
+}
+
+/**
+ * Assert each ADR is named `NNNN-slug.md`, opens with a matching `# N.` title,
+ * and has a number no other ADR uses. Two branches that each add "the next" ADR
+ * get different file names, so git merges both without a conflict; this is
+ * where the clash shows up.
+ */
+function checkDecisionNumbers(filesystem, errors) {
+  let files;
+  try {
+    files = listDecisionFiles(filesystem);
+  } catch {
+    errors.push(`Missing required directory: \`${DECISIONS_DIRECTORY}/\`. ADRs live there.`);
+    return;
+  }
+
+  const decisions = [];
+  for (const { name, path } of files) {
+    const match = ADR_FILE_NAME.exec(name);
+    if (!match) {
+      errors.push(`\`${path}\` must be named \`NNNN-slug.md\`, like the other ADRs.`);
+      continue;
+    }
+    if (!assertRegularFile(filesystem, path, errors)) {
+      continue;
+    }
+    const number = Number(match[1]);
+    decisions.push({ path, number });
+    if (titleNumber(filesystem.readText(path)) !== number) {
+      errors.push(`\`${path}\` must start with the title \`# ${number}.\` to match its file name.`);
+    }
+  }
+
+  const highestNumber = Math.max(0, ...decisions.map(({ number }) => number));
+  for (const [number, sharing] of Map.groupBy(decisions, (decision) => decision.number)) {
+    if (sharing.length > 1) {
+      errors.push(
+        `ADR ${number} is used by ${sharing.map(({ path }) => `\`${path}\``).join(' and ')}. ` +
+          `Give the one your branch added a number above ${highestNumber} that no open PR uses, ` +
+          'then rename the file, change its `# N.` title, and update every link to it.',
+      );
+    }
+  }
+}
+
 /** Run every context-layer invariant. Returns `{ ok, errors }`; pure. */
 export function checkContextLayer(filesystem) {
   const errors = [];
@@ -213,6 +281,8 @@ export function checkContextLayer(filesystem) {
       errors.push(`\`${skillPath}\` frontmatter is missing a \`description:\` field.`);
     }
   }
+
+  checkDecisionNumbers(filesystem, errors);
 
   return { ok: errors.length === 0, errors };
 }
