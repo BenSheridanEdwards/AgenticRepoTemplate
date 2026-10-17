@@ -1,9 +1,11 @@
 // ESLint owns policy rules, React hooks rules, React Compiler rules, and the
-// React Doctor rules (ADR 0010, wiring in ADR 0015). Biome owns formatting and
-// general lint, so this config starts from no base rule set.
+// React Doctor rules (ADR 0010, wiring in ADR 0015, local policy in ADR 0019).
+// Biome owns formatting and general lint, so this config starts from no base
+// rule set.
 import reactDoctor from 'eslint-plugin-react-doctor';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
+import policy from './tooling/eslint-plugin-policy.js';
 
 const reactHooksRecommended = reactHooks.configs.flat.recommended;
 const reactDoctorRecommended = reactDoctor.configs.recommended;
@@ -67,6 +69,24 @@ const singleOwnerOverrides = {
   'react-doctor/no-unstable-nested-components': 'off', // react-hooks/static-components
 };
 
+const policyRules = {
+  ...Object.fromEntries(Object.keys(policy.rules).map((rule) => [`policy/${rule}`, 'error'])),
+  'react-doctor/prefer-function-component': 'error',
+  // A feature, route, or shared module is imported only through its index.ts.
+  'no-restricted-imports': [
+    'error',
+    {
+      patterns: [
+        {
+          group: ['**/features/*/*', '**/shared/*/*', '**/routes/*/*'],
+          message:
+            'Import the module through its public surface, for example `../features/service-status`.',
+        },
+      ],
+    },
+  ],
+};
+
 export default [
   {
     ignores: [
@@ -85,12 +105,17 @@ export default [
   {
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: { parser: tseslint.parser },
-    plugins: { ...reactHooksRecommended.plugins, ...reactDoctorRecommended.plugins },
+    plugins: {
+      ...reactHooksRecommended.plugins,
+      ...reactDoctorRecommended.plugins,
+      policy,
+    },
     settings: reactDoctorRecommended.settings,
     rules: {
       ...reactHooksRecommended.rules,
       ...reactDoctorRecommended.rules,
       ...singleOwnerOverrides,
+      ...policyRules,
     },
   },
 ];
