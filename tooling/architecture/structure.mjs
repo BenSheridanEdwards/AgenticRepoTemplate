@@ -18,12 +18,13 @@ import { readRepository, runCli } from './graph.mjs';
 
 /** What a result root and each package may hold. Anything else is an unexpected file. */
 const LAYOUT = {
-  root: { files: ['architecture.mmd'], folders: ['web', 'api'] },
+  root: { label: 'a result root', files: ['architecture.mmd'], folders: ['web', 'api'] },
   web: {
+    label: 'a web package',
     files: ['package.json', 'index.html', 'vite.config.ts'],
     folders: ['src', 'public', 'e2e', 'etc'],
   },
-  api: { files: ['package.json'], folders: ['src', 'etc'] },
+  api: { label: 'an api package', files: ['package.json'], folders: ['src', 'etc'] },
 };
 
 const DEPENDENCY_FIELDS = [
@@ -230,10 +231,10 @@ function suppressions({ results, files, readText }) {
 
 const ROLE_TABLE = 'see .agents/project/ARCHITECTURE.md';
 
-const LAYOUT_TEXT = Object.entries(LAYOUT)
+const LAYOUT_TEXT = Object.values(LAYOUT)
   .map(
-    ([where, { files, folders }]) =>
-      `${where === 'root' ? 'a result root' : `a ${where} package`} holds ${[...files, ...folders.map((folder) => `${folder}/`)].join(', ')}`,
+    ({ label, files, folders }) =>
+      `${label} holds ${[...files, ...folders.map((folder) => `${folder}/`)].join(', ')}`,
   )
   .join('; ');
 
