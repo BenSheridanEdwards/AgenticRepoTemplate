@@ -14,6 +14,7 @@
     "showcase/*/web/e2e",
     "showcase/*/web/vite.config.ts",
     "tooling/results.d.mts",
+    "tooling/trial/acceptance",
     "jest.config.ts",
     "jest.setup.ts",
     "commitlint.config.ts",

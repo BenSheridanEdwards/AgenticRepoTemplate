@@ -1,7 +1,8 @@
 {
   // The Node program: every api package. Node runs its source with native type
   // stripping, so it sees no DOM, imports relative files with their `.ts`
-  // extension, and uses only syntax Node can erase.
+  // extension, and uses only syntax Node can erase. It is composite so the
+  // browser program reads its declarations from `.cache/types`.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022"],
@@ -9,7 +10,13 @@
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "rootDir": ".",
+    "outDir": ".cache/types",
+    "tsBuildInfoFile": ".cache/types/api.tsbuildinfo"
   },
   "include": ["apps/api/src", "showcase/*/api/src"]
 }

@@ -22,16 +22,35 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 import { chromium, expect } from '@playwright/test';
+import { listResults } from '../../../../tooling/results.mjs';
 import { JOURNEYS } from './journeys.mjs';
 
 const REPOSITORY_ROOT = resolve(import.meta.dirname, '../../../..');
 const VERIFY_ROOT = join(REPOSITORY_ROOT, '.verify');
-const WEB_ROOT = join(REPOSITORY_ROOT, 'apps/web');
-const VITE_BIN = join(WEB_ROOT, 'node_modules/.bin/vite');
-const API_SERVER = join(REPOSITORY_ROOT, 'apps/api/src/server.ts');
 const APP_HEADING = 'Greeting';
 const GREETING_PROBE = `/trpc/greeting.greet?input=${encodeURIComponent(JSON.stringify({ name: 'Ada' }))}`;
 const READY_TIMEOUT_MS = 60_000;
+
+/**
+ * The result a run serves: the reference greeting in `apps/` by default, or a
+ * showcase result by id (`--result todo-01`). Only the reference has the
+ * greeting probe; any other result is ready once it renders a level-one heading.
+ */
+function resolveResult(id = 'reference') {
+  const results = listResults(REPOSITORY_ROOT);
+  const result = results.find((candidate) => candidate.id === id);
+  if (!result) {
+    throw new Error(`No result "${id}". Known: ${results.map((known) => known.id).join(', ')}.`);
+  }
+  const webRoot = join(REPOSITORY_ROOT, result.web);
+  return {
+    ...result,
+    isReference: result.id === 'reference',
+    webRoot,
+    viteBin: join(webRoot, 'node_modules/.bin/vite'),
+    apiServer: join(REPOSITORY_ROOT, result.api, 'src/server.ts'),
+  };
+}
 
 const runPaths = (runId) => {
   const root = join(VERIFY_ROOT, runId);
@@ -117,13 +136,20 @@ function ownsProcess(instance) {
 
 /** True only for the api process this run spawned from this checkout. */
 function ownsApiProcess(instance) {
-  return commandLineOf(instance.apiPid).includes(API_SERVER);
+  return commandLineOf(instance.apiPid).includes(resolveResult(instance.result).apiServer);
 }
 
-/** The page, and one greeting through the web server's `/trpc` proxy to the api. */
-async function probeHttp(url) {
+/**
+ * The page, and the api: for the reference one greeting through the web
+ * server's `/trpc` proxy, for any other result an answer from its api port.
+ */
+async function probeHttp(url, result, apiPort) {
   try {
     const page = await fetch(url);
+    if (!result.isReference) {
+      const api = await fetch(`http://127.0.0.1:${apiPort}/`);
+      return { pageStatus: page.status, apiStatus: api.status };
+    }
     const api = await fetch(new URL(GREETING_PROBE, url));
     const greeting = api.ok ? (await api.json())?.result?.data?.message : null;
     return { pageStatus: page.status, apiStatus: api.status, greeting };
@@ -132,11 +158,15 @@ async function probeHttp(url) {
   }
 }
 
-async function probeRender(url) {
+async function probeRender(url, result) {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
     await page.goto(url);
+    if (!result.isReference) {
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      return { rendered: true };
+    }
     await expect(page.getByRole('heading', { level: 1, name: APP_HEADING })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Name' })).toBeVisible();
     return { rendered: true };
@@ -156,9 +186,12 @@ async function launch(options) {
   mkdirSync(paths.instance, { recursive: true });
   mkdirSync(paths.evidence, { recursive: true });
 
-  const port = Number(options.port ?? (await freePort()));
-  const apiPort = Number(options['api-port'] ?? (await freePort()));
-  const distDirectory = options.dist ? resolve(WEB_ROOT, options.dist) : undefined;
+  const result = resolveResult(options.result);
+  const port = Number(options.port ?? (result.isReference ? await freePort() : result.ports.web));
+  const apiPort = Number(
+    options['api-port'] ?? (result.isReference ? await freePort() : result.ports.api),
+  );
+  const distDirectory = options.dist ? resolve(result.webRoot, options.dist) : undefined;
   if (distDirectory && !existsSync(join(distDirectory, 'index.html'))) {
     throw new Error(
       `${distDirectory} has no index.html. Build or download the dist artifact first.`,
@@ -182,7 +215,7 @@ async function launch(options) {
     : ['--host', '127.0.0.1', '--port', String(port), '--strictPort'];
 
   const apiLog = openSync(paths.apiLog, 'a');
-  const api = spawn(process.execPath, [API_SERVER], {
+  const api = spawn(process.execPath, [result.apiServer], {
     cwd: REPOSITORY_ROOT,
     detached: true,
     env: { ...process.env, PORT: String(apiPort) },
@@ -191,8 +224,8 @@ async function launch(options) {
   api.unref();
 
   const log = openSync(paths.serverLog, 'a');
-  const server = spawn(VITE_BIN, viteArguments, {
-    cwd: WEB_ROOT,
+  const server = spawn(result.viteBin, viteArguments, {
+    cwd: result.webRoot,
     detached: true,
     env: { ...process.env, API_ORIGIN: `http://127.0.0.1:${apiPort}` },
     stdio: ['ignore', log, log],
@@ -203,6 +236,7 @@ async function launch(options) {
   const build = distDirectory ? options.sha : gitHead();
   const instance = {
     runId,
+    result: result.id,
     mode,
     url,
     port,
@@ -222,12 +256,15 @@ async function launch(options) {
     if (!isAlive(api.pid)) {
       throw new Error(`The api exited during startup. Read ${paths.apiLog}.`);
     }
-    const probe = await probeHttp(url);
-    if (probe.pageStatus === 200 && probe.greeting === 'Hello, Ada!') {
-      const render = await probeRender(url);
+    const probe = await probeHttp(url, result, apiPort);
+    const apiReady = result.isReference
+      ? probe.greeting === 'Hello, Ada!'
+      : Boolean(probe.apiStatus);
+    if (probe.pageStatus === 200 && apiReady) {
+      const render = await probeRender(url, result);
       if (render.rendered) {
         console.log(
-          `READY run=${runId} mode=${mode} url=${url} pid=${server.pid} api=${apiPort} apiPid=${api.pid}`,
+          `READY run=${runId} result=${result.id} mode=${mode} url=${url} pid=${server.pid} api=${apiPort} apiPid=${api.pid}`,
         );
         console.log(`evidence=${paths.evidence}`);
         return;
@@ -241,8 +278,9 @@ async function launch(options) {
 async function doctor(options) {
   const runId = requireRunId(options);
   const instance = readInstance(runId);
-  const http = await probeHttp(instance.url);
-  const render = await probeRender(instance.url);
+  const result = resolveResult(instance.result);
+  const http = await probeHttp(instance.url, result, instance.apiPort);
+  const render = await probeRender(instance.url, result);
   const head = gitHead();
   const checks = [
     ['process alive', isAlive(instance.pid), `pid ${instance.pid}`],
@@ -258,12 +296,26 @@ async function doctor(options) {
       commandLineOf(instance.apiPid) || 'no process',
     ],
     ['page answers 200', http.pageStatus === 200, http.error ?? `status ${http.pageStatus}`],
+    ...(result.isReference
+      ? [
+          [
+            'greeting api answers through /trpc',
+            http.greeting === 'Hello, Ada!',
+            http.error ?? `status ${http.apiStatus}, message ${JSON.stringify(http.greeting)}`,
+          ],
+        ]
+      : [
+          [
+            'api answers on its port',
+            Boolean(http.apiStatus),
+            http.error ?? `port ${instance.apiPort}, status ${http.apiStatus}`,
+          ],
+        ]),
     [
-      'greeting api answers through /trpc',
-      http.greeting === 'Hello, Ada!',
-      http.error ?? `status ${http.apiStatus}, message ${JSON.stringify(http.greeting)}`,
+      'app renders in Chromium',
+      render.rendered,
+      render.error ?? (result.isReference ? `heading "${APP_HEADING}"` : 'a level-one heading'),
     ],
-    ['app renders in Chromium', render.rendered, render.error ?? `heading "${APP_HEADING}"`],
     [
       'build matches HEAD',
       instance.build === head,
@@ -273,7 +325,7 @@ async function doctor(options) {
   for (const [name, passed, detail] of checks) {
     console.log(`${passed ? 'PASS' : 'FAIL'}  ${name}  (${detail})`);
   }
-  console.log(`run=${runId} mode=${instance.mode} url=${instance.url}`);
+  console.log(`run=${runId} result=${result.id} mode=${instance.mode} url=${instance.url}`);
   if (checks.some(([, passed]) => !passed)) {
     process.exitCode = 1;
   }

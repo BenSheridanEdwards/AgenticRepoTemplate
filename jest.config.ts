@@ -75,6 +75,9 @@ const config: Config = {
     '!{apps,showcase/*}/web/src/App.tsx',
     '!{apps,showcase/*}/api/src/server.ts',
   ],
+  // Jest's defaults plus json-summary, which tooling/coverage-by-result.mjs
+  // reads to hold each result to the same threshold on its own.
+  coverageReporters: ['clover', 'json', 'lcov', 'text', 'json-summary'],
   coverageThreshold: {
     global: { branches: 80, functions: 80, lines: 80, statements: 80 },
   },

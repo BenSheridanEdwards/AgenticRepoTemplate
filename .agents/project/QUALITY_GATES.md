@@ -38,7 +38,14 @@ only when a hook, script, workflow, or review checklist actually owns it.
   Node), `tsconfig.api.json` (api packages, `NodeNext`, `.ts` import
   extensions, `erasableSyntaxOnly`, no DOM) and `tsconfig.domain.json` (api
   domain modules, as the api program but with no Node types). All four extend
-  `tsconfig.base.json`.
+  `tsconfig.base.json`. The api program is composite and writes its
+  declarations to `.cache/types`; the browser program references it, so it
+  reads the api through those declarations and leaves api source, such as a
+  `node:` import in `integrations.ts`, to the api program.
+  `pnpm typecheck` builds both with `tsc -b --force tsconfig.json`.
+  One gap follows (ADR 0034): a Node type in an exported api signature, such
+  as a procedure that returns a `Buffer`, reaches the browser program as an
+  unresolved name, and `skipLibCheck` turns it into `any` with no error.
 - **Jest + React Testing Library** own component, hook and api behaviour in
   three projects: `web` (jsdom, every web package and `packages/ui`), `api`
   (node, every api package) and `tooling` (`scripts/`, `tooling/`). Coverage
@@ -47,7 +54,9 @@ only when a hook, script, workflow, or review checklist actually owns it.
 - **jest-axe, @axe-core/playwright, and Lighthouse** own accessibility.
 - **Playwright** owns user-visible behaviour through the E2E map. It runs one
   Chromium project per result from `tooling/results.mjs`, each with its own api
-  and Vite servers, over every spec in `<result>/web/e2e/`.
+  and Vite servers, over every spec in `<result>/web/e2e/`. Each showcase result
+  also gets `<id>-acceptance`, which runs the fixed Todo acceptance spec in
+  `tooling/trial/acceptance/` against its servers.
 - **Fallow** owns dead code, circular dependencies, complexity, the dependency
   graph, the architecture gate, the contract rule pack, and the role diagram.
 - **API Extractor** owns the committed report of each public module's exported
@@ -149,6 +158,18 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
   listed under "Checks to require" in the inventory. Compare the live settings:
   `gh api repos/OWNER/REPO/branches/main/protection/required_status_checks | node scripts/required-gates.mjs --protection`.
   Until a maintainer requires `Required gates`, it reports without blocking.
+
+## Showcase results and trials
+
+Every gate reaches a showcase result by the globs it uses for the reference
+([ADR 0034](../decisions/0034-trial-harness-and-evidence.md)).
+
+| Check | Command | Fails when |
+| --- | --- | --- |
+| Inclusion | `pnpm test` (`tooling/trial/inclusion.test.ts`) | A gate config stops reaching a showcase result. The test copies the reference greeting into a temporary `showcase/x/`, runs each gate's real tool on it (Playwright, pnpm build, ESLint, React Doctor, Biome, TypeScript, Jest coverage, `arch:gate`, Fallow, `check:adr`, `check:suppressions`), checks that `arch:gate` names the result, seeds violations that ESLint, Biome, the api type check, Fallow, the structure validator, `check:adr` and `check:suppressions` must fail, and seeds a `node:` import in the result's api `integrations.ts` that `pnpm typecheck` and `pnpm api:check` must pass. |
+| Coverage per result | `pnpm test:coverage` (`tooling/coverage-by-result.mjs`) | Any one result is under 80 percent in lines, statements, functions or branches, whatever the global total. |
+| Todo acceptance | `pnpm e2e` (project `<id>-acceptance`) | A showcase result breaks the fixed UI contract in `tooling/trial/todo-prompt.md`. |
+| Trial harness | `pnpm test` (`tooling/trial/run-trial.test.ts`, `evidence.test.ts`) | The harness drifts from the run protocol: the exact agent argv and environment, the pinned clone, the scope and read checks, the one hook-run commit, the checks on a clean clone, the patch for a failed run, or the evidence schema. The tests run a fake agent in place of Claude, so CI runs them offline. |
 
 ## Visual style checking
 

@@ -26,6 +26,25 @@ pnpm verify           # the full local gate suite (typecheck → biome → eslin
 pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```
 
+## Run a Todo trial
+
+The orchestrator runs each Todo trial; an agent inside a trial builds its
+result from the prompt alone. Run trials one at a time, from the checkout
+that keeps the evidence, at the scaffold revision every trial shares
+([ADR 0034](decisions/0034-trial-harness-and-evidence.md)):
+
+```bash
+pnpm trial --trial 1 --scaffold <rev> --trials-root <dir> --dry-run   # print the plan and the exact claude argv
+pnpm trial --trial 1 --scaffold <rev> --trials-root <dir>             # clone, run one fresh session, check, record
+git fetch <dir>/todo-01-<stamp>/repo trial/todo-01:trial/todo-01         # keep the result branch
+```
+
+The run writes `docs/trials/todo-01.json`, the agent's stream as
+`todo-01.stream.jsonl` with secrets redacted (and `todo-01.patch` when it
+fails), and prints its workdir. Fetch the result branch, then remove the
+workdir before the next trial; the harness refuses to start while one
+remains. Pass `--retry` only after a failure from before the agent started.
+
 ## The golden rules
 
 1. **Read before you write.** Architecture, conventions, the Definition of Done,
