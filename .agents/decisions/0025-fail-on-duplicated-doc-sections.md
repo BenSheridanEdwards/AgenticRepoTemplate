@@ -1,4 +1,4 @@
-# 23. Fail when a merge duplicates a doc section
+# 25. Fail when a merge duplicates a doc section
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-16
