@@ -116,11 +116,13 @@ changes to the files that define the gates wait for a maintainer's sign-off.
 
 - **Protected areas**, checked in order by
   [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs):
-  `pnpm-lock.yaml`; agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
+  agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
   `.agents/**`, `agents/**`); `.github/**`; `.claude/**`; `.husky/**`;
   `scripts/**`; `tooling/**`; and every root file outside a short prose and app
-  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). A rename counts
-  when either side is protected.
+  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). `package.json`
+  and `pnpm-lock.yaml` are not protected
+  ([ADR 0018](../decisions/0018-dependency-manifests-are-not-enforcement-paths.md)).
+  A rename counts when either side is protected.
 - **One sticky comment** lists the protected files with a single
   `Approve these enforcement changes` box. Ticking it, with write access, turns
   the `enforcement-approval` commit status green. Any later change to a
