@@ -11,6 +11,9 @@ step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
 step "Context layer invariants (files, manifest, docs, skills)"
 pnpm check:context
 
+step "Every suppression names a rule and a reason"
+pnpm check:suppressions
+
 step "Guidance docs state rules positively"
 pnpm check:docs
 

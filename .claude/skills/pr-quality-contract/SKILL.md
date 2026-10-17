@@ -26,7 +26,7 @@ asking for proof, or decide whether work is ready to report complete.
 2. **Run local proof.** Prefer `pnpm verify` and `pnpm e2e`. If a narrower
    command is appropriate, name why it is enough and list what remains unproven.
 3. **Collect visual proof.** For UI-visible or CSS changes, attach screenshots
-   or video. For non-UI changes, write `N/A` with the reason instead of
+   or video. For non-UI changes, write `Not applicable` with the reason instead of
    pretending visual proof exists.
 4. **Separate proof layers.** Keep local command proof, GitHub Actions status,
    deploy/runtime proof, and pending gaps in separate sentences.
@@ -56,5 +56,5 @@ When handing off the PR, include:
 - one-sentence change summary;
 - exact local commands run;
 - latest GitHub Actions status;
-- visual proof link or explicit `N/A`;
+- visual proof or `Not applicable` with the reason;
 - any residual risk or unverified surface.

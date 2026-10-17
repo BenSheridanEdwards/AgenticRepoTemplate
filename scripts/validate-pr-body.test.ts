@@ -200,9 +200,33 @@ describe('validatePullRequest', () => {
       expect(result.errors.join('\n')).toContain('Not applicable: docs-only change');
     });
 
-    it('fails when the reason is on a different line', () => {
-      const body = withProof('Not applicable\n\nThis is a docs-only change.');
+    it('passes a reason on the next non-empty line', () => {
+      const body = withProof('Not applicable.\n\nThis is a docs-only change.');
+      expect(validatePullRequest({ title: VALID_TITLE, body })).toEqual({ ok: true, errors: [] });
+    });
+
+    it.each([
+      'Not applicable: docs-only change.',
+      'Not applicable — CI-only change',
+      'Not Applicable: docs-only change.',
+    ])('passes %j', (line) => {
+      const body = withProof(line);
+      expect(validatePullRequest({ title: VALID_TITLE, body })).toEqual({ ok: true, errors: [] });
+    });
+
+    it.each([
+      '![screenshot]()',
+      'Proof format: `![alt](https://example.com/a.png)`',
+    ])('treats %j as no proof', (line) => {
+      const body = withProof(line);
       expect(validatePullRequest({ title: VALID_TITLE, body }).ok).toBe(false);
+    });
+
+    it('accepts ?raw=true on a GitHub blob image', () => {
+      const body = withProof(
+        '![s](https://github.com/o/r/blob/feat/x/docs/proof/a/s.png?raw=true)',
+      );
+      expect(validatePullRequest({ title: VALID_TITLE, body })).toEqual({ ok: true, errors: [] });
     });
 
     it('passes a reason on the same line', () => {
@@ -225,6 +249,9 @@ describe('validatePullRequest', () => {
       'ci/pr-process-checks',
       'chore/bump-actions',
       'fix/a1',
+      'feat/vite-7.1',
+      'feat/scope/thing',
+      'revert-12-feat/threshold-reset',
     ])('passes %s', (branch) => {
       expect(validatePullRequest({ title: VALID_TITLE, body: VALID_BODY, branch })).toEqual({
         ok: true,
@@ -239,7 +266,6 @@ describe('validatePullRequest', () => {
       'feat/threshold_reset',
       'feat/threshold--reset',
       'feat/',
-      'feat/scope/nested',
       'claude/threshold-reset',
     ])('fails %s with an example', (branch) => {
       const result = validatePullRequest({ title: VALID_TITLE, body: VALID_BODY, branch });

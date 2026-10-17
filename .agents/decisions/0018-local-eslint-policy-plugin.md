@@ -23,13 +23,13 @@ hook returns.
   new dependency. [`eslint.config.js`](../../eslint.config.js) turns on every
   rule in it as an error for `src/**`.
 - The rules are `one-component-per-file`, `state-and-effects-in-hooks`
-  (`useState`, `useReducer`, `useEffect`, `useLayoutEffect`, and
-  `useInsertionEffect`, including aliased and namespace calls),
+  (`useState`, `useReducer`, `useActionState`, `useOptimistic`,
+  `useSyncExternalStore`, and the effect hooks, including aliased and namespace
+  calls),
   `handler-names`, `callback-prop-names`, `pages-in-routes`,
-  `file-matches-export`, `folder-names`, and `disable-reason`.
+  `file-matches-export`, and `folder-names`.
 - Existing plugins own the rest of the set: `react-doctor/prefer-function-component`
-  for class components, `@typescript-eslint/ban-ts-comment` for TypeScript
-  suppressions, core `no-restricted-imports` for imports past a public
+  for class components, core `no-restricted-imports` for imports past a public
   `index.ts`, and `react-hooks/set-state-in-effect` for state mirrored by an
   effect.
 - Biome keeps general lint ([ADR 0010](0010-lint-engine-ownership.md)). It
@@ -39,6 +39,14 @@ hook returns.
 - Fallow gains the `routes` zone from ADR 0013. The app zone imports routes,
   each route imports features and shared code, and one route never imports
   another.
+- Suppression comments stay outside ESLint, because a blanket disable comment
+  silences the rule that would report it. `scripts/check-suppressions.mjs`
+  (`pnpm check:suppressions`) reads every tracked source file and fails an
+  ESLint disable that names no rule or gives no reason, `@ts-ignore`,
+  `@ts-nocheck`, and an undescribed `@ts-expect-error`.
+- Render props (`render*`) and `children` keep their names under
+  `callback-prop-names`. Test files are outside the component rules, so a test
+  harness may hold state directly.
 - Each rule's message names the fix. `scripts/eslint-policy.test.ts` proves
   each rule blocks a violating fixture through the real ESLint CLI.
 

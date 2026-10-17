@@ -28,8 +28,6 @@ export const REQUIRED_SECTIONS = [
 ];
 
 /** The proof section must contain one of these, or the PR fails. */
-const INLINE_IMAGE_MARKER = '![';
-const NOT_APPLICABLE_MARKER = 'Not applicable';
 
 /** The Conventional Commit types, matching `commitlint.config.ts`. */
 export const CONVENTIONAL_COMMIT_TYPES = [
@@ -55,14 +53,19 @@ const TYPE_ALTERNATION = CONVENTIONAL_COMMIT_TYPES.join('|');
 const CONVENTIONAL_COMMIT_PATTERN = new RegExp(`^(${TYPE_ALTERNATION})(\\([^()\\n]+\\))?!?: .+`);
 
 /** Branches are `<type>/<short-kebab-summary>`, per `.agents/project/CONVENTIONS.md`. */
-const BRANCH_PATTERN = new RegExp(`^(${TYPE_ALTERNATION})/[a-z0-9]+(-[a-z0-9]+)*$`);
+const BRANCH_SEGMENT = '[a-z0-9]+([.-][a-z0-9]+)*';
+// GitHub's revert button names its branch `revert-<pr>-<original branch>`.
+const BRANCH_PATTERN = new RegExp(
+  `^(revert-\\d+-)?(${TYPE_ALTERNATION})/${BRANCH_SEGMENT}(/${BRANCH_SEGMENT})*$`,
+);
 
-const INLINE_IMAGE = /!\[[^\]]*\]\(\s*<?([^\s)>]+)>?[^)]*\)/g;
+const INLINE_IMAGE = /!\[[^\]]*\]\(\s*<?([^\s)>]*)>?[^)]*\)/g;
 // A link whose text holds no brackets, so `[![alt](img)](href)` is not read as a link to `img`.
 const PLAIN_LINK = /(?<!!)\[[^[\]]*\]\(\s*<?([^\s)>]+)>?[^)]*\)/g;
 const IMAGE_FILE_URL = /\.(png|jpe?g|gif|webp)(\?[^#]*)?(#.*)?$/i;
 const GITHUB_BLOB_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
-const NOT_APPLICABLE_REASON_WORDS = 3;
+const NOT_APPLICABLE = /not applicable/i;
+const NOT_APPLICABLE_REASON_WORDS = 2;
 
 /**
  * Strip HTML comments (`<!-- ... -->`) from a block of text. Template guidance
@@ -107,7 +110,10 @@ function collectImageErrors(body) {
           'Commit the file under `docs/proof/<scope>/` and embed its GitHub blob URL with ' +
           '`?raw=1`: `![alt](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)`.',
       );
-    } else if (GITHUB_BLOB_URL.test(url) && new URL(url).searchParams.get('raw') !== '1') {
+    } else if (
+      GITHUB_BLOB_URL.test(url) &&
+      !['1', 'true'].includes(new URL(url).searchParams.get('raw'))
+    ) {
       errors.push(
         `Image "${url}" is a GitHub blob URL without \`?raw=1\`, so GitHub shows a broken image. ` +
           'Append `?raw=1` to the URL.',
@@ -265,10 +271,10 @@ function collectProofErrors(proofBody) {
         `Section "${PROOF_HEADING}" links to the image "${url}" instead of showing it; ` +
         'embed it inline with `![alt](url)`.',
     );
-  if (stripped.includes(INLINE_IMAGE_MARKER)) {
+  if (linkTargets(stripCode(stripped), INLINE_IMAGE).length > 0) {
     return errors;
   }
-  if (!stripped.includes(NOT_APPLICABLE_MARKER)) {
+  if (!NOT_APPLICABLE.test(stripped)) {
     return [
       ...errors,
       `Section "${PROOF_HEADING}" has no proof. ` +
@@ -276,27 +282,30 @@ function collectProofErrors(proofBody) {
         'or write the exact string `Not applicable` with the technical reason.',
     ];
   }
-  if (!stripped.split('\n').some(hasNotApplicableReason)) {
+  if (!hasNotApplicableReason(stripped)) {
     errors.push(
       `Section "${PROOF_HEADING}" says \`Not applicable\` without a reason. ` +
-        'Give the technical reason on the same line, e.g. ' +
+        'Give the technical reason on the same line or the next one, e.g. ' +
         '`Not applicable: docs-only change, no rendered surface.`',
     );
   }
   return errors;
 }
 
-function hasNotApplicableReason(line) {
-  if (!line.includes(NOT_APPLICABLE_MARKER)) {
-    return false;
-  }
-  const words = line.replace(NOT_APPLICABLE_MARKER, ' ').match(/[a-z0-9][\w'-]*/gi) ?? [];
-  return words.length >= NOT_APPLICABLE_REASON_WORDS;
+const countWords = (text) => (text.match(/[a-z0-9][\w'-]+/gi) ?? []).length;
+
+/** A reason follows `Not applicable` on its line, or fills the next non-empty line. */
+function hasNotApplicableReason(proofText) {
+  const lines = proofText.split('\n').filter((line) => line.trim() !== '');
+  const index = lines.findIndex((line) => NOT_APPLICABLE.test(line));
+  const sameLine = countWords(lines[index].replace(NOT_APPLICABLE, ' '));
+  return Math.max(sameLine, countWords(lines[index + 1] ?? '')) >= NOT_APPLICABLE_REASON_WORDS;
 }
 
 /**
  * Validate a PR title, body, and head branch (`branch` is optional). Returns
- * `{ ok, errors }`; `errors` is an array of actionable strings. Pure and side-effect free so it can be unit-tested.
+ * `{ ok, errors }`; `errors` is an array of actionable strings. Pure and
+ * side-effect free so it can be unit-tested.
  */
 export function validatePullRequest({ title, body, branch }) {
   const sections = splitSections(typeof body === 'string' ? body : '');

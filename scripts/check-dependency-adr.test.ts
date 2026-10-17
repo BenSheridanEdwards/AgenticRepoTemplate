@@ -19,28 +19,43 @@ describe('findDependenciesWithoutAdr', () => {
   it('reports an added dependency without an ADR', () => {
     const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedPaths: [] }),
+      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
     ).toEqual(['zod']);
   });
 
   it('passes an added dependency that comes with a new ADR', () => {
     const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedPaths: [ADR] }),
+      findDependenciesWithoutAdr({
+        basePackageJson: base,
+        headPackageJson,
+        addedAdrs: [{ path: ADR, text: '# 18. Adopt zod' }],
+      }),
     ).toEqual([]);
+  });
+
+  it('reports a new dependency that the added ADR never names', () => {
+    const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
+    expect(
+      findDependenciesWithoutAdr({
+        basePackageJson: base,
+        headPackageJson,
+        addedAdrs: [{ path: ADR, text: '# 18. Adopt valibot' }],
+      }),
+    ).toEqual(['zod']);
   });
 
   it('passes a version bump of an existing dependency', () => {
     const headPackageJson = { ...base, dependencies: { react: '^19.2.0' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedPaths: [] }),
+      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
     ).toEqual([]);
   });
 
   it('passes a removed dependency', () => {
     const headPackageJson = { dependencies: base.dependencies };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedPaths: [] }),
+      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
     ).toEqual([]);
   });
 
@@ -52,14 +67,14 @@ describe('findDependenciesWithoutAdr', () => {
       peerDependencies: { 'react-dom': '^19.0.0' },
     };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedPaths: [] }),
+      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
     ).toEqual(['vitest', 'fsevents', 'react-dom']);
   });
 
   it('does not report a dependency that only moved between sections', () => {
     const headPackageJson = { dependencies: base.dependencies, peerDependencies: { jest: '*' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedPaths: [] }),
+      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
     ).toEqual([]);
   });
 
@@ -71,7 +86,11 @@ describe('findDependenciesWithoutAdr', () => {
   ])('does not count %s as an ADR', (path) => {
     const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedPaths: [path] }),
+      findDependenciesWithoutAdr({
+        basePackageJson: base,
+        headPackageJson,
+        addedAdrs: [{ path, text: '# Adopt zod' }],
+      }),
     ).toEqual(['zod']);
   });
 });
@@ -143,6 +162,17 @@ describe('check-dependency-adr CLI', () => {
     const { status, output } = run();
     expect(status).toBe(0);
     expect(output).toMatch(/OK/);
+  });
+
+  it('reads the committed package.json, not uncommitted edits', () => {
+    write(ADR, '# 18. Adopt zod\n');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'adr');
+    write(
+      'package.json',
+      JSON.stringify({ ...base, dependencies: { ...base.dependencies, zod: '^3.0.0', ky: '1' } }),
+    );
+    expect(run().status).toBe(0);
   });
 
   it('fails closed when the base ref cannot be resolved', () => {

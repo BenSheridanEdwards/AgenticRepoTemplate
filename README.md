@@ -308,6 +308,7 @@ scripts/
   api-report.mjs            Writes and checks the etc/*.api.md API Extractor reports.
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
+  check-suppressions.mjs    Every lint or type suppression names a rule and a reason.
   validate-pr-body.mjs      Validates the PR body sections, proof, and title (pnpm validate:pr).
   enforcement-approval.mjs  Lists protected files in a sticky comment and sets the enforcement-approval status.
   required-gates.mjs        The required-check contract and the Required gates decision.

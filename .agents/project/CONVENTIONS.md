@@ -27,7 +27,7 @@ feature.
 | `interface` for object shapes, `type` for unions and aliases. | Biome `style/useConsistentTypeDefinitions` |
 | Import order. | Biome `organizeImports` |
 | Every block has a body; a handled error does something observable. | Biome `suspicious/noEmptyBlockStatements` |
-| Every lint suppression carries its reason. | ESLint `policy/disable-reason`, `@typescript-eslint/ban-ts-comment` |
+| Every lint or type suppression names its rule and carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
 | Accessible, labelled controls and status regions. | Biome `a11y/*`, jest-axe, `@axe-core/playwright`, Lighthouse |
 
 ## Judgment calls
@@ -50,7 +50,7 @@ feature.
 | Commits use Conventional Commits, `type(scope): subject`, lower case with no trailing period. | commitlint on `commit-msg` |
 | PR titles use Conventional Commits. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | Branches are `<type>/<short-kebab-summary>`, for example `feat/threshold-reset`. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
-| A new dependency arrives with a new ADR. | `pnpm check:adr` in `pnpm verify` and CI |
+| A new dependency arrives with a new ADR that names it. | `pnpm check:adr` in `pnpm verify` and CI |
 
 ## Commit judgment
 

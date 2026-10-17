@@ -17,7 +17,7 @@ Every PR body must include:
 - **Why:** the problem, risk, or capability the change exists to address.
 - **What changed:** the smallest reviewable summary of the diff.
 - **Local verification:** exact commands run, with pass/fail status.
-- **Visual proof:** screenshots, video, or `N/A` with a reason. Any UI-visible
+- **Visual proof:** screenshots, video, or `Not applicable` with a reason. Any UI-visible
   or CSS change needs visual proof.
 - **CI status:** whether checks are green for the latest commit, still pending,
   or failing with the failure named.
@@ -48,7 +48,7 @@ the latest-sha checks are green.
 - Use command names, not summaries: `pnpm verify` is useful; "tests passed" is
   not.
 - For UI-visible work, include screenshots or video. For docs-only or
-  config-only work, write `N/A` and point to deterministic proof such as lint,
+  config-only work, write `Not applicable` with the reason and point to deterministic proof such as lint,
   build, or workflow validation.
 - If a command fails, keep the failure visible and fix the cause. Keep every
   hook, gate, and check in place while you do.

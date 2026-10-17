@@ -2,17 +2,17 @@
 /**
  * A new tool or dependency needs an ADR in the same change.
  *
- * The CLI compares `package.json` at the merge base with the base ref against
- * the working tree, and lists the files the change adds. Any dependency name
- * that is new in head fails the check unless the change also adds an ADR under
- * `.agents/decisions/`. Version bumps of existing names never count.
+ * The CLI compares the committed `package.json` at the merge base with the base
+ * ref against `HEAD`, and reads the ADRs the change adds. Any dependency name
+ * that is new in head fails the check unless an ADR added under
+ * `.agents/decisions/` names it. Version bumps of existing names never count.
  *
  * The base ref is `origin/$GITHUB_BASE_REF` in a pull request, else the first
  * argument, else `origin/main`. An unresolvable base fails closed.
  */
 
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { readdirSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const DEPENDENCY_FIELDS = [
@@ -29,18 +29,20 @@ function dependencyNames(packageJson) {
 }
 
 /**
- * The dependency names head adds over base, or none when the change adds an
- * ADR. Pure.
+ * The dependency names head adds over base that no added ADR names. Pure.
  *
- * @param {{ basePackageJson: object, headPackageJson: object, addedPaths: string[] }} change
+ * @param {{ basePackageJson: object, headPackageJson: object, addedAdrs: { path: string, text: string }[] }} change
  * @returns {string[]}
  */
-export function findDependenciesWithoutAdr({ basePackageJson, headPackageJson, addedPaths }) {
-  if (addedPaths.some((path) => ADR_PATH.test(path))) {
-    return [];
-  }
+export function findDependenciesWithoutAdr({ basePackageJson, headPackageJson, addedAdrs }) {
   const existing = dependencyNames(basePackageJson);
-  return [...dependencyNames(headPackageJson)].filter((name) => !existing.has(name));
+  const adrText = addedAdrs
+    .filter(({ path }) => ADR_PATH.test(path))
+    .map(({ text }) => text)
+    .join('\n');
+  return [...dependencyNames(headPackageJson)].filter(
+    (name) => !(existing.has(name) || adrText.includes(name)),
+  );
 }
 
 function git(...args) {
@@ -77,24 +79,25 @@ function runCli(baseRef) {
   } catch {
     // No package.json at the base: every dependency in head is new.
   }
-  const headPackageJson = JSON.parse(readFileSync('package.json', 'utf8'));
-  const addedPaths = git('diff', '--name-only', '--diff-filter=A', '-z', mergeBase, 'HEAD')
+  const headPackageJson = JSON.parse(git('show', 'HEAD:package.json'));
+  const addedAdrs = git('diff', '--name-only', '--diff-filter=A', '-z', mergeBase, 'HEAD')
     .split('\0')
-    .filter(Boolean);
+    .filter((path) => ADR_PATH.test(path))
+    .map((path) => ({ path, text: git('show', `HEAD:${path}`) }));
 
-  const missing = findDependenciesWithoutAdr({ basePackageJson, headPackageJson, addedPaths });
+  const missing = findDependenciesWithoutAdr({ basePackageJson, headPackageJson, addedAdrs });
   if (missing.length === 0) {
     console.log(`OK: no new dependency without an ADR since ${baseRef}.`);
     process.exit(0);
   }
 
-  console.error(`New dependencies since ${baseRef} without an ADR in this change:\n`);
+  console.error(`New dependencies since ${baseRef} that no ADR in this change names:\n`);
   for (const name of missing) {
     console.error(`  ✗ ${name}`);
   }
   console.error(
-    `\nAdd \`${DECISIONS_DIRECTORY}/NNNN-<slug>.md\` (next number: ${nextAdrNumber()}) explaining ` +
-      'why the new tool is needed and what it replaces, per ' +
+    `\nAdd \`${DECISIONS_DIRECTORY}/NNNN-<slug>.md\` (next number: ${nextAdrNumber()}) that names ` +
+      'each dependency and explains why it is needed and what it replaces, per ' +
       '`.agents/decisions/0001-record-architecture-decisions.md`.',
   );
   process.exit(1);
