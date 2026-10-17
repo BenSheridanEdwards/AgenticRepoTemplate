@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadContract } from './contract.mjs';
 import {
@@ -170,12 +170,14 @@ describe('planDiagrams and diffDiagrams', () => {
     ]);
   });
 
-  it('reports a missing, a stale and an extra diagram', () => {
+  it('reports a missing, a stale and an extra diagram, and claims no other .mmd file', () => {
     const onDisk = new Map([
       ['docs/architecture/roles.mmd', plan.get('docs/architecture/roles.mmd')],
       ['apps/architecture.mmd', 'flowchart LR\n'],
       ['showcase/old/architecture.mmd', 'flowchart LR\n'],
       ['apps/web/architecture.mmd', 'flowchart LR\n'],
+      ['docs/architecture/notes.mmd', 'flowchart LR\n'],
+      ['packages/ui/architecture.mmd', 'flowchart LR\n'],
     ]);
     expect(
       diffDiagrams(
@@ -186,7 +188,7 @@ describe('planDiagrams and diffDiagrams', () => {
     ).toEqual({
       missing: ['showcase/todo-01/architecture.mmd'],
       stale: ['apps/architecture.mmd'],
-      extra: ['apps/web/architecture.mmd', 'showcase/old/architecture.mmd'],
+      extra: ['showcase/old/architecture.mmd'],
     });
   });
 
@@ -258,11 +260,6 @@ describe('node tooling/architecture/diagram.mjs on a temporary monorepo', () => 
       () => writeFileSync(diagramOf('showcase/x/architecture.mmd'), 'flowchart LR\n'),
       /stale.*showcase\/x\/architecture\.mmd/,
     ],
-    [
-      'an extra',
-      () => writeFileSync(diagramOf('apps/web/architecture.mmd'), 'flowchart LR\n'),
-      /extra.*apps\/web\/architecture\.mmd/,
-    ],
   ])('fails --check on %s diagram, and a write converges', (_, seed, message) => {
     seed();
     const check = runTool('diagram.mjs', repository.directory, '--check');
@@ -270,6 +267,23 @@ describe('node tooling/architecture/diagram.mjs on a temporary monorepo', () => 
     expect(check.output).toMatch(message);
     expect(runTool('diagram.mjs', repository.directory).status).toBe(0);
     expect(runTool('diagram.mjs', repository.directory, '--check').status).toBe(0);
-    expect(existsSync(diagramOf('apps/web/architecture.mmd'))).toBe(false);
+  });
+
+  it('fails on a diagram no result owns, and keeps the file for a person to remove', () => {
+    mkdirSync(diagramOf('showcase/old'));
+    writeFileSync(diagramOf('showcase/old/architecture.mmd'), 'flowchart LR\n');
+    for (const args of [['--check'], []]) {
+      const run = runTool('diagram.mjs', repository.directory, ...args);
+      expect(run.status).toBe(1);
+      expect(run.output).toMatch(/extra diagram: showcase\/old\/architecture\.mmd/);
+    }
+    expect(existsSync(diagramOf('showcase/old/architecture.mmd'))).toBe(true);
+  });
+
+  it('leaves a hand-written diagram beside the generated ones alone', () => {
+    writeFileSync(diagramOf('docs/architecture/context.mmd'), 'flowchart TD\n');
+    expect(runTool('diagram.mjs', repository.directory, '--check').status).toBe(0);
+    expect(runTool('diagram.mjs', repository.directory).status).toBe(0);
+    expect(existsSync(diagramOf('docs/architecture/context.mmd'))).toBe(true);
   });
 });

@@ -10,11 +10,12 @@
  * text only where their structure differs.
  *
  * `node tooling/architecture/diagram.mjs` (`pnpm arch:diagram`) writes every
- * diagram and removes a stray one. `--check` writes nothing and fails on a
- * missing, stale or extra diagram. `--root <dir>` targets another repository.
+ * diagram, and fails on a diagram at a root that is no result, which it
+ * leaves for a person to remove. `--check` writes no diagram and fails on a
+ * missing, stale or extra one. `--root <dir>` targets another repository.
  */
 
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readRepository, runCli } from './graph.mjs';
@@ -103,12 +104,13 @@ export function planDiagrams(contract, results, edges) {
   ]);
 }
 
+/** The paths this generator owns: the canonical diagram and a diagram at any result root. */
 const isDiagram = (path) =>
-  path.endsWith('/architecture.mmd') || /^docs\/architecture\/[^/]+\.mmd$/.test(path);
+  path === CONTRACT_DIAGRAM || /^(?:apps|showcase\/[^/]+)\/architecture\.mmd$/.test(path);
 
 /**
  * The planned diagrams missing from `files`, those whose text differs, and the
- * diagram files no plan names.
+ * diagrams at a root that is no result.
  */
 export function diffDiagrams(plan, files, readText) {
   const present = files.filter(isDiagram);
@@ -123,10 +125,15 @@ function main(root) {
   const { contract, edges, files, results } = readRepository(root);
   const plan = planDiagrams(contract, results, edges);
   const diff = diffDiagrams(plan, files, (path) => readFileSync(join(root, path), 'utf8'));
+  const extra = diff.extra.map(
+    (path) => `extra diagram: ${path}; no result owns it, so remove it.`,
+  );
   if (process.argv.includes('--check')) {
-    const problems = Object.entries(diff).flatMap(([state, paths]) =>
-      paths.map((path) => `${state} diagram: ${path}`),
-    );
+    const problems = [
+      ...diff.missing.map((path) => `missing diagram: ${path}`),
+      ...diff.stale.map((path) => `stale diagram: ${path}`),
+      ...extra,
+    ];
     if (problems.length > 0) {
       console.error([...problems, 'Run `pnpm arch:diagram` and commit the diagrams.'].join('\n'));
       return false;
@@ -139,11 +146,10 @@ function main(root) {
     writeFileSync(join(root, path), text);
     console.log(`Wrote ${path}`);
   }
-  for (const path of diff.extra) {
-    unlinkSync(join(root, path));
-    console.log(`Removed ${path}`);
+  if (extra.length > 0) {
+    console.error(extra.join('\n'));
   }
-  return true;
+  return extra.length === 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

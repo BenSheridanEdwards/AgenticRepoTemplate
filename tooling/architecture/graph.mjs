@@ -5,7 +5,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, statSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listResults } from '../results.mjs';
@@ -44,7 +44,14 @@ export function parseDotGraph(dotText) {
 /** The value of `--root <dir>` in `argv`, else this repository. */
 function rootFromArgs(argv) {
   const index = argv.indexOf('--root');
-  return index === -1 ? TOOL_ROOT : resolve(argv[index + 1] ?? '.');
+  if (index === -1) {
+    return TOOL_ROOT;
+  }
+  const root = argv[index + 1];
+  if (!root || root.startsWith('--')) {
+    throw new Error('architecture: --root needs a folder.');
+  }
+  return resolve(root);
 }
 
 const run = (command, args, cwd) =>
@@ -55,16 +62,19 @@ const run = (command, args, cwd) =>
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-const isFile = (path) => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false;
-
 /**
- * Tracked and untracked, not ignored, files in the working tree. A tracked
- * file deleted from the tree, or a symlink to a folder, is not a file.
+ * Tracked and untracked, not ignored, paths in the working tree: the regular
+ * files, and the symlinks, which the structure check fails inside a result.
+ * A tracked file deleted from the tree is neither.
  */
-function listFiles(root) {
+function listPaths(root) {
   const output = run('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], root);
-  const paths = output.split('\0').filter((path) => path && isFile(join(root, path)));
-  return [...new Set(paths)].sort();
+  const paths = [...new Set(output.split('\0').filter(Boolean))].sort();
+  const kinds = paths.map((path) => lstatSync(join(root, path), { throwIfNoEntry: false }));
+  return {
+    files: paths.filter((_, index) => kinds[index]?.isFile()),
+    symlinks: paths.filter((_, index) => kinds[index]?.isSymbolicLink()),
+  };
 }
 
 /**
@@ -79,7 +89,7 @@ export function readRepository(root) {
   return {
     contract: loadContract(run(FALLOW, ['config', '--format', 'json', '-q'], root)),
     edges: parseDotGraph(readFileSync(dotPath, 'utf8')),
-    files: listFiles(root),
+    ...listPaths(root),
     results: listResults(root),
   };
 }

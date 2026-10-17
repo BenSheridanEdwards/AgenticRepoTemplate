@@ -33,12 +33,32 @@ const DEPENDENCY_FIELDS = [
   'optionalDependencies',
 ];
 
+/**
+ * A directive that silences or reconfigures a check: lint and type
+ * suppressions, ESLint inline config and globals, and coverage pragmas.
+ */
 const SUPPRESSION =
-  /(?:eslint-disable|@ts-(?:expect-error|ignore|nocheck)|biome-ignore|fallow-ignore)/;
+  /(?:eslint-disable|@ts-(?:expect-error|ignore|nocheck)|biome-ignore|fallow-ignore|\/[*/]\s*eslint[\s-]|\/\*\s*globals?\s|(?:istanbul|c8|v8)\s+ignore)/;
+
+/** Tool config a result could use to loosen a root gate; allowed only where `LAYOUT` names it. */
+const CONFIG_FILE =
+  /^(?:package\.json|[jt]sconfig.*\.json|biome\.jsonc?|eslint\.config\.[cm]?[jt]s|\.eslintrc.*|\.eslintignore|\.npmrc|\.nvmrc|\.gitignore|\.babelrc.*|\.swcrc|\.prettierrc.*|\.fallowrc.*|fallow\.toml|\.size-limit.*|lighthouserc.*|\.browserslistrc|(?:vite|vitest|jest|playwright|babel|postcss|tailwind|webpack|rollup|prettier|commitlint)\.config\.[cm]?[jt]s)$/;
+
+/** A file that can hold a role: source and style, not a test, a declaration or a note. */
+const isRoleSource = (file) =>
+  /\.(?:tsx?|css)$/.test(file) && !/\.(?:test\.tsx?|d\.ts)$/.test(file);
 
 const PACKAGE_KINDS = ['web', 'api'];
 
 const sameList = (left, right) => left.join('\n') === right.join('\n');
+
+/** JSON text with object keys sorted, so two values compare by content. */
+const canonical = (value) =>
+  JSON.stringify(value, (_, inner) =>
+    inner && typeof inner === 'object' && !Array.isArray(inner)
+      ? Object.fromEntries(Object.entries(inner).sort(([left], [right]) => (left < right ? -1 : 1)))
+      : inner,
+  );
 
 const resultOf = (results, file) => results.find((result) => file.startsWith(`${result.root}/`));
 
@@ -54,6 +74,9 @@ function isAllowed(result, file) {
   if (!fits(LAYOUT.root, path)) {
     return false;
   }
+  if (rest.length > 1 && CONFIG_FILE.test(rest.at(-1))) {
+    return false;
+  }
   return rest.length === 0 || fits(LAYOUT[first], rest.join('/'));
 }
 
@@ -61,7 +84,9 @@ function missingRoles({ contract, results, files }) {
   return results.flatMap((result) =>
     PACKAGE_KINDS.flatMap((kind) => {
       const held = new Set(
-        files.filter((file) => file.startsWith(`${result[kind]}/`)).map(contract.roleOf),
+        files
+          .filter((file) => file.startsWith(`${result[kind]}/`) && isRoleSource(file))
+          .map(contract.roleOf),
       );
       return contract.requiredRoles[kind]
         .filter((role) => !held.has(role))
@@ -76,6 +101,13 @@ function unexpectedFiles({ results, files }) {
     return result && !isAllowed(result, file)
       ? [{ kind: 'unexpected-file', result: result.root, path: file }]
       : [];
+  });
+}
+
+function symlinks({ results, symlinks: paths }) {
+  return paths.flatMap((path) => {
+    const result = resultOf(results, path);
+    return result ? [{ kind: 'symlink', result: result.root, path }] : [];
   });
 }
 
@@ -96,18 +128,35 @@ function dependencyProblems(manifest, reference, referenceDirectory) {
   return { workspace: workspace.sort(), problems };
 }
 
-function manifestProblems(manifest, reference, referenceDirectory, { scope, kind }) {
+/**
+ * Every field other than the name and the dependencies matches the reference
+ * package of the same kind, with the reference's scope read as this result's.
+ */
+function fieldProblems(manifest, reference, referenceDirectory, rename) {
+  const fields = [...new Set([...Object.keys(reference), ...Object.keys(manifest)])].filter(
+    (field) => field !== 'name' && !DEPENDENCY_FIELDS.includes(field),
+  );
+  return fields
+    .map((field) => [field, canonical(manifest[field]), rename(canonical(reference[field]))])
+    .filter(([, actual, expected]) => actual !== expected)
+    .map(
+      ([field, actual, expected]) =>
+        `"${field}" is ${actual ?? 'missing'}; ${referenceDirectory}/package.json has ${expected ?? 'none'}`,
+    );
+}
+
+function manifestProblems(
+  manifest,
+  reference,
+  { referenceDirectory, referenceScope, scope, kind },
+) {
   const name = `@${scope}/${kind}`;
-  const scripts = Object.keys(manifest.scripts ?? {}).sort();
-  const referenceScripts = Object.keys(reference.scripts ?? {}).sort();
+  const rename = (text) => text?.replaceAll(`@${referenceScope}/`, `@${scope}/`);
   const expectedWorkspace = kind === 'web' ? [`@${scope}/api`, '@repo/ui'].sort() : [];
   const { workspace, problems } = dependencyProblems(manifest, reference, referenceDirectory);
   return [
     manifest.name !== name && `name is "${manifest.name}"; name it "${name}"`,
-    manifest.private !== true && 'set "private": true',
-    manifest.type !== 'module' && `"type" is "${manifest.type}"; set "type": "module"`,
-    !sameList(scripts, referenceScripts) &&
-      `scripts are [${scripts}]; use the script names of ${referenceDirectory}: [${referenceScripts}]`,
+    ...fieldProblems(manifest, reference, referenceDirectory, rename),
     ...problems,
     !sameList(workspace, expectedWorkspace) &&
       `workspace dependencies are [${workspace}]; list exactly [${expectedWorkspace}]`,
@@ -121,7 +170,9 @@ function manifests({ results, manifests: byDirectory }) {
       const directory = result[kind];
       const manifest = byDirectory.get(directory);
       const problems = manifest
-        ? manifestProblems(manifest, byDirectory.get(reference[kind]) ?? {}, reference[kind], {
+        ? manifestProblems(manifest, byDirectory.get(reference[kind]) ?? {}, {
+            referenceDirectory: reference[kind],
+            referenceScope: reference.scope,
             scope: result.scope,
             kind,
           })
@@ -179,6 +230,13 @@ function suppressions({ results, files, readText }) {
 
 const ROLE_TABLE = 'see .agents/project/ARCHITECTURE.md';
 
+const LAYOUT_TEXT = Object.entries(LAYOUT)
+  .map(
+    ([where, { files, folders }]) =>
+      `${where === 'root' ? 'a result root' : `a ${where} package`} holds ${[...files, ...folders.map((folder) => `${folder}/`)].join(', ')}`,
+  )
+  .join('; ');
+
 /** One entry per rule: `find` gives its violations, `describe` one line naming the fix. */
 const RULES = {
   'missing-role': {
@@ -189,7 +247,12 @@ const RULES = {
   'unexpected-file': {
     find: unexpectedFiles,
     describe: (violation) =>
-      `unexpected-file ${violation.path}: a result holds only web/, api/ and architecture.mmd; a web package only package.json, index.html, vite.config.ts, src/, public/, e2e/ and etc/; an api package only package.json, src/ and etc/. Move or delete it.`,
+      `unexpected-file ${violation.path}: ${LAYOUT_TEXT}; a tool config lives only at the repository root. Move or delete it.`,
+  },
+  symlink: {
+    find: symlinks,
+    describe: (violation) =>
+      `symlink ${violation.path}: a result holds regular files only, so every gate reads them; copy the file or import the package.`,
   },
   manifest: {
     find: manifests,
@@ -225,6 +288,7 @@ const RULES = {
  *   results: readonly import('../results.d.mts').Result[],
  *   files: readonly string[],
  *   edges: readonly import('./graph.mjs').FileEdge[],
+ *   symlinks: readonly string[],
  *   manifests: ReadonlyMap<string, Record<string, any>>,
  *   readText: (path: string) => string,
  * }} input

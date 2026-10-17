@@ -31,7 +31,11 @@ const CLEAN_TREE: Record<string, string> = {
 /** Validates `tree` (path to text, `null` deletes) with the given extra edges. */
 function validate(
   changes: Record<string, string | null> = {},
-  { edges = [] as { from: string; to: string }[], results = [reference, todo] } = {},
+  {
+    edges = [] as { from: string; to: string }[],
+    results = [reference, todo],
+    symlinks = [] as string[],
+  } = {},
 ) {
   const tree = Object.fromEntries(
     Object.entries({ ...CLEAN_TREE, ...changes }).filter(
@@ -49,6 +53,7 @@ function validate(
     results,
     files,
     edges,
+    symlinks,
     manifests,
     readText: (path: string) => tree[path] ?? '',
   });
@@ -74,6 +79,40 @@ describe('validateStructure', () => {
     ).toEqual([
       { kind: 'missing-role', result: 'apps', role: 'api-trpc' },
       { kind: 'missing-role', result: 'showcase/todo-01', role: 'web-routes' },
+    ]);
+  });
+
+  it('holds a role only through a source file, not a test or a note', () => {
+    expect(
+      validate({
+        'showcase/todo-01/web/src/routes/greeting/index.ts': null,
+        'showcase/todo-01/web/src/routes/greeting/GreetingPage.test.tsx': 'export {};\n',
+        'showcase/todo-01/web/src/routes/greeting/notes.md': '# Notes\n',
+      }),
+    ).toEqual([{ kind: 'missing-role', result: 'showcase/todo-01', role: 'web-routes' }]);
+  });
+
+  it('fails a config file at any depth below a package root', () => {
+    const nested = [
+      'showcase/todo-01/api/etc/.npmrc',
+      'showcase/todo-01/web/e2e/playwright.config.ts',
+      'showcase/todo-01/web/src/biome.json',
+      'showcase/todo-01/web/src/package.json',
+      'showcase/todo-01/web/src/routes/greeting/tsconfig.json',
+    ];
+    expect(validate(Object.fromEntries(nested.map((path) => [path, '{}\n'])))).toEqual(
+      nested.map((path) => ({ kind: 'unexpected-file', result: 'showcase/todo-01', path })),
+    );
+  });
+
+  it('fails a symlink anywhere under a result root', () => {
+    const symlinks = ['showcase/todo-01/web/src/routes/shared', 'scripts/linked'];
+    expect(validate({}, { symlinks })).toEqual([
+      {
+        kind: 'symlink',
+        result: 'showcase/todo-01',
+        path: 'showcase/todo-01/web/src/routes/shared',
+      },
     ]);
   });
 
@@ -142,6 +181,20 @@ describe('validateStructure', () => {
         fields.scripts = { ...fields.scripts, lint: 'eslint .' };
       },
       /lint/,
+    ],
+    [
+      'a script command that differs from the reference',
+      (fields: Record<string, Record<string, string>>) => {
+        fields.scripts = { ...fields.scripts, build: 'true' };
+      },
+      /scripts/,
+    ],
+    [
+      'a field the reference lacks',
+      (fields: Record<string, Record<string, string>>) => {
+        fields.pnpm = { overrides: { react: '18.3.1' } };
+      },
+      /pnpm/,
     ],
   ])('fails a showcase web manifest with %s', (_, edit, problem) => {
     expect(validate(editManifest('showcase/todo-01/web/package.json', edit as never))).toEqual([
@@ -232,6 +285,19 @@ describe('validateStructure', () => {
     ]);
   });
 
+  it.each([
+    '/* eslint policy/one-component-per-file: off */',
+    '/* eslint-env node */',
+    '/* global document */',
+    '/* istanbul ignore next */',
+    '/* c8 ignore next */',
+    '/* v8 ignore next */',
+  ])('fails the inline config or coverage pragma %s', (directive) => {
+    expect(
+      validate({ 'showcase/todo-01/web/src/App.tsx': `${directive}\nexport const App = 1;\n` }),
+    ).toEqual([{ kind: 'suppression', path: 'showcase/todo-01/web/src/App.tsx', line: 1 }]);
+  });
+
   it('fails every suppression directive under a result root, with its line', () => {
     const lines = (directive: string) => `export const a = 1;\n${directive}\nexport const b = 2;\n`;
     expect(
@@ -271,17 +337,22 @@ describe('node tooling/architecture/structure.mjs', () => {
     }
   });
 
-  it('reads a symlink to a folder inside a result as no file', () => {
+  it('fails a committed symlink to a folder inside a result', () => {
     const repository = createMonorepo({});
     try {
       symlinkSync('../src', join(repository.directory, 'apps/web/e2e/linked'));
-      expect(runTool('structure.mjs', repository.directory)).toEqual({
-        status: 0,
-        output: expect.stringMatching(/^OK: 1 result /),
-      });
+      const run = runTool('structure.mjs', repository.directory);
+      expect(run.status).toBe(1);
+      expect(run.output).toMatch(/symlink apps\/web\/e2e\/linked/);
     } finally {
       repository.cleanup();
     }
+  });
+
+  it('fails when --root names no folder', () => {
+    const run = runTool('structure.mjs', '');
+    expect(run.status).toBe(1);
+    expect(run.output).toMatch(/--root needs a folder/);
   });
 
   it('fails a showcase result with a missing role and an import from the reference', () => {
