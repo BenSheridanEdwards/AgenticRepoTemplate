@@ -30,53 +30,34 @@ const WRITE_PERMISSIONS = ['admin', 'maintain', 'write'];
 /** The author of comments written with the workflow's own `GITHUB_TOKEN`. */
 export const GATE_AUTHOR = 'github-actions[bot]';
 
-/** Prose and app files at the repo root that sit outside enforcement. */
-const UNPROTECTED_ROOT_FILES = new Set([
-  'README.md',
-  'CONTRIBUTING.md',
-  'LICENSE',
-  'SECURITY.md',
-  'NORTH_STAR.md',
-  'PROGRESS.md',
-  'TODO.md',
-  'index.html',
-  'team-walkthrough.html',
-]);
-
 /**
- * Dependency manifests: a dependency update is not a change to the gates, so
- * Dependabot and toolchain bumps do not wait on a sign-off (ADR 0018).
+ * The lint, format and commit-message configs, the local ESLint policy plugin
+ * and the suppression check. With the hooks and workflows they are the files
+ * that run the gates (ADR 0023).
  */
-const DEPENDENCY_MANIFESTS = new Set(['package.json', 'pnpm-lock.yaml']);
-
-const AGENT_DOC_FILES = new Set(['AGENTS.md', 'CLAUDE.md', 'GUARDRAILS.md']);
+const LINT_FILES = new Set([
+  'eslint.config.js',
+  'biome.json',
+  'commitlint.config.ts',
+  'tooling/eslint-plugin-policy.js',
+  'scripts/check-suppressions.mjs',
+]);
 
 /** @param {string} prefix */
 const under = (prefix) => (/** @type {string} */ path) => path.startsWith(prefix);
 
 /**
  * Ordered table of protected areas; the first matching rule names the area.
- * Root files are protected by default, so a new root config file is covered
- * the moment it appears.
+ * Only the files that run the gates are protected: the git hooks, the CI
+ * workflows and the lint configs. Agent docs, scripts and other config change
+ * freely (ADR 0023).
  *
  * @type {ReadonlyArray<{ area: string, matches: (path: string) => boolean }>}
  */
 export const PROTECTED_PATH_RULES = [
-  {
-    area: 'Agent docs',
-    matches: (path) =>
-      AGENT_DOC_FILES.has(path) || under('.agents/')(path) || under('agents/')(path),
-  },
-  { area: 'GitHub config and workflows', matches: under('.github/') },
-  { area: 'Claude Code settings and skills', matches: under('.claude/') },
   { area: 'Git hooks', matches: under('.husky/') },
-  { area: 'Scripts', matches: under('scripts/') },
-  { area: 'Tooling', matches: under('tooling/') },
-  {
-    area: 'Root config',
-    matches: (path) =>
-      !path.includes('/') && !UNPROTECTED_ROOT_FILES.has(path) && !DEPENDENCY_MANIFESTS.has(path),
-  },
+  { area: 'GitHub workflows', matches: under('.github/workflows/') },
+  { area: 'Lint config', matches: (path) => LINT_FILES.has(path) },
 ];
 
 /**
