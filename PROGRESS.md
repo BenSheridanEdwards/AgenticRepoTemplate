@@ -21,6 +21,21 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## Project-local verification skill
+
+- **Branch:** `feat/verify-app-skill`
+- **Scope:** Give agents one scripted way to launch the app, drive it in
+  Chromium like a user, and keep proof for a PR.
+- **Completed:** `.claude/skills/verify-agentic-template/` with `SKILL.md`, a
+  feature map for Capacity, Service status, and Accessibility, and
+  `scripts/verify.mjs` with `launch`, `doctor`, `drive`, and `cleanup`.
+- **Proof artifact:** `docs/proof/verify-agentic-template/transcript.txt`, plus
+  screenshots, a video, and journey manifests in the same folder.
+- **Verification:** `pnpm verify` passed. All five journeys passed on a dev
+  instance. The CI `dist` artifact from main passed `service-status` in preview
+  mode.
+- **Blockers:** None.
+
 ## PR body quality contract + scaffold gaps
 
 - **Branch:** `feat/pr-proof-contract-and-scaffold-gaps`

@@ -41,7 +41,6 @@ function tick(body: string) {
 describe('classifyProtectedFiles', () => {
   it('checks the protected areas in a fixed order, first match wins', () => {
     expect(PROTECTED_PATH_RULES.map((rule: { area: string }) => rule.area)).toEqual([
-      'Lockfile',
       'Agent docs',
       'GitHub config and workflows',
       'Claude Code settings and skills',
@@ -53,7 +52,6 @@ describe('classifyProtectedFiles', () => {
   });
 
   it.each([
-    ['pnpm-lock.yaml', 'Lockfile'],
     ['AGENTS.md', 'Agent docs'],
     ['CLAUDE.md', 'Agent docs'],
     ['GUARDRAILS.md', 'Agent docs'],
@@ -65,7 +63,6 @@ describe('classifyProtectedFiles', () => {
     ['scripts/verify-gates.sh', 'Scripts'],
     ['tooling/anything.json', 'Tooling'],
     ['tsconfig.json', 'Root config'],
-    ['package.json', 'Root config'],
     ['.fallowrc.jsonc', 'Root config'],
   ])('flags %s as %s', (path, area) => {
     expect(classifyProtectedFiles([file(path)])).toEqual([
@@ -87,6 +84,8 @@ describe('classifyProtectedFiles', () => {
     'README.md',
     'docs/proof/README.md',
     'index.html',
+    'package.json',
+    'pnpm-lock.yaml',
   ])('leaves %s unflagged', (path) => {
     expect(classifyProtectedFiles([file(path)])).toEqual([]);
   });

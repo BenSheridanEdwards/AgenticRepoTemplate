@@ -1,4 +1,4 @@
-# 18. Repository policy rules live in a local ESLint plugin
+# 19. Repository policy rules live in a local ESLint plugin
 
 - **Status:** Accepted
 - **Date:** 2026-10-17

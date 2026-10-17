@@ -30,6 +30,8 @@ This repo commits its own skills under `.claude/skills/`:
   visual evidence, latest-sha CI status, risk, and explicit gaps.
 - **`show-me`** — create the smallest grounded visual explanation that removes
   review ambiguity from a non-trivial PR.
+- **`verify-agentic-template`** — launch the app, drive it in Chromium like a
+  user, and capture screenshots, ARIA snapshots, and video as PR proof.
 
 Install the external skill libraries once with `pnpm setup:agents`:
 
