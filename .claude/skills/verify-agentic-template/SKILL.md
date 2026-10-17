@@ -67,6 +67,20 @@ It prints `READY run=<id> mode=<dev|preview> url=<url> pid=<pid> api=<port> apiP
 Omit `--run` to get a timestamped id. Two runs with different ids run side by
 side.
 
+To serve a showcase result instead of the reference, name it:
+
+```bash
+node $V launch --run todo-01 --result todo-01
+```
+
+`--result <id>` takes any id from `tooling/results.mjs` (`reference` is the
+default). The api starts from `<result>/api/src/server.ts`, Vite from
+`<result>/web`, and the ports default to that result's own (5183 and 3011 for
+the first showcase result), so pass `--port` and `--api-port` to run it beside
+`pnpm e2e`. The launch is ready once the page answers 200 and Chromium renders
+a level-one heading. `doctor` and `cleanup` read the result from the run's
+`instance.json`.
+
 ## Doctor
 
 Run it first, and again whenever a result looks wrong:
