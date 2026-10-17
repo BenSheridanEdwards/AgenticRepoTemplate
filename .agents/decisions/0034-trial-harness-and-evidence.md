@@ -63,7 +63,14 @@ it with `TS2307`, a trap every trial would have hit. `pnpm typecheck` runs
 on every run. The browser and domain programs keep their types: web code
 still fails on a Node global, and domain code still fails on a Node import.
 `pnpm api:report` reads the same `.cache/types`. The inclusion test seeds the
-`node:crypto` import in `showcase/x`.
+`node:crypto` import in `showcase/x`. One narrow gap follows. A Node type in an
+exported api signature, such as a procedure that returns a `Buffer`, reaches
+the browser program as a name it cannot resolve, and `skipLibCheck` in
+`tsconfig.base.json` turns that name into `any` with no error. Before, the
+browser program read api source and failed on it. tRPC sends outputs as JSON,
+so a Node type in a procedure output is a bug that no gate now catches. A
+check for it, such as a `tsc` run over `.cache/types` with
+`skipLibCheck: false`, would be a new gate and belongs in its own change.
 
 **Coverage per result.** `tooling/coverage-by-result.mjs` runs in
 `pnpm test:coverage` after Jest and fails when any result is under 80 percent
@@ -136,14 +143,22 @@ the evidence:
    `showcase/<id>/web` and `showcase/<id>/api`. A tool call that named a path
    outside the trial's workdir fails the run and is recorded in
    `outsideReads`. The allowlist is the workdir, the Claude config entries
-   the agent loads, the pnpm store and the system folders (`/dev`, `/proc`,
-   `/sys`, `/usr`, `/bin`, `/sbin`, `/lib`, `/lib64`, `/etc`); the rest of
-   the Claude config folder holds earlier session transcripts. A file or
-   search tool's path argument always counts, so a search rooted at an
-   ancestor of the workdir counts. A shell word counts when it is absolute,
-   under `~/` or starts with `..`, and exists, so URL paths such as `/trpc`
-   and markup never count. Relative words resolve from the clone. The
-   prompt tells the agent to read only inside its clone.
+   the agent loads, the agent's own session folders
+   (`<config>/projects/<clone slug>/<session id>/`, where Claude Code saves
+   large tool output, and `<tmp>/claude-<uid>/<clone slug>/`, where it saves
+   background command output), the tmp entries that appeared while the agent
+   ran, `~/.cache` (Playwright browsers, corepack), the pnpm store and the
+   system folders (`/dev`, `/proc`, `/sys`, `/usr`, `/bin`, `/sbin`, `/lib`,
+   `/lib64`, `/etc`). The trials root, the rest of `projects/`, which holds
+   earlier session transcripts, and the rest of `claude-<uid>` are denied, and
+   the closest root that holds a path decides, so a denied root inside an
+   allowed one stays denied. A file or search tool's path argument always
+   counts, so a search rooted at an ancestor of the workdir counts. A shell
+   word counts when it is absolute, under `~/` or starts with `..`, and
+   exists, so URL paths such as `/trpc` and markup never count. Relative
+   words resolve from the Bash tool's folder, which starts at the clone and
+   follows each `cd` through the calls in order; a `cd` inside `( )` lasts
+   until the `)`. The prompt tells the agent to read only inside its clone.
 5. It rewinds the clone to the scaffold on `trial/<id>`, keeping the agent's
    tree, so whatever the agent committed, the harness makes the one result
    commit: `showcase/<id>` and the lockfile as
@@ -236,7 +251,10 @@ own packages on its own ports, so a reviewer can drive a showcase result.
 - `outsideReads` is evidence, not a sandbox. It sees file and search tool
   paths and the path words of shell commands. A path a command builds at run
   time (`$(dirname $PWD)`, a variable, a script's own file reads) is not
-  detected, and a relative word resolves from the clone even after a `cd`.
+  detected, and after a `cd` to a folder built at run time (`cd "$DIR"`,
+  `cd -`) relative words are left out until the next `cd` to a written path.
+  A tmp entry another process creates while the agent runs is allowed with
+  the agent's own.
   The agent runs with `bypassPermissions`, so an earlier result in the
   evidence checkout is readable in principle. The pinned origin, the empty trials root and the
   per-trial workdir keep earlier results off every path the agent is pointed

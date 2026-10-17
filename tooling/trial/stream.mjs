@@ -84,35 +84,88 @@ const toolInputs = (events) =>
 
 const expandHome = (path) => (path.startsWith('~/') ? join(homedir(), path.slice(2)) : path);
 
+/** A `cd` at the start of a command, maybe inside `(`, and its target word. */
+const CD = /^\s*\(?\s*cd(?:\s+([^\s;|&)]+))?\s*(?:$|[\s)])/;
+
 /**
- * Paths the agent's tool calls named outside `allowedRoots` (the trial's own
- * workdir, the config entries the agent loads, the pnpm store) and the system
- * folders. A file or search tool's path argument always counts, so a search
- * rooted at an ancestor of the workdir shows. A shell word counts only when it
- * exists on disk, because shell text also holds URL paths (`/trpc`) and
- * markup. Relative words resolve from the clone, where every shell starts.
+ * Where a `cd` lands from `cwd`: home for a bare `cd`, null for a target
+ * built at run time or `cd -`, so later relative words are not resolved.
+ */
+function cdTarget(word, cwd) {
+  const target = word?.replace(/^(['"])(.*)\1$/, '$2');
+  if (target === undefined || target === '~') {
+    return homedir();
+  }
+  if (target === '-' || /[$`]/.test(target) || (cwd === null && !/^[~/]/.test(target))) {
+    return null;
+  }
+  return resolve(cwd ?? '/', expandHome(target));
+}
+
+/**
+ * The path words of each shell command, resolved in order from the folder the
+ * Bash tool is in. That folder starts at the clone and persists between calls,
+ * so a `cd` moves it for later words and later calls; a `cd` inside `( )`
+ * lasts until the `)`. A relative word after a `cd` that cannot be followed is
+ * left out.
+ */
+function shellWords(commands, clone) {
+  let cwd = clone;
+  return commands.flatMap((command) => {
+    const subshells = [];
+    return command.split(/&&|\|\||[;|\n]/).flatMap((segment) => {
+      if (segment.trimStart().startsWith('(')) {
+        subshells.push(cwd);
+      }
+      const words = [...segment.matchAll(SHELL_PATH)]
+        .map((match) => expandHome(match[1]))
+        .filter((word) => word.startsWith('/') || cwd !== null)
+        .map((word) => resolve(cwd ?? '/', word));
+      const cd = segment.match(CD);
+      if (cd) {
+        cwd = cdTarget(cd[1], cwd);
+      }
+      if (subshells.length > 0 && segment.trimEnd().endsWith(')')) {
+        cwd = subshells.pop();
+      }
+      return words;
+    });
+  });
+}
+
+/**
+ * Paths the agent's tool calls named outside its scope, and outside the
+ * system folders. A path is in scope when the closest root holding it is in
+ * `allowedRoots`, so a denied root (the trials root, other transcripts) wins
+ * over an allowed root that holds it and loses to an allowed root inside it
+ * (the trial's own workdir, its own session folders). A file or search tool's
+ * path argument always counts, so a search rooted at an ancestor of the
+ * workdir shows. A shell word counts only when it exists on disk, because
+ * shell text also holds URL paths (`/trpc`) and markup.
  *
  * @param {readonly object[]} events
- * @param {{ clone: string, allowedRoots: readonly string[] }} scope
+ * @param {{ clone: string, allowedRoots: readonly string[], deniedRoots: readonly string[] }} scope
  */
-export function findOutsideReads(events, { clone, allowedRoots }) {
+export function findOutsideReads(events, { clone, allowedRoots, deniedRoots }) {
+  const roots = [
+    ...[...allowedRoots, ...SYSTEM_ROOTS].map((root) => ({ root, allowed: true })),
+    ...deniedRoots.map((root) => ({ root, allowed: false })),
+  ].map(({ root, allowed }) => ({ root: root.replace(/\/$/, ''), allowed }));
   const allowed = (path) =>
-    [...allowedRoots, ...SYSTEM_ROOTS].some((root) => {
-      const base = root.replace(/\/$/, '');
-      return path === base || path.startsWith(`${base}/`);
-    });
+    roots
+      .filter(({ root }) => path === root || path.startsWith(`${root}/`))
+      .sort(
+        (left, right) =>
+          right.root.length - left.root.length || Number(left.allowed) - Number(right.allowed),
+      )[0]?.allowed === true;
   const inputs = toolInputs(events);
   const fromFileTools = inputs
     .flatMap((input) => [input.file_path, input.path, input.notebook_path])
     .filter((path) => typeof path === 'string')
     .map((path) => resolve(clone, expandHome(path)));
-  const fromShell = inputs
-    .flatMap((input) =>
-      typeof input.command === 'string'
-        ? [...input.command.matchAll(SHELL_PATH)].map((match) => match[1])
-        : [],
-    )
-    .map((path) => resolve(clone, expandHome(path)))
-    .filter((path) => existsSync(path));
+  const fromShell = shellWords(
+    inputs.map((input) => input.command).filter((command) => typeof command === 'string'),
+    clone,
+  ).filter((path) => existsSync(path));
   return [...new Set([...fromFileTools, ...fromShell])].filter((path) => !allowed(path)).sort();
 }

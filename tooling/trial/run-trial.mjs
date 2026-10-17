@@ -28,7 +28,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { REQUIRED_CHECKS, validateEvidence } from './evidence.mjs';
@@ -104,7 +104,7 @@ const USER_CONFIG_ENTRIES = [
  *   workdir: string, origin: string, clone: string, checkClone: string, branch: string,
  *   evidencePath: string, patchPath: string, keptStreamPath: string, promptPath: string, streamPath: string,
  *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
- *   claudeConfigDir: string, claudeStateFile: string, pnpmStore: string | null,
+ *   claudeConfigDir: string, claudeStateFile: string, tmpDir: string, pnpmStore: string | null,
  *   ports: readonly number[], setup: readonly Command[], checks: readonly Command[],
  * }} TrialPlan
  * @typedef {{ code: number, timedOut: boolean, stdout: string, output: string, ms: number }} ExecResult
@@ -139,7 +139,7 @@ const CHECKS = [
  * @param {{
  *   trial: number, scaffoldRev: string, root: string, trialsRoot: string, now: Date,
  *   sessionId: string, agentCommand?: string, claudeConfigDir: string, claudeStateFile?: string,
- *   pnpmStore?: string | null, retry: boolean,
+ *   tmpDir?: string, pnpmStore?: string | null, retry: boolean,
  * }} options
  * @returns {TrialPlan}
  */
@@ -180,6 +180,7 @@ export function planTrial(options) {
     claudeConfigDir: options.claudeConfigDir,
     claudeStateFile:
       options.claudeStateFile ?? join(dirname(options.claudeConfigDir), '.claude.json'),
+    tmpDir: options.tmpDir ?? tmpdir(),
     pnpmStore: options.pnpmStore ?? null,
     ports: TRIAL_PORTS,
     setup: SETUP,
@@ -612,6 +613,39 @@ async function setupStage({ plan, deps, failures, agent }) {
   agent.userConfigSha256 = userConfigSha256(plan);
 }
 
+const tmpEntries = (plan) => new Set(existsSync(plan.tmpDir) ? readdirSync(plan.tmpDir) : []);
+
+/**
+ * Where the agent may read (ADR 0034): its workdir, the Claude config it
+ * loads, its own session folders under the config's `projects/` and the
+ * `claude-<uid>` tmp folder, the tmp entries it created, `~/.cache` and the
+ * pnpm store. The trials root, every other session's folders and the rest
+ * of `claude-<uid>` stay denied, even inside an allowed root.
+ *
+ * @param {TrialPlan} plan
+ * @param {Set<string>} tmpBefore the tmp folder's entries before the agent ran
+ */
+function readScope(plan, tmpBefore) {
+  const slug = plan.clone.replace(/[^a-zA-Z0-9]/g, '-');
+  const projects = join(plan.claudeConfigDir, 'projects');
+  const claudeTmp = join(plan.tmpDir, `claude-${process.getuid?.()}`);
+  const created = [...tmpEntries(plan)].filter((entry) => !tmpBefore.has(entry));
+  return {
+    clone: plan.clone,
+    allowedRoots: [
+      plan.workdir,
+      ...USER_CONFIG_ENTRIES.map((entry) => join(plan.claudeConfigDir, entry)),
+      join(plan.claudeConfigDir, 'plugins'),
+      join(projects, slug, plan.sessionId),
+      join(claudeTmp, slug),
+      ...created.map((entry) => join(plan.tmpDir, entry)),
+      join(homedir(), '.cache'),
+      ...(plan.pnpmStore ? [plan.pnpmStore] : []),
+    ],
+    deniedRoots: [plan.trialsRoot, projects, claudeTmp],
+  };
+}
+
 /**
  * Runs the one agent session. Before it starts, a provisional record marks
  * the trial as run (`agentExitCode: -1`), so a harness stopped mid-session
@@ -622,6 +656,7 @@ async function setupStage({ plan, deps, failures, agent }) {
 async function agentStage(state) {
   const { plan, deps, scaffold, failures, agent, run, result } = state;
   writeFileSync(plan.promptPath, scaffold.prompt);
+  const tmpBefore = tmpEntries(plan);
   run.agentExitCode = -1;
   await writeEvidence(
     plan,
@@ -655,15 +690,7 @@ async function agentStage(state) {
     sha256: sha256(kept),
     userTextEvents,
   };
-  result.outsideReads = findOutsideReads(events, {
-    clone: plan.clone,
-    allowedRoots: [
-      plan.workdir,
-      ...USER_CONFIG_ENTRIES.map((entry) => join(plan.claudeConfigDir, entry)),
-      join(plan.claudeConfigDir, 'plugins'),
-      ...(plan.pnpmStore ? [plan.pnpmStore] : []),
-    ],
-  });
+  result.outsideReads = findOutsideReads(events, readScope(plan, tmpBefore));
   if (result.outsideReads.length > 0) {
     failures.push(`named paths outside the clone: ${result.outsideReads.join(', ')}`);
   }

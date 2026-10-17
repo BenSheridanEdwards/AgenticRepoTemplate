@@ -43,6 +43,9 @@ only when a hook, script, workflow, or review checklist actually owns it.
   reads the api through those declarations and leaves api source, such as a
   `node:` import in `integrations.ts`, to the api program.
   `pnpm typecheck` builds both with `tsc -b --force tsconfig.json`.
+  One gap follows (ADR 0034): a Node type in an exported api signature, such
+  as a procedure that returns a `Buffer`, reaches the browser program as an
+  unresolved name, and `skipLibCheck` turns it into `any` with no error.
 - **Jest + React Testing Library** own component, hook and api behaviour in
   three projects: `web` (jsdom, every web package and `packages/ui`), `api`
   (node, every api package) and `tooling` (`scripts/`, `tooling/`). Coverage

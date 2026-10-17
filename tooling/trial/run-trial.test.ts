@@ -550,6 +550,7 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     const transcript = join(sandbox, 'claude-config/projects/earlier/session.jsonl');
     write(sandbox, 'claude-config/projects/earlier/session.jsonl', '{}\n');
     write(sandbox, 'PLAN.md', '# plan\n');
+    write(sandbox, 'NOTES.md', '# notes\n');
     write(sandbox, 'tmp/earlier-scratch/result.txt', 'an earlier result\n');
     const planned = plan({ agent: join(sandbox, 'outside-read.mjs') });
     const slug = planned.clone.replace(/[^a-zA-Z0-9]/g, '-');
@@ -575,6 +576,7 @@ emit({ type: 'assistant', message: { content: [
   tool('Read', { file_path: ${JSON.stringify(otherWorkdir)} }),
   tool('Read', { file_path: '~/.ssh/config' }),
   tool('Bash', { command: 'cat ${join(sandbox, 'tmp/earlier-scratch/result.txt')}' }),
+  tool('Bash', { command: '(cd showcase/todo-01/web && ls) && cat ../../../NOTES.md' }),
   tool('Bash', { command: 'grep -rn "/trpc" showcase 2>/dev/null; ls /usr/bin ${REPOSITORY_ROOT}' }),
   tool('Bash', { command: "cat <<'EOF'\\n<div>hi</div> // note\\nimport { x } from '../../domain.ts';\\nEOF" }),
   tool('Bash', { command: 'ls ${source} ${source}/no-such-folder' }),
@@ -589,6 +591,7 @@ emit({ type: 'assistant', message: { content: [
         REPOSITORY_ROOT,
         sandbox,
         join(sandbox, 'PLAN.md'),
+        join(sandbox, 'NOTES.md'),
         join(sandbox, 'tmp/earlier-scratch/result.txt'),
         source,
         join(source, 'apps/web/src/App.tsx'),
