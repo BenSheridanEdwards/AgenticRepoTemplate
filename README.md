@@ -7,8 +7,9 @@
 A template repository that installs a complete method for building software with
 agents: the context files, quality gates, definition of done, and PR contract
 that make AI-written code consistent, proven, and safe to merge. The principles
-come first and the stack does not matter. TypeScript and React are here only as
-a small, runnable feature, so every gate fires on real code.
+come first and the stack does not matter. TypeScript, React and tRPC are here only as
+a small, runnable greeting feature (a name goes in, the api greets it back), so
+every gate fires on real code.
 
 Press **Use this template** and the method is live from your first commit.
 
@@ -153,7 +154,7 @@ symptom. A reviewer reads exactly what was verified.
 
 ### Visual style checking
 
-The behaviour map in [`apps/web/e2e/app.spec.ts`](apps/web/e2e/app.spec.ts) drives the product
+The behaviour map in [`apps/web/e2e/greeting.spec.ts`](apps/web/e2e/greeting.spec.ts) drives the product
 through the real interface using roles and visible text. Visual style checking
 returns once [StyleProof](https://github.com/BenSheridanEdwards/styleproof) is
 fixed.
@@ -211,21 +212,22 @@ an accessibility floor of 0.9 and a performance target of 0.8 (median of three
 runs) in [`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
 [`.size-limit.json`](.size-limit.json), and Fallow checks dead code, cycles,
 and complexity drift on every commit. Fallow also owns the architecture graph,
-gate, and role diagram, all read from `.fallowrc.jsonc`, and API Extractor keeps
-a committed report of each public module's exports.
+gate, the architecture contract's rule pack, and role diagram, all read from
+`.fallowrc.jsonc`, and API Extractor keeps a committed report of each public
+module's exports, per package.
 
 ## Quick start
 
 ```bash
 pnpm install
 pnpm setup:agents     # one time: external agentic toolkit
-pnpm dev              # http://localhost:5173
+pnpm dev              # web at http://localhost:5173 and api at :3001
 pnpm lint:policy      # ESLint policy, React hooks, and React Compiler rules
 pnpm verify           # typecheck, biome, eslint, react doctor, fallow, architecture, tests with coverage, build, size
 pnpm e2e              # behaviour map and axe accessibility scan (Playwright)
 ```
 
-Requires Node 22 or higher and pnpm. See [`.nvmrc`](.nvmrc).
+Requires Node 22.18 or higher and pnpm. See [`.nvmrc`](.nvmrc).
 
 ### Post-clone setup checklist
 
@@ -241,8 +243,10 @@ repository has to finish this list before the gates truly block:
 ## Adopt it
 
 For a new project, press **Use this template**, run `pnpm install` and
-`pnpm setup:agents`, then build inside `apps/web/src/features/*` using the templates in
-[`.agents/templates/`](.agents/templates). The gates are live from the first
+`pnpm setup:agents`, then build routes in `apps/web/src/routes/*` and api
+features in `apps/api/src/features/*` using the templates in
+[`.agents/templates/`](.agents/templates) and the greeting feature as the model
+([`.agents/project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md)). The gates are live from the first
 commit.
 
 For a brownfield project, copy the scaffolding into the existing repo:
@@ -303,17 +307,22 @@ eslint.config.js            Policy, React hooks, React Compiler, and React Docto
 tooling/eslint-plugin-policy.js  The repository's own ESLint policy rules (ADR 0019).
 commitlint.config.ts        Conventional Commits.
 jest.config.ts / jest.setup.ts  Unit and component tests (RTL and jest-axe), coverage gate.
-playwright.config.ts        Browser harness for the E2E behaviour map.
+playwright.config.ts        Browser harness for the E2E behaviour map: one project and two servers per result.
 .size-limit.json            Bundle-size budget.
 lighthouserc.json           Lighthouse budget (accessibility floor and performance).
-.fallowrc.jsonc             Fallow config: the role zones and rules, plus runtime-loaded plugins.
-pnpm-workspace.yaml         Workspace packages (apps/*), trusted builds, and security overrides.
-tsconfig.json               strict, with extra strictness; the first gate.
+.fallowrc.jsonc             Fallow config: the role zones and rules, the contract rule pack, plus runtime-loaded plugins.
+pnpm-workspace.yaml         Workspace packages (apps/*, packages/*), trusted builds, and security overrides.
+tsconfig.base.json          strict, with extra strictness; the first gate.
+tsconfig.json               The browser program: web packages, packages/ui, root configs.
+tsconfig.api.json           The Node program: api packages, .ts import extensions, erasable syntax only.
+tooling/
+  results.mjs               Lists the results (apps/ and each showcase/<id>/) for the per-result gates.
+  architecture/contract.rules.jsonc  The contract's banned imports, calls and effects per role.
 scripts/
   setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus, Ponytail.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
   fallow-roles.mjs          Renders docs/architecture/roles.mmd from the Fallow graph.
-  api-report.mjs            Writes and checks the apps/web/etc/*.api.md API Extractor reports.
+  api-report.mjs            Writes and checks each package's etc/*.api.md API Extractor reports.
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
   check-suppressions.mjs    Every lint or type suppression names a rule and a reason.
@@ -324,19 +333,25 @@ scripts/
 docs/architecture/roles.mmd  Generated role diagram (pnpm arch:diagram).
 docs/required-gates.md      Generated required-check inventory (pnpm gates:inventory).
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
-apps/web/                   The app, the @repo/web workspace package. Root configs own every gate.
-  package.json              The app's dev, build, and preview scripts and its runtime dependencies.
-  index.html                The page shell Vite serves.
-  vite.config.ts            The runnable carrier; serves /api/service-status in dev and preview.
-  src/routes/home/          The one page; routes compose features.
-  src/features/threshold-counter/  The one small but real feature.
-  src/features/service-status/     The async feature, fed by /api/service-status.
-  src/shared/async-resource/       Shared async-state module.
-  e2e/
-    app.spec.ts             The behaviour map.
-    service-status.spec.ts  The service-status behaviour.
-    accessibility.spec.ts   Real-browser axe scan (WCAG A and AA, including contrast).
-  etc/                      Generated API Extractor reports, one per public module (pnpm api:report).
+apps/                       The reference result. Root configs own every gate.
+  web/                      @repo/web: the Vite + React app.
+    index.html              The page shell Vite serves.
+    vite.config.ts          The runnable carrier; proxies /trpc to the api in dev and preview.
+    src/main.tsx, App.tsx   Composition root: mounts the greeting route inside ApiProvider.
+    src/api-client/         The one door to the api: useTrpc, ApiProvider, TestApiProvider.
+    src/routes/greeting/    The greeting page, its form, hooks, and Effect Schema form schema.
+    e2e/
+      greeting.spec.ts      The behaviour map: the greeting journeys through the real api.
+      accessibility.spec.ts Real-browser axe scan (WCAG A and AA, including contrast).
+    etc/                    Generated API Extractor reports (pnpm api:report).
+  api/                      @repo/api: the tRPC api, run by Node's native type stripping.
+    src/server.ts           The HTTP server on PORT (default 3001), at /trpc.
+    src/router.ts           appRouter and the AppRouter type the web imports.
+    src/trpc.ts             The tRPC base: router, procedure, createCallerFactory.
+    src/features/greeting/  index, procedures, application and domain for greeting.greet.
+    etc/                    Generated API Extractor reports.
+packages/ui/                @repo/ui: Button, TextField, and styles.css, with no business logic.
+showcase/<id>/              Where each generated trial result goes, with the same web/ and api/ shape (none yet).
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
 graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). Rebuild with graphify.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.

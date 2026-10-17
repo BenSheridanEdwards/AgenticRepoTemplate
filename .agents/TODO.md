@@ -22,27 +22,3 @@ green). What remains is the interactive pass.
   re-run is reproducible via the documented `/…-audit` commands in `README.md`.
   This item is only done once the five LLM-graded audits themselves are
   re-generated, not merely the deterministic recheck above.
-
-## Enforce the architecture-drift claim with fallow boundary zones
-
-The README and audits claim architecture drift is caught, but `.fallowrc.jsonc`
-defines no boundary zones, so cross-feature back-imports are not actually gated —
-only asserted.
-
-- **Acceptance:** `.fallowrc.jsonc` declares boundary zones (e.g. features may not
-  import each other's internals; only barrels are public) that match
-  `.agents/project/ARCHITECTURE.md`; `pnpm fallow:audit` fails on a deliberate
-  cross-feature back-import and passes on the clean tree; the new gate is a
-  documented, runnable check, not a claim.
-
-## Grow the carrier app with a second, async feature
-
-There is one synchronous feature (`threshold-counter`), so the E2E and a11y
-gates exercise only its synchronous states, and the architecture audit has no
-cross-feature coupling to measure.
-
-- **Acceptance:** a second `apps/web/src/features/*` slice with an async/route surface
-  exists, built from the templates; `apps/web/e2e/app.spec.ts` covers its loading and
-  error states through roles and visible text; jest-axe and `@axe-core/playwright`
-  pass on it; and the architecture audit now has
-  cross-feature coupling to measure.

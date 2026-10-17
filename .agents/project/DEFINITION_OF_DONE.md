@@ -10,22 +10,26 @@ complete once `pnpm verify` and `pnpm e2e` are green.
 
 ## The checklist
 
-- [ ] **Behaviour is specified.** New or changed behaviour is covered by
-      `apps/web/e2e/app.spec.ts` (the behaviour map). The product's contract is explicit.
-- [ ] **Logic is unit-tested.** Pure functions and hooks have tests that assert
-      behaviour through the public surface — coverage stays at/above the
-      threshold in `jest.config.ts` (80%).
-- [ ] **Types check.** `pnpm typecheck` passes with no `any` and no weakened
+- [ ] **Behaviour is specified.** New or changed behaviour is covered by a
+      spec in the result's `web/e2e/` folder (the behaviour map), such as
+      `apps/web/e2e/greeting.spec.ts`. The product's contract is explicit.
+- [ ] **Logic is unit-tested.** Domain, application and procedures have `api`
+      Jest tests; hooks and pages have `web` Jest tests that render through
+      `TestApiProvider`. Coverage stays at/above the threshold in
+      `jest.config.ts` (80%).
+- [ ] **Types check.** `pnpm typecheck` passes both programs, `tsconfig.json`
+      (web and ui) and `tsconfig.api.json` (api), with no `any` and no weakened
       config.
 - [ ] **Lint + format clean.** `pnpm check` (Biome), `pnpm lint:policy`
       (ESLint), and `pnpm react-doctor` pass; every disabled rule carries a
       written reason.
-- [ ] **Code intelligence clean.** `pnpm fallow:audit` introduces no new dead
-      code, circular dependencies, or complexity/architecture violations.
-- [ ] **Architecture checks pass.** `pnpm arch:check` passes: no forbidden
-      import, `docs/architecture/roles.mmd` matches `pnpm arch:diagram`, and
-      every `apps/web/etc/*.api.md` matches the code (`pnpm api:report` after an
-      intended export change).
+- [ ] **Code intelligence clean.** `pnpm fallow:audit` reports no dead code,
+      circular dependency, complexity, architecture or `contract/<id>` finding
+      in any file the change touches.
+- [ ] **Architecture checks pass.** `pnpm arch:check` passes: every file sits
+      in a role, no forbidden import, `docs/architecture/roles.mmd` matches
+      `pnpm arch:diagram`, and every package's `etc/*.api.md` matches the code
+      (`pnpm api:report` after an intended export change).
 - [ ] **Build succeeds.** `pnpm build` produces a clean production bundle.
 - [ ] **Accessible.** No axe violations (jest-axe in unit tests, `@axe-core/playwright`
       in the E2E run); interactive elements are reachable and labelled.
@@ -47,8 +51,8 @@ complete once `pnpm verify` and `pnpm e2e` are green.
 ## The one-command proof
 
 ```bash
-pnpm verify   # typecheck → biome → fallow → architecture → unit tests → build → size
-pnpm e2e      # behaviour map + axe accessibility scan
+pnpm verify   # typecheck → biome → eslint → fallow → architecture → unit tests → build → size
+pnpm e2e      # every result's behaviour map + axe accessibility scan
 ```
 
 If both are green and the checklist holds, the work is done. If either is red,

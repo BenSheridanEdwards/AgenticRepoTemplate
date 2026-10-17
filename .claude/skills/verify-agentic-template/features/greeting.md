@@ -11,7 +11,7 @@ one with `BAD_REQUEST`.
 - `greeting-success` sends one `GET /trpc/greeting.greet` and shows the
   greeting from its answer.
 - `greeting-validation` checks the name in the form with its Effect schema, so
-  a blank name never reaches the api.
+  the form stops a blank name before any request leaves.
 - `greeting-error` shows the request error when the api fails.
 
 ## How to get to it (user POV)
