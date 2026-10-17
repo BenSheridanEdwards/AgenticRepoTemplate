@@ -13,6 +13,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
@@ -111,6 +112,15 @@ const quietDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => ({
   isPortBusy: async () => false,
   ...overrides,
 });
+
+/** A TCP port nothing listens on, so a test never takes a trial port another process needs. */
+const freePort = () =>
+  new Promise<number>((done) => {
+    const server = createServer().listen(0, '127.0.0.1', () => {
+      const { port } = server.address() as { port: number };
+      server.close(() => done(port));
+    });
+  });
 
 const passingChecks = ['install', 'verify', 'e2e', 'structure'].map((name) => ({
   name,
@@ -396,6 +406,7 @@ describe('runTrial', () => {
         changedPaths: ['showcase/todo-01/web/src/main.tsx'],
         outsideScope: [],
         outsideReads: [],
+        stoppedServers: [],
         patch: null,
       },
       harness: { sha256: expect.stringMatching(/^[0-9a-f]{64}$/), matchesScaffold: false },
@@ -722,6 +733,66 @@ emit({ type: 'assistant', message: { content: [
       residue: false,
       result: true,
     });
+  });
+
+  it('stops a server the agent left on a trial port before the checks, and the run still passes', async () => {
+    const port = await freePort();
+    const pidFile = join(sandbox, 'stray-server.pid');
+    const portIsFree = `const s = require('net').createServer(); s.once('error', () => process.exit(1)); s.listen(${port}, '127.0.0.1', () => s.close(() => process.exit(0)));`;
+    const agent = fakeAgent(
+      'stray-server',
+      `${WRITES_RESULT}
+const { spawn } = await import('node:child_process');
+const { connect } = await import('node:net');
+const server = spawn(process.execPath, ['-e', "require('net').createServer().listen(${port}, '127.0.0.1')"], { detached: true, stdio: 'ignore' });
+server.unref();
+writeFileSync(${JSON.stringify(pidFile)}, String(server.pid));
+const listening = () => new Promise((done) => {
+  const socket = connect(${port}, '127.0.0.1', () => { socket.end(); done(true); });
+  socket.on('error', () => done(false));
+});
+while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50)); }`,
+    );
+    try {
+      const evidence = await runTrial(
+        {
+          ...plan({ agent }),
+          ports: [port],
+          checks: passingChecks.map((check) =>
+            check.name === 'e2e' ? { ...check, argv: ['node', '-e', portIsFree] } : check,
+          ),
+        },
+        quietDeps({ isPortBusy: systemDeps().isPortBusy }),
+      );
+
+      expect(evidence.failures).toEqual([]);
+      expect(evidence.result).toMatchObject({ status: 'passed', stoppedServers: [port] });
+    } finally {
+      try {
+        process.kill(Number(readFileSync(pidFile, 'utf8')), 'SIGKILL');
+      } catch {
+        // The harness stopped it.
+      }
+    }
+  });
+
+  it('fails a run whose agent left a server the harness cannot stop, naming the port', async () => {
+    let calls = 0;
+    const evidence = await runTrial(
+      { ...plan({ agent: fakeAgent('unstoppable', WRITES_RESULT) }), ports: [5183] },
+      quietDeps({
+        isPortBusy: async () => {
+          calls += 1;
+          return calls > 1;
+        },
+        stopListeners: async () => undefined,
+      }),
+    );
+
+    expect(evidence.result.status).toBe('failed');
+    expect(evidence.failures).toEqual([
+      'port 5183 stayed busy after the harness stopped the server the agent left on it',
+    ]);
   });
 
   it('marks the trial as run before the agent starts, so a stopped harness leaves a final record', async () => {

@@ -41,6 +41,7 @@ const passed = () => ({
     changedPaths: ['pnpm-lock.yaml', 'showcase/todo-02/web/package.json'],
     outsideScope: [],
     outsideReads: [],
+    stoppedServers: [],
     patch: null,
   },
   stream: { path: 'docs/trials/todo-02.stream.jsonl', sha256: SHA256, userTextEvents: 0 },
