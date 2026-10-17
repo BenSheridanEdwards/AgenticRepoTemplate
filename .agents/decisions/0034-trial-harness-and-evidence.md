@@ -143,18 +143,20 @@ the evidence:
    ancestor of the workdir counts. A shell word counts when it is absolute,
    under `~/` or starts with `..`, and exists, so URL paths such as `/trpc`
    and markup never count. Relative words resolve from the clone. The
-   prompt tells the agent to read only inside its clone. Then it checks the
-   four trial ports again. A server the agent left on one, such as a
-   detached server from the verify skill's launcher that outlived the
-   agent's process group, is stopped (SIGTERM to its process group, then
-   SIGKILL) and its port recorded in `result.stoppedServers`. A stray server
-   does not fail the run; only one that will not stop does, by port.
+   prompt tells the agent to read only inside its clone.
 5. It rewinds the clone to the scaffold on `trial/<id>`, keeping the agent's
    tree, so whatever the agent committed, the harness makes the one result
    commit: `showcase/<id>` and the lockfile as
    `feat(showcase): add <id> trial result` with the sign-off trailer and the
    hooks on.
-6. It clones that commit into `check/` and runs `pnpm install --frozen-lockfile`,
+6. It checks the four trial ports again, after the commit hooks, so a server
+   the agent started as it exited has had the hooks' run to start. A server the agent
+   left on one, such as a detached server from the verify skill's launcher
+   that outlived the agent's process group, is stopped (SIGTERM to its
+   process group, then SIGKILL) and its port recorded in
+   `result.stoppedServers`. A stray server does not fail the run; only one
+   that will not stop does, by port. Then it clones that commit into
+   `check/` and runs `pnpm install --frozen-lockfile`,
    `pnpm verify`, `pnpm e2e` and `node tooling/architecture/structure.mjs`
    there with `CI=1`, as a pull request runs them: the checks see the commit
    and nothing the agent left in its tree, `test.only` fails, and no stray

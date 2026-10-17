@@ -672,7 +672,9 @@ async function agentStage(state) {
 /**
  * Stops a server the agent left on a trial port, which outlives the agent's
  * process group when it was started detached, so the checks, which reuse no
- * server, get their ports. Only a server that will not stop fails the run.
+ * server, get their ports. It runs after the result commit, right before the
+ * checks, so a server the agent started as it exited has had the hooks' run to start.
+ * Only a server that will not stop fails the run.
  *
  * @param {RunState} state
  */
@@ -748,8 +750,8 @@ const STAGES = [
   { run: ({ plan, deps }) => prepareClone(plan, deps), beforeAgent: true },
   { run: setupStage, beforeAgent: true },
   { run: agentStage, beforeAgent: false },
-  { run: strayServerStage, beforeAgent: false },
   { run: resultStage, beforeAgent: false },
+  { run: strayServerStage, beforeAgent: false },
   { run: checksStage, beforeAgent: false },
 ];
 
