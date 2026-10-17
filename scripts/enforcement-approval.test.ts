@@ -65,6 +65,8 @@ describe('GUARDS', () => {
 
   it.each([
     ['.github/workflows/enforcement-approval.yml', 'Enforcement-approval gate'],
+    ['scripts/enforcement-approval.mjs', 'Enforcement-approval gate'],
+    ['scripts/enforcement-approval.test.ts', 'Enforcement-approval gate'],
     ['.github/workflows/ci.yml', 'CI workflows'],
     ['.husky/pre-commit', 'Git hooks'],
     ['eslint.config.js', 'Lint config'],
@@ -88,8 +90,6 @@ describe('GUARDS', () => {
     '.claude/settings.json',
     '.claude/hooks/block-gate-bypass.sh',
     '.claude/skills/show-me/SKILL.md',
-    'scripts/enforcement-approval.mjs',
-    'scripts/enforcement-approval.test.ts',
     'scripts/required-gates.mjs',
     'docs/required-gates.md',
     'tooling/anything.json',
@@ -139,10 +139,12 @@ describe('rewrite judge', () => {
     expect(reasons('.husky/pre-commit', before, after)).toEqual([reason]);
   });
 
-  it('names an edit to the gate itself', () => {
-    expect(reasons('.github/workflows/enforcement-approval.yml', 'a', 'b')).toEqual([
-      'edits the enforcement-approval gate',
-    ]);
+  it.each([
+    '.github/workflows/enforcement-approval.yml',
+    'scripts/enforcement-approval.mjs',
+    'scripts/enforcement-approval.test.ts',
+  ])('names an edit to the gate itself in %s', (path) => {
+    expect(reasons(path, 'a', 'b')).toEqual(['edits the enforcement-approval gate']);
   });
 });
 
