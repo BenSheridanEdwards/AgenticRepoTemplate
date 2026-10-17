@@ -1,6 +1,6 @@
 # 7. Protect enforcement paths by default
 
-- **Status:** Superseded by [0021](0021-protect-only-the-files-that-run-the-gates.md)
+- **Status:** Superseded by [0023](0023-protect-only-the-files-that-run-the-gates.md)
 - **Date:** 2026-10-15
 
 ## Context
