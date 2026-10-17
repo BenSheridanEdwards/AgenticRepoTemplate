@@ -321,7 +321,10 @@ tsconfig.domain.json        The domain program: api domain modules with no Node 
 tooling/
   results.mjs               Lists the results (apps/ and each showcase/<id>/) for the per-result gates.
   architecture/contract.rules.jsonc  The contract's banned imports, calls and effects per role.
-  architecture/diagram.mjs  Renders docs/architecture/roles.mmd from the Fallow graph.
+  architecture/contract.mjs  The roles and directions of .fallowrc.jsonc as data.
+  architecture/graph.mjs    Reads Fallow's import graph, the files and the results.
+  architecture/diagram.mjs  Writes docs/architecture/roles.mmd and each result's architecture.mmd.
+  architecture/structure.mjs  Validates every result's structure against the contract.
 scripts/
   setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus, Ponytail.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
@@ -333,10 +336,11 @@ scripts/
   enforcement-approval.mjs  Finds loosening changes, keeps the head-bound sign-off comment, sets the status.
   required-gates.mjs        The required-check contract and the Required gates decision.
   verify-gates.sh           Local mirror of the CI gate suite.
-docs/architecture/roles.mmd  Generated role diagram (pnpm arch:diagram).
+docs/architecture/roles.mmd  Generated canonical role diagram (pnpm arch:diagram).
 docs/required-gates.md      Generated required-check inventory (pnpm gates:inventory).
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
 apps/                       The reference result. Root configs own every gate.
+  architecture.mmd          The reference result's generated diagram (pnpm arch:diagram).
   web/                      @repo/web: the Vite + React app.
     index.html              The page shell Vite serves.
     vite.config.ts          The runnable carrier; proxies /trpc to the api in dev and preview.

@@ -105,8 +105,33 @@ and `etc/**` sit outside the roles. A file that grows too large becomes a
 folder of the same name, such as `features/<name>/application/`, and keeps its
 role.
 
-The generated diagram [`docs/architecture/roles.mmd`](../../docs/architecture/roles.mmd)
-shows the imports that exist today.
+The canonical diagram [`docs/architecture/roles.mmd`](../../docs/architecture/roles.mmd)
+shows every role and every direction the rules allow, dashed where only a
+type-only import is allowed. Each result has its own generated diagram,
+[`apps/architecture.mmd`](../../apps/architecture.mmd) for the reference and
+`showcase/<id>/architecture.mmd` for a trial, with the role edges its imports
+resolve to. Both come from `pnpm arch:diagram`, with the same node names.
+
+## Result structure
+
+`tooling/architecture/structure.mjs` checks every result alike, the reference
+included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.md)):
+
+- Each web package holds a file in `web-app`, `web-api-client` and
+  `web-routes`, and each api package in `api-app`, `api-trpc`,
+  `api-procedures`, `api-application` and `api-domain`.
+- A result root holds `web/`, `api/` and `architecture.mmd`. A web package
+  holds `package.json`, `index.html`, `vite.config.ts`, `src/`, `public/`,
+  `e2e/` and `etc/`. An api package holds `package.json`, `src/` and `etc/`.
+  The root configs own every gate, so a package keeps its config at the root.
+- A manifest is named `@<scope>/<kind>`, is private and `type: module`, uses
+  the script names of the reference package of its kind, and lists a subset of
+  that package's dependencies with the same ranges. A web package lists its
+  own `@<scope>/api` and `@repo/ui` as workspace dependencies; an api package
+  lists only external ones.
+- A web package holds at least one `e2e/*.spec.ts`.
+- Each import stays inside its result or reaches `packages/ui`.
+- A result fixes each finding in code, so it holds no suppression directive.
 
 ## The api file roles
 
@@ -219,10 +244,12 @@ is each result's `web/e2e/*.spec.ts`, for example
 file:
 
 - `pnpm arch:gate` runs `fallow architecture` and exits 1 on a forbidden import
-  or a file in no role.
+  or a file in no role. It then runs the structure check above and
+  `diagram.mjs --check`, which exits 1 on a missing, stale or extra diagram.
 - `pnpm arch:diagram` regenerates
-  [`docs/architecture/roles.mmd`](../../docs/architecture/roles.mmd). Commit the
-  result; CI fails when the committed copy differs from a fresh run.
+  [`docs/architecture/roles.mmd`](../../docs/architecture/roles.mmd) and every
+  result's `architecture.mmd`. Commit the result; CI fails when a committed copy
+  differs from a fresh run.
 - `pnpm api:check` compares the API reports with the code. `pnpm api:report`
   rewrites them per package: the package entry gives
   `<package>/etc/<name>.api.md` (`apps/api/etc/api.api.md`), and each route,
@@ -288,6 +315,6 @@ import it through its `index.ts`.
 ### Finish
 
 1. Run `pnpm api:report` and commit the new or changed `etc/*.api.md`.
-2. Run `pnpm arch:diagram` and commit `docs/architecture/roles.mmd` when it
-   changes.
+2. Run `pnpm arch:diagram` and commit `apps/architecture.mmd` and
+   `docs/architecture/roles.mmd` when they change.
 3. `pnpm verify` and `pnpm e2e` pass before you call it done.
