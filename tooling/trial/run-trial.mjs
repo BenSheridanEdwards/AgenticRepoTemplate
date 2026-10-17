@@ -96,7 +96,7 @@ const USER_CONFIG_ENTRIES = [
  *   evidencePath: string, patchPath: string, keptStreamPath: string, promptPath: string, streamPath: string,
  *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
  *   claudeConfigDir: string, claudeStateFile: string, pnpmStore: string | null,
- *   setup: readonly Command[], checks: readonly Command[],
+ *   ports: readonly number[], setup: readonly Command[], checks: readonly Command[],
  * }} TrialPlan
  * @typedef {{ code: number, timedOut: boolean, stdout: string, output: string, ms: number }} ExecResult
  * @typedef {{
@@ -104,6 +104,7 @@ const USER_CONFIG_ENTRIES = [
  *   now: () => Date,
  *   freeDiskBytes: (path: string) => number,
  *   isPortBusy: (port: number) => Promise<boolean>,
+ *   stopListeners: (port: number) => Promise<void>,
  * }} Deps
  * @typedef {import('./evidence.mjs').TrialEvidence} TrialEvidence
  */
@@ -171,6 +172,7 @@ export function planTrial(options) {
     claudeStateFile:
       options.claudeStateFile ?? join(dirname(options.claudeConfigDir), '.claude.json'),
     pnpmStore: options.pnpmStore ?? null,
+    ports: TRIAL_PORTS,
     setup: SETUP,
     checks: CHECKS,
   };
@@ -300,7 +302,7 @@ async function checkPreconditions(plan, deps) {
   if (free < MIN_FREE_DISK_BYTES) {
     throw new Error(`Only ${(free / 1e9).toFixed(1)} GB free disk; a trial needs 5 GB.`);
   }
-  for (const port of TRIAL_PORTS) {
+  for (const port of plan.ports) {
     if (await deps.isPortBusy(port)) {
       throw new Error(`port ${port} is busy; a trial's servers need it.`);
     }
@@ -656,6 +658,29 @@ async function agentStage(state) {
   }
 }
 
+/**
+ * Stops a server the agent left on a trial port, which outlives the agent's
+ * process group when it was started detached, so the checks, which reuse no
+ * server, get their ports. Only a server that will not stop fails the run.
+ *
+ * @param {RunState} state
+ */
+async function strayServerStage({ plan, deps, failures, result }) {
+  for (const port of plan.ports) {
+    if (!(await deps.isPortBusy(port))) {
+      continue;
+    }
+    await deps.stopListeners(port);
+    if (await deps.isPortBusy(port)) {
+      failures.push(
+        `port ${port} stayed busy after the harness stopped the server the agent left on it`,
+      );
+    } else {
+      result.stoppedServers.push(port);
+    }
+  }
+}
+
 /** @param {RunState} state */
 async function resultStage({ plan, deps, scaffold, failures, result }) {
   Object.assign(result, await inspectChanges(plan, scaffold.lockfile, deps));
@@ -712,6 +737,7 @@ const STAGES = [
   { run: ({ plan, deps }) => prepareClone(plan, deps), beforeAgent: true },
   { run: setupStage, beforeAgent: true },
   { run: agentStage, beforeAgent: false },
+  { run: strayServerStage, beforeAgent: false },
   { run: resultStage, beforeAgent: false },
   { run: checksStage, beforeAgent: false },
 ];
@@ -805,7 +831,14 @@ export async function runTrial(plan, deps) {
     checks: [],
     agent: { version: '', userConfigSha256: sha256(''), resolvedModel: null },
     run: { agentExitCode: null, agentDurationMs: null, turns: null, costUsd: null },
-    result: { commit: null, changedPaths: [], outsideScope: [], outsideReads: [], patch: null },
+    result: {
+      commit: null,
+      changedPaths: [],
+      outsideScope: [],
+      outsideReads: [],
+      stoppedServers: [],
+      patch: null,
+    },
     stream: { path: null, sha256: null, userTextEvents: null },
   };
   await runStages(state);

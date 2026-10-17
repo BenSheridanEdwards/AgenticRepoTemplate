@@ -132,7 +132,12 @@ the evidence:
    ancestor of the workdir counts. A shell word counts when it is absolute,
    under `~/` or starts with `..`, and exists, so URL paths such as `/trpc`
    and markup never count. Relative words resolve from the clone. The
-   prompt tells the agent to read only inside its clone.
+   prompt tells the agent to read only inside its clone. Then it checks the
+   four trial ports again. A server the agent left on one, such as a
+   detached server from the verify skill's launcher that outlived the
+   agent's process group, is stopped (SIGTERM to its process group, then
+   SIGKILL) and its port recorded in `result.stoppedServers`. A stray server
+   does not fail the run; only one that will not stop does, by port.
 5. It rewinds the clone to the scaffold on `trial/<id>`, keeping the agent's
    tree, so whatever the agent committed, the harness makes the one result
    commit: `showcase/<id>` and the lockfile as
@@ -167,7 +172,8 @@ init event or null, user config SHA-256, fake); `run` (start, finish and
 duration; the agent's exit code and duration, null when the agent never
 started and -1 in the provisional record; turns and cost from the result
 event or null); `result` (status,
-commit, changed paths, `outsideScope`, `outsideReads`, patch path); `stream`
+commit, changed paths, `outsideScope`, `outsideReads`, `stoppedServers`,
+patch path); `stream`
 (the kept stream's path and SHA-256, and `userTextEvents`, the user events
 that carry text rather than only tool results); `checks`
 (name, command, exit code, duration, last 200 lines of output); `failures`;

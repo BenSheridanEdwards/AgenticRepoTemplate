@@ -12,7 +12,7 @@
  *   harness: { sha256: string, matchesScaffold: boolean },
  *   agent: { cli: string, version: string, argv: string[], sessionId: string, resolvedModel: string | null, userConfigSha256: string, fake: boolean },
  *   run: { startedAt: string, finishedAt: string, durationMs: number, agentExitCode: number | null, agentDurationMs: number | null, turns: number | null, costUsd: number | null },
- *   result: { status: 'passed' | 'failed', commit: string | null, changedPaths: string[], outsideScope: string[], outsideReads: string[], patch: string | null },
+ *   result: { status: 'passed' | 'failed', commit: string | null, changedPaths: string[], outsideScope: string[], outsideReads: string[], stoppedServers: number[], patch: string | null },
  *   stream: { path: string | null, sha256: string | null, userTextEvents: number | null },
  *   checks: CheckRecord[],
  *   failures: string[],
@@ -138,6 +138,7 @@ const SCHEMA = shape({
     changedPaths: list(text()),
     outsideScope: list(text()),
     outsideReads: list(text()),
+    stoppedServers: list(count()),
     patch: nullable(text()),
   }),
   stream: shape({

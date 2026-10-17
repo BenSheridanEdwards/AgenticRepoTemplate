@@ -138,6 +138,42 @@ function exec(argv, { cwd, input, timeoutMs, stdoutFile, env = commandEnv() }) {
   });
 }
 
+const isPortBusy = (port) =>
+  new Promise((done) => {
+    const server = createServer();
+    server.once('error', () => done(true));
+    server.listen(port, '127.0.0.1', () => server.close(() => done(false)));
+  });
+
+/** The processes listening on TCP `port`, from `lsof`, or none when it is missing. */
+function listeners(port) {
+  const found = spawnSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
+  return (found.stdout ?? '').split('\n').filter(Boolean).map(Number);
+}
+
+const pause = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/**
+ * Stops whatever listens on `port`: SIGTERM to each listener's process group
+ * (a detached server leads its own), then SIGKILL if the port is still busy
+ * after five seconds.
+ */
+async function stopListeners(port) {
+  for (const signal of ['SIGTERM', 'SIGKILL']) {
+    for (const pid of listeners(port)) {
+      stopGroup(pid, signal);
+      try {
+        process.kill(pid, signal);
+      } catch {
+        // It has already exited.
+      }
+    }
+    for (let waited = 0; waited < 5_000 && (await isPortBusy(port)); waited += 100) {
+      await pause(100);
+    }
+  }
+}
+
 /** @returns {import('./run-trial.mjs').Deps} */
 export function systemDeps() {
   return {
@@ -147,11 +183,7 @@ export function systemDeps() {
       const stats = statfsSync(path);
       return stats.bavail * stats.bsize;
     },
-    isPortBusy: (port) =>
-      new Promise((done) => {
-        const server = createServer();
-        server.once('error', () => done(true));
-        server.listen(port, '127.0.0.1', () => server.close(() => done(false)));
-      }),
+    isPortBusy,
+    stopListeners,
   };
 }
