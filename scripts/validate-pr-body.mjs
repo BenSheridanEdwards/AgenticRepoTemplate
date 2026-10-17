@@ -2,9 +2,10 @@
 /**
  * Validate a pull-request body and title against the repo's PR contract.
  *
- * The body and title arrive through environment variables (`PR_BODY`,
- * `PR_TITLE`) rather than as command arguments or interpolated workflow text, so
- * an attacker-controlled PR body can never be evaluated as shell or YAML. The
+ * The body, title, and head branch arrive through environment variables
+ * (`PR_BODY`, `PR_TITLE`, `PR_HEAD_REF`) rather than as command arguments or
+ * interpolated workflow text, so an attacker-controlled PR body can never be
+ * evaluated as shell or YAML. The
  * workflow populates them with `${{ toJSON(github.event.pull_request.body) }}`,
  * so each env var holds a JSON-encoded string (quoted, with escaped newlines);
  * the CLI runner JSON-parses it back to the raw text. See
@@ -27,16 +28,44 @@ export const REQUIRED_SECTIONS = [
 ];
 
 /** The proof section must contain one of these, or the PR fails. */
-const INLINE_IMAGE_MARKER = '![';
-const NOT_APPLICABLE_MARKER = 'Not applicable';
+
+/** The Conventional Commit types, matching `commitlint.config.ts`. */
+export const CONVENTIONAL_COMMIT_TYPES = [
+  'feat',
+  'fix',
+  'docs',
+  'style',
+  'refactor',
+  'perf',
+  'test',
+  'build',
+  'ci',
+  'chore',
+  'revert',
+];
+
+const TYPE_ALTERNATION = CONVENTIONAL_COMMIT_TYPES.join('|');
 
 /**
  * Conventional Commits: `type(scope): summary` or `type: summary`. The scope is
- * optional; an optional `!` marks a breaking change. The type set matches
- * `commitlint.config.ts`.
+ * optional; an optional `!` marks a breaking change.
  */
-const CONVENTIONAL_COMMIT_PATTERN =
-  /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^()\n]+\))?!?: .+/;
+const CONVENTIONAL_COMMIT_PATTERN = new RegExp(`^(${TYPE_ALTERNATION})(\\([^()\\n]+\\))?!?: .+`);
+
+/** Branches are `<type>/<short-kebab-summary>`, per `.agents/project/CONVENTIONS.md`. */
+const BRANCH_SEGMENT = '[a-z0-9]+([.-][a-z0-9]+)*';
+// GitHub's revert button names its branch `revert-<pr>-<original branch>`.
+const BRANCH_PATTERN = new RegExp(
+  `^(revert-\\d+-)?(${TYPE_ALTERNATION})/${BRANCH_SEGMENT}(/${BRANCH_SEGMENT})*$`,
+);
+
+const INLINE_IMAGE = /!\[[^\]]*\]\(\s*<?([^\s)>]*)>?[^)]*\)/g;
+// A link whose text holds no brackets, so `[![alt](img)](href)` is not read as a link to `img`.
+const PLAIN_LINK = /(?<!!)\[[^[\]]*\]\(\s*<?([^\s)>]+)>?[^)]*\)/g;
+const IMAGE_FILE_URL = /\.(png|jpe?g|gif|webp)(\?[^#]*)?(#.*)?$/i;
+const GITHUB_BLOB_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
+const NOT_APPLICABLE = /not applicable/i;
+const NOT_APPLICABLE_REASON_WORDS = 2;
 
 /**
  * Strip HTML comments (`<!-- ... -->`) from a block of text. Template guidance
@@ -55,6 +84,55 @@ function stripHtmlComments(text) {
     current = current.replace(/<!--[\s\S]*?-->/g, '');
   } while (current !== previous);
   return current.replace(/<!--[\s\S]*$/, '');
+}
+
+/**
+ * Remove fenced code blocks and inline code spans: Markdown there is an example,
+ * not content (the template's checklist quotes `![alt](...png?raw=1)`).
+ */
+function stripCode(text) {
+  return text
+    .replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[^\n]*$|(?![\s\S]))/gm, '')
+    .replace(/(`+)[^`]*?\1/g, '');
+}
+
+function linkTargets(text, pattern) {
+  return [...text.matchAll(pattern)].map((match) => match[1]);
+}
+
+/** Every inline image in the body must be an absolute https URL GitHub renders. */
+function collectImageErrors(body) {
+  const errors = [];
+  for (const url of linkTargets(stripCode(stripHtmlComments(body)), INLINE_IMAGE)) {
+    if (!/^https:\/\//i.test(url)) {
+      errors.push(
+        `Image "${url}" is not an absolute https:// URL, so it will not render on GitHub. ` +
+          'Commit the file under `docs/proof/<scope>/` and embed its GitHub blob URL with ' +
+          '`?raw=1`: `![alt](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)`.',
+      );
+    } else if (
+      GITHUB_BLOB_URL.test(url) &&
+      !['1', 'true'].includes(new URL(url).searchParams.get('raw'))
+    ) {
+      errors.push(
+        `Image "${url}" is a GitHub blob URL without \`?raw=1\`, so GitHub shows a broken image. ` +
+          'Append `?raw=1` to the URL.',
+      );
+    }
+  }
+  return errors;
+}
+
+/** Collect branch-name errors. An empty branch is not checked. */
+function collectBranchErrors(branch) {
+  if (typeof branch !== 'string' || branch === '' || BRANCH_PATTERN.test(branch)) {
+    return [];
+  }
+  return [
+    `Branch "${branch}" does not follow \`<type>/<short-kebab-summary>\` ` +
+      `(type ∈ ${TYPE_ALTERNATION}; lower-case words joined by single hyphens). ` +
+      'Rename it, e.g. `feat/threshold-reset`.',
+  ];
 }
 
 /**
@@ -131,7 +209,7 @@ function collectTitleErrors(title) {
     return [
       `PR title is not Conventional Commits: "${safeTitle}". ` +
         'Use `type(scope): summary` or `type: summary` ' +
-        '(type ∈ feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert); ' +
+        `(type ∈ ${TYPE_ALTERNATION}); ` +
         'do not add `[agent]`/`[claude]`-style prefixes.',
     ];
   }
@@ -180,32 +258,66 @@ function collectContentErrors(sections, foundIndexBySection) {
   return errors;
 }
 
-/** The proof section needs an inline image or the exact "Not applicable" string. */
+/**
+ * The proof section needs an inline image, or `Not applicable` with a reason on
+ * the same line. Linked (not embedded) screenshots are never proof.
+ */
 function collectProofErrors(proofBody) {
   const stripped = stripHtmlComments(proofBody);
-  if (stripped.includes(INLINE_IMAGE_MARKER) || stripped.includes(NOT_APPLICABLE_MARKER)) {
-    return [];
+  const errors = linkTargets(stripCode(stripped), PLAIN_LINK)
+    .filter((url) => IMAGE_FILE_URL.test(url))
+    .map(
+      (url) =>
+        `Section "${PROOF_HEADING}" links to the image "${url}" instead of showing it; ` +
+        'embed it inline with `![alt](url)`.',
+    );
+  if (linkTargets(stripCode(stripped), INLINE_IMAGE).length > 0) {
+    return errors;
   }
-  return [
-    `Section "${PROOF_HEADING}" has no proof. ` +
-      'Embed a screenshot inline with `![alt](...png?raw=1)`, ' +
-      'or write the exact string `Not applicable` with the technical reason.',
-  ];
+  if (!NOT_APPLICABLE.test(stripped)) {
+    return [
+      ...errors,
+      `Section "${PROOF_HEADING}" has no proof. ` +
+        'Embed a screenshot inline with `![alt](...png?raw=1)`, ' +
+        'or write the exact string `Not applicable` with the technical reason.',
+    ];
+  }
+  if (!hasNotApplicableReason(stripped)) {
+    errors.push(
+      `Section "${PROOF_HEADING}" says \`Not applicable\` without a reason. ` +
+        'Give the technical reason on the same line or the next one, e.g. ' +
+        '`Not applicable: docs-only change, no rendered surface.`',
+    );
+  }
+  return errors;
+}
+
+const countWords = (text) => (text.match(/[a-z0-9][\w'-]+/gi) ?? []).length;
+
+/** A reason follows `Not applicable` on its line, or fills the next non-empty line. */
+function hasNotApplicableReason(proofText) {
+  const lines = proofText.split('\n').filter((line) => line.trim() !== '');
+  const index = lines.findIndex((line) => NOT_APPLICABLE.test(line));
+  const sameLine = countWords(lines[index].replace(NOT_APPLICABLE, ' '));
+  return Math.max(sameLine, countWords(lines[index + 1] ?? '')) >= NOT_APPLICABLE_REASON_WORDS;
 }
 
 /**
- * Validate a PR title and body. Returns `{ ok, errors }`; `errors` is an array
- * of actionable strings. Pure and side-effect free so it can be unit-tested.
+ * Validate a PR title, body, and head branch (`branch` is optional). Returns
+ * `{ ok, errors }`; `errors` is an array of actionable strings. Pure and
+ * side-effect free so it can be unit-tested.
  */
-export function validatePullRequest({ title, body }) {
+export function validatePullRequest({ title, body, branch }) {
   const sections = splitSections(typeof body === 'string' ? body : '');
   const headings = sections.map((section) => section.heading);
   const located = locateSections(headings);
 
   const errors = [
     ...collectTitleErrors(title),
+    ...collectBranchErrors(branch),
     ...located.errors,
     ...collectContentErrors(sections, located.foundIndexBySection),
+    ...collectImageErrors(typeof body === 'string' ? body : ''),
   ];
 
   return { ok: errors.length === 0, errors };
@@ -233,6 +345,7 @@ function runCli() {
   const result = validatePullRequest({
     title: decodeEnv(process.env.PR_TITLE),
     body: decodeEnv(process.env.PR_BODY),
+    branch: decodeEnv(process.env.PR_HEAD_REF),
   });
 
   if (result.ok) {
