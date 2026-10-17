@@ -1,5 +1,5 @@
-import { HomePage } from './routes/home';
+import { GreetingPage } from './routes/greeting';
 
 export function App() {
-  return <HomePage />;
+  return <GreetingPage />;
 }

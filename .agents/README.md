@@ -15,15 +15,15 @@ just the runnable carrier. The scaffolding is the point (see the root
 ## Run it
 
 ```bash
-pnpm install          # install dependencies (Node ≥ 22, pnpm)
+pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
 pnpm setup:agents     # install the external agentic toolkit (one time)
-pnpm dev              # run the app (pnpm --filter @repo/web dev) at http://localhost:5173
+pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
 pnpm arch:check       # architecture gate, role diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd from .fallowrc.jsonc
-pnpm api:report       # regenerate apps/web/etc/*.api.md after an intended export change
+pnpm api:report       # regenerate each package's etc/*.api.md after an intended export change
 pnpm verify           # the full local gate suite (typecheck → biome → eslint → react doctor → fallow → architecture → tests → build)
-pnpm e2e              # the end-to-end behaviour map
+pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```
 
 ## The golden rules
@@ -32,8 +32,9 @@ pnpm e2e              # the end-to-end behaviour map
    the glossary, and ADRs live in this folder.
 2. **Follow the patterns; copy the templates.** New files come from
    [`templates/`](templates/). Consistency is the deliverable.
-3. **Behaviour is defined by the E2E map** (`apps/web/e2e/app.spec.ts`), not by the
-   implementation. Add behaviour there first.
+3. **Behaviour is defined by the E2E map**, each result's `web/e2e/*.spec.ts`
+   (for example `apps/web/e2e/greeting.spec.ts`), not by the implementation.
+   Add behaviour there first.
 4. **When a gate fails, fix the cause.** Keep every gate and its config as it
    is; the checks below enforce this.
 5. **Done means the gates are green.** Report a task complete once
@@ -53,6 +54,7 @@ the code-level rules and their checks.
 
 | Rule | Enforced by |
 | --- | --- |
+| Every file has one architecture role, and imports follow the role table and the contract in [`project/ARCHITECTURE.md`](project/ARCHITECTURE.md). | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Every hook runs; `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides are refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code, [ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI re-runs every gate |
 | A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `eslint.config.js`, `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`) waits for BenSheridanEdwards to tick the sign-off for its head commit. A tick counts when it is made as BenSheridanEdwards. | `enforcement-approval` status ([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) |
@@ -76,7 +78,7 @@ stdlib or native platform features before adding abstractions or dependencies.
 | Path | Read it when… |
 | --- | --- |
 | [`project/AGENTIC_INFRASTRUCTURE.md`](project/AGENTIC_INFRASTRUCTURE.md) | …before changing agent guidance, hooks, workflows, or skills. |
-| [`project/ARCHITECTURE.md`](project/ARCHITECTURE.md) | …before adding or moving any module. It is the pattern you must follow. |
+| [`project/ARCHITECTURE.md`](project/ARCHITECTURE.md) | …before adding or moving any module: the role table, the api file roles, the state model, and how to add a route, a feature or a procedure. It is the pattern you must follow. |
 | [`project/CONVENTIONS.md`](project/CONVENTIONS.md) | …while writing code: naming, structure, imports, errors, state. |
 | [`project/DEFINITION_OF_DONE.md`](project/DEFINITION_OF_DONE.md) | …before you claim a task is finished. The gates enforce this list. |
 | [`project/QUALITY_GATES.md`](project/QUALITY_GATES.md) | …before changing hooks, scripts, CI, or tool ownership. |
@@ -100,5 +102,5 @@ stdlib or native platform features before adding abstractions or dependencies.
   policy and React rules, Jest and Playwright run tests. A new tool for an owned
   concern needs an ADR (see [`project/TECH_STACK.md`](project/TECH_STACK.md));
   `pnpm check:adr` fails a new dependency that no new ADR names.
-- Treat generated artefacts (`apps/web/dist/`, `coverage/`, `graphify-out/`,
+- Treat generated artefacts (`apps/web/dist/`, `.cache/`, `coverage/`, `graphify-out/`,
   `.gitnexus/`) as disposable; regenerate them with their command.

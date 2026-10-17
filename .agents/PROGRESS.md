@@ -35,6 +35,8 @@ ships, leave its block here as history and open the next one above it.
   instance. The CI `dist` artifact from main passed `service-status` in preview
   mode.
 - **Blockers:** None.
+- **Since then:** [ADR 0032](decisions/0032-api-ui-greeting-and-contract.md)
+  replaced the Capacity and Service status demos with the greeting feature.
 
 ## PR body quality contract + scaffold gaps
 
@@ -77,4 +79,6 @@ ships, leave its block here as history and open the next one above it.
   against a bad body (exit 1) and the real PR body (exit 0). E2E is wired in
   CI; not run locally (no UI surface changed).
 - **Blockers:** none for this change. Follow-up work (re-run the stale audits,
-  add fallow boundary zones, grow a second feature) is listed in `TODO.md`.
+  add fallow boundary zones, grow a second feature) went to `TODO.md`. The
+  boundary zones have since landed (ADR 0014, ADR 0032), and the greeting
+  feature with its api replaced the demos (ADR 0032).

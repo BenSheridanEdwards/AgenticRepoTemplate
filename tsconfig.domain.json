@@ -1,0 +1,17 @@
+{
+  // The domain program: every api domain module, with no Node types and no
+  // DOM, so `process`, `require`, `Buffer` and Node module imports fail to
+  // compile there. tsconfig.api.json checks the same files with Node types.
+  "extends": "./tsconfig.api.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": [
+    "apps/api/src/features/*/domain.ts",
+    "apps/api/src/features/*/domain",
+    "showcase/*/api/src/features/*/domain.ts",
+    "showcase/*/api/src/features/*/domain"
+  ],
+  "exclude": ["**/*.test.ts"]
+}

@@ -5,126 +5,83 @@
  */
 import AxeBuilder from '@axe-core/playwright';
 
-const capacity = {
-  id: 'capacity',
-  feature: 'capacity',
+/** Counts the requests the page sends to the api, so a step can prove none left. */
+function watchApiCalls(page) {
+  const calls = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/trpc/')) {
+      calls.push(request.url());
+    }
+  });
+  return calls;
+}
+
+async function submitName(page, name) {
+  const field = page.getByRole('textbox', { name: 'Name' });
+  await field.fill(name);
+  await page.getByRole('button', { name: 'Greet' }).click();
+}
+
+const greeting = {
+  id: 'greeting',
+  feature: 'greeting',
   async run({ page, step, expect }) {
-    const region = page.getByRole('region', { name: 'Capacity' });
-    const status = region.getByRole('status');
-    const press = async (name, times) => {
-      for (let index = 0; index < times; index += 1) {
-        await region.getByRole('button', { name }).click();
-      }
-    };
+    const calls = watchApiCalls(page);
 
-    await step('open the page healthy at zero', async () => {
+    await step('open the greeting page', async () => {
       await page.goto('/');
-      await expect(status).toHaveText('Healthy');
-      await expect(region).toContainText('0/ 8');
+      await expect(page.getByRole('heading', { level: 1, name: 'Greeting' })).toBeVisible();
+      await expect(page.getByRole('status')).toHaveText('');
     });
-    await step('decrease at zero stays at zero', async () => {
-      await press('Decrease', 1);
-      await expect(region).toContainText('0/ 8');
-      await expect(status).toHaveText('Healthy');
+    await step('a blank name asks for a name and sends nothing', async () => {
+      await submitName(page, '');
+      await expect(page.getByRole('alert')).toHaveText('Enter a name');
+      expect(calls).toEqual([]);
     });
-    await step('four increases reach approaching limit', async () => {
-      await press('Increase', 4);
-      await expect(region).toContainText('4/ 8');
-      await expect(status).toHaveText('Approaching limit');
-    });
-    await step('four more increases reach at capacity', async () => {
-      await press('Increase', 4);
-      await expect(region).toContainText('8/ 8');
-      await expect(status).toHaveText('At capacity');
-    });
-    await step('one decrease drops back to approaching limit', async () => {
-      await press('Decrease', 1);
-      await expect(region).toContainText('7/ 8');
-      await expect(status).toHaveText('Approaching limit');
-    });
-    await step('keyboard enter on increase adds one', async () => {
-      await region.getByRole('button', { name: 'Increase' }).focus();
-      await page.keyboard.press('Enter');
-      await expect(region).toContainText('8/ 8');
-      await expect(status).toHaveText('At capacity');
-    });
-    await step('reset returns to healthy at zero', async () => {
-      await press('Reset', 1);
-      await expect(region).toContainText('0/ 8');
-      await expect(status).toHaveText('Healthy');
-    });
-  },
-};
-
-const serviceStatus = {
-  id: 'service-status',
-  feature: 'service-status',
-  async run({ page, step, expect }) {
-    const region = page.getByRole('region', { name: 'Service status' });
-    const apiCalls = [];
-    page.on('request', (request) => {
-      if (new URL(request.url()).pathname === '/api/service-status') {
-        apiCalls.push(request.url());
-      }
-    });
-
-    await step('the live list shows every service with its health', async () => {
-      await page.goto('/');
-      const items = region.getByRole('listitem');
-      await expect(items).toHaveCount(3);
-      await expect(items.nth(0)).toHaveText(/Web application\s*Operational/);
-      await expect(items.nth(1)).toHaveText(/Public API\s*Degraded/);
-      await expect(items.nth(2)).toHaveText(/Background jobs\s*Down/);
-    });
-    await step('refresh requests the API again and keeps the list', async () => {
-      const before = apiCalls.length;
-      await region.getByRole('button', { name: 'Refresh' }).click();
-      await expect.poll(() => apiCalls.length).toBeGreaterThan(before);
-      await expect(region.getByRole('listitem')).toHaveCount(3);
-    });
-  },
-};
-
-const serviceStatusStates = {
-  id: 'service-status-states',
-  feature: 'service-status',
-  async run({ page, step, expect }) {
-    const region = page.getByRole('region', { name: 'Service status' });
-    let mode = 'hold';
-    let release = () => undefined;
-    const held = new Promise((resolve) => {
-      release = resolve;
-    });
-    await page.route('**/api/service-status', async (route) => {
-      if (mode === 'hold') {
-        await held;
-        return route.fulfill({ json: [] });
-      }
-      if (mode === 'error') {
-        return route.fulfill({ status: 500, body: 'unavailable' });
-      }
-      return route.continue();
-    });
-
-    await step('loading shows while the API is pending', async () => {
-      await page.goto('/');
-      await expect(region.getByRole('status')).toHaveText('Loading service status…');
-    });
-    await step('an empty answer shows the empty message', async () => {
-      release();
-      await expect(region).toContainText('No services are being monitored yet.');
-    });
-    await step('a failing API shows the error message', async () => {
-      mode = 'error';
-      await region.getByRole('button', { name: 'Refresh' }).click();
-      await expect(region).toContainText(
-        'Could not load service status. Service status request failed with HTTP 500',
+    await step('a name gets its greeting from the api', async () => {
+      const answered = page.waitForResponse((response) =>
+        response.url().includes('/trpc/greeting.greet'),
       );
+      await submitName(page, 'Ada');
+      expect((await answered).status()).toBe(200);
+      await expect(page.getByRole('status')).toHaveText('Hello, Ada!');
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      expect(calls).toHaveLength(1);
     });
-    await step('refresh after recovery shows the live list', async () => {
-      mode = 'live';
-      await region.getByRole('button', { name: 'Refresh' }).click();
-      await expect(region.getByRole('listitem')).toHaveCount(3);
+  },
+};
+
+const greetingValidation = {
+  id: 'greeting-validation',
+  feature: 'greeting',
+  async run({ page, step, expect }) {
+    const calls = watchApiCalls(page);
+
+    await step('a whitespace name asks for a name and sends nothing', async () => {
+      await page.goto('/');
+      await submitName(page, '   ');
+      await expect(page.getByRole('alert')).toHaveText('Enter a name');
+      await expect(page.getByRole('textbox', { name: 'Name' })).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      );
+      expect(calls).toEqual([]);
+    });
+  },
+};
+
+const greetingError = {
+  id: 'greeting-error',
+  feature: 'greeting',
+  async run({ page, step, expect }) {
+    await page.route('**/trpc/**', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+    );
+
+    await step('a failing api shows the error', async () => {
+      await page.goto('/');
+      await submitName(page, 'Ada');
+      await expect(page.getByRole('alert')).toHaveText('Could not load the greeting');
     });
   },
 };
@@ -133,31 +90,36 @@ const accessibility = {
   id: 'accessibility',
   feature: 'accessibility',
   async run({ page, step, expect }) {
-    await step('the landing page has no WCAG A or AA violations', async () => {
-      await page.goto('/');
-      await expect(
-        page.getByRole('region', { name: 'Service status' }).getByRole('listitem'),
-      ).toHaveCount(3);
+    const scan = async () => {
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
       expect(results.violations.map(({ id, help }) => `${id}: ${help}`)).toEqual([]);
-    });
-    await step('keyboard tab order reaches every button by name', async () => {
+    };
+
+    await step('the greeting page has no WCAG A or AA violations', async () => {
       await page.goto('/');
-      await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
-      const names = [];
-      for (let index = 0; index < 4; index += 1) {
-        await page.keyboard.press('Tab');
-        names.push(await page.evaluate(() => document.activeElement?.textContent?.trim()));
-      }
-      expect(names).toEqual(['Decrease', 'Increase', 'Reset', 'Refresh']);
+      await expect(page.getByRole('button', { name: 'Greet' })).toBeVisible();
+      await scan();
+    });
+    await step('the validation error has no WCAG A or AA violations', async () => {
+      await submitName(page, '');
+      await expect(page.getByRole('alert')).toHaveText('Enter a name');
+      await scan();
+    });
+    await step('keyboard tab order reaches the field, then the button', async () => {
+      await page.goto('/');
+      await expect(page.getByRole('button', { name: 'Greet' })).toBeVisible();
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('textbox', { name: 'Name' })).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('button', { name: 'Greet' })).toBeFocused();
     });
   },
 };
 
 export const JOURNEYS = Object.fromEntries(
-  [capacity, serviceStatus, serviceStatusStates, accessibility].map((journey) => [
+  [greeting, greetingValidation, greetingError, accessibility].map((journey) => [
     journey.id,
     journey,
   ]),

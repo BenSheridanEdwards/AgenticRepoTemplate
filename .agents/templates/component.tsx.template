@@ -1,20 +1,32 @@
-// TEMPLATE — copy to apps/web/src/features/<feature-name>/<Feature>.tsx and replace the
-// __PLACEHOLDERS__. A component only renders; it pulls state from its hook and
-// holds no business logic (see .agents/project/ARCHITECTURE.md).
+// TEMPLATE — copy to <result>/web/src/routes/<route-name>/__Name__.tsx (for example
+// apps/web/src/routes/<route-name>/) and replace the __PLACEHOLDERS__.
+// Model: apps/web/src/routes/greeting/GreetingForm.tsx and GreetingPage.tsx.
+//
+// One component per file, named like the file. A component only renders: it
+// takes state from its use* hook (server state through useTrpc(), form state
+// through use__Name__Form) and builds controls from @repo/ui. Functions it
+// defines start with `handle`; callback props start with `on`.
+// See .agents/project/ARCHITECTURE.md.
 
-import { use__Feature__ } from './use__Feature__';
+import { Button } from '@repo/ui';
+import { use__Name__ } from './use__Name__';
 
-export function __Feature__() {
-  const { /* values + handlers from the hook */ } = use__Feature__();
+export interface __Name__Props {
+  readonly on__Event__: (value: string) => void;
+}
+
+export function __Name__({ on__Event__ }: __Name__Props) {
+  const { /* values from the hook */ } = use__Name__();
+
+  function handle__Action__() {
+    on__Event__('__value__');
+  }
 
   return (
-    <section className="__feature-name__" aria-labelledby="__feature-name__-heading">
-      <h2 id="__feature-name__-heading" className="__feature-name____heading">
-        __Title__
-      </h2>
-
+    <section className="__route-name__" aria-label="__Accessible name__">
       {/* Render observable state. Keep every interactive element a real,
           labelled control so the behaviour map and a11y tooling can reach it. */}
+      <Button onClick={handle__Action__}>__Action__</Button>
     </section>
   );
 }

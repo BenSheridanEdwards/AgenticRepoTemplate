@@ -417,3 +417,255 @@ export function Fixture({ renderItem, children }: FixtureProps) {
     expect(result.ruleIds).toEqual([]);
   });
 });
+
+describe('ESLint contract rules', () => {
+  jest.setTimeout(60_000);
+
+  it.each([
+    'apps/api/src/router.ts',
+    'packages/ui/src/Button.tsx',
+    'showcase/todo-01/web/src/App.tsx',
+    'showcase/todo-01/api/src/features/todo/procedures.ts',
+  ])('turns on every local policy rule as an error for %s', (path) => {
+    const run = spawnSync(ESLINT_BIN, ['--print-config', path], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+    });
+    const { rules } = JSON.parse(run.stdout) as { rules: Record<string, unknown[]> };
+    for (const rule of Object.keys(policy.rules)) {
+      expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
+    }
+  });
+
+  it('passes a router that imports a feature through its index.ts with an explicit extension', () => {
+    const result = lintPolicy(
+      "export { greetingRouter } from './features/greeting/index.ts';",
+      'apps/api/src/router.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it('blocks a router that reaches past a feature index.ts (no-restricted-imports)', () => {
+    const result = lintPolicy(
+      "export { formatGreeting } from './features/greeting/domain.ts';",
+      'apps/api/src/router.ts',
+    );
+    expect(result.ruleIds).toEqual(['no-restricted-imports']);
+  });
+
+  it('blocks a route that reaches past the api client index.ts (no-restricted-imports)', () => {
+    const result = lintPolicy(
+      "export { createQueryClient } from '../../api-client/trpc';",
+      'apps/web/src/routes/greeting/index.ts',
+    );
+    expect(result.ruleIds).toEqual(['no-restricted-imports']);
+  });
+
+  it.each([
+    ['an alias', "export { useQuery as useQ } from '@tanstack/react-query';"],
+    ['everything', "export * from 'react-hook-form';"],
+  ])('blocks re-exporting a state hook module as %s (policy/state-and-effects-in-hooks)', (_label, source) => {
+    const result = lintPolicy(source, 'apps/web/src/routes/greeting/hooks.ts');
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/state-and-effects-in-hooks']);
+  });
+
+  it.each([
+    ['a route imports another route', 'apps/web/src/routes/a/A.tsx', "import { B } from '../b';"],
+    [
+      'a backend feature imports another feature',
+      'apps/api/src/features/a/application.ts',
+      "import { formatB } from '../b/domain.ts';",
+    ],
+    [
+      'a web feature imports another feature',
+      'apps/web/src/features/a/useA.ts',
+      "import { b } from '../b/b';",
+    ],
+    [
+      'a showcase route imports another route',
+      'showcase/todo-01/web/src/routes/a/A.tsx',
+      "import { B } from '../b';",
+    ],
+    ['a route requires another route', 'apps/web/src/routes/a/a.ts', "const b = require('../b');"],
+    [
+      'a route imports another route through a template literal',
+      'apps/web/src/routes/a/a.ts',
+      'const b = import(`../b`);',
+    ],
+    [
+      'a route import-equals another route',
+      'apps/web/src/routes/a/a.ts',
+      "import b = require('../b');",
+    ],
+    [
+      'a relative import leaves its package',
+      'apps/web/src/routes/a/A.tsx',
+      "import type { AppRouter } from '../../../../api/src/router.ts';",
+    ],
+  ])('blocks %s (policy/slice-isolation)', (_label, filename, source) => {
+    const result = lintPolicy(`${source}\nexport const value = 1;\n`, filename);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/slice-isolation']);
+  });
+
+  it.each([
+    ['apps/web/src/features/loose.ts'],
+    ['apps/web/src/routes/loose.ts'],
+    ['apps/api/src/features/loose.ts'],
+    ['showcase/todo-01/web/src/features/loose.ts'],
+  ])('blocks the loose file %s directly under a slice folder (policy/slice-isolation)', (filename) => {
+    const result = lintPolicy(
+      "import { a } from './a';\nimport { b } from './b';\nexport const loose = [a, b];\n",
+      filename,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/slice-isolation']);
+    expect(result.output).toContain('into a folder of its own');
+  });
+
+  it('passes a route that imports its own files, a feature, the api client and the ui kit', () => {
+    const result = lintPolicy(
+      [
+        "import { Button } from '@repo/ui';",
+        "import { useTrpc } from '../../api-client';",
+        "import { nameInput } from '../../features/name-input';",
+        "import { greetingFormSchema } from './greetingFormSchema';",
+        'export const value = [Button, useTrpc, nameInput, greetingFormSchema];',
+      ].join('\n'),
+      'apps/web/src/routes/greeting/value.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it.each([
+    ['a cast instead of a schema', '.input((value) => value as { name: string })'],
+    ['a bare Effect schema', '.input(greetInputSchema)'],
+    ['another standard schema', '.input(z.object({ name: z.string() }))'],
+    ['a cast through a computed member', "['input']((value) => value as { name: string })"],
+  ])('blocks a procedure input given %s (policy/procedure-input-schema)', (_label, input) => {
+    const result = lintPolicy(
+      `
+import { Schema } from 'effect';
+import { z } from 'zod';
+import { procedure } from '../../trpc.ts';
+const greetInputSchema = Schema.Struct({ name: Schema.String });
+export const greet = procedure${input}.query(({ input }) => input);
+export const unused = [z, greetInputSchema];
+`,
+      'apps/api/src/features/greeting/procedures.ts',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/procedure-input-schema']);
+  });
+
+  it('passes a procedure input wrapped in standardSchemaV1 from effect/Schema', () => {
+    const result = lintPolicy(
+      `
+import * as Schema from 'effect/Schema';
+import { procedure } from '../../trpc.ts';
+const greetInputSchema = Schema.Struct({ name: Schema.String });
+export const greet = procedure.input(Schema.standardSchemaV1(greetInputSchema)).query(({ input }) => input);
+`,
+      'apps/api/src/features/greeting/procedures.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it('passes a procedure input wrapped in Schema.standardSchemaV1', () => {
+    const result = lintPolicy(
+      `
+import { Schema } from 'effect';
+import { procedure } from '../../trpc.ts';
+const greetInputSchema = Schema.Struct({ name: Schema.String });
+export const greet = procedure.input(Schema.standardSchemaV1(greetInputSchema)).query(({ input }) => input);
+`,
+      'apps/api/src/features/greeting/procedures.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it.each([
+    ['no options', 'useForm()'],
+    ['no resolver', "useForm({ defaultValues: { name: '' } })"],
+    ['another resolver', 'useForm({ resolver: zodResolver(schema) })'],
+    ['options built elsewhere', 'useForm(options)'],
+    ['a spread after the resolver', 'useForm({ resolver: effectTsResolver(schema), ...options })'],
+  ])('blocks a form with %s (policy/form-uses-effect-schema)', (_label, call) => {
+    const result = lintPolicy(
+      `
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+declare const schema: never;
+declare const options: never;
+export function useNameForm() {
+  return [${call}, zodResolver, effectTsResolver];
+}
+`,
+      'apps/web/src/routes/greeting/useNameForm.ts',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/form-uses-effect-schema']);
+  });
+
+  it('passes a form whose resolver is effectTsResolver', () => {
+    const result = lintPolicy(
+      `
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { useForm } from 'react-hook-form';
+import { greetingFormSchema } from './greetingFormSchema';
+export function useGreetingForm() {
+  return useForm({ resolver: effectTsResolver(greetingFormSchema), defaultValues: { name: '' } });
+}
+`,
+      'apps/web/src/routes/greeting/useGreetingForm.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it.each([
+    ['useQuery', '@tanstack/react-query', 'useQuery(options);'],
+    ['useSuspenseQuery', '@tanstack/react-query', 'useSuspenseQuery(options);'],
+    ['useInfiniteQuery', '@tanstack/react-query', 'useInfiniteQuery(options);'],
+    ['useQueries', '@tanstack/react-query', 'useQueries(options);'],
+    ['useSuspenseQueries', '@tanstack/react-query', 'useSuspenseQueries(options);'],
+    ['useSuspenseInfiniteQuery', '@tanstack/react-query', 'useSuspenseInfiniteQuery(options);'],
+    ['useMutation', '@tanstack/react-query', 'useMutation(options);'],
+    ['useMutationState', '@tanstack/react-query', 'useMutationState(options);'],
+    ['useTransition', 'react', 'useTransition();'],
+    ['useForm', 'react-hook-form', 'useForm(options);'],
+    ['useFieldArray', 'react-hook-form', 'useFieldArray(options);'],
+    ['useController', 'react-hook-form', 'useController(options);'],
+    ['useWatch', 'react-hook-form', 'useWatch(options);'],
+    ['useFormState', 'react-hook-form', 'useFormState(options);'],
+  ])('blocks %s called directly in a component (policy/state-and-effects-in-hooks)', (hook, source, call) => {
+    const result = lintPolicy(
+      `
+import { ${hook} } from '${source}';
+declare const options: never;
+export function GreetingPage() {
+  ${call}
+  return <p>greeting</p>;
+}
+`,
+      'apps/web/src/routes/greeting/GreetingPage.tsx',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/state-and-effects-in-hooks');
+  });
+
+  it('passes server state inside a named custom hook', () => {
+    const result = lintPolicy(
+      `
+import { useQuery } from '@tanstack/react-query';
+declare const options: never;
+export function useGreeting() {
+  return useQuery(options);
+}
+`,
+      'apps/web/src/routes/greeting/useGreeting.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+});

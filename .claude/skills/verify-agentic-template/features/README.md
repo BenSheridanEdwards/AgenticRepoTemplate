@@ -10,27 +10,27 @@ matching feature file as the recipe.
   `V=.claude/skills/verify-agentic-template/scripts/verify.mjs`.
 - Require `PASS` on every line of `node $V doctor --run <id>`.
 - The app is at the printed `url`, on `127.0.0.1` and a free port. The page is
-  `/`. It has no routes, auth, or stored data.
-- `GET /api/service-status` returns `Web application` (Operational),
-  `Public API` (Degraded), and `Background jobs` (Down).
+  `/`. It has no auth or stored data.
+- The api runs beside it, and `GET /trpc/greeting.greet` with the input
+  `{"name":"Ada"}` answers `Hello, Ada!` through the web server's proxy.
 - Drive only an instance that this run launched.
 
 ## Driving conventions
 
 - Every recipe starts from a fresh page load. A reload resets all state.
-- Locate by ARIA role and accessible name. Scope to a region before you look
-  for `status`, because the page has two.
+- Locate by ARIA role and accessible name: the `Name` textbox, the `Greet`
+  button, the `status` greeting and the `alert` error.
 - Each bullet in a recipe names one step of the journey. `drive` prints that
   step with `PASS` or `FAIL`.
 - Run a built-in journey with `node $V drive <journey> --run <id>`. Run new
   behaviour with `node $V drive ./journey.mjs --run <id>`.
-- Intercept the network only at `**/api/service-status`.
+- Intercept the network only at `**/trpc/**`.
 
 ## Proof and skip reporting
 
 - Each passing step writes a screenshot and an ARIA snapshot to
   `.verify/<id>/evidence/<journey>/`.
-- `manifest.json` records the result, git `HEAD`, mode, and every `/api/` call.
+- `manifest.json` records the result, git `HEAD`, mode, and every `/trpc/` call.
 - Report a failed step with its `NN-<step>.failed.png` and the error line.
 - Report a path as verified only after driving that same path.
 
@@ -43,9 +43,7 @@ and `Gotchas`.
 
 ## Features
 
-- [Capacity](./capacity.md) covers the threshold counter, its three status
-  levels, the zero floor, and reset.
-- [Service status](./service-status.md) covers the live list, refresh, and the
-  loading, empty, and error states.
+- [Greeting](./greeting.md) covers the greeting from the api, the blank-name
+  validation, and the request error.
 - [Accessibility](./accessibility.md) covers the axe WCAG scan and keyboard
   reach on the whole page.

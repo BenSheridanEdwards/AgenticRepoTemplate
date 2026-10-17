@@ -2,78 +2,117 @@
 /**
  * Keep one committed API Extractor report per public module entry.
  *
- * The entries come from the zones in `.fallowrc.jsonc`: every zone except the
- * `app` composition root is a module tree `<dir>/**` whose public surface is
- * `<dir>/index.ts`. A zone without its own `index.ts` (such as `apps/web/src/shared/**`)
- * holds one public module per sub-folder, `<dir>/<module>/index.ts`.
+ * The entries come from the workspace packages (`apps/*`, `packages/*`,
+ * `showcase/<id>/*`). A package's own entry, the `types` or default condition of
+ * `exports["."]` in its `package.json`, gives `<package>/etc/<unscoped name>.api.md`
+ * (`apps/api/etc/api.api.md` for `@repo/api`). Inside a package, each
+ * `src/routes/<name>/index.ts` and `src/features/<name>/index.ts` gives
+ * `<package>/etc/<folder>-<name>.api.md`, and `src/api-client/index.ts` gives
+ * `<package>/etc/api-client.api.md`.
  *
- * Each report lives in `<package>/etc/<entry>.api.md`, where `<package>` is the
- * nearest folder above the entry with a `package.json` (`apps/web/etc/` today).
  * `node scripts/api-report.mjs --local` (`pnpm api:report`) rewrites the
  * reports. Without `--local` (`pnpm api:check`) it compares and exits 1 when any
  * committed report differs from the code.
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { dirname, join, posix, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Extractor, ExtractorConfig } from '@microsoft/api-extractor';
-import { readFallowBoundaries } from './fallow-roles.mjs';
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE_DIRECTORY = join(REPOSITORY_ROOT, '.cache/api');
 const DECLARATIONS_DIRECTORY = join(CACHE_DIRECTORY, 'dts');
 
-/** The nearest folder above `entry` that holds a `package.json`, repository-relative. */
-function packageRootOf(entry) {
-  let directory = dirname(entry);
-  while (directory !== '.' && !existsSync(join(REPOSITORY_ROOT, directory, 'package.json'))) {
-    directory = dirname(directory);
-  }
-  return directory;
-}
+const PACKAGE_MANIFEST = /^(apps\/[^/]+|packages\/[^/]+|showcase\/[^/]+\/[^/]+)\/package\.json$/;
+const MODULE_ENTRY = /^src\/(?:(routes|features)\/([^/]+)|(api-client))\/index\.ts$/;
 
-/** The public entries under one zone pattern `<dir>/**`: `<dir>/index.ts`, else `<dir>/<module>/index.ts`. */
-function entriesOfPattern(zoneName, pattern) {
-  const directory = pattern.replace(/\/\*\*$/, '');
-  const hasOwnIndex = existsSync(join(REPOSITORY_ROOT, directory, 'index.ts'));
-  const modules = hasOwnIndex ? [''] : readdirSync(join(REPOSITORY_ROOT, directory)).sort();
-  return modules
-    .filter((module) => existsSync(join(REPOSITORY_ROOT, directory, module, 'index.ts')))
-    .map((module) => ({
-      name: [zoneName, module].filter(Boolean).join('/'),
-      entry: [directory, module, 'index.ts'].filter(Boolean).join('/'),
-    }));
+/** The file `exports["."]` names for types, or by default. */
+function packageEntry(exports) {
+  const root =
+    typeof exports === 'object' && exports !== null ? (exports['.'] ?? exports) : exports;
+  const entry = typeof root === 'string' ? root : (root?.types ?? root?.default);
+  return typeof entry === 'string' ? posix.normalize(entry) : undefined;
 }
 
 /**
- * List `{ name, entry }` once for every public module outside the app zone. A
- * group zone and its discovered child zone find the same entry file, so keep one.
+ * List `{ name, entry, packageRoot }` for every public entry among `files`. Pure.
+ *
+ * @param {string[]} files repository-relative paths: package manifests and sources
+ * @param {(path: string) => { name: string, exports?: unknown }} readManifest
  */
-function listPublicEntries(boundariesJson) {
-  const { boundaries } = JSON.parse(boundariesJson);
-  const entries = boundaries.zones
-    .filter((zone) => zone.name !== 'app')
-    .flatMap((zone) => zone.patterns.flatMap((pattern) => entriesOfPattern(zone.name, pattern)));
-  return [...new Map(entries.map((entry) => [entry.entry, entry])).values()];
+export function listPublicEntries(files, readManifest) {
+  const packageRoots = files
+    .filter((file) => PACKAGE_MANIFEST.test(file))
+    .map((file) => posix.dirname(file))
+    .sort();
+  return packageRoots.flatMap((packageRoot) => {
+    const manifest = readManifest(`${packageRoot}/package.json`);
+    const ownEntry = packageEntry(manifest.exports);
+    const modules = files
+      .filter((file) => file.startsWith(`${packageRoot}/`))
+      .map((file) => ({ file, match: MODULE_ENTRY.exec(file.slice(packageRoot.length + 1)) }))
+      .filter(({ match }) => match)
+      .map(({ file, match: [, folder, module, apiClient] }) => ({
+        name: apiClient ?? `${folder}-${module}`,
+        entry: file,
+        packageRoot,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const own = ownEntry
+      ? [
+          {
+            name: manifest.name.replace(/^@[^/]+\//, ''),
+            entry: posix.join(packageRoot, ownEntry),
+            packageRoot,
+          },
+        ]
+      : [];
+    return [...own, ...modules];
+  });
+}
+
+/** Package manifests and candidate module entries on disk, repository-relative. */
+function workspaceFiles() {
+  const directories = (path) =>
+    existsSync(join(REPOSITORY_ROOT, path))
+      ? readdirSync(join(REPOSITORY_ROOT, path), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => `${path}/${entry.name}`)
+      : [];
+  const packageRoots = [
+    ...directories('apps'),
+    ...directories('packages'),
+    ...directories('showcase').flatMap(directories),
+  ].filter((root) => existsSync(join(REPOSITORY_ROOT, root, 'package.json')));
+  return packageRoots
+    .flatMap((root) => [
+      `${root}/package.json`,
+      `${root}/src/api-client/index.ts`,
+      ...['routes', 'features'].flatMap((folder) =>
+        directories(`${root}/src/${folder}`).map((module) => `${module}/index.ts`),
+      ),
+    ])
+    .filter((file) => existsSync(join(REPOSITORY_ROOT, file)));
 }
 
 function emitDeclarations() {
   rmSync(DECLARATIONS_DIRECTORY, { recursive: true, force: true });
-  execFileSync(
-    join(REPOSITORY_ROOT, 'node_modules/.bin/tsc'),
-    [
-      ...['-p', 'tsconfig.json', '--noEmit', 'false', '--declaration', '--emitDeclarationOnly'],
-      ...['--outDir', DECLARATIONS_DIRECTORY],
-    ],
-    { cwd: REPOSITORY_ROOT, stdio: 'inherit' },
-  );
+  for (const program of ['tsconfig.json', 'tsconfig.api.json']) {
+    execFileSync(
+      join(REPOSITORY_ROOT, 'node_modules/.bin/tsc'),
+      [
+        ...['-p', program, '--noEmit', 'false', '--declaration', '--emitDeclarationOnly'],
+        ...['--rootDir', REPOSITORY_ROOT, '--outDir', DECLARATIONS_DIRECTORY],
+      ],
+      { cwd: REPOSITORY_ROOT, stdio: 'inherit' },
+    );
+  }
 }
 
-function runExtractor({ name, entry }, localBuild) {
-  const reportName = name.replaceAll('/', '-');
-  const reportDirectory = join(packageRootOf(entry), 'etc');
+function runExtractor({ name: reportName, entry, packageRoot }, localBuild) {
+  const reportDirectory = join(packageRoot, 'etc');
   mkdirSync(join(REPOSITORY_ROOT, reportDirectory), { recursive: true });
   const configObject = {
     projectFolder: REPOSITORY_ROOT,
@@ -86,6 +125,9 @@ function runExtractor({ name, entry }, localBuild) {
           module: 'ESNext',
           moduleResolution: 'Bundler',
           jsx: 'react-jsx',
+          // The api's declarations keep their explicit `.ts` import extensions.
+          allowImportingTsExtensions: true,
+          noEmit: true,
           strict: true,
           skipLibCheck: true,
           types: [],
@@ -112,7 +154,7 @@ function runExtractor({ name, entry }, localBuild) {
   const config = ExtractorConfig.prepare({
     configObject,
     configObjectFullPath: undefined,
-    packageJsonFullPath: join(REPOSITORY_ROOT, packageRootOf(entry), 'package.json'),
+    packageJsonFullPath: join(REPOSITORY_ROOT, packageRoot, 'package.json'),
     packageJson: { name: reportName, version: '0.0.0' },
   });
   const result = Extractor.invoke(config, { localBuild });
@@ -124,12 +166,20 @@ function runExtractor({ name, entry }, localBuild) {
   return result.succeeded;
 }
 
-const localBuild = process.argv.includes('--local');
-const entries = listPublicEntries(readFallowBoundaries());
-if (entries.length === 0) {
-  console.error('api: .fallowrc.jsonc lists no public module entries.');
-  process.exit(1);
+function runCli() {
+  const localBuild = process.argv.includes('--local');
+  const entries = listPublicEntries(workspaceFiles(), (path) =>
+    JSON.parse(readFileSync(join(REPOSITORY_ROOT, path), 'utf8')),
+  );
+  if (entries.length === 0) {
+    console.error('api: the workspace packages list no public module entries.');
+    process.exit(1);
+  }
+  emitDeclarations();
+  const failed = entries.filter((entry) => !runExtractor(entry, localBuild));
+  process.exit(failed.length === 0 ? 0 : 1);
 }
-emitDeclarations();
-const failed = entries.filter((entry) => !runExtractor(entry, localBuild));
-process.exit(failed.length === 0 ? 0 : 1);
+
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  runCli();
+}

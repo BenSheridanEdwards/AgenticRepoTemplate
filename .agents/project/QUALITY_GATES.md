@@ -10,7 +10,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Agent commands | `.claude/hooks/block-gate-bypass.sh` | Refuses the common hook bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and writes to `core.hooksPath`, git aliases, or config includes) before Claude Code runs them. CI is the backstop for the gaps listed in ADR 0027. |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
 | Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, then `pnpm verify` (the full local gate suite) and `pnpm e2e` (Playwright E2E and axe scan). A clean merge from main skips pre-commit, so this is where it gets checked. |
+| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, then `pnpm verify` (the full local gate suite) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression reasons, positive doc phrasing, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | The pointer chain `CLAUDE.md` → `AGENTS.md` → `.agents/README.md` holds; the start-here guide, manifest, project docs, ledgers, and house skills exist as real files. Each ADR is named `NNNN-slug.md`, uses its number once, and opens with a matching `# N.` title. No context doc has the same section twice under one parent. |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression reasons, positive doc phrasing, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. |
@@ -32,12 +32,24 @@ only when a hook, script, workflow, or review checklist actually owns it.
   ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
 - **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
   ESLint plugin leaves out, such as duplicated JSX across files.
-- **TypeScript** owns type semantics through `tsc --noEmit`.
-- **Jest + React Testing Library** own component and hook behaviour.
+- **TypeScript** owns type semantics through `tsc --noEmit` over four programs:
+  `tsconfig.json` (web packages and `packages/ui`, with the DOM and no Node
+  types), `tsconfig.node.json` (root configs, Vite configs and e2e specs, on
+  Node), `tsconfig.api.json` (api packages, `NodeNext`, `.ts` import
+  extensions, `erasableSyntaxOnly`, no DOM) and `tsconfig.domain.json` (api
+  domain modules, as the api program but with no Node types). All four extend
+  `tsconfig.base.json`.
+- **Jest + React Testing Library** own component, hook and api behaviour in
+  three projects: `web` (jsdom, every web package and `packages/ui`), `api`
+  (node, every api package) and `tooling` (`scripts/`, `tooling/`). Coverage
+  leaves out `index.ts` barrels and the composition roots `main.tsx`,
+  `App.tsx` and `server.ts`.
 - **jest-axe, @axe-core/playwright, and Lighthouse** own accessibility.
-- **Playwright** owns user-visible behaviour through the E2E map.
+- **Playwright** owns user-visible behaviour through the E2E map. It runs one
+  Chromium project per result from `tooling/results.mjs`, each with its own api
+  and Vite servers, over every spec in `<result>/web/e2e/`.
 - **Fallow** owns dead code, circular dependencies, complexity, the dependency
-  graph, the architecture gate, and the role diagram.
+  graph, the architecture gate, the contract rule pack, and the role diagram.
 - **API Extractor** owns the committed report of each public module's exported
   API.
 - **CodeQL, gitleaks, pnpm audit, and the license check** own security and
@@ -53,21 +65,48 @@ the behaviour is observable.
 ## Architecture checks
 
 [`.fallowrc.jsonc`](../../.fallowrc.jsonc) is the one rules file
-([ADR 0014](../decisions/0014-fallow-owns-architecture-checks.md)). Three checks
-read it. They run locally through `pnpm arch:check` (part of `pnpm verify`) and
+([ADR 0014](../decisions/0014-fallow-owns-architecture-checks.md),
+[ADR 0032](../decisions/0032-api-ui-greeting-and-contract.md)). It sets:
+
+- `boundaries`: eleven role zones matched over every result by brace glob, and
+  `coverage.requireAllFiles`, so a source file outside every role fails.
+- `rulePacks`: [`tooling/architecture/contract.rules.jsonc`](../../tooling/architecture/contract.rules.jsonc),
+  whose findings report as `contract/<id>` and fail as errors
+  (`policy-violation: error`).
+- `require-suppression-reason`: every `fallow-ignore` names its reason.
+- `audit.gate: "all"`: `pnpm fallow:audit` fails every finding in a file the
+  change touches, inherited ones included.
+
+Three checks read it. They run locally through `pnpm arch:check` (part of `pnpm verify`) and
 in CI as steps of the `Code intelligence (Fallow)` job:
 
 | Check | Command | Fails when |
 | --- | --- | --- |
-| Architecture gate | `pnpm arch:gate` (`fallow architecture -q`) | An import crosses a role boundary the rules file does not allow. |
+| Architecture gate | `pnpm arch:gate` (`fallow architecture -q`) | An import crosses a role boundary the rules file does not allow, a source file sits in no role, or a `contract/<id>` rule finds a banned import, call or effect. |
 | Role diagram | `pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd` | The committed diagram differs from a fresh render of Fallow's graph. |
-| API reports | `pnpm api:check` | A public module's exports differ from its committed `apps/web/etc/*.api.md`. |
+| API reports | `pnpm api:check` | A public entry's exports differ from its committed report. Each package entry gives `<package>/etc/<name>.api.md`, and each route, feature and api-client `index.ts` gives `<package>/etc/<folder>-<name>.api.md`. |
 
 `pnpm api:report` rewrites the reports after an intended export change; commit
 the diff with the change. The gate reads Fallow's exit code, because its JSON
 output carries per-run ids and timings. The diagram and the reports are
-generated bytes: Biome leaves `docs/architecture/*.mmd` and `apps/*/etc/*.api.md`
-alone, and the intermediates live in the gitignored `.cache/`.
+generated bytes: Biome leaves `docs/architecture/*.mmd` and every package's
+`etc/*.api.md` alone, and the intermediates live in the gitignored `.cache/`.
+
+Each contract rule fails on a seeded violation in a committed test:
+`tooling/architecture/boundaries.test.ts` (Fallow zones, coverage and rule
+pack), `scripts/eslint-policy.test.ts` (ESLint policy and contract rules),
+`tooling/architecture/typescript.test.ts` (the web and api TypeScript programs) and
+`scripts/biome-overrides.test.ts` (the Biome naming override over every
+package `src/`). `pnpm test` runs them.
+
+## Lighthouse scope
+
+`scripts/lighthouse-scope.mjs` decides whether a pull request is UI-relevant.
+It counts the shipped sources `apps/web/src/` and `packages/ui/src/` (test
+files excluded), `apps/web/public/`, and the files that change the bundle or
+the audit, including `apps/web/index.html`, `apps/web/vite.config.ts`, both
+`package.json` files of the web app and the ui kit, `tsconfig.base.json`,
+`tsconfig.json` and the lockfile.
 
 ## Required gates
 
