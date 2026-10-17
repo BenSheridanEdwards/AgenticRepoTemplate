@@ -32,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -42,6 +44,7 @@ jobs:
         run: git diff --exit-code
       - run: pnpm check:context
       - run: pnpm check:suppressions
+      - run: pnpm check:adr
       - run: pnpm typecheck
       - run: pnpm check
       - run: pnpm lint:policy
