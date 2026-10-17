@@ -188,7 +188,7 @@ const isFlag = (leaf) => typeof leaf.before === 'boolean' || typeof leaf.after =
 /** @param {LeafChange} leaf @param {boolean} loosening @param {string} at */
 function flagReason(leaf, loosening, at) {
   if (leaf.after === loosening) return `sets ${at} to ${inert(loosening)}`;
-  // TypeScript reads `null` as unset, so it counts as removing the flag.
+  // `null` reads as removing the flag, so it cannot turn a check off unasked.
   return leaf.before === !loosening && leaf.after == null ? `removes ${at}` : '';
 }
 
@@ -389,7 +389,7 @@ const ordinal = (day) =>
   day % 100 >= 11 && day % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] ?? 'th');
 
 /**
- * `Monday, the 8th of October, at 3 pm` for `at` in Europe/London.
+ * `Monday, the 12th of October, at 3 pm` for `at` in Europe/London.
  *
  * @param {Date} at
  */
@@ -419,7 +419,7 @@ const plainText = (text) =>
     .replace(/[^\p{L}\p{N} .'-]/gu, (char) => `&#${char.codePointAt(0)};`);
 
 /**
- * The grey italic note the gate puts after a ticked box. It records the tick for
+ * The small italic note the gate puts after a ticked box. It records the tick for
  * people; the gate never reads it back as evidence.
  *
  * @param {Approval} approval

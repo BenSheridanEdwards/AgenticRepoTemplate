@@ -344,7 +344,7 @@ describe('enforcementProblems', () => {
 
 describe('londonTime', () => {
   it.each([
-    ['a BST afternoon on the hour', '2029-10-08T14:00:00Z', 'Monday, the 8th of October, at 3 pm'],
+    ['a BST afternoon on the hour', '2026-10-12T14:00:00Z', 'Monday, the 12th of October, at 3 pm'],
     [
       'a GMT afternoon with minutes',
       '2026-01-08T15:05:00Z',
@@ -391,11 +391,11 @@ describe('londonTime', () => {
 });
 
 describe('approvalLabel', () => {
-  const at = new Date('2029-10-08T14:00:00Z');
+  const at = new Date('2026-10-12T14:00:00Z');
 
   it('names the approver, their login, and the London time in small italics', () => {
     expect(approvalLabel({ name: 'Ben', login: APPROVER, at })).toBe(
-      `<sub><i>Approved by Ben @${APPROVER} on Monday, the 8th of October, at 3 pm</i></sub>`,
+      `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`,
     );
   });
 
@@ -429,7 +429,7 @@ describe('signoffComment', () => {
   });
 
   it('ticks the box and puts the label on the same line when given an approval', () => {
-    const approval = { name: 'Ben', login: APPROVER, at: new Date('2029-10-08T14:00:00Z') };
+    const approval = { name: 'Ben', login: APPROVER, at: new Date('2026-10-12T14:00:00Z') };
     const body = signoffComment({ head: HEAD, problems: PROBLEMS, approval });
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
       `- [x] Approve these enforcement changes at \`${HEAD}\` ${approvalLabel(approval)}`,
@@ -473,7 +473,7 @@ describe('planApproval', () => {
     description: `${APPROVER} ticks the box in the enforcement comment for this commit`,
   };
   const SIGNED = { state: 'success', description: `${APPROVER} signed off at aaaaaaa` };
-  const AT = '2029-10-08T14:00:00Z';
+  const AT = '2026-10-12T14:00:00Z';
   const benUser: Sender = { login: APPROVER, type: 'User', name: 'Ben' };
   const unticked = signoffComment({ head: HEAD, problems: PROBLEMS });
   const approved = signoffComment({
@@ -640,7 +640,7 @@ describe('planApproval', () => {
 
   it('does not approve a tick when the comment was edited again since, even back to the same body', () => {
     expect(
-      plan(tick(unticked), edit(unticked, tick(unticked)), { updatedAt: '2029-10-08T14:06:00Z' }),
+      plan(tick(unticked), edit(unticked, tick(unticked)), { updatedAt: '2026-10-12T14:06:00Z' }),
     ).toEqual({ commentBody: unticked, status: FAILURE });
   });
 
@@ -770,7 +770,7 @@ function fakeGitHub({
     ) => (await method(parameters)).data,
   };
   /** Edit the gate's comment as `sender` and return the issue_comment context GitHub sends. */
-  const editBy = (sender: Editor, edit: (body: string) => string, at = '2029-10-08T14:00:00Z') => {
+  const editBy = (sender: Editor, edit: (body: string) => string, at = '2026-10-12T14:00:00Z') => {
     const comment = comments[0];
     if (!comment) throw new Error('no comment to edit');
     const from = comment.body;
@@ -809,7 +809,7 @@ describe('run', () => {
     },
   });
   const HOOK = [{ path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' }];
-  const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 8th of October, at 3 pm</i></sub>`;
+  const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`;
   const boxLines = (body: string | undefined) =>
     (body ?? '').split('\n').filter((line) => line.startsWith('- ['));
 
@@ -901,13 +901,13 @@ describe('run', () => {
     await run({ github, context: tickContext, core });
     await run({
       github,
-      context: editBy(ben, (body) => body.replace('- [x] ', '- [ ] '), '2029-10-08T14:05:00Z'),
+      context: editBy(ben, (body) => body.replace('- [x] ', '- [ ] '), '2026-10-12T14:05:00Z'),
       core,
     });
     editBy(
       { login: 'someone', type: 'User' },
       () => tickContext.payload.comment.body,
-      '2029-10-08T14:06:00Z',
+      '2026-10-12T14:06:00Z',
     );
     await run({ github, context: tickContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
@@ -969,7 +969,7 @@ describe('run', () => {
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
 
-    await run({ github, context: editBy(ben, (body) => tick(body), '2029-10-08T14:00:00Z'), core });
+    await run({ github, context: editBy(ben, (body) => tick(body), '2026-10-12T14:00:00Z'), core });
     expect(boxLines(comments[0]?.body)).toEqual([
       `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
     ]);
