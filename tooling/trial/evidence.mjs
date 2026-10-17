@@ -13,6 +13,7 @@
  *   agent: { cli: string, version: string, argv: string[], sessionId: string, resolvedModel: string | null, userConfigSha256: string, fake: boolean },
  *   run: { startedAt: string, finishedAt: string, durationMs: number, agentExitCode: number | null, agentDurationMs: number | null, turns: number | null, costUsd: number | null },
  *   result: { status: 'passed' | 'failed', commit: string | null, changedPaths: string[], outsideScope: string[], outsideReads: string[], patch: string | null },
+ *   stream: { path: string | null, sha256: string | null, userTextEvents: number | null },
  *   checks: CheckRecord[],
  *   failures: string[],
  *   retries: { startedAt: string, failures: string[] }[],
@@ -20,7 +21,9 @@
  *
  * `run.agentExitCode` is null when the agent never started, and -1 in the
  * provisional record written as it starts; `retries` holds the earlier
- * attempts that failed before the agent (`--retry`).
+ * attempts that failed before the agent (`--retry`). `stream` names the
+ * agent's stream kept beside the record, secrets redacted, or nulls when the
+ * agent never ran.
  */
 
 /** @typedef {(value: unknown, path: string) => void} Check */
@@ -137,6 +140,11 @@ const SCHEMA = shape({
     outsideReads: list(text()),
     patch: nullable(text()),
   }),
+  stream: shape({
+    path: nullable(text()),
+    sha256: nullable(SHA256),
+    userTextEvents: nullable(count()),
+  }),
   checks: list(
     shape({
       name: text(),
@@ -154,8 +162,9 @@ const SCHEMA = shape({
 export const REQUIRED_CHECKS = ['install', 'verify', 'e2e', 'structure'];
 
 /** @param {TrialEvidence} evidence */
-const passes = ({ result, checks, failures }) =>
+const passes = ({ result, stream, checks, failures }) =>
   result.commit !== null &&
+  stream.path !== null &&
   result.outsideScope.length === 0 &&
   result.outsideReads.length === 0 &&
   REQUIRED_CHECKS.every((name) => checks.some((check) => check.name === name)) &&
@@ -177,7 +186,7 @@ const CONSISTENCY = [
   {
     path: 'evidence.result.status',
     holds: (evidence) => evidence.result.status !== 'passed' || passes(evidence),
-    rule: `"passed" needs a commit, empty scope and read lists, the checks ${REQUIRED_CHECKS.join(', ')}, every check at exit 0 and no failure`,
+    rule: `"passed" needs a commit, a kept stream, empty scope and read lists, the checks ${REQUIRED_CHECKS.join(', ')}, every check at exit 0 and no failure`,
   },
   {
     path: 'evidence.failures',

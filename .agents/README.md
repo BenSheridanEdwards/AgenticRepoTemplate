@@ -39,8 +39,9 @@ pnpm trial --trial 1 --scaffold <rev> --trials-root <dir>             # clone, r
 git fetch <dir>/todo-01-<stamp>/repo trial/todo-01:trial/todo-01         # keep the result branch
 ```
 
-The run writes `docs/trials/todo-01.json` (and `todo-01.patch` when it
-fails) and prints its workdir. Fetch the result branch, then remove the
+The run writes `docs/trials/todo-01.json`, the agent's stream as
+`todo-01.stream.jsonl` with secrets redacted (and `todo-01.patch` when it
+fails), and prints its workdir. Fetch the result branch, then remove the
 workdir before the next trial; the harness refuses to start while one
 remains. Pass `--retry` only after a failure from before the agent started.
 

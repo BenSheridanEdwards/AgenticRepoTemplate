@@ -109,8 +109,12 @@ the evidence:
    top-level session. Every command also loses git's per-repository
    variables, pnpm's script variables (`npm_*`, `INIT_CWD`) and the
    `node_modules/.bin` folders on the PATH, which point back at the invoking
-   checkout. The stream is kept as `agent.stream.jsonl`. The agent gets no
-   second prompt; it repairs its own mistakes within the session. SIGINT or
+   checkout. The stream is written to `agent.stream.jsonl` and copied, with
+   the value of every secret-named variable (`TOKEN`, `KEY`, `SECRET`,
+   `PASSWORD`, `CREDENTIAL`, `AUTH`) redacted, to
+   `docs/trials/<id>.stream.jsonl`, so it outlives the workdir. The agent
+   gets no second prompt: `-p` reads the one prompt from stdin, which then
+   closes, and it repairs its own mistakes within the session. SIGINT or
    SIGTERM stops the agent's process group with the harness.
 4. It lists every changed path (`<scaffold>..HEAD`, the working tree and
    untracked files, with renames split into a deletion and an addition). A
@@ -157,10 +161,12 @@ init event or null, user config SHA-256, fake); `run` (start, finish and
 duration; the agent's exit code and duration, null when the agent never
 started and -1 in the provisional record; turns and cost from the result
 event or null); `result` (status,
-commit, changed paths, `outsideScope`, `outsideReads`, patch path); `checks`
+commit, changed paths, `outsideScope`, `outsideReads`, patch path); `stream`
+(the kept stream's path and SHA-256, and `userTextEvents`, the user events
+that carry text rather than only tool results); `checks`
 (name, command, exit code, duration, last 200 lines of output); `failures`;
 `retries` (each earlier attempt's start and failures). A record is `passed`
-only with a commit, empty scope and read lists, the four checks `install`,
+only with a commit, a kept stream, empty scope and read lists, the four checks `install`,
 `verify`, `e2e` and `structure` all at exit 0, and no failure; a `failed`
 record names at least one failure.
 
@@ -207,6 +213,11 @@ own packages on its own ports, so a reviewer can drive a showcase result.
   readable in principle. The pinned origin, the empty trials root and the
   per-trial workdir keep earlier results off every path the agent is pointed
   at; they do not make them unreadable.
+- `userTextEvents` is recorded, not judged. Whether the CLI echoes the
+  prompt as a user event, and whether a skill it loads arrives as user text,
+  was not observed on a real session, so a fixed count could fail a clean
+  trial. The kept stream is the proof of one prompt: a reader counts its user
+  events and reads each one.
 - The inclusion test adds about 35 seconds to `pnpm test`, because it runs
   each real tool. Its copy links `node_modules` into the checkout, so it
   runs pnpm with `verify-deps-before-run=false`; pnpm never reinstalls

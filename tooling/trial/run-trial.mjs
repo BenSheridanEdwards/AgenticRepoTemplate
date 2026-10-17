@@ -31,7 +31,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { REQUIRED_CHECKS, validateEvidence } from './evidence.mjs';
-import { findOutsideReads, streamEvents, summarizeStream } from './stream.mjs';
+import { findOutsideReads, redactSecrets, streamEvents, summarizeStream } from './stream.mjs';
 import { agentEnv, checkEnv, stopAll, systemDeps } from './system.mjs';
 
 const HARNESS_ROOT = resolve(import.meta.dirname, '../..');
@@ -93,7 +93,7 @@ const USER_CONFIG_ENTRIES = [
  * @typedef {{
  *   trial: 1 | 2 | 3, id: string, scaffoldRev: string, root: string, trialsRoot: string,
  *   workdir: string, origin: string, clone: string, checkClone: string, branch: string,
- *   evidencePath: string, patchPath: string, promptPath: string, streamPath: string,
+ *   evidencePath: string, patchPath: string, keptStreamPath: string, promptPath: string, streamPath: string,
  *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
  *   claudeConfigDir: string, claudeStateFile: string,
  *   setup: readonly Command[], checks: readonly Command[],
@@ -160,6 +160,7 @@ export function planTrial(options) {
     branch: `trial/${id}`,
     evidencePath: join(root, 'docs/trials', `${id}.json`),
     patchPath: join(root, 'docs/trials', `${id}.patch`),
+    keptStreamPath: join(root, 'docs/trials', `${id}.stream.jsonl`),
     promptPath: join(workdir, 'prompt.md'),
     streamPath: join(workdir, 'agent.stream.jsonl'),
     sessionId,
@@ -575,7 +576,7 @@ async function writeEvidence(plan, evidence, deps) {
  *   failures: string[], checks: TrialEvidence['checks'],
  *   agent: { version: string, userConfigSha256: string, resolvedModel: string | null },
  *   run: { agentExitCode: number | null, agentDurationMs: number | null, turns: number | null, costUsd: number | null },
- *   result: Omit<TrialEvidence['result'], 'status'>,
+ *   result: Omit<TrialEvidence['result'], 'status'>, stream: TrialEvidence['stream'],
  * }} RunState
  */
 
@@ -627,10 +628,19 @@ async function agentStage(state) {
       session.timedOut ? 'the agent ran past its 90 minute limit' : `agent exited ${session.code}`,
     );
   }
-  const events = streamEvents(readFileSync(plan.streamPath, 'utf8'));
-  const { resolvedModel, turns, costUsd } = summarizeStream(events);
+  const streamText = readFileSync(plan.streamPath, 'utf8');
+  const events = streamEvents(streamText);
+  const { resolvedModel, turns, costUsd, userTextEvents } = summarizeStream(events);
   Object.assign(agent, { resolvedModel });
   Object.assign(run, { turns, costUsd });
+  const kept = redactSecrets(streamText, process.env);
+  mkdirSync(dirname(plan.keptStreamPath), { recursive: true });
+  writeFileSync(plan.keptStreamPath, kept);
+  state.stream = {
+    path: relative(plan.root, plan.keptStreamPath),
+    sha256: sha256(kept),
+    userTextEvents,
+  };
   result.outsideReads = findOutsideReads(events, {
     clone: plan.clone,
     deniedRoots: [plan.root, plan.trialsRoot, plan.claudeConfigDir, plan.claudeStateFile],
@@ -726,7 +736,8 @@ async function runStages(state) {
  * @returns {TrialEvidence}
  */
 function toEvidence(state, finishedAt) {
-  const { plan, scaffold, startedAt, retries, failures, checks, agent, run, result } = state;
+  const { plan, scaffold, startedAt, retries, failures, checks, agent, run, result, stream } =
+    state;
   return {
     schema: 1,
     trial: {
@@ -763,6 +774,7 @@ function toEvidence(state, finishedAt) {
       ...run,
     },
     result: { status: failures.length === 0 ? 'passed' : 'failed', ...result },
+    stream,
     checks,
     failures,
     retries,
@@ -793,6 +805,7 @@ export async function runTrial(plan, deps) {
     agent: { version: '', userConfigSha256: sha256(''), resolvedModel: null },
     run: { agentExitCode: null, agentDurationMs: null, turns: null, costUsd: null },
     result: { commit: null, changedPaths: [], outsideScope: [], outsideReads: [], patch: null },
+    stream: { path: null, sha256: null, userTextEvents: null },
   };
   await runStages(state);
   if (state.failures.length > 0 && state.run.agentExitCode !== null) {
@@ -891,6 +904,7 @@ function printOutcome(plan, evidence) {
     ...evidence.failures.map((failure) => `  - ${failure.split('\n')[0]}`),
     `evidence: ${relative(plan.root, plan.evidencePath)}`,
     ...(evidence.result.patch ? [`patch: ${evidence.result.patch}`] : []),
+    ...(evidence.stream.path ? [`stream: ${evidence.stream.path}`] : []),
     `workdir (fetch ${plan.branch} from ${plan.clone}, then remove it): ${plan.workdir}`,
   ];
   console.log(lines.join('\n'));

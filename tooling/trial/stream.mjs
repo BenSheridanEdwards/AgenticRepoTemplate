@@ -28,7 +28,19 @@ export function streamEvents(text) {
   });
 }
 
-/** The resolved model, turns and cost, or null for a field the stream does not carry. */
+/** A user event that carries text, as a prompt does, rather than only tool results. */
+const isUserText = (event) => {
+  const content = event.type === 'user' ? event.message?.content : undefined;
+  return (
+    typeof content === 'string' ||
+    (Array.isArray(content) && content.some((block) => block?.type === 'text'))
+  );
+};
+
+/**
+ * The resolved model, turns and cost, or null for a field the stream does not
+ * carry, and how many user events carry text.
+ */
 export function summarizeStream(events) {
   const init = events.find((event) => event.type === 'system' && event.subtype === 'init');
   const result = events.findLast((event) => event.type === 'result');
@@ -37,7 +49,25 @@ export function summarizeStream(events) {
     resolvedModel: typeof init?.model === 'string' ? init.model : null,
     turns: numberOrNull(result?.num_turns),
     costUsd: numberOrNull(result?.total_cost_usd),
+    userTextEvents: events.filter(isUserText).length,
   };
+}
+
+/** A variable whose value is a credential, by its name. */
+const SECRET_NAME = /TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL|AUTH/i;
+
+/**
+ * `text` with the value of every secret-named variable in `env` replaced by
+ * `[redacted <NAME>]`, longest value first, so the stream can be committed.
+ *
+ * @param {string} text
+ * @param {NodeJS.ProcessEnv} env
+ */
+export function redactSecrets(text, env) {
+  return Object.entries(env)
+    .filter(([name, value]) => SECRET_NAME.test(name) && value && value.length >= 8)
+    .sort(([, left], [, right]) => right.length - left.length)
+    .reduce((redacted, [name, value]) => redacted.replaceAll(value, `[redacted ${name}]`), text);
 }
 
 const toolInputs = (events) =>
