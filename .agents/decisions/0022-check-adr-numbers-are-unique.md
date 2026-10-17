@@ -1,4 +1,4 @@
-# 21. Check that each ADR number is used once
+# 22. Check that each ADR number is used once
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-16
@@ -21,12 +21,11 @@ with one number. On 2026-10-16 this happened three times:
 
 Nothing failed in any of them. Each depended on someone noticing.
 
-It kept happening on 2026-10-17. Open PR #74 adds
-`0018-dependency-manifests-are-not-enforcement-paths` while a local branch
-stack (`feat/react-policy-lint` and the two branches on top of it) adds
-`0018-local-eslint-policy-plugin`. This ADR moved from 0018 to 0021 for
-the same reason: open work already holds 0018, and the head-commit and
-hook-bypass branches above moved to 0019 and 0020.
+It kept happening on 2026-10-17. #74 and `feat/react-policy-lint` (#76)
+each added an ADR 0018. #74 merged first, and #76 was renumbered to 0019
+by hand before it merged. The head-commit branch from the day before then
+held a second 0019 once it merged main in. This ADR itself moved from
+0018 to 0022 as main kept taking the numbers it had picked.
 
 ## Decision
 
