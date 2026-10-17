@@ -17,7 +17,6 @@ const GREETING = `${API}/features/greeting`;
 /** A clean copy of the reference result's role layout: every import follows the contract. */
 const LAYOUT: Record<string, string> = {
   'package.json': '{ "name": "root", "private": true, "type": "module" }\n',
-  'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n  - 'packages/*'\n",
   'apps/web/package.json':
     '{ "name": "@repo/web", "private": true, "type": "module", "dependencies": { "@repo/ui": "workspace:*" }, "devDependencies": { "@repo/api": "workspace:*" } }\n',
   'apps/web/index.html': '<script type="module" src="/src/main.tsx"></script>\n',
@@ -73,7 +72,7 @@ function withSeededRepository<Result>(
 ) {
   const directory = mkdtempSync(join(tmpdir(), 'fallow-contract-'));
   try {
-    for (const path of ['.fallowrc.jsonc', RULE_PACK]) {
+    for (const path of ['.fallowrc.jsonc', 'pnpm-workspace.yaml', RULE_PACK]) {
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       copyFileSync(join(REPOSITORY_ROOT, path), join(directory, path));
     }
@@ -319,6 +318,28 @@ describe('Fallow contract over the reference result', () => {
     ],
   ])('fails when %s', (_label, path, source, findings) => {
     expect(architectureGate({ [path]: source })).toEqual({ status: 1, findings });
+  });
+
+  it('applies the rule pack to a showcase result, which the workspace lists', () => {
+    const showcase = 'showcase/x/api';
+    const todo = `${showcase}/src/features/todo`;
+    const seed = {
+      [`${showcase}/package.json`]:
+        '{ "name": "@showcase/x-api", "private": true, "type": "module", "exports": { ".": { "types": "./src/router.ts" } } }\n',
+      [`${showcase}/src/router.ts`]:
+        "import { todoRouter } from './features/todo/index.ts';\nexport const appRouter = todoRouter;\n",
+      [`${todo}/index.ts`]: "export { todoRouter } from './procedures.ts';\n",
+      [`${todo}/procedures.ts`]:
+        "import { addTodo } from './application.ts';\nexport const todoRouter = addTodo;\n",
+      [`${todo}/application.ts`]:
+        "import { formatTodo } from './domain.ts';\nexport const addTodo = (title: string) => formatTodo(title);\n",
+      [`${todo}/domain.ts`]:
+        "import { initTRPC } from '@trpc/server';\nexport const formatTodo = (title: string) => String(initTRPC) + title;\n",
+    };
+    expect(architectureGate(seed)).toEqual({
+      status: 1,
+      findings: ['policy contract/domain-pure'],
+    });
   });
 
   it('fails a fallow-ignore suppression that gives no reason', () => {
