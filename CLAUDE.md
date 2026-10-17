@@ -52,8 +52,8 @@ refuses the common ways to switch the git hooks off: `--no-verify`,
 config includes. The hook is deliberately scoped: Claude Code only spawns it for
 Bash commands that run `git`, `env`, `sh`, or `bash`, and the script blocks only
 gate bypasses (ADR 0005, amended by 0021). It is a speed bump, not a sandbox;
-CI on a clean checkout is the backstop. The gates are not optional — if one
-fails, fix the cause.
+CI on a clean checkout is the backstop. Every gate counts: when one fails, fix
+the cause.
 
 ## The workflow for a change
 

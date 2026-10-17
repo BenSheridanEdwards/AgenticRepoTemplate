@@ -36,10 +36,11 @@ pnpm e2e              # the end-to-end behaviour map
    `.agents/templates/`. Consistency is the deliverable.
 3. **Behaviour is defined by the E2E map** (`e2e/app.spec.ts`), not by the
    implementation. Add behaviour there first.
-4. **Never bypass the gates.** No `--no-verify`, `git commit -n`, `HUSKY=0`, or
-   `core.hooksPath` override, git alias, or config include that skips hooks,
-   and no weakening `tsconfig.json` or `biome.json` to make red turn green. Fix
-   the cause. (A Claude Code hook refuses the common forms; CI is the backstop.)
+4. **Keep every gate running.** Commit and push with the git hooks on, and keep
+   `tsconfig.json` and `biome.json` as strict as they are. When a gate goes red,
+   fix the cause. (A Claude Code hook refuses `--no-verify`, `git commit -n`,
+   `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides; CI is the
+   backstop.)
 5. **Commits are Conventional** (`type(scope): subject`), enforced on commit.
 6. **Done means the gates are green.** Do not report a task complete until
    `pnpm verify` and `pnpm e2e` pass — see
