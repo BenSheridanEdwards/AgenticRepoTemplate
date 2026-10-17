@@ -46,6 +46,20 @@ React Doctor 0.9.18 expands one `*` per glob and read `showcase/*/*` as the
 literal folder `showcase/<id>/*`, so it scanned no showcase result. The
 inclusion test fails on the old glob.
 
+**The browser program reads the api's declarations.** The api program
+(`tsconfig.api.json`) is composite and writes its declarations to
+`.cache/types`, and the browser program (`tsconfig.json`) references it. The
+`AppRouter` type import then resolves to those declarations, so api source is
+checked once, with Node types, and a `node:` import in `integrations.ts`, where
+ARCHITECTURE.md puts Node IO, passes `pnpm typecheck` and `pnpm api:check`.
+Before, the browser program followed the import into api source and failed on
+it with `TS2307`, a trap every trial would have hit. `pnpm typecheck` runs
+`tsc -b --force tsconfig.json`, so the declarations are rebuilt from source
+on every run. The browser and domain programs keep their types: web code
+still fails on a Node global, and domain code still fails on a Node import.
+`pnpm api:report` reads the same `.cache/types`. The inclusion test seeds the
+`node:crypto` import in `showcase/x`.
+
 **Coverage per result.** `tooling/coverage-by-result.mjs` runs in
 `pnpm test:coverage` after Jest and fails when any result is under 80 percent
 in lines, statements, functions or branches, so one result cannot hide behind

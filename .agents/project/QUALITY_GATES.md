@@ -38,7 +38,11 @@ only when a hook, script, workflow, or review checklist actually owns it.
   Node), `tsconfig.api.json` (api packages, `NodeNext`, `.ts` import
   extensions, `erasableSyntaxOnly`, no DOM) and `tsconfig.domain.json` (api
   domain modules, as the api program but with no Node types). All four extend
-  `tsconfig.base.json`.
+  `tsconfig.base.json`. The api program is composite and writes its
+  declarations to `.cache/types`; the browser program references it, so it
+  reads the api through those declarations and leaves api source, such as a
+  `node:` import in `integrations.ts`, to the api program.
+  `pnpm typecheck` builds both with `tsc -b --force tsconfig.json`.
 - **Jest + React Testing Library** own component, hook and api behaviour in
   three projects: `web` (jsdom, every web package and `packages/ui`), `api`
   (node, every api package) and `tooling` (`scripts/`, `tooling/`). Coverage
