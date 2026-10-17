@@ -157,8 +157,9 @@ the evidence:
    word counts when it is absolute, under `~/` or starts with `..`, and
    exists, so URL paths such as `/trpc` and markup never count. Relative
    words resolve from the Bash tool's folder, which starts at the clone and
-   follows each `cd` through the calls in order; a `cd` inside `( )` lasts
-   until the `)`. The prompt tells the agent to read only inside its clone.
+   follows each `cd` through the calls in order. As in Claude Code, the
+   folder returns to the clone after a call that leaves it, and a `cd` inside
+   `( )` lasts until the `)`. The prompt tells the agent to read only inside its clone.
 5. It rewinds the clone to the scaffold on `trial/<id>`, keeping the agent's
    tree, so whatever the agent committed, the harness makes the one result
    commit: `showcase/<id>` and the lockfile as

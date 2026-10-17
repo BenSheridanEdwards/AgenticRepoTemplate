@@ -104,16 +104,16 @@ function cdTarget(word, cwd) {
 
 /**
  * The path words of each shell command, resolved in order from the folder the
- * Bash tool is in. That folder starts at the clone and persists between calls,
- * so a `cd` moves it for later words and later calls; a `cd` inside `( )`
- * lasts until the `)`. A relative word after a `cd` that cannot be followed is
- * left out.
+ * Bash tool is in. That folder starts at the clone and persists between calls
+ * while it is inside the clone; Claude Code moves it back to the clone after a
+ * call that leaves. A `cd` inside `( )` lasts until the `)`. A relative word
+ * after a `cd` that cannot be followed is left out.
  */
 function shellWords(commands, clone) {
   let cwd = clone;
   return commands.flatMap((command) => {
     const subshells = [];
-    return command.split(/&&|\|\||[;|\n]/).flatMap((segment) => {
+    const named = command.split(/&&|\|\||[;|\n]/).flatMap((segment) => {
       if (segment.trimStart().startsWith('(')) {
         subshells.push(cwd);
       }
@@ -130,6 +130,10 @@ function shellWords(commands, clone) {
       }
       return words;
     });
+    if (cwd !== null && cwd !== clone && !cwd.startsWith(`${clone}/`)) {
+      cwd = clone;
+    }
+    return named;
   });
 }
 
