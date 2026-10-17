@@ -4,23 +4,22 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import policy from '../tooling/eslint-plugin-policy.js';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const ESLINT_BIN = resolve(REPOSITORY_ROOT, 'node_modules/.bin/eslint');
 
-type LintResult = { exitCode: number | null; ruleIds: string[]; output: string };
+interface LintResult {
+  exitCode: number | null;
+  ruleIds: string[];
+  output: string;
+}
 
-/** Lints `source` through the real ESLint CLI as if it lived under `src/`. */
-function lintPolicy(source: string): LintResult {
+/** Lints `source` through the real ESLint CLI as if it lived at `filename`. */
+function lintPolicy(source: string, filename = 'src/features/policy/Fixture.tsx'): LintResult {
   const run = spawnSync(
     ESLINT_BIN,
-    [
-      '--max-warnings=0',
-      '--format=json',
-      '--stdin',
-      '--stdin-filename',
-      'src/__policy__/Fixture.tsx',
-    ],
+    ['--max-warnings=0', '--format=json', '--stdin', '--stdin-filename', filename],
     { cwd: REPOSITORY_ROOT, input: source, encoding: 'utf8' },
   );
   const output = `${run.stdout}${run.stderr}`;
@@ -36,6 +35,17 @@ function lintPolicy(source: string): LintResult {
 
 describe('ESLint policy stack', () => {
   jest.setTimeout(60_000);
+
+  it('turns on every local policy rule as an error for src/', () => {
+    const run = spawnSync(ESLINT_BIN, ['--print-config', 'src/App.tsx'], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+    });
+    const { rules } = JSON.parse(run.stdout) as { rules: Record<string, unknown[]> };
+    for (const rule of Object.keys(policy.rules)) {
+      expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
+    }
+  });
 
   it('blocks a hook called inside a condition (react-hooks/rules-of-hooks)', () => {
     const result = lintPolicy(`
@@ -78,7 +88,7 @@ export function Loader() {
 
   it('passes a clean component', () => {
     const result = lintPolicy(`
-export function Greeting({ name }: { name: string }) {
+export function Fixture({ name }: { name: string }) {
   return <p>Hello {name}</p>;
 }
 `);
@@ -88,12 +98,222 @@ export function Greeting({ name }: { name: string }) {
 
   it('leaves general lint such as unused variables to Biome', () => {
     const result = lintPolicy(`
-export function Greeting() {
+export function Fixture() {
   const unused = 1;
   return <p>Hello</p>;
 }
 `);
     expect(result.ruleIds).toEqual([]);
     expect(result.exitCode).toBe(0);
+  });
+
+  it('blocks a second component in one file (policy/one-component-per-file)', () => {
+    const result = lintPolicy(`
+export function Fixture() {
+  return <Badge />;
+}
+function Badge() {
+  return <span>new</span>;
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/one-component-per-file');
+  });
+
+  it.each([
+    ['useState', "import { useState } from 'react';", 'useState(0);'],
+    ['useEffect', "import { useEffect } from 'react';", 'useEffect(() => {}, []);'],
+    [
+      'an aliased useReducer',
+      "import { useReducer as useStore } from 'react';",
+      'useStore((x: number) => x, 0);',
+    ],
+    [
+      'React.useLayoutEffect',
+      "import * as React from 'react';",
+      'React.useLayoutEffect(() => {}, []);',
+    ],
+  ])('blocks %s called directly in a component (policy/state-and-effects-in-hooks)', (_label, importLine, call) => {
+    const result = lintPolicy(`
+${importLine}
+export function Fixture() {
+  ${call}
+  return <p>state</p>;
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/state-and-effects-in-hooks');
+  });
+
+  it('passes state and effects inside a named custom hook', () => {
+    const result = lintPolicy(
+      `
+import { useEffect, useState } from 'react';
+export function useTitle(title: string) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+  return { count, handleIncrement: () => setCount((current) => current + 1) };
+}
+`,
+      'src/features/policy/useTitle.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it('blocks state mirrored from a prop by an effect (react-hooks/set-state-in-effect)', () => {
+    const result = lintPolicy(
+      `
+import { useEffect, useState } from 'react';
+export function useMirror(value: number) {
+  const [copy, setCopy] = useState(value);
+  useEffect(() => {
+    setCopy(value);
+  }, [value]);
+  return copy;
+}
+`,
+      'src/features/policy/useMirror.ts',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('react-hooks/set-state-in-effect');
+  });
+
+  it('blocks a function inside a component without the handle prefix (policy/handler-names)', () => {
+    const result = lintPolicy(`
+export function Fixture({ onSave }: { onSave: () => void }) {
+  const save = () => onSave();
+  return <button type="button" onClick={save}>Save</button>;
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/handler-names');
+  });
+
+  it('passes handle-prefixed functions and on-prefixed callback props', () => {
+    const result = lintPolicy(`
+interface FixtureProps {
+  label: string;
+  onSave: () => void;
+}
+export function Fixture({ label, onSave }: FixtureProps) {
+  const handleClick = () => onSave();
+  return <button type="button" onClick={handleClick}>{label}</button>;
+}
+`);
+    expect(result.ruleIds).toEqual([]);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it.each([
+    ['an inline props type', 'export function Fixture({ save }: { save: () => void }) {'],
+    [
+      'a props interface',
+      'interface FixtureProps { save(): void }\nexport function Fixture({ save }: FixtureProps) {',
+    ],
+  ])('blocks a callback prop without the on prefix in %s (policy/callback-prop-names)', (_label, header) => {
+    const result = lintPolicy(`
+${header}
+  return <button type="button" onClick={save}>Save</button>;
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/callback-prop-names');
+  });
+
+  it('blocks a page component outside src/routes (policy/pages-in-routes)', () => {
+    const result = lintPolicy(
+      `
+export function SettingsPage() {
+  return <main>settings</main>;
+}
+`,
+      'src/features/settings/SettingsPage.tsx',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/pages-in-routes');
+  });
+
+  it('passes a page component under src/routes', () => {
+    const result = lintPolicy(
+      `
+export function SettingsPage() {
+  return <main>settings</main>;
+}
+`,
+      'src/routes/settings/SettingsPage.tsx',
+    );
+    expect(result.ruleIds).toEqual([]);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it.each([
+    [
+      'a component',
+      'src/features/policy/Widget.tsx',
+      'export function Fixture() {\n  return <p />;\n}',
+    ],
+    ['a hook', 'src/features/policy/hooks.ts', 'export function useFixture() {\n  return 1;\n}'],
+  ])('blocks %s in a file of another name (policy/file-matches-export)', (_label, filename, source) => {
+    const result = lintPolicy(source, filename);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/file-matches-export');
+  });
+
+  it('blocks a folder that is not kebab-case (policy/folder-names)', () => {
+    const result = lintPolicy(
+      'export function Fixture() {\n  return <p />;\n}',
+      'src/features/ThresholdCounter/Fixture.tsx',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/folder-names');
+  });
+
+  it('blocks a class component (react-doctor/prefer-function-component)', () => {
+    const result = lintPolicy(`
+import { Component } from 'react';
+export class Fixture extends Component {
+  render() {
+    return <p />;
+  }
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('react-doctor/prefer-function-component');
+  });
+
+  it('blocks a deep import past a public surface (no-restricted-imports)', () => {
+    const result = lintPolicy(
+      "export { useServiceStatus } from '../features/service-status/useServiceStatus';",
+      'src/routes/home/index.ts',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('no-restricted-imports');
+  });
+
+  it('blocks a disable comment without a reason (policy/disable-reason)', () => {
+    const result = lintPolicy(`
+export function Fixture() {
+  // eslint-disable-next-line react-hooks/purity
+  const ticket = Math.random();
+  return <p>{ticket}</p>;
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/disable-reason');
+  });
+
+  it('blocks a ts-expect-error without a description (@typescript-eslint/ban-ts-comment)', () => {
+    const result = lintPolicy(`
+export function Fixture() {
+  // @ts-expect-error
+  const count: number = 'one';
+  return <p>{count}</p>;
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('@typescript-eslint/ban-ts-comment');
   });
 });
