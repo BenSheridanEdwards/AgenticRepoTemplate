@@ -834,6 +834,27 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
     }
   });
 
+  it('looks for a stray server after the result commit, so one that starts late is still stopped', async () => {
+    const real = systemDeps();
+    let committed = false;
+    let stopped = false;
+    const evidence = await runTrial(
+      { ...plan({ agent: fakeAgent('late-server', WRITES_RESULT) }), ports: [5183] },
+      quietDeps({
+        exec: async (argv, options) => {
+          committed ||= argv[0] === 'git' && argv[1] === 'commit';
+          return real.exec(argv, options);
+        },
+        isPortBusy: async () => committed && !stopped,
+        stopListeners: async () => {
+          stopped = true;
+        },
+      }),
+    );
+
+    expect(evidence.result).toMatchObject({ status: 'passed', stoppedServers: [5183] });
+  });
+
   it('fails a run whose agent left a server the harness cannot stop, naming the port', async () => {
     let calls = 0;
     const evidence = await runTrial(
