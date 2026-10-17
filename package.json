@@ -21,7 +21,7 @@
     "react-doctor": "react-doctor . --no-lint --no-supply-chain --no-telemetry --blocking warning --yes",
     "fallow:audit": "bash scripts/fallow-audit.sh",
     "arch:gate": "fallow architecture -q",
-    "arch:diagram": "node scripts/fallow-roles.mjs",
+    "arch:diagram": "node tooling/architecture/diagram.mjs",
     "arch:check": "pnpm arch:gate && pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd && pnpm api:check",
     "api:report": "node scripts/api-report.mjs --local",
     "api:check": "node scripts/api-report.mjs",

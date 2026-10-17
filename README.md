@@ -321,10 +321,10 @@ tsconfig.domain.json        The domain program: api domain modules with no Node 
 tooling/
   results.mjs               Lists the results (apps/ and each showcase/<id>/) for the per-result gates.
   architecture/contract.rules.jsonc  The contract's banned imports, calls and effects per role.
+  architecture/diagram.mjs  Renders docs/architecture/roles.mmd from the Fallow graph.
 scripts/
   setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus, Ponytail.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
-  fallow-roles.mjs          Renders docs/architecture/roles.mmd from the Fallow graph.
   api-report.mjs            Writes and checks each package's etc/*.api.md API Extractor reports.
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).

@@ -19,7 +19,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FALLOW = join(REPOSITORY_ROOT, 'node_modules/.bin/fallow');
 const CACHE_DIRECTORY = join(REPOSITORY_ROOT, '.cache/arch');
 const DIAGRAM_PATH = join(REPOSITORY_ROOT, 'docs/architecture/roles.mmd');

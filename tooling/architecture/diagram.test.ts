@@ -1,4 +1,4 @@
-import { globToRegExp, renderRoleDiagram } from './fallow-roles.mjs';
+import { globToRegExp, renderRoleDiagram } from './diagram.mjs';
 
 /** Build `fallow viz --viz-format dot` output for the given files and edges. */
 function dotFor(files: string[], edges: Array<[string, string]>): string {
