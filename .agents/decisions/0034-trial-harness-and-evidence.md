@@ -35,10 +35,15 @@ the ESLint config (equal to the reference's, every `policy/*` rule on), React
 Doctor's project list, the four TypeScript programs (`--listFilesOnly`), Jest
 and coverage per result, `pnpm arch:diagram` and `pnpm arch:gate` (which runs
 the ADR 0033 structure validator and diagram check), the dependency ADR check and
-`fallow audit`. Seeded violations inside the showcase result fail ESLint
-policy, the Biome naming override, the api type check, `fallow architecture`
-(a value import of the router, a file in no role), the dependency ADR check, the
-suppression check and `fallow audit`.
+`fallow audit`. The architecture case asserts the structure validator names
+`(reference, x)` and the diagram check counts three diagrams, so a gate that
+stops listing showcase results fails it. Seeded violations inside the showcase
+result fail ESLint policy, the Biome naming override, the api type check,
+`fallow architecture` (a value import of the router, a file in no role), the
+structure validator (`missing-role` for a deleted api `domain.ts`), the
+dependency ADR check, the suppression check and `fallow audit`. A seeded
+`node:crypto` import in the result's api `integrations.ts` passes
+`pnpm typecheck` and `pnpm api:check`.
 
 **Workspace globs.** `pnpm-workspace.yaml` lists `showcase/*/web` and
 `showcase/*/api` in place of `showcase/*/*`. pnpm reads both the same way, but
