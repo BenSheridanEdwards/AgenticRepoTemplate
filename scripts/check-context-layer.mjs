@@ -14,7 +14,8 @@
  * line when every invariant holds, and exits 1 listing every failure otherwise.
  */
 
-import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -66,6 +67,17 @@ export function createNodeFilesystem(rootDirectory) {
     },
     readSymbolicLinkTarget(relativePath) {
       return readlinkSync(toAbsolute(relativePath));
+    },
+    listTrackedFiles() {
+      return execFileSync('git', ['ls-files', '-z'], { cwd: rootDirectory, encoding: 'utf8' })
+        .split('\0')
+        .filter(Boolean);
+    },
+    listDirectory(relativePath) {
+      return readdirSync(toAbsolute(relativePath), { withFileTypes: true }).map((entry) => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+      }));
     },
   };
 }
@@ -173,6 +185,189 @@ function checkClaudeLayer(filesystem, errors) {
   }
 }
 
+/**
+ * The tracked context docs a merge can duplicate a section in: root Markdown,
+ * everything under `.agents/`, and the house skills. Only tracked files count,
+ * so a local scratch note cannot fail a check that CI would pass.
+ */
+function isContextDoc(path) {
+  return (
+    path.endsWith('.md') &&
+    (!path.includes('/') || path.startsWith('.agents/') || path.startsWith('.claude/skills/'))
+  );
+}
+
+/** True for a regular file; false for a symlink or a tracked file deleted locally. */
+function isReadableDoc(filesystem, path) {
+  try {
+    return filesystem.lstat(path).isFile;
+  } catch {
+    return false;
+  }
+}
+
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const ATX_HEADING = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
+
+/** True when `line` closes a fence opened with `opener`: same character, at least as long, nothing after. */
+function closesFence(line, opener) {
+  const marker = FENCE.exec(line)?.[1] ?? '';
+  return marker[0] === opener[0] && marker.length >= opener.length && line.trim() === marker;
+}
+
+/** The number of leading front-matter lines: a `---` block on the first line, or none. */
+function frontMatterLength(lines) {
+  const closing = lines[0] === '---' ? lines.indexOf('---', 1) : -1;
+  return closing + 1;
+}
+
+/** The document's lines with front matter and fenced code blanked out. */
+function proseLines(text) {
+  const lines = text.split(/\r?\n/);
+  const skipped = frontMatterLength(lines);
+  let opener = null;
+  return lines.map((line, index) => {
+    if (index < skipped) {
+      return '';
+    }
+    if (opener) {
+      opener = closesFence(line, opener) ? null : opener;
+      return '';
+    }
+    opener = FENCE.exec(line)?.[1] ?? null;
+    return opener ? '' : line;
+  });
+}
+
+/**
+ * Every section, keyed by its heading and the headings above it, with the
+ * heading, its parent, and the lines it starts on.
+ */
+function sectionsOf(text) {
+  const sections = new Map();
+  const ancestors = [];
+  proseLines(text).forEach((line, index) => {
+    const match = ATX_HEADING.exec(line);
+    if (!match) {
+      return;
+    }
+    const level = match[1].length;
+    const heading = `${match[1]} ${match[2]}`;
+    while (ancestors.length > 0 && ancestors.at(-1).level >= level) {
+      ancestors.pop();
+    }
+    const key = [...ancestors.map((ancestor) => ancestor.heading), heading].join('\n');
+    const section = sections.get(key) ?? {
+      key,
+      heading,
+      parent: ancestors.at(-1)?.heading,
+      lines: [],
+    };
+    section.lines.push(index + 1);
+    sections.set(key, section);
+    ancestors.push({ level, heading });
+  });
+  return [...sections.values()];
+}
+
+/**
+ * Assert no context doc has the same section twice under the same parent. When
+ * two branches add the same section in different places, git merges both copies
+ * without a conflict. Only the outermost copy is reported, not each heading in it.
+ */
+function checkDuplicateSections(filesystem, errors) {
+  let trackedFiles;
+  try {
+    trackedFiles = filesystem.listTrackedFiles();
+  } catch {
+    errors.push(
+      'Could not list tracked files with `git ls-files`. Run the check inside the git checkout.',
+    );
+    return;
+  }
+  for (const path of trackedFiles.filter(isContextDoc)) {
+    if (!isReadableDoc(filesystem, path)) {
+      continue;
+    }
+    const duplicates = sectionsOf(filesystem.readText(path)).filter(
+      ({ lines }) => lines.length > 1,
+    );
+    for (const { key, heading, parent, lines } of duplicates) {
+      if (duplicates.some((outer) => key.startsWith(`${outer.key}\n`))) {
+        continue;
+      }
+      errors.push(
+        `\`${path}\` has the section \`${heading}\` ${lines.length} times under ` +
+          `${parent ? `\`${parent}\`` : 'the top level'} (lines ${lines.join(', ')}). A merge usually ` +
+          'does this when both sides added the section. Keep one copy, merging any lines that differ, ' +
+          'and delete the rest.',
+      );
+    }
+  }
+}
+
+/** Where ADRs live, and the `NNNN-slug.md` name each one has. */
+const DECISIONS_DIRECTORY = '.agents/decisions';
+const ADR_FILE_NAME = /^(\d{4})-[^/]+\.md$/;
+
+/** The Markdown files in `.agents/decisions/`. */
+function listDecisionFiles(filesystem) {
+  return filesystem
+    .listDirectory(DECISIONS_DIRECTORY)
+    .filter(({ name, isDirectory }) => !isDirectory && name.endsWith('.md'))
+    .map(({ name }) => ({ name, path: `${DECISIONS_DIRECTORY}/${name}` }));
+}
+
+/** The `N` in an ADR's first line, `# N. Title`, or NaN when it has none. */
+function titleNumber(text) {
+  const firstLine = text.replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0];
+  return Number(/^# (\d+)\./.exec(firstLine)?.[1]);
+}
+
+/**
+ * Assert each ADR is named `NNNN-slug.md`, opens with a matching `# N.` title,
+ * and has a number no other ADR uses. Two branches that each add "the next" ADR
+ * get different file names, so git merges both without a conflict; this is
+ * where the clash shows up.
+ */
+function checkDecisionNumbers(filesystem, errors) {
+  let files;
+  try {
+    files = listDecisionFiles(filesystem);
+  } catch {
+    errors.push(`Missing required directory: \`${DECISIONS_DIRECTORY}/\`. ADRs live there.`);
+    return;
+  }
+
+  const decisions = [];
+  for (const { name, path } of files) {
+    const match = ADR_FILE_NAME.exec(name);
+    if (!match) {
+      errors.push(`\`${path}\` must be named \`NNNN-slug.md\`, like the other ADRs.`);
+      continue;
+    }
+    if (!assertRegularFile(filesystem, path, errors)) {
+      continue;
+    }
+    const number = Number(match[1]);
+    decisions.push({ path, number });
+    if (titleNumber(filesystem.readText(path)) !== number) {
+      errors.push(`\`${path}\` must start with the title \`# ${number}.\` to match its file name.`);
+    }
+  }
+
+  const highestNumber = Math.max(0, ...decisions.map(({ number }) => number));
+  for (const [number, sharing] of Map.groupBy(decisions, (decision) => decision.number)) {
+    if (sharing.length > 1) {
+      errors.push(
+        `ADR ${number} is used by ${sharing.map(({ path }) => `\`${path}\``).join(' and ')}. ` +
+          `Give the one your branch added a number above ${highestNumber} that no open PR uses, ` +
+          'then rename the file, change its `# N.` title, and update every link to it.',
+      );
+    }
+  }
+}
+
 /** Run every context-layer invariant. Returns `{ ok, errors }`; pure. */
 export function checkContextLayer(filesystem) {
   const errors = [];
@@ -213,6 +408,9 @@ export function checkContextLayer(filesystem) {
       errors.push(`\`${skillPath}\` frontmatter is missing a \`description:\` field.`);
     }
   }
+
+  checkDuplicateSections(filesystem, errors);
+  checkDecisionNumbers(filesystem, errors);
 
   return { ok: errors.length === 0, errors };
 }
