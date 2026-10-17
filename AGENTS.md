@@ -77,7 +77,8 @@ stdlib or native platform features before adding abstractions or dependencies.
 - Do not commit secrets; CI runs a secret scan and a dependency audit.
 - Keep one owner per concern: Biome formats and runs general lint, ESLint runs
   policy and React rules, Jest and Playwright run tests. A new tool for an owned
-  concern needs an ADR (see `TECH_STACK.md`).
+  concern needs an ADR (see `TECH_STACK.md`); `pnpm check:adr` fails a new
+  dependency that no new ADR names.
 - Treat generated artefacts (`dist/`, `coverage/`, `graphify-out/`,
   `.gitnexus/`) as disposable; never edit them by hand.
 
