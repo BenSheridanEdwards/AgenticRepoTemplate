@@ -5,6 +5,8 @@ import { basename, dirname, extname, relative, sep } from 'node:path';
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/;
 const HOOK_NAME = /^use[A-Z0-9]/;
 const FOLDER_NAME = /^([a-z0-9]+(-[a-z0-9]+)*|__[a-z]+__)$/;
+// The first `src` folder on the path is the package's source root.
+const PACKAGE_ROUTES = /^(?:(?!src\/)[^/]+\/)*src\/routes\//;
 const UNPREFIXED_CALLBACK_PROPS = /^(render[A-Z].*|children)$/;
 const COMPONENT_WRAPPERS = new Set(['memo', 'forwardRef']);
 const STATE_AND_EFFECT_HOOKS = new Set([
@@ -301,15 +303,15 @@ const pagesInRoutes = {
     type: 'problem',
     messages: {
       location:
-        'Move `{{name}}` to `src/routes/<route-name>/{{name}}.tsx`. Page components live in ' +
-        '`src/routes/`, which composes features and shared code.',
+        'Move `{{name}}` to `src/routes/<route-name>/{{name}}.tsx` in its package. Page ' +
+        'components live in `src/routes/`, which composes features and shared code.',
     },
     schema: [],
   },
   create(context) {
     return {
       Program(program) {
-        if (repositoryPath(context).startsWith('src/routes/')) {
+        if (PACKAGE_ROUTES.test(repositoryPath(context))) {
           return;
         }
         for (const component of moduleComponents(program, context.filename)) {

@@ -16,7 +16,10 @@ interface LintResult {
 }
 
 /** Lints `source` through the real ESLint CLI as if it lived at `filename`. */
-function lintPolicy(source: string, filename = 'src/features/policy/Fixture.tsx'): LintResult {
+function lintPolicy(
+  source: string,
+  filename = 'apps/web/src/features/policy/Fixture.tsx',
+): LintResult {
   const run = spawnSync(
     ESLINT_BIN,
     ['--max-warnings=0', '--format=json', '--stdin', '--stdin-filename', filename],
@@ -36,8 +39,8 @@ function lintPolicy(source: string, filename = 'src/features/policy/Fixture.tsx'
 describe('ESLint policy stack', () => {
   jest.setTimeout(60_000);
 
-  it('turns on every local policy rule as an error for src/', () => {
-    const run = spawnSync(ESLINT_BIN, ['--print-config', 'src/App.tsx'], {
+  it('turns on every local policy rule as an error for apps/web/src/', () => {
+    const run = spawnSync(ESLINT_BIN, ['--print-config', 'apps/web/src/App.tsx'], {
       cwd: REPOSITORY_ROOT,
       encoding: 'utf8',
     });
@@ -45,6 +48,14 @@ describe('ESLint policy stack', () => {
     for (const rule of Object.keys(policy.rules)) {
       expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
     }
+  });
+
+  it('ignores build output inside a workspace package', () => {
+    const run = spawnSync(ESLINT_BIN, ['--print-config', 'apps/web/dist/assets/index.js'], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+    });
+    expect(run.stdout.trim()).toBe('undefined');
   });
 
   it('blocks a hook called inside a condition (react-hooks/rules-of-hooks)', () => {
@@ -157,7 +168,7 @@ export function useTitle(title: string) {
   return { count, handleIncrement: () => setCount((current) => current + 1) };
 }
 `,
-      'src/features/policy/useTitle.ts',
+      'apps/web/src/features/policy/useTitle.ts',
     );
     expect(result.ruleIds).toEqual([]);
     expect(result.exitCode).toBe(0);
@@ -175,7 +186,7 @@ export function useMirror(value: number) {
   return copy;
 }
 `,
-      'src/features/policy/useMirror.ts',
+      'apps/web/src/features/policy/useMirror.ts',
     );
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toContain('react-hooks/set-state-in-effect');
@@ -223,27 +234,36 @@ ${header}
     expect(result.ruleIds).toContain('policy/callback-prop-names');
   });
 
-  it('blocks a page component outside src/routes (policy/pages-in-routes)', () => {
+  it('blocks a page component outside apps/web/src/routes (policy/pages-in-routes)', () => {
     const result = lintPolicy(
       `
 export function SettingsPage() {
   return <main>settings</main>;
 }
 `,
-      'src/features/settings/SettingsPage.tsx',
+      'apps/web/src/features/settings/SettingsPage.tsx',
     );
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toContain('policy/pages-in-routes');
   });
 
-  it('passes a page component under src/routes', () => {
+  it('blocks a page component under a src/routes folder nested inside a feature', () => {
+    const result = lintPolicy(
+      'export function SettingsPage() {\n  return <main>settings</main>;\n}',
+      'apps/web/src/features/settings/src/routes/SettingsPage.tsx',
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/pages-in-routes');
+  });
+
+  it('passes a page component under apps/web/src/routes', () => {
     const result = lintPolicy(
       `
 export function SettingsPage() {
   return <main>settings</main>;
 }
 `,
-      'src/routes/settings/SettingsPage.tsx',
+      'apps/web/src/routes/settings/SettingsPage.tsx',
     );
     expect(result.ruleIds).toEqual([]);
     expect(result.exitCode).toBe(0);
@@ -252,10 +272,14 @@ export function SettingsPage() {
   it.each([
     [
       'a component',
-      'src/features/policy/Widget.tsx',
+      'apps/web/src/features/policy/Widget.tsx',
       'export function Fixture() {\n  return <p />;\n}',
     ],
-    ['a hook', 'src/features/policy/hooks.ts', 'export function useFixture() {\n  return 1;\n}'],
+    [
+      'a hook',
+      'apps/web/src/features/policy/hooks.ts',
+      'export function useFixture() {\n  return 1;\n}',
+    ],
   ])('blocks %s in a file of another name (policy/file-matches-export)', (_label, filename, source) => {
     const result = lintPolicy(source, filename);
     expect(result.exitCode).toBe(1);
@@ -265,7 +289,7 @@ export function SettingsPage() {
   it('blocks a folder that is not kebab-case (policy/folder-names)', () => {
     const result = lintPolicy(
       'export function Fixture() {\n  return <p />;\n}',
-      'src/features/ThresholdCounter/Fixture.tsx',
+      'apps/web/src/features/ThresholdCounter/Fixture.tsx',
     );
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toContain('policy/folder-names');
@@ -287,7 +311,7 @@ export class Fixture extends Component {
   it('blocks a deep import past a public surface (no-restricted-imports)', () => {
     const result = lintPolicy(
       "export { useServiceStatus } from '../features/service-status/useServiceStatus';",
-      'src/routes/home/index.ts',
+      'apps/web/src/routes/home/index.ts',
     );
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toContain('no-restricted-imports');
@@ -316,7 +340,7 @@ export function Harness() {
   return <button type="button" onClick={bump}>{value}</button>;
 }
 `,
-      'src/features/policy/Fixture.test.tsx',
+      'apps/web/src/features/policy/Fixture.test.tsx',
     );
     expect(result.ruleIds).toEqual([]);
   });
@@ -386,7 +410,10 @@ export function Fixture({ renderItem, children }: FixtureProps) {
   });
 
   it('passes a __tests__ folder (policy/folder-names)', () => {
-    const result = lintPolicy('export const value = 1;', 'src/features/policy/__tests__/value.ts');
+    const result = lintPolicy(
+      'export const value = 1;',
+      'apps/web/src/features/policy/__tests__/value.ts',
+    );
     expect(result.ruleIds).toEqual([]);
   });
 });

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // License-compliance gate: fails when any dependency carries a license outside
-// the permissive allow-list. Uses pnpm's built-in license listing, so it adds
-// no extra dependency and resolves the pnpm tree correctly.
+// the permissive allow-list. Uses pnpm's built-in license listing over every
+// workspace package (--recursive), so it adds no extra dependency and resolves
+// the pnpm tree correctly.
 // See .agents/project/TECH_STACK.md.
 import { execSync } from 'node:child_process';
 
@@ -43,12 +44,12 @@ function isAllowed(expression) {
 
 let raw;
 try {
-  raw = execSync('pnpm licenses list --json', {
+  raw = execSync('pnpm --recursive licenses list --json', {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   });
 } catch (error) {
-  console.error('license-check: could not run `pnpm licenses list` —', error.message);
+  console.error('license-check: could not run `pnpm --recursive licenses list` —', error.message);
   process.exit(1);
 }
 

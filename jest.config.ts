@@ -7,8 +7,12 @@ import type { Config } from 'jest';
  */
 const config: Config = {
   testEnvironment: 'jsdom',
-  roots: ['<rootDir>/src', '<rootDir>/scripts'],
-  testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}', '<rootDir>/scripts/**/*.test.{ts,tsx}'],
+  roots: ['<rootDir>/apps', '<rootDir>/scripts', '<rootDir>/tooling'],
+  testMatch: [
+    '<rootDir>/apps/*/src/**/*.test.{ts,tsx}',
+    '<rootDir>/scripts/**/*.test.{ts,tsx}',
+    '<rootDir>/tooling/**/*.test.{ts,tsx}',
+  ],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': '<rootDir>/jest.style-stub.cjs',
@@ -27,14 +31,15 @@ const config: Config = {
     ],
   },
   collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
+    'apps/*/src/**/*.{ts,tsx}',
+    '!apps/*/src/**/*.d.ts',
     // Excluded by design: index.ts files are pure re-export barriers; main.tsx
     // and App.tsx are the composition root, exercised by the E2E behaviour map
-    // (e2e/app.spec.ts) rather than the unit suite. Feature logic is NOT excluded.
-    '!src/**/index.ts',
-    '!src/main.tsx',
-    '!src/App.tsx',
+    // (apps/web/e2e/app.spec.ts) rather than the unit suite. Feature logic is NOT
+    // excluded. scripts/jest-scope.test.ts holds this list to that set.
+    '!apps/*/src/**/index.ts',
+    '!apps/*/src/main.tsx',
+    '!apps/*/src/App.tsx',
   ],
   coverageThreshold: {
     global: { branches: 80, functions: 80, lines: 80, statements: 80 },

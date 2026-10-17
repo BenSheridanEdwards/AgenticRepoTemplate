@@ -12,20 +12,35 @@
 
   // Architecture boundaries enforce the role rules from
   // .agents/project/ARCHITECTURE.md. The "app" zone is the composition root
-  // (main.tsx, App.tsx, index.css). Each folder under src/routes and under
-  // src/features becomes its own zone (via autoDiscover), and a single "shared"
-  // zone holds cross-feature code. The rules below make Fallow FAIL
-  // (boundary-violation defaults to error) on any import they do not allow: app
-  // may import routes, routes may import features and shared, features may
-  // import shared, and shared imports no other role. This file is
-  // also the source for the role diagram (pnpm arch:diagram) and the list of
-  // public module entries that get API reports (pnpm api:report).
+  // (main.tsx, App.tsx, index.css under apps/web/src). Each folder under
+  // apps/web/src/routes and under apps/web/src/features becomes its own zone
+  // (via autoDiscover), and a single "shared" zone holds cross-feature code.
+  // The "patterns" on routes and features zone a file that sits directly in
+  // that folder under the group's own rule, and keep the config valid on a tree
+  // where the folder is missing, such as the base revision `fallow audit` reads.
+  // The rules below make Fallow FAIL (boundary-violation defaults to error) on
+  // any import they do not allow: app may import routes, routes may import
+  // features and shared, features may import shared, and shared imports no
+  // other role. This file is also the source for the role diagram
+  // (pnpm arch:diagram) and the list of public module entries that get API
+  // reports (pnpm api:report).
   "boundaries": {
     "zones": [
-      { "name": "app", "patterns": ["src/main.tsx", "src/App.tsx", "src/index.css"] },
-      { "name": "routes", "autoDiscover": ["src/routes"], "patterns": ["src/routes/**"] },
-      { "name": "features", "autoDiscover": ["src/features"] },
-      { "name": "shared", "patterns": ["src/shared/**"] }
+      {
+        "name": "app",
+        "patterns": ["apps/web/src/main.tsx", "apps/web/src/App.tsx", "apps/web/src/index.css"]
+      },
+      {
+        "name": "routes",
+        "autoDiscover": ["apps/web/src/routes"],
+        "patterns": ["apps/web/src/routes/**"]
+      },
+      {
+        "name": "features",
+        "autoDiscover": ["apps/web/src/features"],
+        "patterns": ["apps/web/src/features/**"]
+      },
+      { "name": "shared", "patterns": ["apps/web/src/shared/**"] }
     ],
     "rules": [
       // The composition root mounts routes into the DOM.

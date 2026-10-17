@@ -1,3 +1,8 @@
+# The workspace packages. Root configs own every gate and reach each package by
+# glob (ADR 0031).
+packages:
+  - 'apps/*'
+
 # pnpm settings (pnpm ≥ 11 reads them here, not from package.json).
 # Native packages whose post-install build scripts we explicitly trust to run.
 # Declaring them keeps installs reproducible and makes the trust decision a

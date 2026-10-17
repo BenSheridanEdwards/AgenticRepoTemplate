@@ -10,9 +10,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview --port 3000",
+    "dev": "pnpm --filter @repo/web dev",
+    "build": "pnpm --filter @repo/web build",
+    "preview": "pnpm --filter @repo/web preview",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint .",
     "format": "biome format --write .",
@@ -28,7 +28,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "e2e": "playwright test e2e/app.spec.ts e2e/service-status.spec.ts e2e/accessibility.spec.ts",
+    "e2e": "playwright test apps/web/e2e/app.spec.ts apps/web/e2e/service-status.spec.ts apps/web/e2e/accessibility.spec.ts",
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",
     "lhci": "lhci autorun",
@@ -44,10 +44,6 @@
     "verify": "pnpm check:context && pnpm check:suppressions && pnpm check:docs && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm build && pnpm size",
     "setup:agents": "bash scripts/setup-agentic-toolkit.sh",
     "prepare": "husky"
-  },
-  "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
@@ -70,7 +66,6 @@
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
-    "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^10.12.0",
     "eslint-plugin-react-doctor": "0.9.18",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -83,7 +78,6 @@
     "size-limit": "^12.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.71.2",
-    "vite": "^6.0.7"
+    "typescript-eslint": "^8.71.2"
   }
 }
