@@ -208,6 +208,35 @@ describe('workspaceManifestPaths', () => {
     ]);
   });
 
+  it('reads unindented items and items after a comment line', () => {
+    const yaml =
+      "packages:\n- 'apps/*'\n# the shared kit\n\n- packages/*\nallowBuilds:\n  esbuild: true\n";
+    expect(workspaceManifestPaths(yaml, tracked)).toEqual([
+      'package.json',
+      'apps/web/package.json',
+      'packages/ui/package.json',
+    ]);
+  });
+
+  it('reads a glob written with a leading ./', () => {
+    expect(workspaceManifestPaths("packages:\n  - './apps/*'\n", tracked)).toEqual([
+      'package.json',
+      'apps/web/package.json',
+    ]);
+  });
+
+  it('fails closed on a packages key with no globs', () => {
+    expect(() => workspaceManifestPaths('packages:\nallowBuilds: {}\n', tracked)).toThrow(
+      /packages/,
+    );
+  });
+
+  it('fails closed on a list item it cannot read', () => {
+    expect(() => workspaceManifestPaths("packages:\n  - { path: 'apps/*' }\n", tracked)).toThrow(
+      /packages/,
+    );
+  });
+
   it('fails closed on a packages list it cannot read', () => {
     expect(() => workspaceManifestPaths("packages: ['apps/*']\n", tracked)).toThrow(/packages/);
   });

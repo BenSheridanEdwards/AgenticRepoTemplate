@@ -66,6 +66,23 @@ describe('Fallow role boundaries under apps/web/src', () => {
     expect(architectureGate()).toEqual({ status: 0, zones: [] });
   });
 
+  it('lets a loose file directly under features import features and shared, as the group rule allows', () => {
+    const loose = {
+      [`${WEB}/features/loose.ts`]:
+        "import { counter } from './counter';\nimport { status } from './status';\nexport const loose = counter + status;\n",
+    };
+    expect(architectureGate(loose)).toEqual({ status: 0, zones: [] });
+  });
+
+  it('fails when a feature imports a loose file directly under features', () => {
+    const seed = {
+      [`${WEB}/features/loose.ts`]: 'export const loose = 1;\n',
+      [`${WEB}/features/status/index.ts`]:
+        "import { loose } from '../loose';\nexport const status = loose;\n",
+    };
+    expect(architectureGate(seed)).toEqual({ status: 1, zones: [['features/status', 'features']] });
+  });
+
   it.each([
     [
       'a feature imports another feature',

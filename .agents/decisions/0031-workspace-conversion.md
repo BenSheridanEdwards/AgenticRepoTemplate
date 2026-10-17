@@ -37,7 +37,9 @@ package carries a config of its own, so no package can loosen a rule locally.
   `apps/*/src/**` with the same exclusions and the same 80 percent threshold.
 - The Fallow zones name `apps/web/src/...`. The `features` zone gains the
   `patterns` fallback that `routes` already has. A file directly under
-  `features/` now falls under the group's rule instead of no zone. The config
+  `features/` sat in no zone and could import anything. It now sits in the
+  fallback zone, which may import `shared` and the feature folders, and no
+  feature may import it. The config
   also stays valid on a tree without `apps/web/src/features`, which is what
   `fallow audit` reads when it builds its base-revision snapshot with the head
   config. Without it the audit of this change exits 2.
@@ -73,7 +75,11 @@ plus new cases in the ESLint policy, Lighthouse scope and dependency ADR tests.
 ## Consequences
 
 - Later packages (`apps/api`, `packages/ui`, `showcase/*`) join by adding a
-  workspace glob and widening the root globs. They inherit every rule.
+  workspace glob and widening the root globs. ESLint, Biome, Jest, coverage,
+  `check:adr` and the license check already match `apps/*`. The tsconfig
+  `include`, the Fallow zones, the API report entries, the Lighthouse scope
+  and size-limit name `apps/web`, so the change that adds a package widens
+  them in the same commit.
 - The built bundle is byte-identical to the one built before the move.
 - `pnpm check:adr` now covers every workspace manifest.
 - A new package that needs a gate tool config of its own needs an ADR.

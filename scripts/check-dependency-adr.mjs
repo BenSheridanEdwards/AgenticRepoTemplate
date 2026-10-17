@@ -41,13 +41,20 @@ function workspaceGlobs(workspaceYaml) {
   }
   const globs = [];
   for (const line of lines.slice(start + 1)) {
-    if (/^\S/.test(line)) {
+    if (/^\s*(#.*)?$/.test(line)) {
+      continue;
+    }
+    if (!/^\s*-/.test(line)) {
       break;
     }
-    const item = line.match(/^\s+-\s+(['"]?)([^'"#\s]+)\1\s*(#.*)?$/);
-    if (item) {
-      globs.push(item[2]);
+    const item = line.match(/^\s*-\s+(['"]?)([^'"#\s{[]+)\1\s*(#.*)?$/);
+    if (!item) {
+      throw new Error(`${WORKSPACE_FILE}: cannot read the packages item \`${line.trim()}\`.`);
     }
+    globs.push(item[2].replace(/^(!?)\.\//, '$1'));
+  }
+  if (globs.length === 0) {
+    throw new Error(`${WORKSPACE_FILE}: \`packages:\` lists no globs.`);
   }
   return globs;
 }

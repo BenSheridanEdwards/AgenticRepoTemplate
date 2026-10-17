@@ -2,10 +2,8 @@
  * @jest-environment node
  */
 import { execFileSync } from 'node:child_process';
-import { basename, matchesGlob } from 'node:path';
+import { basename, matchesGlob, relative } from 'node:path';
 import config from '../jest.config';
-
-const ROOT_DIR = '<rootDir>/';
 
 const trackedFiles = execFileSync('git', ['ls-files', '-z', '--', 'apps'], { encoding: 'utf8' })
   .split('\0')
@@ -18,8 +16,6 @@ const isSource = (path: string) => /\.tsx?$/.test(path) && !isTest(path);
 const isDeclaredExclusion = (path: string) =>
   basename(path) === 'index.ts' || /^apps\/[^/]+\/src\/(main|App)\.tsx$/.test(path);
 
-const withoutRootDir = (pattern: string) => pattern.replace(ROOT_DIR, '');
-
 function isCollectedForCoverage(path: string) {
   const patterns = config.collectCoverageFrom ?? [];
   const included = patterns.filter((pattern) => !pattern.startsWith('!'));
@@ -30,12 +26,12 @@ function isCollectedForCoverage(path: string) {
   );
 }
 
-function isRunAsTest(path: string) {
-  const roots = (config.roots ?? []).map((root) => `${withoutRootDir(root)}/`);
-  return (
-    roots.some((root) => path.startsWith(root)) &&
-    (config.testMatch ?? []).some((pattern) => matchesGlob(path, withoutRootDir(pattern)))
-  );
+/** The test files Jest itself would run, as repository-relative paths. */
+function testsJestRuns() {
+  const listed = execFileSync('node_modules/.bin/jest', ['--listTests', '--json'], {
+    encoding: 'utf8',
+  });
+  return new Set((JSON.parse(listed) as string[]).map((path) => relative(process.cwd(), path)));
 }
 
 describe('Jest scope over workspace package sources', () => {
@@ -52,6 +48,7 @@ describe('Jest scope over workspace package sources', () => {
   });
 
   it('runs every test file', () => {
-    expect(trackedFiles.filter(isTest).filter((path) => !isRunAsTest(path))).toEqual([]);
+    const runs = testsJestRuns();
+    expect(trackedFiles.filter(isTest).filter((path) => !runs.has(path))).toEqual([]);
   });
 });

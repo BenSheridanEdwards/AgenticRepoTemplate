@@ -49,14 +49,14 @@ function entriesOfPattern(zoneName, pattern) {
 
 /**
  * List `{ name, entry }` once for every public module outside the app zone. A
- * group zone and its discovered child zone name the same module, so keep one.
+ * group zone and its discovered child zone find the same entry file, so keep one.
  */
 function listPublicEntries(boundariesJson) {
   const { boundaries } = JSON.parse(boundariesJson);
   const entries = boundaries.zones
     .filter((zone) => zone.name !== 'app')
     .flatMap((zone) => zone.patterns.flatMap((pattern) => entriesOfPattern(zone.name, pattern)));
-  return [...new Map(entries.map((entry) => [entry.name, entry])).values()];
+  return [...new Map(entries.map((entry) => [entry.entry, entry])).values()];
 }
 
 function emitDeclarations() {
