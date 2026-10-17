@@ -1,6 +1,6 @@
 # 18. Dependency manifests are not enforcement paths
 
-- **Status:** Accepted
+- **Status:** Superseded in part by [0022](0022-sign-off-only-loosening-enforcement-changes.md)
 - **Date:** 2026-10-17
 
 ## Context
@@ -17,6 +17,10 @@ to tick the box, though none of them changes what a gate checks.
 - **Everything else in ADR 0007 stays protected:** other root config files,
   `.github/**`, `.claude/**`, `.husky/**`, `scripts/**`, `tooling/**` and the
   agent docs.
+
+[ADR 0022](0022-sign-off-only-loosening-enforcement-changes.md) replaces the
+protected-path list this record amended. `package.json` and `pnpm-lock.yaml`
+stay outside the gate.
 
 This record supersedes the `pnpm-lock.yaml` line and the `package.json` part of
 "every root config file" in ADR 0007.

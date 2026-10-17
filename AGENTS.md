@@ -55,7 +55,7 @@ rules and their checks.
 | --- | --- |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Every hook runs; `--no-verify` is refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code); CI re-runs every gate |
-| Gate config (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) changes with a maintainer's sign-off. | `enforcement-approval` status ([ADR 0007](.agents/decisions/0007-protect-enforcement-paths-by-default.md)) |
+| A change that loosens or rewrites a gate (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) waits for BenSheridanEdwards to tick the sign-off for its head commit. Ben ticks that box. | `enforcement-approval` status ([ADR 0022](.agents/decisions/0022-sign-off-only-loosening-enforcement-changes.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | A new dependency arrives with an ADR. | `pnpm check:adr` |

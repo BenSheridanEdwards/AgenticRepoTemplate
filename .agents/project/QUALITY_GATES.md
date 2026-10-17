@@ -16,10 +16,10 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files, as decided by the tested `scripts/lighthouse-scope.mjs`; other PRs report the same check green with audits skipped. |
 | PR contract | `.github/workflows/pr-quality.yml` (`scripts/validate-pr-body.mjs`) | Template sections in order, inline proof or `Not applicable` with a reason, renderable https images, Conventional title, `<type>/<short-kebab-summary>` branch ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
-| Doc phrasing | `scripts/check-doc-phrasing.mjs` (`pnpm check:docs`) | Guidance docs state each rule as the action to take ([ADR 0021](../decisions/0021-guidance-docs-state-the-action.md)). |
+| Doc phrasing | `scripts/check-doc-phrasing.mjs` (`pnpm check:docs`) | Guidance docs state each rule as the action to take ([ADR 0022](../decisions/0021-guidance-docs-state-the-action.md)). |
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | Each dependency name new since the merge base with the PR's base branch is named by an ADR added in the same change ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
-| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` | `enforcement-approval` status stays red until a write-access reviewer approves changes to enforcement paths. |
+| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0022](../decisions/0022-sign-off-only-loosening-enforcement-changes.md)). |
 
 ## Tool ownership
 
@@ -116,28 +116,36 @@ Visual style checking returns once StyleProof is fixed
 ## Enforcement approval
 
 [`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
-applies [ADR 0007](../decisions/0007-protect-enforcement-paths-by-default.md):
-changes to the files that define the gates wait for a maintainer's sign-off.
+applies [ADR 0022](../decisions/0022-sign-off-only-loosening-enforcement-changes.md).
+A PR that loosens or rewrites enforcement waits for Ben's sign-off. Every other
+PR passes with no comment.
 
-- **Protected areas**, checked in order by
-  [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs):
-  agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
-  `.agents/**`, `agents/**`); `.github/**`; `.claude/**`; `.husky/**`;
-  `scripts/**`; `tooling/**`; and every root file outside a short prose and app
-  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). `package.json`
-  and `pnpm-lock.yaml` are not protected
-  ([ADR 0018](../decisions/0018-dependency-manifests-are-not-enforcement-paths.md)).
-  A rename counts when either side is protected.
-- **One sticky comment** lists the protected files with a single
-  `Approve these enforcement changes` box. Ticking it, with write access, turns
-  the `enforcement-approval` commit status green. Any later change to a
-  protected file resets the box; changes elsewhere keep the approval.
+- **What asks.** `GUARDS` in
+  [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs)
+  compares each guarded file at the merge base and at the head. An edit to gate
+  code asks: the gate's own files, `scripts/**`, `eslint.config.*`,
+  `tooling/**`, `.github/workflows/**`, `.husky/**`, `.claude/hooks/**`, and the
+  Jest, Playwright, and commitlint configs. In the Biome, Fallow, TypeScript,
+  and Claude Code settings JSON, a lowered rule, an added ignore or allow entry,
+  a removed include, or a strictness flag turned off asks. Raising a rule or
+  adding a strict flag passes. A removed line in a gate test or in
+  `docs/required-gates.md` asks, and so does an added `.skip` or `.only`. A new
+  `.gitignore` entry asks, because Biome reads that file. The ADR lists every
+  rule.
+- **One comment, one box, one approver.** The comment lists each change and
+  names the head commit, and its box reads `Approve these enforcement changes
+  at <sha>`. The status turns green only when the GitHub user
+  `BenSheridanEdwards` ticks it. A tick from any other account is cleared, and
+  the gate posts a short note that names the editor.
+- **Each push resets it.** A new head commit, merging `main` in included, gets
+  a fresh unticked comment, and the status for that head stays red until Ben
+  ticks again.
 - **Main's copy judges the PR.** The workflow uses `pull_request_target`,
-  checks out only the default branch's script, and reads the PR's files through
-  the API, so it takes effect once it lands on main. Require the
-  `enforcement-approval` status in branch protection to make it blocking.
-- **Dry run** against any PR:
-  `gh api --paginate repos/OWNER/REPO/pulls/N/files | jq -s '{files: add}' | node scripts/enforcement-approval.mjs`.
+  checks out only the default branch's script, and reads file contents through
+  the API. It runs no PR code. Require the `enforcement-approval` status in
+  branch protection to make it blocking.
+- **Dry run** against any two commits:
+  `node scripts/enforcement-approval.mjs --git origin/main HEAD`.
 
 ## Placement rules
 

@@ -50,7 +50,9 @@ commands and a **PreToolUse hook** (`.claude/hooks/block-gate-bypass.sh`) that
 refuses any git command using `--no-verify`. The hook is deliberately scoped:
 Claude Code only spawns it for Bash commands with a `git` subcommand, and the
 script blocks only the gate-bypass flag. The gates are not optional — if one
-fails, fix the cause.
+fails, fix the cause. A PR that widens `.claude/settings.json` permissions or
+edits `.claude/hooks/` waits for Ben's `enforcement-approval` sign-off
+([ADR 0022](.agents/decisions/0022-sign-off-only-loosening-enforcement-changes.md)).
 
 ## The workflow for a change
 
