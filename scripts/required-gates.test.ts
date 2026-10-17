@@ -14,7 +14,11 @@ import {
 } from './required-gates.mjs';
 
 type Result = 'success' | 'failure' | 'cancelled' | 'skipped';
-type Gate = { check: string; job: string; judgedBy: 'aggregate' | 'branch protection' };
+interface Gate {
+  check: string;
+  job: string;
+  judgedBy: 'aggregate' | 'branch protection';
+}
 
 const GATES: Gate[] = REQUIRED_GATES;
 const AGGREGATED = GATES.filter((gate) => gate.judgedBy === 'aggregate');

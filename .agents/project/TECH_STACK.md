@@ -14,7 +14,7 @@ each owner runs locally and in CI.
 | Unit / component tests | **Jest + React Testing Library** | Behaviour through the accessibility tree. |
 | End-to-end tests | **Playwright** | The behaviour map. |
 | Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
-| Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks` and `eslint-plugin-react-doctor` on `src/`; see ADR 0015 for each rule's owner. |
+| Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. |
 | React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks the ESLint plugin cannot express. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence and architecture | **Fallow** | Dead code, cycles, complexity, the dependency graph, the architecture gate (`pnpm arch:gate`), and the role diagram (`pnpm arch:diagram`). |
