@@ -50,7 +50,7 @@ feature.
 | Commits use Conventional Commits, `type(scope): subject`, lower case with no trailing period. | commitlint on `commit-msg` |
 | PR titles use Conventional Commits. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | Branches are `<type>/<short-kebab-summary>`, for example `feat/threshold-reset`. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
-| A new dependency arrives with a new ADR. | `pnpm check:adr` in `pnpm verify` and CI |
+| A new dependency arrives with a new ADR that names it. | `pnpm check:adr` in `pnpm verify` and CI |
 
 ## Commit judgment
 

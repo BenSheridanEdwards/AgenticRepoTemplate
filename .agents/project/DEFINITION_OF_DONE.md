@@ -41,7 +41,7 @@ task complete until `pnpm verify` and `pnpm e2e` are green.
       new files were created from [`../templates/`](../templates).
 - [ ] **Decisions recorded.** Any new architectural choice is captured as an ADR
       in [`../decisions/`](../decisions). `pnpm check:adr` fails a change that
-      adds a dependency without adding an ADR.
+      adds a dependency unless an ADR added in the same change names it.
 - [ ] **Commit is conventional.** Message follows Conventional Commits.
 
 ## The one-command proof
@@ -66,7 +66,8 @@ that names the fix unless:
   `What changed?`, `Behavioural Proof (with video and screenshots)`, and
   `Verification Summary`;
 - the proof section embeds a screenshot inline with `![alt](url)`, or says
-  `Not applicable` followed by the technical reason on the same line;
+  `Not applicable` followed by the technical reason on the same line or the
+  next one;
 - every inline image is an absolute `https://` URL, and a GitHub blob URL ends
   in `?raw=1`, so the image renders;
 - the proof section embeds its images instead of linking to them;
