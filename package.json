@@ -37,7 +37,7 @@
     "check:context": "node scripts/check-context-layer.mjs",
     "check:suppressions": "node scripts/check-suppressions.mjs",
     "check:adr": "node scripts/check-dependency-adr.mjs",
-    "check:docs": "node scripts/check-doc-phrasing.mjs",
+    "check:docs": "node scripts/check-doc-phrasing.mjs && node scripts/check-sign-off-docs.mjs",
     "gates:inventory": "node scripts/required-gates.mjs --write",
     "gates:check": "node scripts/required-gates.mjs --check",
     "validate:pr": "node scripts/validate-pr-body.mjs",

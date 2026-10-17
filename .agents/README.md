@@ -55,7 +55,7 @@ the code-level rules and their checks.
 | --- | --- |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Every hook runs; `--no-verify` is refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code); CI re-runs every gate |
-| Gate config (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) changes with a maintainer's sign-off. | `enforcement-approval` status ([ADR 0007](decisions/0007-protect-enforcement-paths-by-default.md)) |
+| The files that run the gates (git hooks, CI workflows, and the lint configs such as `biome.json` and `eslint.config.js`) change with a maintainer's sign-off. | `enforcement-approval` status ([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | A new dependency arrives with an ADR. | `pnpm check:adr` |
@@ -63,6 +63,7 @@ the code-level rules and their checks.
 | Every lint or type suppression names its rule and its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
 | Guidance docs state rules as the action to take. | `pnpm check:docs` |
+| A doc that ties sign-off to a file names only a file the enforcement gate guards. | `pnpm check:docs` ([ADR 0030](decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)) |
 
 ## Simplicity Mode
 
