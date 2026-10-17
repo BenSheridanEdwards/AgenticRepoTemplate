@@ -9,6 +9,10 @@ set -e
 echo "› pushed branches up to date with origin/main"
 sh scripts/require-up-to-date-main.sh --pushed-refs
 
+# Git sets GIT_DIR for hooks in a linked worktree. Tests that create their own
+# repos would then write to this one, so clear git's per-repo variables first.
+unset $(git rev-parse --local-env-vars)
+
 echo "› full local gate suite (pnpm verify)"
 pnpm verify
 

@@ -45,6 +45,24 @@ That is the Definition of Done, `pnpm verify` and `pnpm e2e`, enforced where
 nothing can skip it short of a bypass. Pre-commit stays fast and staged-only.
 Anything later added to `pnpm verify` runs at push with no hook edit.
 
+Before `pnpm verify`, the hook clears git's per-repo variables
+(`unset $(git rev-parse --local-env-vars)`). Git sets `GIT_DIR` for hooks in a
+linked worktree, and the tests that build scratch repos would otherwise write
+to the repo being pushed. The old hook ran those tests too, so this closes a gap
+it already had.
+
+`scripts/fallow-audit.sh` now prefers `origin/main` as its base, falling back to
+local `main` in a clone with no remote. The up-to-date check fetches
+`origin/main` and CI compares against it. A stale local `main` would count
+main's own new code as the branch's, which is exactly the merge case this ADR
+is about.
+
+A `pre-merge-commit` hook was the other option. It would check the merge at
+merge time, but it runs before the merge commit exists, so the up-to-date check
+would refuse the very merge that brings main in. It also misses rebases,
+cherry-picks and amends. Pre-push sees every route to the remote, so it is the
+one place to close the gap.
+
 The required-gate contract's local column now names the pre-push hook for the
 lanes `pnpm verify` covers, and `docs/required-gates.md` is regenerated from it.
 
@@ -56,6 +74,8 @@ lanes `pnpm verify` covers, and `docs/required-gates.md` is regenerated from it.
   against 14 s for the coverage and build steps it replaces, about half a
   minute more per push before E2E.
 - The working tree is what gets checked, as before. A push of a branch other
-  than the checked-out one still runs the gates on the checkout.
+  than the checked-out one, a tag push or a branch deletion still runs the
+  gates on the checkout. An untracked file that fails Biome now fails the push;
+  commit it, stash it or delete it first.
 - Hosted-only checks (security audit, CodeQL, Lighthouse, the PR body) still run
   only in CI. `Required gates` stays the judge.
