@@ -17,6 +17,9 @@ pnpm check:suppressions
 step "Required-gate contract matches the workflows and inventory"
 pnpm gates:check
 
+step "New dependencies come with an ADR"
+pnpm check:adr
+
 step "Type check (tsc --noEmit)"
 pnpm typecheck
 
