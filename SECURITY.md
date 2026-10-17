@@ -7,8 +7,8 @@ only supported version; adopters fork from it and own their copy thereafter.
 
 ## Reporting a vulnerability
 
-Please report security issues **privately** — do not open a public issue for a
-vulnerability.
+Please report security issues **privately**, through a private channel in place
+of a public issue.
 
 - Preferred: open a [GitHub private security advisory](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/security/advisories/new)
   (Security → Report a vulnerability).
@@ -27,5 +27,5 @@ These run automatically (see `.github/workflows/` and `.github/dependabot.yml`):
 - **Static application security testing** — CodeQL on every push and pull request.
 - **Dependency updates** — Dependabot for npm packages and GitHub Actions.
 
-No secrets are committed; runtime configuration is documented in `.env.example`
+Secrets stay out of the repository; runtime configuration is documented in `.env.example`
 and real `.env` files are git-ignored.

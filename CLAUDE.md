@@ -73,13 +73,13 @@ This repo is wired for Claude Code with four tools:
   no global install needed); skills in `.claude/skills/gitnexus/`; index in `.gitnexus/`
   (gitignored). (Re)index with `npx gitnexus analyze`. See the auto-generated
   **GitNexus — Code Intelligence** block below — it is managed by `gitnexus analyze`
-  (`<!-- gitnexus:start/end -->`) and rewritten on every re-index; do not hand-edit inside it.
+  (`<!-- gitnexus:start/end -->`) and rewritten on every re-index; change it by re-indexing.
 - **Graphify** — `/graphify` builds a navigable knowledge graph under `graphify-out/`
   (gitignored). Use it for architecture and file-relationship questions.
 - **Show Me** — `/show-me` creates a concise visual explanation of a change.
   Use it selectively on non-trivial PRs. Ground every label in real files,
-  symbols, states, or evidence. It supports the PR proof and never replaces
-  tests, screenshots, or exact-head CI. Read
+  symbols, states, or evidence. It supports the PR proof alongside tests,
+  screenshots, and exact-head CI. Read
   `.claude/skills/show-me/REPOSITORY.md` with the upstream skill.
 
 <!-- gitnexus:start -->
