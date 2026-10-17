@@ -112,7 +112,7 @@ mean the same thing. A green PR means "this change introduced nothing new".
 | Stage | What it enforces | Where |
 | --- | --- | --- |
 | **On commit** | The branch contains main, type safety, consistent style and imports, code intelligence (dead code, cycles, complexity), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
-| **On push** | The branch contains the latest main, logic tested with a coverage floor, a production build, the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green | [`.husky/pre-push`](.husky/pre-push) |
+| **On push** | The branch contains the latest main, then everything `pnpm verify` checks (types, lint, policy, architecture, logic tested with a coverage floor, a production build, bundle size), the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green, including a clean merge from main | [`.husky/pre-push`](.husky/pre-push) |
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, and PR-body validation | [`.github/workflows/`](.github/workflows) |
 
 The gates always run. A
@@ -139,8 +139,9 @@ pre-existing failures from introduced ones. The contract has teeth:
 [`pr-quality.yml`](.github/workflows/pr-quality.yml) runs
 [`scripts/validate-pr-body.mjs`](scripts/validate-pr-body.mjs) on every PR
 event and rejects missing sections, placeholders, unrenderable or linked
-images, `Not applicable` without a reason, non-conventional titles, and
-branch names outside `<type>/<short-kebab-summary>`.
+images, `Not applicable` without a reason, non-conventional titles, branch
+names outside `<type>/<short-kebab-summary>`, and a `- Head commit:` that is
+not the PR head.
 
 Proof means committed evidence. Screenshots live under
 [`docs/proof/`](docs/proof) on the PR branch and are embedded inline in the PR

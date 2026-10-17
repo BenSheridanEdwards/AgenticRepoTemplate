@@ -73,7 +73,11 @@ that names the fix unless:
 - the proof section embeds its images instead of linking to them;
 - the title is Conventional Commits, `type(scope): summary`, with no agent or
   tool prefix;
-- the head branch is `<type>/<short-kebab-summary>`.
+- the head branch is `<type>/<short-kebab-summary>`;
+- the Verification Summary has exactly one `- Head commit:` line naming one SHA
+  (full or short) of the PR head, so a push that moves the head fails until the
+  body is re-checked against it
+  ([ADR 0029](../decisions/0029-pr-body-names-its-head-commit.md)).
 
 ## Proof judgment
 

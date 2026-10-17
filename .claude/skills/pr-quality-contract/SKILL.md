@@ -36,7 +36,9 @@ asking for proof, or decide whether work is ready to report complete.
    Replace placeholder comments, explain each unticked checkbox, and name
    commands in place of summaries such as "all tests pass". `scripts/validate-pr-body.mjs` (the
    `PR quality` workflow) rejects a body that omits a section, leaves one
-   placeholder-only, lacks proof, or carries a non-Conventional-Commits title.
+   placeholder-only, lacks proof, carries a non-Conventional-Commits title, or
+   names a `- Head commit:` other than the PR head. After every push, re-check
+   the whole body against the new head, then update `- Head commit:`.
 6. **Gate completion.** Report the work complete once the latest-sha CI checks
    are green, or name the checks that are still pending or failing.
 

@@ -64,7 +64,8 @@ for every pull request. The template is the review-facing version of this
 contract; this document explains the standard behind it. The `PR quality`
 workflow checks the structure, the proof format, the title, and the branch
 name; [`DEFINITION_OF_DONE.md`](DEFINITION_OF_DONE.md#pr-contract-checks) lists
-each check. Commit screenshot proof on the branch, normally under
+each check, including the `- Head commit:` line that every push re-checks
+against the PR head. Commit screenshot proof on the branch, normally under
 `docs/proof/<short-scope>/` (see [`docs/proof/README.md`](../../docs/proof/README.md)),
 and embed it inline, as
 [`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md)
