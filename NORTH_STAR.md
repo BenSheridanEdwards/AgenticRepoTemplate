@@ -90,9 +90,8 @@ Query owns server state and React Hook Form owns form state.
 
 ### 6. Proof the agent can see
 
-Agents verify their own work through the behaviour map (Playwright E2E), the
-accessibility scan, and StyleProof's computed-style diff. Behaviour and looks
-are separate truths and both are checked.
+Agents verify their own work through the behaviour map (Playwright E2E) and the
+accessibility scan.
 
 ### 7. Fast CI
 
@@ -135,42 +134,42 @@ reasoning lives as ADRs in
 7. **Structure.** ARCHITECTURE.md holds one role table. Routes never import
    routes, and shared code lives in features or the UI package.
 8. **Architecture checks.** Fallow 3.x owns the dependency graph, the
-   architecture gate, and the diagram. CI fails on a forbidden import and on a
-   stale committed role diagram. Each package commits an API Extractor report,
-   so export changes show as a reviewed diff. Fallow replaces
-   dependency-cruiser in the plan.
+   architecture gate, and the diagram, all read from `.fallowrc.jsonc`. CI
+   fails on a forbidden import, on a stale committed role diagram, and on a
+   stale API report. Each public module entry commits an API Extractor report,
+   so export changes show as a reviewed diff.
 
 ### Considered and set aside
 
 The review weighed and set aside five items: the new-file rule, the trials, a
 separate agent identity, a separate approval-check decision, and a guardrails
-PR form. Plan PR 8 (enforcement-change detection) and plan PR 9 (checkbox
+PR form. Plan PR 1 (enforcement-change detection) and plan PR 9 (checkbox
 approval with an audit trail) stay in the plan.
 
 ## Where the template stands
 
 **Installed today.** The single app keeps feature slices with co-located tests
 and shared modules with public entry points. PR0 maps them onto the role table.
-Fallow 2.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
-and Fallow 2.x also checks dead code, cycles, and complexity. The repo runs
+Fallow 3.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
+and Fallow 3.x also checks dead code, cycles, and complexity. The repo runs
 `strict` TypeScript, Biome with its recommended preset for lint and format,
-Jest, Playwright, axe, and StyleProof. Husky hooks mirror CI, a script validates
-PR bodies, and a hook refuses `--no-verify` and the other common hook bypasses, with CI as
-the backstop.
+Jest, Playwright, and axe. Husky hooks run the CI checks that work locally. A
+script validates PR bodies, and a hook refuses `--no-verify` and the other
+common hook bypasses.
 
 **The plan.** PR0 moves the app into `apps/web`. Plan PRs 1 to 9 follow in
-order, with the Effect PR ahead of PR 3. Each PR that changes a tool also
+order, with the Effect PR ahead of PR 4. Each PR that changes a tool also
 updates `TECH_STACK.md` and `QUALITY_GATES.md` to match. Ticketed forward work
 with acceptance criteria lives in [`TODO.md`](TODO.md).
 
 | Target | What it adds | Status |
 | --- | --- | --- |
 | Monorepo | The app in `apps/web`, then `apps/api` and `packages/ui` | Decided, PR0 |
-| Lint ownership | ESLint for policy, hooks, and compiler rules beside Biome | Decided, PR 1 |
-| React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 1 |
-| Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 3 |
-| State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Decided, PR 6 |
-| Protected enforcement paths | Enforcement-change detection, then checkbox approval with an audit trail | Decided, PRs 8 and 9 |
+| Lint ownership | ESLint for policy, hooks, and compiler rules beside Biome | Decided, PR 2 |
+| React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 2 |
+| Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 4 |
+| State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Decided, PR 7 |
+| Protected enforcement paths | Enforcement-change detection, then checkbox approval with an audit trail | Decided, PRs 1 and 9 |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
 | Role-named folders | `lib/` and `utils/` folders fail a check | Target |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Target |

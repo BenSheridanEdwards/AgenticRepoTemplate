@@ -23,7 +23,7 @@ if [ -z "${base}" ]; then
 fi
 
 if [ -n "${base}" ]; then
-  exec fallow audit --base "${base}"
+  exec pnpm exec fallow audit --base "${base}"
 fi
 
 echo "fallow: no base branch yet — skipping introduced-issue audit (first commit?)."

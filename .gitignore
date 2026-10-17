@@ -5,15 +5,14 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Intermediates of pnpm arch:diagram and pnpm api:report
+.cache/
+
 # Test + coverage artefacts
 coverage/
 playwright-report/
 test-results/
 .swc/
-
-# StyleProof capture output (regenerated each run)
-__stylemaps__/
-.styleproof/
 
 # Lighthouse CI output
 .lighthouseci/
@@ -40,3 +39,6 @@ graphify-out/*
 
 # Claude Code agent tooling (GitNexus index, Graphify output, local settings)
 graphify-out/
+
+# Verification runs from .claude/skills/verify-agentic-template (instance state + evidence)
+.verify/

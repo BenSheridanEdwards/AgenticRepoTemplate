@@ -9,58 +9,129 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | --- | --- | --- |
 | Agent commands | `.claude/hooks/block-gate-bypass.sh` | Refuses the common hook bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and writes to `core.hooksPath`, git aliases, or config includes) before Claude Code runs them. CI is the backstop for the gaps listed in ADR 0017. |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
-| Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Jest coverage, production build, Playwright E2E and axe scan, then restore or publish the exact StyleProof map. |
-| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, typecheck, Biome, Fallow, coverage, build, size, E2E. |
+| Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
+| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, Jest coverage, production build, Playwright E2E and axe scan. |
+| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, required-gate contract, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Contract, manifest, project docs, ledgers, and house skills exist as real files. |
-| CI quality | `.github/workflows/ci.yml` | Context layer, typecheck, Biome, Fallow, tests, build, security. |
+| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
-| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets. |
-| CI visual | `.github/workflows/styleproof.yml` | StyleProof computed-style base/head comparison. |
+| CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files, as decided by the tested `scripts/lighthouse-scope.mjs`; other PRs report the same check green with audits skipped. |
+| Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
+| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` | `enforcement-approval` status stays red until a write-access reviewer approves changes to enforcement paths. |
 
 ## Tool ownership
 
-- **Biome** owns formatting, import ordering, and JavaScript/TypeScript lint
-  rules that it implements.
+- **Biome** owns formatting, import ordering, and general JavaScript/TypeScript
+  lint.
+- **ESLint** (`pnpm lint:policy`) owns policy rules, React hooks rules, React
+  Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
+- **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
+  ESLint plugin cannot express, such as duplicated JSX across files.
 - **TypeScript** owns type semantics through `tsc --noEmit`.
 - **Jest + React Testing Library** own component and hook behaviour.
 - **jest-axe, @axe-core/playwright, and Lighthouse** own accessibility.
 - **Playwright** owns user-visible behaviour through the E2E map.
-- **Fallow** owns dead code, circular dependencies, complexity, and architecture
-  drift.
-- **StyleProof** owns computed-style visual regressions.
+- **Fallow** owns dead code, circular dependencies, complexity, the dependency
+  graph, the architecture gate, and the role diagram.
+- **API Extractor** owns the committed report of each public module's exported
+  API.
 - **CodeQL, gitleaks, pnpm audit, and the license check** own security and
   dependency risk.
 
-This is why the template does not add ESLint or Prettier. Biome covers the fast
-lint/format/import loop; the remaining concerns are covered by stronger gates at
-the layer where the behaviour is observable.
+Each lint rule has exactly one owner
+([ADR 0010](../decisions/0010-lint-engine-ownership.md),
+[ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)). Biome runs the fast
+format, import, and general lint loop; ESLint and React Doctor run the React
+policy layer; the remaining concerns sit with stronger gates at the layer where
+the behaviour is observable.
 
-## StyleProof operating notes
+## Architecture checks
 
-StyleProof is the computed-style visual gate
-([`.github/workflows/styleproof.yml`](../../.github/workflows/styleproof.yml)).
-It is runnable locally, not CI-only:
+[`.fallowrc.jsonc`](../../.fallowrc.jsonc) is the one rules file
+([ADR 0014](../decisions/0014-fallow-owns-architecture-checks.md)). Three checks
+read it. They run locally through `pnpm arch:check` (part of `pnpm verify`) and
+in CI as steps of the `Code intelligence (Fallow)` job:
 
-- `pnpm styleproof:capture` captures a baseline (`STYLEMAP_DIR=base`) and
-  `pnpm styleproof:diff` captures the head and diffs it against that baseline.
-- **Capture is selected by test title**, not file path: StyleProof registers its
-  capture tests from inside the library (attributed to `node_modules`), so both
-  scripts select them with `playwright test --grep "styleproof capture"`.
-- **`STYLEPROOF_REPLAY_FROM` isolates data drift.** `styleproof:diff` replays the
-  base run's recorded data (`STYLEPROOF_REPLAY_FROM=__stylemaps__/base`) so the
-  diff is *code*, not live-data drift.
-- **The approval workflow must live on the default branch.**
-  [`styleproof-approve.yml`](../../.github/workflows/styleproof-approve.yml) is an
-  `issue_comment` workflow, which only ever runs from the default branch — it has
-  no effect while it lives only on a feature branch.
-- **The gate only blocks merges once branch protection requires the `StyleProof`
-  commit status.** Until a branch-protection rule requires that status, a red
-  StyleProof report is advisory. Adding that rule is a post-clone setup step (see
-  the README).
-- **Exact commit maps are reused.** Pre-push restores an existing SHA-keyed map
-  before capturing; CI captures only a missing head when the base is compatible,
-  and publishes every cold fallback for later runs.
+| Check | Command | Fails when |
+| --- | --- | --- |
+| Architecture gate | `pnpm arch:gate` (`fallow architecture -q`) | An import crosses a role boundary the rules file does not allow. |
+| Role diagram | `pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd` | The committed diagram differs from a fresh render of Fallow's graph. |
+| API reports | `pnpm api:check` | A public module's exports differ from its committed `etc/*.api.md`. |
+
+`pnpm api:report` rewrites the reports after an intended export change; commit
+the diff with the change. The gate reads Fallow's exit code, because its JSON
+output carries per-run ids and timings. The diagram and the reports are
+generated bytes: Biome leaves `docs/architecture/*.mmd` and `etc/*.api.md`
+alone, and the intermediates live in the gitignored `.cache/`.
+
+## Required gates
+
+[`scripts/required-gates.mjs`](../../scripts/required-gates.mjs) is the one
+list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.md)).
+[`docs/required-gates.md`](../../docs/required-gates.md) is generated from it by
+`pnpm gates:inventory`.
+
+- **Why an aggregate.** GitHub counts a skipped job as a passing required
+  check. The `Required gates` job in `ci.yml` reads every lane's result and
+  fails unless each one succeeded. A skip passes only where the lane's
+  applicability rule says the lane does not apply: `Branch contains main` runs
+  on pull requests into `main` alone.
+- **Why `if: always()`.** The aggregate must run when a lane fails or the run
+  is cancelled. With `!cancelled()` it would be skipped, and a skipped check
+  reads as a pass. A superseded push therefore ends with a red or cancelled
+  `Required gates` on the old commit.
+- **Why three checks stay outside it.** CodeQL, Lighthouse, and the PR body
+  check run on triggers `ci.yml` does not share, so `needs` cannot reach them.
+  Branch protection requires them directly. The contract still pins their job
+  names and job-level `if:`.
+- **Freshness.** `pnpm gates:check` runs in `pnpm verify` and in the aggregate
+  job. It fails on a missing or renamed job, a changed job-level `if:`, a
+  `continue-on-error` gate job, a `ci.yml` job outside the contract, any change
+  to the aggregate job's text (its `needs`, `if: always()`, or steps), or a
+  stale inventory. Inside every gate job it also fails on a step that sets
+  `continue-on-error`, carries an `if:` that could skip the work, or ignores a
+  command's exit code. Evidence uploads (`actions/upload-artifact` on
+  `failure()`) and Lighthouse's declared skip condition are the exceptions. The
+  inventory lists the step rules, rendered from `STEP_POLICY`. The reader
+  needs no YAML dependency because it accepts one layout. A line outside that
+  layout fails the check, so no step goes unread.
+- **Local versus hosted proof.** `pnpm verify` and `pnpm e2e` mirror every lane
+  with a local command. The security audit and CodeQL run only on GitHub, and
+  Lighthouse runs locally only on request. Hosted readiness is a green
+  `Required gates` plus the three stand-alone checks on the latest commit.
+- **Selecting the check.** In branch protection for `main`, require the checks
+  listed under "Checks to require" in the inventory. Compare the live settings:
+  `gh api repos/OWNER/REPO/branches/main/protection/required_status_checks | node scripts/required-gates.mjs --protection`.
+  Until a maintainer requires `Required gates`, it reports without blocking.
+
+## Visual style checking
+
+Visual style checking returns once StyleProof is fixed
+([ADR 0016](../decisions/0016-pause-styleproof-until-it-is-fixed.md)).
+
+## Enforcement approval
+
+[`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
+applies [ADR 0007](../decisions/0007-protect-enforcement-paths-by-default.md):
+changes to the files that define the gates wait for a maintainer's sign-off.
+
+- **Protected areas**, checked in order by
+  [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs):
+  `pnpm-lock.yaml`; agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
+  `.agents/**`, `agents/**`); `.github/**`; `.claude/**`; `.husky/**`;
+  `scripts/**`; `tooling/**`; and every root file outside a short prose and app
+  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). A rename counts
+  when either side is protected.
+- **One sticky comment** lists the protected files with a single
+  `Approve these enforcement changes` box. Ticking it, with write access, turns
+  the `enforcement-approval` commit status green. Any later change to a
+  protected file resets the box; changes elsewhere keep the approval.
+- **Main's copy judges the PR.** The workflow uses `pull_request_target`,
+  checks out only the default branch's script, and reads the PR's files through
+  the API, so it takes effect once it lands on main. Require the
+  `enforcement-approval` status in branch protection to make it blocking.
+- **Dry run** against any PR:
+  `gh api --paginate repos/OWNER/REPO/pulls/N/files | jq -s '{files: add}' | node scripts/enforcement-approval.mjs`.
 
 ## Placement rules
 
@@ -68,6 +139,14 @@ It is runnable locally, not CI-only:
 - Put expensive behaviour checks in pre-push and CI.
 - Run security and dependency checks in CI, with staged secret scanning locally.
 - Keep CI as the clean-checkout backstop. Local hooks can be bypassed; CI cannot.
+- Every branch must contain the latest origin/main
+  (`scripts/require-up-to-date-main.sh`). The fix is
+  `git fetch origin && git merge origin/main`. This is the one networked
+  pre-commit check: the fetch is quiet, capped at 10 seconds, and falls back to
+  the last known origin/main when offline. Pre-push and CI require a fresh fetch.
+  Pre-commit and CI check HEAD. Pre-push checks every pushed branch from git's
+  pre-push stdin, whichever branch is checked out. Deletions, tags, and pushes
+  to main are exempt.
 - If a hook runs tests that create or inspect other Git repos, clear Git-local
   hook variables first: `unset $(git rev-parse --local-env-vars)`.
 - If a check mutates files, it must be explicit and reviewable. Gates should

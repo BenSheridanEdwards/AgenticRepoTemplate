@@ -37,12 +37,12 @@ only asserted.
 
 ## Grow the carrier app with a second, async feature
 
-There is one synchronous feature (`threshold-counter`), so the E2E, a11y, and
-visual gates never exercise loading or error states, and the architecture audit
+There is one synchronous feature (`threshold-counter`), so the E2E and a11y
+gates never exercise loading or error states, and the architecture audit
 cannot measure cross-feature coupling.
 
 - **Acceptance:** a second `src/features/*` slice with an async/route surface
   exists, built from the templates; `e2e/app.spec.ts` covers its loading and
   error states through roles and visible text; jest-axe and `@axe-core/playwright`
-  pass on it; a StyleProof surface captures it; and the architecture audit now has
+  pass on it; and the architecture audit now has
   cross-feature coupling to measure.
