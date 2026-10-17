@@ -2,9 +2,11 @@
 /**
  * A new tool or dependency needs an ADR in the same change.
  *
- * The CLI compares the committed `package.json` at the merge base with the base
- * ref against `HEAD`, and reads the ADRs the change adds. Any dependency name
- * that is new in head fails the check unless an ADR added under
+ * The CLI compares every committed manifest at the merge base with the base
+ * ref against `HEAD`, and reads the ADRs the change adds. The manifests are the
+ * root `package.json` plus each workspace package that `pnpm-workspace.yaml`
+ * lists at that commit, so a dependency moving between them is not new. Any
+ * dependency name that is new in head fails the check unless an ADR added under
  * `.agents/decisions/` names it. Version bumps of existing names never count.
  *
  * The base ref is `origin/$GITHUB_BASE_REF` in a pull request, else the first
@@ -13,6 +15,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { readdirSync, realpathSync } from 'node:fs';
+import { matchesGlob } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const DEPENDENCY_FIELDS = [
@@ -23,24 +26,77 @@ const DEPENDENCY_FIELDS = [
 ];
 const DECISIONS_DIRECTORY = '.agents/decisions';
 const ADR_PATH = /^\.agents\/decisions\/\d{4}-[a-z0-9-]+\.md$/;
+const ROOT_MANIFEST = 'package.json';
+const WORKSPACE_FILE = 'pnpm-workspace.yaml';
 
-function dependencyNames(packageJson) {
-  return new Set(DEPENDENCY_FIELDS.flatMap((field) => Object.keys(packageJson?.[field] ?? {})));
+/** The `packages:` globs of a pnpm workspace file, in block-list form. Throws on any other form. */
+function workspaceGlobs(workspaceYaml) {
+  const lines = workspaceYaml.split('\n');
+  const start = lines.findIndex((line) => /^packages:/.test(line));
+  if (start === -1) {
+    return [];
+  }
+  if (!/^packages:\s*(#.*)?$/.test(lines[start])) {
+    throw new Error(`${WORKSPACE_FILE}: write \`packages:\` as a block list (\`  - 'apps/*'\`).`);
+  }
+  const globs = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^\S/.test(line)) {
+      break;
+    }
+    const item = line.match(/^\s+-\s+(['"]?)([^'"#\s]+)\1\s*(#.*)?$/);
+    if (item) {
+      globs.push(item[2]);
+    }
+  }
+  return globs;
+}
+
+/**
+ * Repo-relative manifest paths: root `package.json` plus each `<glob>/package.json`
+ * the workspace file lists. Pure.
+ *
+ * @param {string | null} workspaceYaml `pnpm-workspace.yaml` at one commit, or null when absent
+ * @param {string[]} trackedFiles every tracked path at that commit
+ * @returns {string[]}
+ */
+export function workspaceManifestPaths(workspaceYaml, trackedFiles) {
+  const globs = workspaceYaml === null ? [] : workspaceGlobs(workspaceYaml);
+  const included = globs.filter((glob) => !glob.startsWith('!'));
+  const excluded = globs.filter((glob) => glob.startsWith('!')).map((glob) => glob.slice(1));
+  const matchesAny = (path, patterns) =>
+    patterns.some((pattern) => matchesGlob(path, `${pattern}/${ROOT_MANIFEST}`));
+  const packages = trackedFiles
+    .filter((path) => path !== ROOT_MANIFEST && path.endsWith(`/${ROOT_MANIFEST}`))
+    .filter((path) => matchesAny(path, included) && !matchesAny(path, excluded))
+    .sort();
+  return [ROOT_MANIFEST, ...packages];
+}
+
+/** Union of dependency names over every manifest at one commit. A `workspace:` spec names a workspace package, not a new dependency. */
+function dependencyNames(manifests) {
+  return new Set(
+    manifests.flatMap((manifest) =>
+      DEPENDENCY_FIELDS.flatMap((field) => Object.entries(manifest?.[field] ?? {}))
+        .filter(([, spec]) => !String(spec).startsWith('workspace:'))
+        .map(([name]) => name),
+    ),
+  );
 }
 
 /**
  * The dependency names head adds over base that no added ADR names. Pure.
  *
- * @param {{ basePackageJson: object, headPackageJson: object, addedAdrs: { path: string, text: string }[] }} change
+ * @param {{ baseManifests: object[], headManifests: object[], addedAdrs: { path: string, text: string }[] }} change
  * @returns {string[]}
  */
-export function findDependenciesWithoutAdr({ basePackageJson, headPackageJson, addedAdrs }) {
-  const existing = dependencyNames(basePackageJson);
+export function findDependenciesWithoutAdr({ baseManifests, headManifests, addedAdrs }) {
+  const existing = dependencyNames(baseManifests);
   const adrText = addedAdrs
     .filter(({ path }) => ADR_PATH.test(path))
     .map(({ text }) => text)
     .join('\n');
-  return [...dependencyNames(headPackageJson)].filter(
+  return [...dependencyNames(headManifests)].filter(
     (name) => !(existing.has(name) || adrText.includes(name)),
   );
 }
@@ -61,6 +117,26 @@ function nextAdrNumber() {
   return String(highest + 1).padStart(4, '0');
 }
 
+function showAt(commit, path) {
+  try {
+    return git('show', `${commit}:${path}`);
+  } catch {
+    return null;
+  }
+}
+
+/** Every manifest committed at `commit`. Only the base may lack a root `package.json`. */
+function readManifests(commit, { optional }) {
+  const tracked = git('ls-tree', '-r', '-z', '--name-only', commit).split('\0').filter(Boolean);
+  if (!(optional || tracked.includes(ROOT_MANIFEST))) {
+    throw new Error(`${commit} has no committed ${ROOT_MANIFEST}.`);
+  }
+  return workspaceManifestPaths(showAt(commit, WORKSPACE_FILE), tracked)
+    .map((path) => showAt(commit, path))
+    .filter((text) => text !== null)
+    .map((text) => JSON.parse(text));
+}
+
 function runCli(baseRef) {
   let mergeBase;
   try {
@@ -73,19 +149,14 @@ function runCli(baseRef) {
     process.exit(1);
   }
 
-  let basePackageJson = {};
-  try {
-    basePackageJson = JSON.parse(git('show', `${mergeBase}:package.json`));
-  } catch {
-    // No package.json at the base: every dependency in head is new.
-  }
-  const headPackageJson = JSON.parse(git('show', 'HEAD:package.json'));
+  const baseManifests = readManifests(mergeBase, { optional: true });
+  const headManifests = readManifests('HEAD', { optional: false });
   const addedAdrs = git('diff', '--name-only', '--diff-filter=A', '-z', mergeBase, 'HEAD')
     .split('\0')
     .filter((path) => ADR_PATH.test(path))
     .map((path) => ({ path, text: git('show', `HEAD:${path}`) }));
 
-  const missing = findDependenciesWithoutAdr({ basePackageJson, headPackageJson, addedAdrs });
+  const missing = findDependenciesWithoutAdr({ baseManifests, headManifests, addedAdrs });
   if (missing.length === 0) {
     console.log(`OK: no new dependency without an ADR since ${baseRef}.`);
     process.exit(0);
