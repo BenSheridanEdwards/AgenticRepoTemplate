@@ -5,7 +5,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listResults } from '../results.mjs';
@@ -55,10 +55,15 @@ const run = (command, args, cwd) =>
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-/** Tracked and untracked, not ignored, files that exist in the working tree. */
+const isFile = (path) => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false;
+
+/**
+ * Tracked and untracked, not ignored, files in the working tree. A tracked
+ * file deleted from the tree, or a symlink to a folder, is not a file.
+ */
 function listFiles(root) {
   const output = run('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], root);
-  const paths = output.split('\0').filter((path) => path && existsSync(join(root, path)));
+  const paths = output.split('\0').filter((path) => path && isFile(join(root, path)));
   return [...new Set(paths)].sort();
 }
 

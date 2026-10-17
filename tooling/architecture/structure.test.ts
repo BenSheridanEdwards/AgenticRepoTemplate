@@ -1,6 +1,8 @@
 /**
  * @jest-environment node
  */
+import { symlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { validateStructure } from './structure.mjs';
 import { createMonorepo, loadRepositoryContract, resultFiles, runTool } from './temporary-monorepo';
 
@@ -263,6 +265,19 @@ describe('node tooling/architecture/structure.mjs', () => {
       expect(runTool('structure.mjs', repository.directory)).toEqual({
         status: 0,
         output: expect.stringMatching(/^OK: 2 results/),
+      });
+    } finally {
+      repository.cleanup();
+    }
+  });
+
+  it('reads a symlink to a folder inside a result as no file', () => {
+    const repository = createMonorepo({});
+    try {
+      symlinkSync('../src', join(repository.directory, 'apps/web/e2e/linked'));
+      expect(runTool('structure.mjs', repository.directory)).toEqual({
+        status: 0,
+        output: expect.stringMatching(/^OK: 1 result /),
       });
     } finally {
       repository.cleanup();
