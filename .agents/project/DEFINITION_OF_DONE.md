@@ -40,7 +40,8 @@ task complete until `pnpm verify` and `pnpm e2e` are green.
       [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`CONVENTIONS.md`](CONVENTIONS.md);
       new files were created from [`../templates/`](../templates).
 - [ ] **Decisions recorded.** Any new architectural choice is captured as an ADR
-      in [`../decisions/`](../decisions).
+      in [`../decisions/`](../decisions). `pnpm check:adr` fails a change that
+      adds a dependency unless an ADR added in the same change names it.
 - [ ] **Commit is conventional.** Message follows Conventional Commits.
 
 ## The one-command proof
@@ -53,78 +54,51 @@ pnpm e2e      # behaviour map + axe accessibility scan
 If both are green and the checklist holds, the work is done. If either is red,
 it is not — regardless of how finished the code looks.
 
-## Required PR body
+## PR contract checks
 
-Before opening or marking a PR ready, complete [`PR_QUALITY.md`](PR_QUALITY.md)
-through the GitHub pull request template. The PR body must use
-[`.github/pull_request_template.md`](../../.github/pull_request_template.md) and
-preserve these sections, in this order:
+The `PR quality` workflow runs
+[`scripts/validate-pr-body.mjs`](../../scripts/validate-pr-body.mjs) on every
+pull request event, including edits to the body. It fails the PR with a message
+that names the fix unless:
 
-1. `Why does this feature exist?`
-2. `What changed?`
-3. `Behavioural Proof (with video and screenshots)`
-4. `Verification Summary`
+- the body keeps the four [template](../../.github/pull_request_template.md)
+  sections in order, each with real content: `Why does this feature exist?`,
+  `What changed?`, `Behavioural Proof (with video and screenshots)`, and
+  `Verification Summary`;
+- the proof section embeds a screenshot inline with `![alt](url)`, or says
+  `Not applicable` followed by the technical reason on the same line or the
+  next one;
+- every inline image is an absolute `https://` URL, and a GitHub blob URL ends
+  in `?raw=1`, so the image renders;
+- the proof section embeds its images instead of linking to them;
+- the title is Conventional Commits, `type(scope): summary`, with no agent or
+  tool prefix;
+- the head branch is `<type>/<short-kebab-summary>`;
+- the Verification Summary has exactly one `- Head commit:` line naming one SHA
+  (full or short) of the PR head, so a push that moves the head fails until the
+  body is re-checked against it
+  ([ADR 0022](../decisions/0022-pr-body-names-its-head-commit.md)).
 
-`scripts/validate-pr-body.mjs` (the `pr-quality` CI job) enforces this
-structure: each section must be present, in order, and non-empty; the
-Behavioural Proof section must contain an inline image (`![`) or the exact string
-`Not applicable`; the Verification Summary must have exactly one
-`- Head commit:` line, naming one SHA (full or short) of the PR head, so a push
-that moves the head fails until the body is re-checked; and the PR **title**
-must be Conventional Commits.
+## Proof judgment
 
-## Required PR title
+These calls need a reviewer:
 
-The PR title must use Conventional Commits format: `type(scope): summary` or
-`type: summary`. Agent, tool, author, or source prefixes such as `[codex]`,
-`[claude]`, `[agent]`, or similar tags are not allowed in PR titles.
-
-## Behavioural proof
-
-- User-visible behaviour changes include screenshots from the branch under
-  review; flows with motion or timing include video when practical.
-- Screenshots and videos must show the changed behaviour, not a generic happy
-  path.
-- Behaviour/E2E tests map to the user-visible behaviour changed by the PR.
+- Screenshots and video come from the branch under review and show the changed
+  behaviour itself. Flows with motion or timing include video when practical.
+- E2E tests map to the user-visible behaviour the PR changes.
 - Every bug fix ships, in the same change, with the test that would have caught
-  it — the test fails on the unfixed code and asserts the user-visible symptom.
-- Missing visual proof or E2E coverage is allowed only with a technical reason
-  and a stated replacement verification method.
-- Proof files live under the feature's `docs/proof/<short-scope>/` directory
-  unless there is a stated technical reason to use another committed location.
-- The PR body must include live, clickable links to every screenshot, video, and
-  evidence artifact. GitHub `blob` links to committed proof files are acceptable;
-  local paths, relative paths, and plain filenames are not.
-- Every live evidence link must be opened or otherwise verified after the branch
-  is pushed. If a reviewer cannot click from the PR to the rendered artifact, the
-  PR is not ready for review.
+  it. The test fails on the unfixed code and asserts the user-visible symptom.
+- Missing visual proof or E2E coverage comes with a technical reason and the
+  replacement verification method.
+- Proof files live under `docs/proof/<short-scope>/` on the PR branch, unless
+  the PR states a technical reason for another committed location. See
+  [`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md).
+- Each evidence link opens the rendered artifact once the branch is pushed.
 
 ## Verification
 
 - Format, lint, typecheck, unit, integration, and E2E checks relevant to the
-  changed files are run after the final code change.
-- Test command names and pass/fail results are listed in the PR.
-- Existing unrelated failures are separated from failures introduced by the PR.
-- Any skipped check includes the reason, risk, and owner for follow-up.
-
-## Inline PR Proof Law
-
-Every PR must follow
-[`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md).
-
-- The PR body must use
-  [`.github/pull_request_template.md`](../../.github/pull_request_template.md);
-  that template carries this same proof law.
-- Screenshot proof must be committed to the branch, normally under
-  `docs/proof/<short-scope>/`.
-- The PR body must embed screenshots inline with Markdown image syntax:
-  `![Descriptive alt text](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)`.
-- Bare screenshot links, local filesystem paths, relative paths, and "see
-  attached" placeholders do not satisfy proof.
-- Video or non-image artifacts may be linked, but screenshots must render inline
-  in the PR description.
-- After creating or editing the PR, inspect the body with
-  `gh pr view <number> --json body --jq .body` and confirm screenshot proof
-  contains `![`.
-- If no rendered or behavioural proof applies, the PR must say `Not applicable`
-  in the proof section with the technical reason.
+  changed files run after the final code change.
+- The PR lists each command and its pass or fail result.
+- The PR separates existing unrelated failures from failures it introduces.
+- Each skipped check names its reason, risk, and follow-up owner.

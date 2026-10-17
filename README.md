@@ -134,8 +134,10 @@ a verification summary listing exact commands and results, separating
 pre-existing failures from introduced ones. The contract has teeth:
 [`pr-quality.yml`](.github/workflows/pr-quality.yml) runs
 [`scripts/validate-pr-body.mjs`](scripts/validate-pr-body.mjs) on every PR
-event and rejects missing sections, placeholders, non-conventional titles, and
-a `- Head commit:` that is not the PR head.
+event and rejects missing sections, placeholders, unrenderable or linked
+images, `Not applicable` without a reason, non-conventional titles, branch
+names outside `<type>/<short-kebab-summary>`, and a `- Head commit:` that is
+not the PR head.
 
 Proof means committed evidence. Screenshots live under
 [`docs/proof/`](docs/proof) on the PR branch and are embedded inline in the PR

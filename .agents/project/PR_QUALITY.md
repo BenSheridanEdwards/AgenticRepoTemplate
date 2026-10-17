@@ -17,7 +17,7 @@ Every PR body must include:
 - **Why:** the problem, risk, or capability the change exists to address.
 - **What changed:** the smallest reviewable summary of the diff.
 - **Local verification:** exact commands run, with pass/fail status.
-- **Visual proof:** screenshots, video, or `N/A` with a reason. Any UI-visible
+- **Visual proof:** screenshots, video, or `Not applicable` with a reason. Any UI-visible
   or CSS change needs visual proof.
 - **CI status:** whether checks are green for the latest commit, still pending,
   or failing with the failure named.
@@ -49,7 +49,7 @@ not report completion until the latest-sha checks are green.
 - Use command names, not summaries: `pnpm verify` is useful; "tests passed" is
   not.
 - For UI-visible work, include screenshots or video. For docs-only or
-  config-only work, write `N/A` and point to deterministic proof such as lint,
+  config-only work, write `Not applicable` with the reason and point to deterministic proof such as lint,
   build, or workflow validation.
 - If a command fails, keep the failure visible and fix the cause. Never use
   `--no-verify`, weaken a gate, or remove a check to make the PR green.
@@ -62,31 +62,12 @@ not report completion until the latest-sha checks are green.
 
 Use [`.github/pull_request_template.md`](../../.github/pull_request_template.md)
 for every pull request. The template is the review-facing version of this
-contract; this document explains the standard behind it. The body must preserve
-these sections, in order: `Why does this feature exist?`, `What changed?`,
-`Behavioural Proof (with video and screenshots)`, and `Verification Summary`.
-The `PR quality` workflow ([`scripts/validate-pr-body.mjs`](../../scripts/validate-pr-body.mjs))
-fails a PR whose body omits a section, leaves one placeholder-only, carries no
-proof, or whose title is not Conventional Commits. It also fails when the
-Verification Summary's `- Head commit:` line is missing or repeated, is anything
-other than one commit SHA, or names a commit that is not the PR head: every push
-re-runs it, so a body written for an older head fails until it is re-checked
-against the new head and the field is updated
-([ADR 0020](../decisions/0020-pr-body-names-its-head-commit.md)).
-
-## PR Proof Law
-
-Every PR must follow
-[`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md).
-
-- Screenshot proof must be committed to the branch, normally under
-  `docs/proof/<short-scope>/` (see [`docs/proof/README.md`](../../docs/proof/README.md)).
-- The PR body must embed screenshots inline with Markdown image syntax:
-  `![Descriptive alt text](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)`.
-- Bare screenshot links, local filesystem paths, relative paths, and "see
-  attached" placeholders do not satisfy proof.
-- After creating or editing the PR, inspect the body with
-  `gh pr view <number> --json body --jq .body` and confirm the proof section
-  contains `![`.
-- If no rendered or behavioural proof applies, write `Not applicable` in the
-  proof section with the technical reason.
+contract; this document explains the standard behind it. The `PR quality`
+workflow checks the structure, the proof format, the title, and the branch
+name; [`DEFINITION_OF_DONE.md`](DEFINITION_OF_DONE.md#pr-contract-checks) lists
+each check, including the `- Head commit:` line that every push re-checks
+against the PR head. Commit screenshot proof on the branch, normally under
+`docs/proof/<short-scope>/` (see [`docs/proof/README.md`](../../docs/proof/README.md)),
+and embed it inline, as
+[`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md)
+describes.

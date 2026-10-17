@@ -40,7 +40,6 @@ the new head, then update it. -->
 - Definition of Done (`.agents/project/DEFINITION_OF_DONE.md`) satisfied, or each gap named:
 - [ ] `pnpm verify`
 - [ ] `pnpm e2e`
-- [ ] Visual proof attached or embedded inline, or `Not applicable` with reason.
 - [ ] Latest-sha GitHub Actions are green; any pending or failing checks are named with a fix plan.
 - [ ] Behaviour is covered by the E2E map when user-visible behaviour changed.
 - [ ] Logic is unit-tested where logic changed.
@@ -51,6 +50,4 @@ the new head, then update it. -->
 
 # PR Proof Law
 
-- [ ] I followed `.agents/project/DEFINITION_OF_DONE.md` and `.claude/skills/pr-inline-screenshot-proof/SKILL.md`.
-- [ ] Screenshots are committed and embedded inline with `![alt](...png?raw=1)`, or the proof section says `Not applicable` with the technical reason.
-- [ ] The PR body has no bare screenshot links, local paths, relative paths, or proof placeholders.
+- [ ] I followed `.agents/project/DEFINITION_OF_DONE.md` and `.claude/skills/pr-inline-screenshot-proof/SKILL.md`; the `PR quality` check verifies the proof format.

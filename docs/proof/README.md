@@ -14,13 +14,10 @@ under a `docs/proof/<short-scope>/` directory named for the change (for example
   ![Descriptive alt text](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)
   ```
 
-- Bare screenshot links, local filesystem paths, and relative paths are **not
-  proof**. The proof section of `.github/pull_request_template.md` must contain
-  an inline image (`![`) or the exact string `Not applicable` with a technical
-  reason — the `PR quality` workflow (`scripts/validate-pr-body.mjs`) enforces
-  this.
-- Videos may be linked as committed artifacts, but at least one screenshot must
-  render inline.
+- The `PR quality` workflow (`scripts/validate-pr-body.mjs`) checks that the
+  proof section embeds an image or says `Not applicable` with a reason, and
+  that every image is an absolute `https://` URL GitHub can render.
+- Link videos as committed artifacts, alongside at least one inline screenshot.
 
 See `.claude/skills/pr-inline-screenshot-proof/SKILL.md` and
 `.agents/project/DEFINITION_OF_DONE.md` for the full contract.
