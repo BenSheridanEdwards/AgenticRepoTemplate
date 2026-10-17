@@ -43,6 +43,7 @@ const passed = () => ({
     outsideReads: [],
     patch: null,
   },
+  stream: { path: 'docs/trials/todo-02.stream.jsonl', sha256: SHA256, userTextEvents: 0 },
   checks: ['install', 'verify', 'e2e', 'structure'].map((name) => ({
     name,
     command: name,
@@ -168,6 +169,12 @@ describe('validateEvidence', () => {
     [
       'a path outside the scope',
       (value: ReturnType<typeof passed>) => value.result.outsideScope.push('apps/web/src/App.tsx'),
+    ],
+    [
+      'no kept stream',
+      (value: ReturnType<typeof passed>) => {
+        value.stream = { path: null, sha256: null, userTextEvents: null } as never;
+      },
     ],
     [
       'a read outside the clone',

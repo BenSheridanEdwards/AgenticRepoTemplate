@@ -401,6 +401,45 @@ describe('runTrial', () => {
     });
     expect(existsSync(join(planned.workdir, 'prompt.md'))).toBe(true);
     expect(readFileSync(planned.streamPath, 'utf8')).toContain('"subtype":"init"');
+    const keptStream = readFileSync(join(source, 'docs/trials/todo-01.stream.jsonl'), 'utf8');
+    expect(keptStream).toContain('"subtype":"init"');
+    expect(evidence.stream).toEqual({
+      path: 'docs/trials/todo-01.stream.jsonl',
+      sha256: sha256(keptStream),
+      userTextEvents: 0,
+    });
+  });
+
+  it('keeps the agent stream beside the evidence, secrets redacted, and counts its user text events', async () => {
+    const token = 'oauth-secret-value-1234';
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = token;
+    try {
+      const evidence = await runTrial(
+        plan({
+          agent: fakeAgent(
+            'stream-kept',
+            `${WRITES_RESULT}
+emit({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'a second prompt' }] } });
+emit({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', content: 'ok' }] } });
+emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + process.env.CLAUDE_CODE_OAUTH_TOKEN }] } });`,
+            1,
+          ),
+        }),
+        quietDeps(),
+      );
+      const kept = readFileSync(join(source, 'docs/trials/todo-01.stream.jsonl'), 'utf8');
+
+      expect(kept).not.toContain(token);
+      expect(kept).toContain('token [redacted CLAUDE_CODE_OAUTH_TOKEN]');
+      expect(kept).toContain('a second prompt');
+      expect(evidence.stream).toEqual({
+        path: 'docs/trials/todo-01.stream.jsonl',
+        sha256: sha256(kept),
+        userTextEvents: 1,
+      });
+    } finally {
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    }
   });
 
   it('writes the evidence file as Biome formats it', async () => {
@@ -711,6 +750,7 @@ emit({ type: 'assistant', message: { content: [
 
       expect(evidence.failures).toEqual([failure]);
       expect(evidence.run.agentExitCode).toBeNull();
+      expect(evidence.stream).toEqual({ path: null, sha256: null, userTextEvents: null });
       expect(existsSync(`${agent}.call.json`)).toBe(false);
     } finally {
       git(source, 'checkout', '-q', scaffold);
