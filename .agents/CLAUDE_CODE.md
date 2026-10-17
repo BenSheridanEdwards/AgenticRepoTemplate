@@ -53,6 +53,9 @@ Bash commands that run `git`, `env`, `sh`, or `bash`, and the script blocks only
 gate bypasses (ADR 0005, amended by 0027). It is a speed bump, not a sandbox;
 CI on a clean checkout is the backstop. Every gate counts: when one fails, fix
 the cause.
+`.claude/` sits outside the `enforcement-approval` sign-off
+([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md)), so a
+change to its settings or hooks is caught in review of the diff.
 
 ## The workflow for a change
 
