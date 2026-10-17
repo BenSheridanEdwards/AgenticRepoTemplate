@@ -34,7 +34,7 @@ Playwright projects (`--list`), the pnpm workspace and a build of `@x/web`,
 the ESLint config (equal to the reference's, every `policy/*` rule on), React
 Doctor's project list, the four TypeScript programs (`--listFilesOnly`), Jest
 and coverage per result, `pnpm arch:diagram` and `pnpm arch:gate` (which runs
-the PR3 structure validator once that lands), the dependency ADR check and
+the ADR 0033 structure validator and diagram check), the dependency ADR check and
 `fallow audit`. Seeded violations inside the showcase result fail ESLint
 policy, the Biome naming override, the api type check, `fallow architecture`
 (a value import of the router, a file in no role), the dependency ADR check, the
@@ -55,7 +55,12 @@ another. It reads Jest's `json-summary` report. The global threshold stays.
 and `{{N}}`, quotes the brief word for word and adds the fixed UI contract the
 acceptance spec drives (heading `Todos`, field `Title`, button `Add`, list
 `Todos`, a checkbox named by the title, `Delete <title>`, an alert on a blank
-title). Every trial gets the same template.
+title). It also states the rules of the ADR 0033 structure validator that a
+reference copy would not reveal: each `package.json` equals its reference
+package except the name and the dependencies, the result's own specs go in
+`web/e2e/`, the result root holds no tool config, symlink or suppression, and
+the agent keeps the diagram `pnpm arch:diagram` writes. Every trial gets the
+same template.
 
 **The fixed acceptance spec.** `tooling/trial/acceptance/todo.spec.ts` runs as
 the Playwright project `<id>-acceptance` for every showcase result, against
