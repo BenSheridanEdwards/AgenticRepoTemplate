@@ -1,6 +1,6 @@
 # 18. Dependency manifests are not enforcement paths
 
-- **Status:** Accepted
+- **Status:** Superseded by [0023](0023-protect-only-the-files-that-run-the-gates.md)
 - **Date:** 2026-10-17
 
 ## Context

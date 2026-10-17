@@ -41,29 +41,20 @@ function tick(body: string) {
 describe('classifyProtectedFiles', () => {
   it('checks the protected areas in a fixed order, first match wins', () => {
     expect(PROTECTED_PATH_RULES.map((rule: { area: string }) => rule.area)).toEqual([
-      'Agent docs',
-      'GitHub config and workflows',
-      'Claude Code settings and skills',
       'Git hooks',
-      'Scripts',
-      'Tooling',
-      'Root config',
+      'GitHub workflows',
+      'Lint config',
     ]);
   });
 
   it.each([
-    ['AGENTS.md', 'Agent docs'],
-    ['CLAUDE.md', 'Agent docs'],
-    ['GUARDRAILS.md', 'Agent docs'],
-    ['.agents/project/QUALITY_GATES.md', 'Agent docs'],
-    ['agents/openai.yaml', 'Agent docs'],
-    ['.github/workflows/ci.yml', 'GitHub config and workflows'],
-    ['.claude/settings.json', 'Claude Code settings and skills'],
     ['.husky/pre-commit', 'Git hooks'],
-    ['scripts/verify-gates.sh', 'Scripts'],
-    ['tooling/anything.json', 'Tooling'],
-    ['tsconfig.json', 'Root config'],
-    ['.fallowrc.jsonc', 'Root config'],
+    ['.github/workflows/ci.yml', 'GitHub workflows'],
+    ['eslint.config.js', 'Lint config'],
+    ['biome.json', 'Lint config'],
+    ['commitlint.config.ts', 'Lint config'],
+    ['tooling/eslint-plugin-policy.js', 'Lint config'],
+    ['scripts/check-suppressions.mjs', 'Lint config'],
   ])('flags %s as %s', (path, area) => {
     expect(classifyProtectedFiles([file(path)])).toEqual([
       {
@@ -86,19 +77,28 @@ describe('classifyProtectedFiles', () => {
     'index.html',
     'package.json',
     'pnpm-lock.yaml',
+    'AGENTS.md',
+    'CLAUDE.md',
+    '.agents/project/QUALITY_GATES.md',
+    'agents/openai.yaml',
+    '.claude/settings.json',
+    '.github/pull_request_template.md',
+    'scripts/verify-gates.sh',
+    'tooling/anything.json',
+    'tsconfig.json',
   ])('leaves %s unflagged', (path) => {
     expect(classifyProtectedFiles([file(path)])).toEqual([]);
   });
 
   it('flags a file moved out of a protected area', () => {
-    const moved = file('src/x.ts', { status: 'renamed', previous_filename: 'scripts/x.mjs' });
+    const moved = file('src/x.ts', { status: 'renamed', previous_filename: '.husky/x' });
     expect(classifyProtectedFiles([moved])).toEqual([
       {
         path: 'src/x.ts',
-        previousPath: 'scripts/x.mjs',
+        previousPath: '.husky/x',
         status: 'renamed',
         sha: 'sha-src/x.ts',
-        area: 'Scripts',
+        area: 'Git hooks',
         additions: 1,
         deletions: 0,
       },
@@ -107,19 +107,19 @@ describe('classifyProtectedFiles', () => {
 
   it('returns protected files sorted by path', () => {
     const paths = classifyProtectedFiles([
-      file('scripts/b.mjs'),
+      file('.husky/b'),
       file('src/a.ts'),
-      file('.github/a.yml'),
+      file('.github/workflows/a.yml'),
     ]).map((entry: { path: string }) => entry.path);
-    expect(paths).toEqual(['.github/a.yml', 'scripts/b.mjs']);
+    expect(paths).toEqual(['.github/workflows/a.yml', '.husky/b']);
   });
 });
 
 describe('fingerprint', () => {
   it('changes when a protected file changes content and holds when only unprotected files change', () => {
-    const base = classifyProtectedFiles([file('scripts/a.mjs'), file('src/a.ts')]);
+    const base = classifyProtectedFiles([file('.husky/a'), file('src/a.ts')]);
     const sameProtected = classifyProtectedFiles([
-      file('scripts/a.mjs'),
+      file('.husky/a'),
       file('src/a.ts', { sha: 'other' }),
     ]);
     expect(fingerprint(base)).toMatch(/^[0-9a-f]{64}$/);
@@ -128,7 +128,7 @@ describe('fingerprint', () => {
 });
 
 describe('planApproval', () => {
-  const protectedFiles = [file('scripts/a.mjs', { additions: 4, deletions: 2 }), file('src/a.ts')];
+  const protectedFiles = [file('.husky/a', { additions: 4, deletions: 2 }), file('src/a.ts')];
 
   it('plans no comment and a green status when no enforcement path changes', () => {
     const plan = planApproval({ files: [file('src/a.ts')] });
@@ -153,7 +153,7 @@ describe('planApproval', () => {
     const body = plan.commentBody ?? '';
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toMatch(/<!-- enforcement-fingerprint:[0-9a-f]{64} -->/);
-    expect(body).toContain('| `scripts/a.mjs` | modified | +4 / -2 | Scripts |');
+    expect(body).toContain('| `.husky/a` | modified | +4 / -2 | Git hooks |');
     expect(body).not.toContain('src/a.ts');
     expect(
       body.split('\n').filter((line) => line.includes('Approve these enforcement changes')),
@@ -182,7 +182,7 @@ describe('planApproval', () => {
 
   it('resets the tick and turns red when a protected file changes after approval', () => {
     const existingBody = tick(planApproval({ files: protectedFiles }).commentBody ?? '');
-    const changed = [file('scripts/a.mjs', { sha: 'new' }), file('src/a.ts')];
+    const changed = [file('.husky/a', { sha: 'new' }), file('src/a.ts')];
     const plan = planApproval({ files: changed, existingBody });
     expect(plan.commentBody).toContain(UNTICKED);
     expect(plan.status.state).toBe('failure');
@@ -191,7 +191,7 @@ describe('planApproval', () => {
   it('keeps the tick when only an unprotected file changes after approval', () => {
     const existingBody = tick(planApproval({ files: protectedFiles }).commentBody ?? '');
     const changed = [
-      file('scripts/a.mjs', { additions: 4, deletions: 2 }),
+      file('.husky/a', { additions: 4, deletions: 2 }),
       file('src/a.ts', { sha: 'new' }),
     ];
     const plan = planApproval({ files: changed, existingBody });
@@ -272,7 +272,7 @@ const repo = { owner: 'o', repo: 'r' };
 const core = { info: () => undefined };
 
 describe('run', () => {
-  const files = [file('scripts/a.mjs')];
+  const files = [file('.husky/a')];
   const pullRequestContext = {
     eventName: 'pull_request_target',
     repo,
