@@ -1,4 +1,4 @@
-# 26. Pre-push runs the full local gate suite
+# 28. Pre-push runs the full local gate suite
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-17
