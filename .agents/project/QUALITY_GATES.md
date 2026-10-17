@@ -117,18 +117,16 @@ Visual style checking returns once StyleProof is fixed
 ## Enforcement approval
 
 [`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
-applies [ADR 0007](../decisions/0007-protect-enforcement-paths-by-default.md):
+applies [ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md):
 changes to the files that define the gates wait for a maintainer's sign-off.
 
 - **Protected areas**, checked in order by
   [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs):
-  agent docs (`AGENTS.md`, `CLAUDE.md`, `GUARDRAILS.md`,
-  `.agents/**`, `agents/**`); `.github/**`; `.claude/**`; `.husky/**`;
-  `scripts/**`; `tooling/**`; and every root file outside a short prose and app
-  allowlist (`README.md`, `LICENSE`, `index.html`, and similar). `package.json`
-  and `pnpm-lock.yaml` are not protected
-  ([ADR 0018](../decisions/0018-dependency-manifests-are-not-enforcement-paths.md)).
-  A rename counts when either side is protected.
+  the git hooks (`.husky/**`), the CI workflows (`.github/workflows/**`), and the
+  lint files (`eslint.config.js`, `biome.json`, `commitlint.config.ts`,
+  `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`).
+  Everything else, including `package.json`, the lockfile and the agent docs,
+  needs no sign-off. A rename counts when either side is protected.
 - **One sticky comment** lists the protected files with a single
   `Approve these enforcement changes` box. Ticking it, with write access, turns
   the `enforcement-approval` commit status green. Any later change to a
