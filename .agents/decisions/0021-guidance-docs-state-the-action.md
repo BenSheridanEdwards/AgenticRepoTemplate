@@ -20,19 +20,21 @@ brings it back.
   contains a phrase such as `do not`, `don't`, `never`, `must not`, `cannot`,
   or `avoid`, or that starts with `No`, and the message asks for the
   positive form.
-- The check reads prose only. Code spans, fenced code, link targets, and the
-  generated GitNexus block pass. A fence closes only on the marker that opened
+- The check reads prose only. Inline code spans, fenced code, inline link
+  targets, and the generated GitNexus block pass. A fence closes only on the marker that opened
   it.
 - ADRs are records that are superseded, not edited, so `.agents/decisions/` is
   out of scope. The generated GitNexus skills and the vendored, hash-pinned
-  `show-me` skill are out of scope too.
+  `show-me/SKILL.md` are out of scope too. The repository's own notes beside
+  it, such as `show-me/REPOSITORY.md`, are checked.
 - `pnpm verify`, `scripts/verify-gates.sh`, and the CI quality job run
   `pnpm check:docs`. The script is a repository script with no new dependency.
 
 ## Consequences
 
-- A new or vendored guidance doc passes the check before it merges, so a
-  change that adds a skill also phrases its rules positively.
+- A new guidance doc passes the check before it merges, so a change that adds
+  a house skill also phrases its rules positively. A vendored skill joins the
+  exclusion list in the script when its text is pinned upstream.
 - The check reads words, not intent. A description of behaviour that uses a
   listed word ("the count never goes below 0") fails too, and gets rewritten in
   the same positive form.
