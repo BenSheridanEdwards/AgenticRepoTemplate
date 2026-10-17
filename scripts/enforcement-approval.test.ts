@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   APPROVER,
+  approvalLabel,
   COMMENT_MARKER,
   enforcementProblems,
   GATE_AUTHOR,
   GUARDS,
   guardedPaths,
-  judgeSignoff,
   LIST_FILES_LIMIT,
+  londonTime,
   planApproval,
   run,
   STATUS_CONTEXT,
@@ -564,6 +565,81 @@ describe('enforcementProblems', () => {
   });
 });
 
+describe('londonTime', () => {
+  it.each([
+    ['a BST afternoon on the hour', '2029-10-08T14:00:00Z', 'Monday, the 8th of October, at 3 pm'],
+    [
+      'a GMT afternoon with minutes',
+      '2026-01-08T15:05:00Z',
+      'Thursday, the 8th of January, at 3:05 pm',
+    ],
+    ['midnight in GMT', '2026-12-01T00:00:00Z', 'Tuesday, the 1st of December, at 12 am'],
+    ['noon in BST', '2026-07-02T11:00:00Z', 'Thursday, the 2nd of July, at 12 pm'],
+    [
+      'the last GMT half hour before the clocks go forward',
+      '2026-03-29T00:30:00Z',
+      'Sunday, the 29th of March, at 12:30 am',
+    ],
+    [
+      'the first BST half hour after the clocks go forward',
+      '2026-03-29T01:30:00Z',
+      'Sunday, the 29th of March, at 2:30 am',
+    ],
+    [
+      'a UTC date that is already tomorrow in London',
+      '2026-06-30T23:30:00Z',
+      'Wednesday, the 1st of July, at 12:30 am',
+    ],
+  ])('formats %s', (_name, at, text) => {
+    expect(londonTime(new Date(at))).toBe(text);
+  });
+
+  it.each([
+    [1, '1st'],
+    [2, '2nd'],
+    [3, '3rd'],
+    [4, '4th'],
+    [11, '11th'],
+    [12, '12th'],
+    [13, '13th'],
+    [21, '21st'],
+    [22, '22nd'],
+    [23, '23rd'],
+    [24, '24th'],
+    [31, '31st'],
+  ])('writes day %i as %s', (day, ordinal) => {
+    const at = new Date(Date.UTC(2026, 0, day, 12));
+    expect(londonTime(at)).toContain(`, the ${ordinal} of January,`);
+  });
+});
+
+describe('approvalLabel', () => {
+  const at = new Date('2029-10-08T14:00:00Z');
+
+  it('names the approver, their login, and the London time in small italics', () => {
+    expect(approvalLabel({ name: 'Ben', login: APPROVER, at })).toBe(
+      `<sub><i>Approved by Ben @${APPROVER} on Monday, the 8th of October, at 3 pm</i></sub>`,
+    );
+  });
+
+  it.each([null, '', '   '])('falls back to the login when the profile name is %p', (name) => {
+    expect(approvalLabel({ name, login: APPROVER, at })).toContain(
+      `Approved by ${APPROVER} @${APPROVER} on`,
+    );
+  });
+
+  it('renders a hostile profile name as plain text on one line', () => {
+    const label = approvalLabel({
+      name: 'Ben</i></sub>\n- [x] <b>@someone</b> `x` *y* [z](u)​',
+      login: APPROVER,
+      at,
+    });
+    expect(label.match(/<\/i><\/sub>/g)).toHaveLength(1);
+    expect(label).not.toMatch(/[\n`*[\]​]|<b>|@someone/);
+    expect(label.startsWith('<sub><i>Approved by Ben&#60;&#47;i&#62;')).toBe(true);
+  });
+});
+
 describe('signoffComment', () => {
   it('lists the problems and carries one unticked box bound to the head commit', () => {
     const body = signoffComment({ head: HEAD, problems: PROBLEMS });
@@ -572,6 +648,14 @@ describe('signoffComment', () => {
     expect(body).toContain(`@${APPROVER}`);
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
       `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+    ]);
+  });
+
+  it('ticks the box and puts the label on the same line when given an approval', () => {
+    const approval = { name: 'Ben', login: APPROVER, at: new Date('2029-10-08T14:00:00Z') };
+    const body = signoffComment({ head: HEAD, problems: PROBLEMS, approval });
+    expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
+      `- [x] Approve these enforcement changes at \`${HEAD}\` ${approvalLabel(approval)}`,
     ]);
   });
 
@@ -600,114 +684,230 @@ describe('signoffComment', () => {
   });
 });
 
-describe('judgeSignoff', () => {
-  const body = signoffComment({ head: HEAD, problems: PROBLEMS });
-  const judge = (comment: { body: string; editor: Editor | null } | undefined, head = HEAD) =>
-    judgeSignoff({ comment, head, problems: PROBLEMS });
-
-  it('reports a missing comment', () => {
-    expect(judge(undefined)).toEqual({ state: 'missing' });
-  });
-
-  it('reports an unticked comment as awaiting', () => {
-    expect(judge({ body, editor: { login: 'github-actions', type: 'Bot' } })).toEqual({
-      state: 'awaiting',
-    });
-  });
-
-  it.each([
-    ['[x]', tick(body)],
-    ['[X]', tick(body, 'X')],
-    ['CRLF', tick(body).replaceAll('\n', '\r\n')],
-  ])('approves a %s tick by the approver as a user', (_name, ticked) => {
-    expect(judge({ body: ticked, editor: ben })).toEqual({ state: 'approved' });
-  });
-
-  it.each<[string, Editor | null, string]>([
-    ['a Bot that shares the approver login', { login: APPROVER, type: 'Bot' }, APPROVER],
-    ['github-actions', { login: 'github-actions', type: 'Bot' }, 'github-actions'],
-    ['dependabot', { login: 'dependabot[bot]', type: 'Bot' }, 'dependabot[bot]'],
-    ['another user', { login: 'someone', type: 'User' }, 'someone'],
-    ['a lowercased login', { login: 'bensheridanedwards', type: 'User' }, 'bensheridanedwards'],
-    ['no recorded editor', null, 'unknown'],
-  ])('refuses a tick by %s', (_name, editor, by) => {
-    expect(judge({ body: tick(body), editor })).toEqual({ state: 'refused', by });
-  });
-
-  it('reports a tick for an earlier head as stale', () => {
-    expect(judge({ body: tick(body), editor: ben }, NEXT)).toEqual({ state: 'stale' });
-  });
-});
+interface Sender {
+  login: string;
+  type: string;
+  name?: string | null;
+}
 
 describe('planApproval', () => {
   const FAILURE = {
     state: 'failure',
     description: `${APPROVER} ticks the box in the enforcement comment for this commit`,
   };
-  const body = signoffComment({ head: HEAD, problems: PROBLEMS });
+  const SIGNED = { state: 'success', description: `${APPROVER} signed off at aaaaaaa` };
+  const AT = '2029-10-08T14:00:00Z';
+  const benUser: Sender = { login: APPROVER, type: 'User', name: 'Ben' };
+  const unticked = signoffComment({ head: HEAD, problems: PROBLEMS });
+  const approved = signoffComment({
+    head: HEAD,
+    problems: PROBLEMS,
+    approval: { name: 'Ben', login: APPROVER, at: new Date(AT) },
+  });
+  const pull = { kind: 'pull' } as const;
+  const edit = (from: string | null, to: string, sender: Sender = benUser) =>
+    ({ kind: 'comment', sender, from, to, at: AT }) as const;
+  const plan = (
+    live: string | undefined,
+    event: object,
+    { head = HEAD, signedOff = false, updatedAt = AT } = {},
+  ) =>
+    planApproval({
+      head,
+      problems: PROBLEMS,
+      comment: live === undefined ? undefined : { body: live, updatedAt },
+      signedOff,
+      event,
+    });
 
   it('plans no comment and a green status when nothing loosens enforcement', () => {
-    expect(planApproval({ head: HEAD, problems: [], comment: undefined })).toEqual({
+    expect(
+      planApproval({ head: HEAD, problems: [], comment: undefined, signedOff: false, event: pull }),
+    ).toEqual({
       commentBody: null,
-      refusal: null,
       status: { state: 'success', description: 'Nothing in this PR loosens enforcement' },
     });
   });
 
   it('clears an existing comment to a body without a checkbox when nothing loosens enforcement', () => {
-    const plan = planApproval({ head: HEAD, problems: [], comment: { body, editor: null } });
-    expect(plan.commentBody?.startsWith(COMMENT_MARKER)).toBe(true);
-    expect(plan.commentBody).not.toContain('[ ]');
-    expect(plan.status.state).toBe('success');
+    const result = planApproval({
+      head: HEAD,
+      problems: [],
+      comment: { body: approved },
+      signedOff: true,
+      event: pull,
+    });
+    expect(result.commentBody?.startsWith(COMMENT_MARKER)).toBe(true);
+    expect(result.commentBody).not.toContain('[');
+    expect(result.status.state).toBe('success');
   });
 
   it('asks for sign-off when the comment is missing', () => {
-    expect(planApproval({ head: HEAD, problems: PROBLEMS, comment: undefined })).toEqual({
-      commentBody: body,
-      refusal: null,
+    expect(plan(undefined, pull)).toEqual({
+      commentBody: unticked,
       status: FAILURE,
     });
   });
 
-  it('rewrites a tick for an earlier head unticked for the new head', () => {
-    const plan = planApproval({
-      head: NEXT,
-      problems: PROBLEMS,
-      comment: { body: tick(body), editor: ben },
+  it('approves a fresh tick by the approver and labels the box with who and when', () => {
+    expect(plan(tick(unticked), edit(unticked, tick(unticked)))).toEqual({
+      commentBody: approved,
+      status: SIGNED,
     });
-    expect(plan.commentBody).toBe(signoffComment({ head: NEXT, problems: PROBLEMS }));
-    expect(plan.status).toEqual(FAILURE);
   });
 
-  it('clears a refused tick and names the editor in the refusal note', () => {
-    const plan = planApproval({
-      head: HEAD,
-      problems: PROBLEMS,
-      comment: { body: tick(body), editor: { login: 'dependabot[bot]', type: 'Bot' } },
-    });
-    expect(plan.commentBody).toBe(body);
-    expect(plan.refusal).toContain('`dependabot[bot]`');
-    expect(plan.refusal).toContain(`${APPROVER}, signed in to GitHub as a user`);
-    expect(plan.status).toEqual(FAILURE);
+  it.each([
+    ['[X]', tick(unticked, 'X')],
+    ['CRLF', tick(unticked).replaceAll('\n', '\r\n')],
+    ['a trailing newline', `${tick(unticked)}\n`],
+  ])('approves a fresh %s tick', (_name, ticked) => {
+    expect(plan(ticked, edit(unticked, ticked)).status).toEqual(SIGNED);
   });
 
-  it('keeps an approved comment as it is and turns green', () => {
+  it('falls back to the login when the approver has no profile name', () => {
+    const result = plan(tick(unticked), edit(unticked, tick(unticked), { ...benUser, name: null }));
+    expect(result.commentBody).toContain(`Approved by ${APPROVER} @${APPROVER} on`);
+  });
+
+  it.each<[string, Sender]>([
+    ['a Bot that shares the approver login', { login: APPROVER, type: 'Bot' }],
+    ['github-actions', { login: 'github-actions[bot]', type: 'Bot' }],
+    ['another user', { login: 'someone', type: 'User', name: 'Ben' }],
+    ['a lowercased login', { login: 'bensheridanedwards', type: 'User' }],
+  ])('clears a tick by %s, shows no label, and names them in the comment', (_name, sender) => {
+    const result = plan(tick(unticked), edit(unticked, tick(unticked), sender));
+    expect(result.commentBody).toBe(
+      signoffComment({ head: HEAD, problems: PROBLEMS, refusedBy: sender.login }),
+    );
+    expect(result.commentBody).toContain(`A tick by \`${sender.login}\` was cleared.`);
+    expect(result.commentBody).toContain(
+      `\n- [ ] Approve these enforcement changes at \`${HEAD}\`\n`,
+    );
+    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.status).toEqual(FAILURE);
+  });
+
+  it('approves a fresh tick on a comment that names a cleared tick, and drops the note', () => {
+    const noted = signoffComment({ head: HEAD, problems: PROBLEMS, refusedBy: 'someone' });
+    expect(plan(tick(noted), edit(noted, tick(noted)))).toEqual({
+      commentBody: approved,
+      status: SIGNED,
+    });
+  });
+
+  it('clears an approver edit that changes other text and keeps the tick', () => {
+    const reworded = tick(unticked).replace('This PR loosens', 'This PR quietly loosens');
+    expect(plan(reworded, edit(tick(unticked), reworded))).toEqual({
+      commentBody: unticked,
+      status: FAILURE,
+    });
+  });
+
+  it('clears an approver edit that re-saves an approved comment without the label', () => {
+    expect(plan(tick(unticked), edit(approved, tick(unticked))).status).toEqual(FAILURE);
+  });
+
+  it('clears a tick that rewrites the head commit in the box line', () => {
+    const forged = tick(unticked).replace(`\`${HEAD}\``, `\`${NEXT}\``);
+    const result = plan(forged, edit(unticked, forged));
+    expect(result.commentBody).toBe(unticked);
+    expect(result.status).toEqual(FAILURE);
+  });
+
+  it('clears a label typed into the comment, whoever types it', () => {
+    expect(plan(approved, edit(unticked, approved))).toEqual({
+      commentBody: unticked,
+      status: FAILURE,
+    });
+    const byOther = plan(approved, edit(unticked, approved, { login: 'someone', type: 'User' }));
+    expect(byOther.commentBody).toBe(
+      signoffComment({ head: HEAD, problems: PROBLEMS, refusedBy: 'someone' }),
+    );
+    expect(byOther.status).toEqual(FAILURE);
+  });
+
+  it('clears a tick on the comment for an earlier head', () => {
+    const old = signoffComment({ head: NEXT, problems: PROBLEMS });
+    expect(plan(tick(old), edit(old, tick(old)))).toEqual({
+      commentBody: unticked,
+      status: FAILURE,
+    });
+  });
+
+  it('clears a body edit the event reports without a previous body', () => {
+    expect(plan(tick(unticked), edit(null, tick(unticked))).status).toEqual(FAILURE);
+  });
+
+  it('removes the label when the approver unticks', () => {
+    const untick = approved.replace('- [x] ', '- [ ] ');
+    const result = plan(untick, edit(approved, untick));
+    expect(result.commentBody).toBe(unticked);
+    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.status).toEqual(FAILURE);
+  });
+
+  it('lets an untick win over the label the gate wrote for the tick just before it', () => {
+    const untick = tick(unticked).replace('- [x] ', '- [ ] ');
+    expect(plan(approved, edit(tick(unticked), untick))).toEqual({
+      commentBody: unticked,
+      status: FAILURE,
+    });
+  });
+
+  it('does not approve a tick the comment has since moved past', () => {
+    expect(plan(unticked, edit(unticked, tick(unticked)))).toEqual({
+      commentBody: unticked,
+      status: FAILURE,
+    });
+  });
+
+  it('does not approve a tick when the comment was edited again since, even back to the same body', () => {
     expect(
-      planApproval({ head: HEAD, problems: PROBLEMS, comment: { body: tick(body), editor: ben } }),
+      plan(tick(unticked), edit(unticked, tick(unticked)), { updatedAt: '2029-10-08T14:06:00Z' }),
+    ).toEqual({ commentBody: unticked, status: FAILURE });
+  });
+
+  it('keeps the label and posts no status when the tick run is rerun', () => {
+    expect(
+      plan(approved, edit(unticked, tick(unticked)), { signedOff: true, updatedAt: 'later' }),
     ).toEqual({
-      commentBody: tick(body),
-      refusal: null,
-      status: { state: 'success', description: `${APPROVER} signed off at aaaaaaa` },
+      commentBody: approved,
+      status: null,
+    });
+  });
+
+  it('keeps the label for its head on a PR event and posts no status', () => {
+    expect(plan(approved, pull, { signedOff: true })).toEqual({
+      commentBody: approved,
+      status: null,
+    });
+  });
+
+  it('clears a label on a PR event when the gate has not signed off this head', () => {
+    expect(plan(approved, pull)).toEqual({ commentBody: unticked, status: FAILURE });
+  });
+
+  it('rewrites an approved comment for an earlier head unticked for the new head', () => {
+    const result = plan(approved, pull, { head: NEXT, signedOff: true });
+    expect(result.commentBody).toBe(signoffComment({ head: NEXT, problems: PROBLEMS }));
+    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.status).toEqual(FAILURE);
+  });
+
+  it('clears a bare tick found on a PR event', () => {
+    expect(plan(tick(unticked), pull)).toEqual({
+      commentBody: unticked,
+      status: FAILURE,
     });
   });
 
   it('keeps every status description inside the 140-character limit', () => {
     const plans = [
-      planApproval({ head: HEAD, problems: [], comment: undefined }),
-      planApproval({ head: HEAD, problems: PROBLEMS, comment: undefined }),
-      planApproval({ head: HEAD, problems: PROBLEMS, comment: { body: tick(body), editor: ben } }),
+      plan(undefined, pull),
+      plan(tick(unticked), edit(unticked, tick(unticked))),
+      planApproval({ head: HEAD, problems: [], comment: undefined, signedOff: false, event: pull }),
     ];
-    for (const plan of plans) expect(plan.status.description.length).toBeLessThan(140);
+    for (const { status } of plans) expect(status?.description.length).toBeLessThan(140);
   });
 });
 
@@ -715,6 +915,7 @@ interface Comment {
   id: number;
   node_id: string;
   body: string;
+  updated_at?: string;
   user: { login: string };
 }
 
@@ -727,10 +928,7 @@ function fakeGitHub({
   contents: Record<string, Record<string, string>>;
   comments?: Comment[];
 }) {
-  const state = {
-    head: HEAD,
-    editors: {} as Record<string, { __typename: string; login: string }>,
-  };
+  const state = { head: HEAD, profiles: { [APPROVER]: 'Ben' } as Record<string, string | null> };
   const calls = {
     createComment: [] as string[],
     updateComment: 0,
@@ -748,7 +946,6 @@ function fakeGitHub({
         calls.createComment.push(body);
         const id = comments.length + 1;
         comments.push({ id, node_id: `node-${id}`, body, user: { login: GATE_AUTHOR } });
-        state.editors[`node-${id}`] = { __typename: 'Bot', login: 'github-actions' };
         return { data: {} };
       },
       updateComment: async ({ comment_id, body }: { comment_id: number; body: string }) => {
@@ -756,7 +953,7 @@ function fakeGitHub({
         const comment = comments.find((entry) => entry.id === comment_id);
         if (comment) {
           comment.body = body;
-          state.editors[comment.node_id] = { __typename: 'Bot', login: 'github-actions' };
+          comment.updated_at = `gate write ${calls.updateComment}`;
         }
         return { data: {} };
       },
@@ -775,6 +972,17 @@ function fakeGitHub({
         calls.createCommitStatus.push(parameters);
         return { data: {} };
       },
+      listCommitStatusesForRef: async ({ ref }: { ref: string }) => ({
+        data: calls.createCommitStatus
+          .filter((status) => status.sha === ref)
+          .map((status) => ({ ...status, creator: { login: GATE_AUTHOR } }))
+          .reverse(),
+      }),
+    },
+    users: {
+      getByUsername: async ({ username }: { username: string }) => ({
+        data: { login: username, name: state.profiles[username] ?? null },
+      }),
     },
   };
   const github = {
@@ -783,15 +991,25 @@ function fakeGitHub({
       method: (parameters: unknown) => Promise<{ data: unknown[] }>,
       parameters: unknown,
     ) => (await method(parameters)).data,
-    graphql: async (_query: string, { id }: { id: string }) => ({
-      node: { editor: state.editors[id] ?? null },
-    }),
   };
-  const editBy = (editor: Editor, edit: (body: string) => string) => {
+  /** Edit the gate's comment as `sender` and return the issue_comment context GitHub sends. */
+  const editBy = (sender: Editor, edit: (body: string) => string, at = '2029-10-08T14:00:00Z') => {
     const comment = comments[0];
     if (!comment) throw new Error('no comment to edit');
-    comment.body = edit(comment.body);
-    state.editors[comment.node_id] = { __typename: editor.type, login: editor.login };
+    const from = comment.body;
+    comment.body = edit(from);
+    comment.updated_at = at;
+    return {
+      eventName: 'issue_comment',
+      repo,
+      payload: {
+        action: 'edited',
+        issue: { number: 7, pull_request: {} },
+        comment: { ...comment },
+        changes: { body: { from } },
+        sender: { login: sender.login, type: sender.type },
+      },
+    };
   };
   return { github, comments, calls, state, editBy };
 }
@@ -801,9 +1019,8 @@ const core = { info: () => undefined };
 const pullRequestContext = {
   eventName: 'pull_request_target',
   repo,
-  payload: { pull_request: { number: 7 } },
+  payload: { action: 'synchronize', pull_request: { number: 7, head: { sha: HEAD } } },
 };
-const commentContext = { eventName: 'issue_comment', repo, payload: { issue: { number: 7 } } };
 
 describe('run', () => {
   const loosening = () => ({
@@ -814,17 +1031,16 @@ describe('run', () => {
       [NEXT]: { '.husky/pre-commit': 'exit 0' },
     },
   });
+  const HOOK = [{ path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' }];
+  const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 8th of October, at 3 pm</i></sub>`;
+  const boxLines = (body: string | undefined) =>
+    (body ?? '').split('\n').filter((line) => line.startsWith('- ['));
 
   it('posts one sign-off comment and a red status on the head, then stays idle on a rerun', async () => {
     const { github, comments, calls } = fakeGitHub(loosening());
     await run({ github, context: pullRequestContext, core });
     expect(comments.map((comment) => comment.body)).toEqual([
-      signoffComment({
-        head: HEAD,
-        problems: [
-          { path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' },
-        ],
-      }),
+      signoffComment({ head: HEAD, problems: HOOK }),
     ]);
     expect(calls.createCommitStatus).toEqual([
       expect.objectContaining({ ...repo, sha: HEAD, context: STATUS_CONTEXT, state: 'failure' }),
@@ -856,60 +1072,225 @@ describe('run', () => {
     );
   });
 
-  it('turns green on a tick by the approver without editing the comment', async () => {
-    const { github, calls, editBy } = fakeGitHub(loosening());
+  it('labels the box with the approver and the London time of the tick, and turns the head green', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
     await run({ github, context: pullRequestContext, core });
-    editBy(ben, (body) => tick(body));
-    await run({ github, context: commentContext, core });
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+    ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: HEAD, state: 'success' }),
     );
-    expect(calls.updateComment).toBe(0);
     expect(calls.createComment).toHaveLength(1);
   });
 
   it('accepts the trailing newline a GitHub checkbox click appends', async () => {
     const { github, calls, editBy } = fakeGitHub(loosening());
     await run({ github, context: pullRequestContext, core });
-    editBy(ben, (body) => `${tick(body)}\n`);
-    await run({ github, context: commentContext, core });
+    await run({ github, context: editBy(ben, (body) => `${tick(body)}\n`), core });
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'success' }));
-    expect(calls.updateComment).toBe(0);
   });
 
-  it('clears a tick by anyone else, posts a refusal note, and keeps the status red', async () => {
+  it('writes nothing and posts no status when the tick run is rerun', async () => {
     const { github, comments, calls, editBy } = fakeGitHub(loosening());
     await run({ github, context: pullRequestContext, core });
-    const unticked = comments[0]?.body;
-    editBy({ login: APPROVER, type: 'Bot' }, (body) => tick(body));
-    await run({ github, context: commentContext, core });
-    expect(comments[0]?.body).toBe(unticked);
-    expect(comments.at(-1)?.body).toContain(`\`${APPROVER}\``);
+    const tickContext = editBy(ben, (body) => tick(body));
+    await run({ github, context: tickContext, core });
+    const labelled = comments[0]?.body;
+    const writes = [calls.updateComment, calls.createCommitStatus.length];
+    await run({ github, context: tickContext, core });
+    expect(comments[0]?.body).toBe(labelled);
+    expect([calls.updateComment, calls.createCommitStatus.length]).toEqual(writes);
+  });
+
+  it('does not re-approve when a tick run is rerun after the approver unticked', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    const tickContext = editBy(ben, (body) => tick(body));
+    await run({ github, context: tickContext, core });
+    await run({ github, context: editBy(ben, (body) => body.replace('- [x] ', '- [ ] ')), core });
+    await run({ github, context: tickContext, core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+    ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
   });
 
-  it('clears an approval when a new commit becomes the head', async () => {
+  it('does not re-approve a rerun tick after someone restores the ticked body over an untick', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    const tickContext = editBy(ben, (body) => tick(body));
+    await run({ github, context: tickContext, core });
+    await run({
+      github,
+      context: editBy(ben, (body) => body.replace('- [x] ', '- [ ] '), '2029-10-08T14:05:00Z'),
+      core,
+    });
+    editBy(
+      { login: 'someone', type: 'User' },
+      () => tickContext.payload.comment.body,
+      '2029-10-08T14:06:00Z',
+    );
+    await run({ github, context: tickContext, core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+    ]);
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
+  });
+
+  it('keeps the label on a later PR event for the same head and posts no status', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    const labelled = comments[0]?.body;
+    const statuses = calls.createCommitStatus.length;
+    await run({
+      github,
+      context: {
+        ...pullRequestContext,
+        payload: { ...pullRequestContext.payload, action: 'edited' },
+      },
+      core,
+    });
+    expect(comments[0]?.body).toBe(labelled);
+    expect(calls.createCommitStatus).toHaveLength(statuses);
+  });
+
+  it('clears a label typed into the comment on the next PR event when its own run never ran', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    editBy({ login: 'someone', type: 'User' }, (body) =>
+      body.replace('- [ ] Approve', '- [x] Approve').replace(/`\n/, `\` ${LABEL}\n`),
+    );
+    await run({ github, context: pullRequestContext, core });
+    expect(comments[0]?.body).toBe(signoffComment({ head: HEAD, problems: HOOK }));
+    expect(calls.createCommitStatus.map((status) => status.state)).toEqual(['failure', 'failure']);
+  });
+
+  it('removes the label and turns red when the approver unticks', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    await run({ github, context: editBy(ben, (body) => body.replace('- [x] ', '- [ ] ')), core });
+    expect(comments[0]?.body).toBe(signoffComment({ head: HEAD, problems: HOOK }));
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
+  });
+
+  it('clears a tick by anyone else with no label, names them in the one comment, and keeps the status red', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    await run({
+      github,
+      context: editBy({ login: 'someone', type: 'User' }, (body) => tick(body)),
+      core,
+    });
+    expect(comments).toHaveLength(1);
+    expect(comments[0]?.body).toContain('A tick by `someone` was cleared.');
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+    ]);
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
+
+    await run({ github, context: editBy(ben, (body) => tick(body), '2029-10-08T14:00:00Z'), core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+    ]);
+    expect(comments[0]?.body).not.toContain('was cleared');
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'success' }));
+  });
+
+  it('reclaims a gate comment whose marker an edit removed when that edit run never ran', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    editBy({ login: 'someone', type: 'User' }, (body) =>
+      body
+        .replace(COMMENT_MARKER, '')
+        .replace('- [ ] Approve', '- [x] Approve')
+        .replace(/`\n/, `\` ${LABEL}\n`),
+    );
+    await run({ github, context: pullRequestContext, core });
+    expect(comments).toHaveLength(1);
+    expect(comments[0]?.body).toBe(signoffComment({ head: HEAD, problems: HOOK }));
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
+  });
+
+  it('keeps the status red and clears a label typed into the comment', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    await run({
+      github,
+      context: editBy(ben, (body) =>
+        body.replace('- [ ] Approve', '- [x] Approve').replace(/`\n/, `\` ${LABEL}\n`),
+      ),
+      core,
+    });
+    expect(comments[0]?.body).toBe(signoffComment({ head: HEAD, problems: HOOK }));
+    expect(calls.createCommitStatus.map((status) => status.state)).toEqual(['failure', 'failure']);
+  });
+
+  it('re-renders unticked with no label for a new head after an approval', async () => {
     const { github, comments, calls, state, editBy } = fakeGitHub(loosening());
     await run({ github, context: pullRequestContext, core });
-    editBy(ben, (body) => tick(body));
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
     state.head = NEXT;
     await run({ github, context: pullRequestContext, core });
-    expect(comments[0]?.body).toContain(`- [ ] Approve these enforcement changes at \`${NEXT}\``);
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+    ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: NEXT, state: 'failure' }),
     );
   });
 
+  it('clears a tick on the old head comment that races a push', async () => {
+    const { github, comments, calls, state, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    const tickContext = editBy(ben, (body) => tick(body));
+    state.head = NEXT;
+    await run({ github, context: tickContext, core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+    ]);
+    expect(calls.createCommitStatus.map((status) => [status.sha, status.state])).toEqual([
+      [HEAD, 'failure'],
+      [NEXT, 'failure'],
+    ]);
+  });
+
+  it('ends unticked when an untick and a re-tick both land before either run reads the comment', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    const untick = editBy(ben, (body) => body.replace('- [x] ', '- [ ] '));
+    const retick = editBy(ben, (body) => body.replace('- [ ] ', '- [x] '));
+    await run({ github, context: untick, core });
+    await run({ github, context: retick, core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+    ]);
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
+  });
+
+  it('restores the sign-off comment when an edit removes its marker', async () => {
+    const { github, comments, calls, editBy } = fakeGitHub(loosening());
+    await run({ github, context: pullRequestContext, core });
+    await run({
+      github,
+      context: editBy(ben, (body) => tick(body).replace(COMMENT_MARKER, '')),
+      core,
+    });
+    expect(comments[0]?.body).toBe(signoffComment({ head: HEAD, problems: HOOK }));
+    expect(calls.createComment).toHaveLength(1);
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
+  });
+
   it('ignores a ticked lookalike comment that a person posted', async () => {
-    const problems = [
-      { path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' },
-    ];
-    const forged = tick(signoffComment({ head: HEAD, problems }));
+    const forged = tick(signoffComment({ head: HEAD, problems: HOOK }));
     const fake = fakeGitHub({
       ...loosening(),
       comments: [{ id: 1, node_id: 'node-1', body: forged, user: { login: APPROVER } }],
     });
-    fake.state.editors['node-1'] = { __typename: 'User', login: APPROVER };
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.calls.createComment).toHaveLength(1);
     expect(fake.calls.createCommitStatus).toEqual([expect.objectContaining({ state: 'failure' })]);
@@ -939,6 +1320,15 @@ describe('run', () => {
       expect.objectContaining({ sha: HEAD, state: 'success' }),
     ]);
   });
+
+  it('posts the status on the live head, not the head the event names', async () => {
+    const { github, calls, state } = fakeGitHub(loosening());
+    state.head = NEXT;
+    await run({ github, context: pullRequestContext, core });
+    expect(calls.createCommitStatus).toEqual([
+      expect.objectContaining({ sha: NEXT, state: 'failure' }),
+    ]);
+  });
 });
 
 describe('enforcement-approval workflow', () => {
@@ -962,9 +1352,17 @@ describe('enforcement-approval workflow', () => {
     expect(workflow).not.toMatch(/^\s*(-\s+)?run:/m);
   });
 
+  it('queues gate runs per PR only for jobs that run, so an unrelated comment edit cancels nothing', () => {
+    expect(workflow).not.toMatch(/^concurrency:/m);
+    expect(workflow).toMatch(
+      /\n {2}approve:\n(?: {4}.*\n| *#.*\n)*? {4}concurrency:\n {6}group: enforcement-approval-/,
+    );
+  });
+
   it('lets every edit of the gate comment reach the script, whoever made it', () => {
     expect(workflow).not.toContain('sender.type');
     expect(workflow).toContain(`github.event.comment.user.login == '${GATE_AUTHOR}'`);
     expect(workflow).toContain(`startsWith(github.event.comment.body, '${COMMENT_MARKER}')`);
+    expect(workflow).toContain(`startsWith(github.event.changes.body.from, '${COMMENT_MARKER}')`);
   });
 });

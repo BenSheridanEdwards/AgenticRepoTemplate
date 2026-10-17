@@ -8,12 +8,13 @@
  * head through the API, never runs PR code, and ranks each change with the
  * guard that owns the path. When something loosens, it keeps one comment that
  * lists the changes and carries a checkbox bound to the head commit, and sets
- * the `enforcement-approval` commit status. The status turns green only when
- * that comment, unchanged apart from the tick, was last edited by APPROVER as a
- * GitHub user. A new head rewrites the comment, which clears the tick. See
+ * the `enforcement-approval` commit status. The status turns green only on the
+ * edit event in which APPROVER, as a GitHub user, turns this head's unticked box
+ * into a ticked one. The gate then labels the box with who ticked it and when.
+ * Any other edit, and a new head, rewrites the comment unticked. See
  * `.agents/decisions/0023-sign-off-only-loosening-enforcement-changes.md`.
  *
- * `GUARDS`, `enforcementProblems`, `judgeSignoff` and `planApproval` are the
+ * `GUARDS`, `enforcementProblems`, `signoffComment` and `planApproval` are the
  * pure core. `run` is the thin GitHub shell. Invoked directly,
  * `node scripts/enforcement-approval.mjs --git <base> [<head>]` prints
  * `{ head, problems }` for a local branch.
@@ -37,9 +38,9 @@ export const APPROVER = 'BenSheridanEdwards';
  * @typedef {{ path: string, area: string, reason: string }} Problem
  * @typedef {(change: FileChange) => string[]} Judge  returns reasons; [] = no loosening
  * @typedef {{ area: string, paths: RegExp[], judge: Judge }} Guard
- * @typedef {{ login: string, type: string } | null} Editor
- * @typedef {{ body: string, editor: Editor }} SignoffComment
- * @typedef {{ state: 'missing' } | { state: 'stale' } | { state: 'awaiting' } | { state: 'refused', by: string } | { state: 'approved' }} Verdict
+ * @typedef {{ name: string | null, login: string, at: Date }} Approval  who ticked, from their profile, and when
+ * @typedef {{ kind: 'comment', commentId?: number, sender: { login: string, type: string, name?: string | null }, from: string | null, to: string, at: string }} CommentEdit  an edit of the gate's comment, as the event reports it
+ * @typedef {{ kind: 'pull' } | CommentEdit} GateEvent
  * @typedef {{ state: 'success' | 'failure', description: string }} CommitStatus
  * @typedef {{ filename: string, previous_filename?: string }} PullRequestFile
  */
@@ -496,14 +497,84 @@ export function enforcementProblems(changes) {
 /** Keeps the comment well inside GitHub's comment size limit. */
 const MAX_ROWS = 100;
 
-const APPROVAL_LINE = '\n- [ ] Approve these enforcement changes at ';
+const APPROVAL_TEXT = 'Approve these enforcement changes at ';
+
+/** Formats a time in London, where Ben works, in the parts the label needs. */
+const LONDON = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/London',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  hour: 'numeric',
+  minute: '2-digit',
+  hourCycle: 'h12',
+});
+
+/** @param {number} day */
+const ordinal = (day) =>
+  day % 100 >= 11 && day % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] ?? 'th');
 
 /**
- * The sign-off comment, unticked, for `problems` at commit `head`.
+ * `Monday, the 8th of October, at 3 pm` for `at` in Europe/London.
  *
- * @param {{ head: string, problems: Problem[] }} input
+ * @param {Date} at
  */
-export function signoffComment({ head, problems }) {
+export function londonTime(at) {
+  const part = Object.fromEntries(LONDON.formatToParts(at).map(({ type, value }) => [type, value]));
+  const day = Number(part.day);
+  const minute = part.minute === '00' ? '' : `:${part.minute}`;
+  return `${part.weekday}, the ${day}${ordinal(day)} of ${part.month}, at ${Number(part.hour)}${minute} ${String(part.dayPeriod).toLowerCase()}`;
+}
+
+/**
+ * A profile name as plain text: one line, every character outside letters,
+ * digits, spaces, `.`, `'` and `-` written as an HTML entity, so it cannot close
+ * the label, add markdown, or mention anyone.
+ *
+ * @param {string} text
+ */
+const plainText = (text) =>
+  [
+    ...text
+      .replace(/[\p{Cc}\p{Cf}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  ]
+    .slice(0, 100)
+    .join('')
+    .replace(/[^\p{L}\p{N} .'-]/gu, (char) => `&#${char.codePointAt(0)};`);
+
+/**
+ * The grey italic note the gate puts after a ticked box. It records the tick for
+ * people; the gate never reads it back as evidence.
+ *
+ * @param {Approval} approval
+ */
+export function approvalLabel({ name, login, at }) {
+  const handle = login.replace(/[^A-Za-z0-9-]/g, '');
+  const shown = plainText(name ?? '') || handle;
+  return `<sub><i>Approved by ${shown} @${handle} on ${londonTime(at)}</i></sub>`;
+}
+
+/** @param {string} login */
+const refusalNote = (login) =>
+  `A tick by ${inert(login)} was cleared. Only ${APPROVER} signs off enforcement changes.`;
+
+/** Matches the refusal note and the blank line after it. */
+const REFUSAL_NOTE =
+  /\nA tick by `[^`\n]*` was cleared\. Only \S+ signs off enforcement changes\.\n/;
+
+/**
+ * The sign-off comment for `problems` at commit `head`: unticked, unticked with
+ * a note that names whose tick the gate just cleared, or ticked with the label
+ * when the gate has just seen the approver tick it.
+ *
+ * @param {{ head: string, problems: Problem[], approval?: Approval, refusedBy?: string }} input
+ */
+export function signoffComment({ head, problems, approval, refusedBy }) {
+  const box = approval
+    ? `- [x] ${APPROVAL_TEXT}${inert(head)} ${approvalLabel(approval)}`
+    : `- [ ] ${APPROVAL_TEXT}${inert(head)}`;
   return [
     COMMENT_MARKER,
     '## Enforcement sign-off',
@@ -519,8 +590,9 @@ export function signoffComment({ head, problems }) {
       ? [`| | | and ${problems.length - MAX_ROWS} more changes |`]
       : []),
     '',
+    ...(refusedBy === undefined ? [] : [refusalNote(refusedBy), '']),
     `@${APPROVER} signs off by ticking the box below in GitHub. The tick counts for commit ${inert(head)} only. A new push clears it, and a tick from any other account is cleared.`,
-    `${APPROVAL_LINE}${inert(head)}`,
+    box,
     '',
   ].join('\n');
 }
@@ -530,25 +602,45 @@ const CLEAR_BODY = `${COMMENT_MARKER}\nNothing in this PR loosens enforcement no
 /** @param {string} body */
 const normalise = (body) => body.replaceAll('\r\n', '\n').trimEnd();
 
+/** @param {string} body */
+const hasTick = (body) => /^\s*[-*+]\s+\[[xX]\]/m.test(body);
+
+/** @param {CommentEdit['sender']} sender */
+const isApprover = (sender) => sender.type === 'User' && sender.login === APPROVER;
+
 /**
- * Where the sign-off stands for `head`.
+ * Whether `event` is the approver turning this head's unticked box, with or
+ * without a refusal note, into a ticked one and changing nothing else.
  *
- * @param {{ comment: SignoffComment | undefined, head: string, problems: Problem[] }} input
- * @returns {Verdict}
+ * @param {{ event: CommentEdit, unticked: string }} input
  */
-export function judgeSignoff({ comment, head, problems }) {
-  if (!comment) return { state: 'missing' };
-  const expected = normalise(signoffComment({ head, problems }));
-  const body = normalise(comment.body);
-  if (body === expected) return { state: 'awaiting' };
-  const ticked = ['x', 'X'].map((box) =>
-    expected.replace(APPROVAL_LINE, APPROVAL_LINE.replace(' ]', `${box}]`)),
-  );
-  if (!ticked.includes(body)) return { state: 'stale' };
-  const { editor } = comment;
-  if (editor?.type === 'User' && editor.login === APPROVER) return { state: 'approved' };
-  return { state: 'refused', by: editor?.login ?? 'unknown' };
+function isFreshTick({ event, unticked }) {
+  const { sender, from, to } = event;
+  if (!isApprover(sender) || from === null) return false;
+  const before = normalise(from);
+  const ticked = ['x', 'X'].map((box) => before.replace('\n- [ ] ', `\n- [${box}] `));
+  return before.replace(REFUSAL_NOTE, '') === unticked && ticked.includes(normalise(to));
 }
+
+/**
+ * Whether `body` is the gate's labelled comment for this head and these
+ * problems. The gate leaves such a body in place only while its own latest
+ * status for the head is the sign-off, so the text never shows or makes an
+ * approval by itself.
+ *
+ * @param {string} body @param {string} unticked
+ */
+function isLabelled(body, unticked) {
+  const box = /\n- \[x\] (.*) <sub><i>Approved by [^<\n]*<\/i><\/sub>\n/;
+  const text = normalise(body);
+  return box.test(`${text}\n`) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked;
+}
+
+/** @param {string} head @returns {CommitStatus} */
+const signedOffStatus = (head) => ({
+  state: 'success',
+  description: `${APPROVER} signed off at ${head.slice(0, 7)}`,
+});
 
 /** @type {CommitStatus} */
 const WAITING = {
@@ -557,38 +649,72 @@ const WAITING = {
 };
 
 /**
- * Decide the comment body, any refusal note, and the commit status. Pure.
- *
- * @param {{ head: string, problems: Problem[], comment: SignoffComment | undefined }} input
- * @returns {{ commentBody: string | null, refusal: string | null, status: CommitStatus }}
+ * @typedef {{ commentBody: string | null, status: CommitStatus | null }} Plan  `status: null` leaves the head's status as it is
  */
-export function planApproval({ head, problems, comment }) {
-  if (problems.length === 0) {
+
+/**
+ * Plan for an edit of the comment: approve the approver's fresh tick while the
+ * comment is unchanged since it, clear any other edit, and name whoever else
+ * left a tick. Returns undefined for a fresh tick the comment has moved past.
+ *
+ * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, event: CommentEdit }} input
+ * @returns {Plan | undefined}
+ */
+function planEdit({ head, problems, comment, event }) {
+  const unticked = signoffComment({ head, problems });
+  if (!isFreshTick({ event, unticked: normalise(unticked) })) {
+    const refused = hasTick(event.to) && !isApprover(event.sender);
     return {
-      commentBody: comment ? CLEAR_BODY : null,
-      refusal: null,
-      status: { state: 'success', description: 'Nothing in this PR loosens enforcement' },
+      commentBody: refused
+        ? signoffComment({ head, problems, refusedBy: event.sender.login })
+        : unticked,
+      status: WAITING,
     };
   }
-  const verdict = judgeSignoff({ comment, head, problems });
-  if (verdict.state === 'approved') {
-    return {
-      commentBody: comment?.body ?? null,
-      refusal: null,
-      status: { state: 'success', description: `${APPROVER} signed off at ${head.slice(0, 7)}` },
-    };
-  }
+  const unchanged =
+    comment !== undefined &&
+    normalise(comment.body) === normalise(event.to) &&
+    comment.updatedAt === event.at;
+  if (!unchanged) return undefined;
+  const { login, name } = event.sender;
   return {
-    commentBody: signoffComment({ head, problems }),
-    refusal:
-      verdict.state === 'refused'
-        ? `Enforcement sign-off refused a tick by ${inert(verdict.by)}. Only ${APPROVER}, signed in to GitHub as a user, signs off enforcement changes. The tick is cleared.`
-        : null,
-    status: WAITING,
+    commentBody: signoffComment({
+      head,
+      problems,
+      approval: { name: name ?? null, login, at: new Date(event.at) },
+    }),
+    status: signedOffStatus(head),
   };
 }
 
-const EDITOR_QUERY = `query($id: ID!) { node(id: $id) { ... on IssueComment { editor { __typename login } } } }`;
+/**
+ * Decide the comment body and the commit status. Pure.
+ *
+ * Only an edit event that is the approver's fresh tick on this head's comment,
+ * with the comment unchanged since that edit, signs off. Any other edit clears
+ * the box. A PR event, or a tick the comment has since moved past, keeps the
+ * gate's label for this head without posting a status while `signedOff` says
+ * the gate's latest status for the head is the sign-off, and resets anything
+ * else.
+ *
+ * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, signedOff: boolean, event: GateEvent }} input
+ * @returns {Plan}
+ */
+export function planApproval({ head, problems, comment, signedOff, event }) {
+  if (problems.length === 0) {
+    return {
+      commentBody: comment ? CLEAR_BODY : null,
+      status: { state: 'success', description: 'Nothing in this PR loosens enforcement' },
+    };
+  }
+  const edit = event.kind === 'comment' && planEdit({ head, problems, comment, event });
+  if (edit) return edit;
+  const unticked = signoffComment({ head, problems });
+  if (signedOff && comment && isLabelled(comment.body, normalise(unticked))) {
+    return { commentBody: comment.body, status: null };
+  }
+  return { commentBody: unticked, status: WAITING };
+}
 
 /**
  * Read one file at `ref` through the API, or null when it is absent there.
@@ -611,49 +737,95 @@ async function readFile(github, repo, path, ref) {
 }
 
 /**
- * The gate's own comment with its last editor, or undefined when there is none.
- * A comment a person posts never counts, whatever it says.
+ * The gate's own comment, or undefined when there is none. A comment a person
+ * posts never counts, whatever it says. On an edit, the edited comment comes
+ * first, and it counts when its marker was there before the edit. A gate
+ * comment that lost its marker but keeps the approval line also counts, so the
+ * gate restores it even when the edit's own run never ran.
  *
- * @param {any} github @param {Array<{ id: number, node_id: string, body?: string, user?: { login: string } }>} comments
+ * @param {Array<{ id: number, body?: string, updated_at?: string, user?: { login: string } }>} comments
+ * @param {GateEvent} event
  */
-async function findSignoffComment(github, comments) {
-  const existing = comments.find(
-    (comment) => comment.user?.login === GATE_AUTHOR && comment.body?.startsWith(COMMENT_MARKER),
+function findSignoffComment(comments, event) {
+  const hadMarker = (/** @type {number} */ id) =>
+    event.kind === 'comment' &&
+    event.commentId === id &&
+    Boolean(event.from?.startsWith(COMMENT_MARKER));
+  const signoff = comments.filter(
+    (comment) =>
+      comment.user?.login === GATE_AUTHOR &&
+      (comment.body?.startsWith(COMMENT_MARKER) ||
+        comment.body?.includes(APPROVAL_TEXT) ||
+        hadMarker(comment.id)),
   );
-  if (!existing) return undefined;
-  const { node } = await github.graphql(EDITOR_QUERY, { id: existing.node_id });
-  const editor = node?.editor;
+  const existing =
+    signoff.find((comment) => event.kind === 'comment' && comment.id === event.commentId) ??
+    signoff[0];
+  return (
+    existing && { id: existing.id, body: String(existing.body), updatedAt: existing.updated_at }
+  );
+}
+
+/**
+ * What triggered this run. An edit carries its sender and the body before and
+ * after it; GitHub sets them, the comment text cannot.
+ *
+ * @param {any} github @param {any} context
+ * @returns {Promise<GateEvent>}
+ */
+async function gateEvent(github, context) {
+  if (context.eventName !== 'issue_comment') return { kind: 'pull' };
+  const { comment, changes, sender } = context.payload;
+  const name =
+    sender.login === APPROVER
+      ? (await github.rest.users.getByUsername({ username: sender.login })).data.name
+      : null;
   return {
-    id: existing.id,
-    body: String(existing.body),
-    editor: editor ? { login: editor.login, type: editor.__typename } : null,
+    kind: 'comment',
+    commentId: comment.id,
+    sender: { login: sender.login, type: sender.type, name },
+    from: changes?.body?.from ?? null,
+    to: String(comment.body),
+    at: comment.updated_at,
   };
 }
 
 /**
- * Create or update the gate's comment when its body changes, then post any
- * refusal note.
+ * Whether the gate's own latest status on `head` is the sign-off. Anyone with
+ * write access can post a status, so only the gate's count.
  *
- * @param {{ github: any, repo: { owner: string, repo: string }, number: number, existing: { id: number, body: string } | undefined, plan: { commentBody: string | null, refusal: string | null } }} input
+ * @param {any} github @param {{ owner: string, repo: string }} repo @param {string} head
  */
-async function writeComments({ github, repo, number, existing, plan }) {
-  const post = (/** @type {string} */ body) =>
-    github.rest.issues.createComment({ ...repo, issue_number: number, body });
-  if (plan.commentBody !== null && plan.commentBody !== existing?.body) {
-    await (existing
-      ? github.rest.issues.updateComment({
-          ...repo,
-          comment_id: existing.id,
-          body: plan.commentBody,
-        })
-      : post(plan.commentBody));
-  }
-  if (plan.refusal) await post(plan.refusal);
+async function isSignedOff(github, repo, head) {
+  const { data: statuses } = await github.rest.repos.listCommitStatusesForRef({
+    ...repo,
+    ref: head,
+    per_page: 100,
+  });
+  const latest = statuses.find(
+    (/** @type {{ context: string, creator?: { login: string } }} */ status) =>
+      status.context === STATUS_CONTEXT && status.creator?.login === GATE_AUTHOR,
+  );
+  const signed = signedOffStatus(head);
+  return latest?.state === signed.state && latest?.description === signed.description;
 }
 
 /**
- * The `actions/github-script` entry point. Idempotent: a rerun with nothing new
- * makes no comment write.
+ * Create or update the gate's comment when its body changes.
+ *
+ * @param {{ github: any, repo: { owner: string, repo: string }, number: number, existing: { id: number, body: string } | undefined, body: string | null }} input
+ */
+async function writeComment({ github, repo, number, existing, body }) {
+  if (body === null || body === existing?.body) return;
+  await (existing
+    ? github.rest.issues.updateComment({ ...repo, comment_id: existing.id, body })
+    : github.rest.issues.createComment({ ...repo, issue_number: number, body }));
+}
+
+/**
+ * The `actions/github-script` entry point. It reads the head, the files and the
+ * comment live, so a rerun or a late run judges the PR as it is now, and posts
+ * the status on that head. A rerun with nothing new makes no comment write.
  */
 export async function run({ github, context, core }) {
   const repo = context.repo;
@@ -688,11 +860,22 @@ export async function run({ github, context, core }) {
     issue_number: number,
     per_page: 100,
   });
-  const existing = await findSignoffComment(github, comments);
+  const event = await gateEvent(github, context);
+  const existing = findSignoffComment(comments, event);
 
-  const plan = planApproval({ head, problems, comment: existing });
-  await writeComments({ github, repo, number, existing, plan });
+  const plan = planApproval({
+    head,
+    problems,
+    comment: existing,
+    signedOff: await isSignedOff(github, repo, head),
+    event,
+  });
+  await writeComment({ github, repo, number, existing, body: plan.commentBody });
 
+  if (!plan.status) {
+    core.info(`${STATUS_CONTEXT}: left as it is for ${head}`);
+    return;
+  }
   await github.rest.repos.createCommitStatus({
     ...repo,
     sha: head,

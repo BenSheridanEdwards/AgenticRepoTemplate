@@ -18,25 +18,28 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: enforcement-approval-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: false
-
 jobs:
   approve:
     # Any edit of the comment this workflow wrote on a PR reaches the script,
-    # whoever made it, so the script can refuse and clear a tick from anyone but
-    # the approver.
+    # whoever made it and whether or not it kept the marker, so the script can
+    # clear any edit but the approver's fresh tick.
     if: >-
       github.event_name == 'pull_request_target' ||
       (github.event.issue.pull_request &&
       github.event.comment.user.login == 'github-actions[bot]' &&
-      startsWith(github.event.comment.body, '<!-- enforcement-approval -->'))
+      (startsWith(github.event.comment.body, '<!-- enforcement-approval -->') ||
+      startsWith(github.event.changes.body.from, '<!-- enforcement-approval -->')))
     runs-on: ubuntu-latest
+    # Job-level, so a run whose job is skipped, such as an edit of any other
+    # comment, never joins the group and cancels a queued gate run.
+    concurrency:
+      group: enforcement-approval-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
     # contents:read for main's script, the merge base, and the guarded files;
     # pull-requests:write for the head SHA, the files, and the gate's comment (a
     # PR's comments need the pull-requests scope, issues:write alone is
-    # refused); statuses:write for the gate.
+    # refused); statuses:write for the gate. The approver's profile name for the
+    # label is public and needs no scope.
     permissions:
       contents: read
       pull-requests: write
