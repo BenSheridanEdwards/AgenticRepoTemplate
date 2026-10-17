@@ -63,9 +63,9 @@ function buildPassingTree() {
   ].join('\n');
 
   return {
-    'AGENTS.md': twentyLineBody,
-    'CLAUDE.md': `# CLAUDE.md\n\nRead \`AGENTS.md\` first.\n\n${twentyLineBody}`,
-    'agents/openai.yaml': 'interface: {}\n',
+    'AGENTS.md': '# AGENTS.md\n\nStart here: `.agents/README.md`.\n',
+    'CLAUDE.md': '# CLAUDE.md\n\nRead `AGENTS.md` first.\n',
+    '.agents/openai.yaml': 'interface: {}\n',
     '.agents/project/ARCHITECTURE.md': 'architecture',
     '.agents/project/CONVENTIONS.md': 'conventions',
     '.agents/project/TECH_STACK.md': 'tech stack',
@@ -73,9 +73,9 @@ function buildPassingTree() {
     '.agents/project/DEFINITION_OF_DONE.md': 'done',
     '.agents/project/QUALITY_GATES.md': 'gates',
     '.agents/project/PR_QUALITY.md': 'pr quality',
-    '.agents/README.md': 'readme',
-    'PROGRESS.md': 'progress',
-    'TODO.md': 'todo',
+    '.agents/README.md': twentyLineBody,
+    '.agents/PROGRESS.md': 'progress',
+    '.agents/TODO.md': 'todo',
     '.claude/skills/pr-quality-contract/SKILL.md': skillFrontmatter,
     '.claude/skills/pr-inline-screenshot-proof/SKILL.md': skillFrontmatter,
     '.agents/decisions/0001-record-decisions.md': '# 1. Record decisions\n',
@@ -115,9 +115,17 @@ describe('checkContextLayer', () => {
     expect(result.errors.join('\n')).toContain('symbolic link');
   });
 
-  it('fails when AGENTS.md has too few non-empty lines', () => {
+  it('fails when AGENTS.md does not point to the start-here guide', () => {
     const files = buildPassingTree();
-    files['AGENTS.md'] = 'one line only';
+    files['AGENTS.md'] = '# AGENTS.md\n\nRead the docs.\n';
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('must point to `.agents/README.md`');
+  });
+
+  it('fails when the start-here guide has too few non-empty lines', () => {
+    const files = buildPassingTree();
+    files['.agents/README.md'] = 'one line only';
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('too thin');
@@ -135,7 +143,7 @@ describe('checkContextLayer', () => {
     const files = buildPassingTree();
     // Identical content that also happens to satisfy the defer check, so the
     // only failure is the byte-identity one.
-    const identical = `Read \`AGENTS.md\` first.\n${'contract\n'.repeat(25)}`;
+    const identical = 'Read `AGENTS.md` first. Start here: `.agents/README.md`.\n';
     files['AGENTS.md'] = identical;
     files['CLAUDE.md'] = identical;
     const result = checkContextLayer(createInMemoryFilesystem({ files }));

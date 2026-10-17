@@ -2,8 +2,8 @@
 /**
  * Enforce the repository's own context-layer invariants.
  *
- * The context layer (the operating contract, the multi-vendor manifest, the
- * project docs, the house skills) is the part of the standard that is otherwise
+ * The context layer (the root pointers, the start-here guide, the multi-vendor
+ * manifest, the project docs, the house skills) is the part of the standard that is otherwise
  * pure documentation: nothing mechanical fails when a file is deleted, renamed,
  * emptied, or quietly turned into a symlink. This checker closes that gap. It
  * asserts the invariants the docs describe and fails closed with an actionable
@@ -20,6 +20,9 @@ import { fileURLToPath } from 'node:url';
 
 /** The repository root: this file lives in `scripts/`, so the root is its parent. */
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** The start-here guide under `.agents/`, where `AGENTS.md` points. */
+const START_HERE = '.agents/README.md';
 
 /** A file is "non-trivial" when it has at least this many non-empty lines. */
 const MINIMUM_NON_EMPTY_LINES = 20;
@@ -116,15 +119,28 @@ function assertRegularFile(filesystem, relativePath, errors) {
   return true;
 }
 
-/** Assert `AGENTS.md`: a non-trivial, regular, non-symlink file. */
-function checkAgentsContract(filesystem, errors) {
+/** Assert `AGENTS.md`: a regular, non-symlink file that points to the start-here guide. */
+function checkAgentsPointer(filesystem, errors) {
   if (!assertRegularFile(filesystem, 'AGENTS.md', errors)) {
     return;
   }
-  const nonEmptyLineCount = countNonEmptyLines(filesystem.readText('AGENTS.md'));
+  if (!filesystem.readText('AGENTS.md').includes(START_HERE)) {
+    errors.push(
+      `\`AGENTS.md\` must point to \`${START_HERE}\`, the start-here guide. ` +
+        'Every agent doc lives under `.agents/`.',
+    );
+  }
+}
+
+/** Assert the start-here guide: a non-trivial, regular, non-symlink file. */
+function checkStartHere(filesystem, errors) {
+  if (!assertRegularFile(filesystem, START_HERE, errors)) {
+    return;
+  }
+  const nonEmptyLineCount = countNonEmptyLines(filesystem.readText(START_HERE));
   if (nonEmptyLineCount < MINIMUM_NON_EMPTY_LINES) {
     errors.push(
-      `\`AGENTS.md\` is too thin: ${nonEmptyLineCount} non-empty lines, ` +
+      `\`${START_HERE}\` is too thin: ${nonEmptyLineCount} non-empty lines, ` +
         `expected at least ${MINIMUM_NON_EMPTY_LINES}. It is the operating contract; keep it substantive.`,
     );
   }
@@ -229,19 +245,20 @@ function checkDecisionNumbers(filesystem, errors) {
 export function checkContextLayer(filesystem) {
   const errors = [];
 
-  checkAgentsContract(filesystem, errors);
+  checkAgentsPointer(filesystem, errors);
   checkClaudeLayer(filesystem, errors);
+  checkStartHere(filesystem, errors);
 
-  // The root multi-vendor manifest.
-  assertRegularFile(filesystem, 'agents/openai.yaml', errors);
+  // The multi-vendor manifest.
+  assertRegularFile(filesystem, '.agents/openai.yaml', errors);
 
   // The seven project docs.
   for (const documentName of REQUIRED_PROJECT_DOCS) {
     assertRegularFile(filesystem, `.agents/project/${documentName}`, errors);
   }
 
-  // The context index and the running-state ledgers.
-  for (const relativePath of ['.agents/README.md', 'PROGRESS.md', 'TODO.md']) {
+  // The running-state ledgers.
+  for (const relativePath of ['.agents/PROGRESS.md', '.agents/TODO.md']) {
     assertRegularFile(filesystem, relativePath, errors);
   }
 

@@ -1,6 +1,6 @@
 # 4. Agent context lives in `.agents/`; root files stay thin
 
-- **Status:** Accepted
+- **Status:** Accepted; point 2 superseded by [0022](0022-agent-docs-live-in-dot-agents.md)
 - **Date:** 2026-06-17
 
 ## Context

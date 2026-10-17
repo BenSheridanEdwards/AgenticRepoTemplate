@@ -1,17 +1,16 @@
-# Root agent manifest — vendor-neutral entry point.
+# Agent manifest: the vendor-neutral entry point.
 #
-# The operating doctrine is not welded to one vendor. `AGENTS.md` is the
-# tool-agnostic contract (agents.md convention); `CLAUDE.md` is the Claude layer
-# on top of it; this file is the equivalent entry point for OpenAI-family agents.
-# All three defer to the same source of detail under `.agents/`.
+# The operating doctrine is not welded to one vendor. `AGENTS.md` and
+# `CLAUDE.md` at the root point to `.agents/README.md`, the start-here guide;
+# this file lists the same entry points for OpenAI-family agents.
 interface:
   display_name: "Agentic Repo Template"
   short_description: "Reference scaffold: the files, gates, and context that make agent-written code enterprise-grade."
-  default_prompt: "Read AGENTS.md and .agents/ before writing. Follow the gates; done means `pnpm verify` and `pnpm e2e` are green."
+  default_prompt: "Read .agents/README.md before writing. Follow the gates; done means `pnpm verify` and `pnpm e2e` are green."
 
 context:
   # Read these before writing any code.
-  contract: "AGENTS.md"
+  contract: ".agents/README.md"
   detail:
     - ".agents/project/AGENTIC_INFRASTRUCTURE.md"
     - ".agents/project/ARCHITECTURE.md"
