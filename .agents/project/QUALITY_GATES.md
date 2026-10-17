@@ -25,7 +25,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 - **ESLint** (`pnpm lint:policy`) owns policy rules, React hooks rules, React
   Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
   The repository's own rules live in `tooling/eslint-plugin-policy.js`
-  ([ADR 0018](../decisions/0018-local-eslint-policy-plugin.md)).
+  ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
 - **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
   ESLint plugin cannot express, such as duplicated JSX across files.
 - **TypeScript** owns type semantics through `tsc --noEmit`.

@@ -1,5 +1,5 @@
 // ESLint owns policy rules, React hooks rules, React Compiler rules, and the
-// React Doctor rules (ADR 0010, wiring in ADR 0015, local policy in ADR 0018).
+// React Doctor rules (ADR 0010, wiring in ADR 0015, local policy in ADR 0019).
 // Biome owns formatting and general lint, so this config starts from no base
 // rule set.
 import reactDoctor from 'eslint-plugin-react-doctor';
