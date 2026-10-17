@@ -16,6 +16,12 @@ export function ApiProvider(input: {
     readonly children: ReactNode;
 }): JSX.Element;
 
+// @public (undocumented)
+export type RouterInputs = inferRouterInputs<AppRouter>;
+
+// @public (undocumented)
+export type RouterOutputs = inferRouterOutputs<AppRouter>;
+
 // @public
 export type TestApiHandlers = {
     readonly [Path in ProcedurePath]?: (input: Lookup<RouterInputs, Path>) => Lookup<RouterOutputs, Path> | Promise<Lookup<RouterOutputs, Path>>;
