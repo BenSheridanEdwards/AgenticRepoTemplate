@@ -52,14 +52,14 @@ export const REQUIRED_GATES = [
     workflow: 'ci.yml',
     job: 'quality',
     judgedBy: 'aggregate',
-    local: '`pnpm verify`',
+    local: '`pnpm verify`, pre-push hook',
   },
   {
     check: 'Code intelligence (Fallow)',
     workflow: 'ci.yml',
     job: 'fallow',
     judgedBy: 'aggregate',
-    local: '`pnpm verify`',
+    local: '`pnpm verify`, pre-push hook',
   },
   {
     check: 'Unit + component tests',
@@ -73,7 +73,7 @@ export const REQUIRED_GATES = [
     workflow: 'ci.yml',
     job: 'build',
     judgedBy: 'aggregate',
-    local: '`pnpm verify`',
+    local: '`pnpm verify`, pre-push hook',
   },
   {
     check: 'End-to-end behaviour map',

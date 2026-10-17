@@ -33,7 +33,9 @@ point: commit, push, CI, or PR review.
 3. **Place gates by feedback speed.**
    - Pre-commit: fast correctness, staged formatting, dead code/cycles, secrets.
    - Commit-msg: Conventional Commits.
-   - Pre-push: slower behaviour proof, build smoke, E2E.
+   - Pre-push: the full local gate suite and E2E. Git skips pre-commit for a
+     merge with no conflicts, so pre-push is the one local gate a clean merge
+     from main passes through.
    - CI: clean-checkout rerun plus dependency, license, SAST, performance,
      accessibility, and visual gates.
 4. **Keep local and CI proof aligned.** If CI runs a required check, expose a
