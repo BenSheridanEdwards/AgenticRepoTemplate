@@ -63,8 +63,8 @@ enforces the rest in CI.
 
 [ARCHITECTURE.md](project/ARCHITECTURE.md) holds one table that maps
 each role to its folder, its allowed imports, and the Fallow zone that enforces
-it. Routes compose pages from features and the UI package, and routes never
-import other routes. Features hold domain code with co-located tests. Shared
+it. Routes compose pages from features and the UI package, and each route
+imports only features and the UI package. Features hold domain code with co-located tests. Shared
 code lives in a feature or in the UI package. Every folder is named for its
 role, so a reviewer can see a PR's scope from the paths it touches.
 
@@ -131,8 +131,8 @@ reasoning lives as ADRs in
    at integration boundaries. The Effect PR lands before the TanStack Query and
    React Hook Form PR.
 6. **State.** `useState` and `useEffect` live only inside custom `use*` hooks.
-7. **Structure.** ARCHITECTURE.md holds one role table. Routes never import
-   routes, and shared code lives in features or the UI package.
+7. **Structure.** ARCHITECTURE.md holds one role table. Routes import features
+   and the UI package, and shared code lives in features or the UI package.
 8. **Architecture checks.** Fallow 3.x owns the dependency graph, the
    architecture gate, and the diagram, all read from `.fallowrc.jsonc`. CI
    fails on a forbidden import, on a stale committed role diagram, and on a
@@ -167,11 +167,11 @@ with acceptance criteria lives in [`TODO.md`](TODO.md).
 | Lint ownership | ESLint for policy, hooks, and compiler rules beside Biome | Decided, PR 2 |
 | React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 2 |
 | Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 4 |
-| State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Decided, PR 7 |
+| State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
 | Protected enforcement paths | Enforcement-change detection, then checkbox approval with an audit trail | Decided, PRs 1 and 9 |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
 | Role-named folders | `lib/` and `utils/` folders fail a check | Target |
-| Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Target |
+| Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, `AGENTS.md` and `CONVENTIONS.md` |
 | `REVIEW.md` | Human-written rules for automated PR review, read after lint | Target |
 | Cloud agents | Agents triggered from tickets, alerts, or schedules | Last, once the repository is factory-shaped |
 

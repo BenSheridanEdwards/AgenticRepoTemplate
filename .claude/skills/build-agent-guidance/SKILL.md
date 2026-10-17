@@ -38,8 +38,8 @@ the root docs into a second codebase.
    script, workflow, or command that enforces X. If no gate exists, either add
    one in a separate quality-gate change or state the rule as review-only.
 6. **Flag inconsistencies.** If existing code follows one pattern and docs claim
-   another, do not smooth it over. Update the docs to truth, fix the code, or
-   record the gap.
+   another, surface it. Update the docs to truth, fix the code, or record the
+   gap.
 7. **Verify the docs.** Run the repo's lightest relevant doc/format gate, then
    the full gate suite when guidance changes affect Definition of Done, scripts,
    hooks, or workflows.
@@ -59,9 +59,9 @@ the root docs into a second codebase.
 
 ## Anti-Patterns
 
-- Do not duplicate the same rule in three places with slightly different words.
-- Do not list tools that are not installed or gates that do not run.
-- Do not add private project names, secrets, customer data, or local paths to a
+- Keep each rule in one place, in one wording.
+- List only installed tools and gates that run.
+- Keep private project names, secrets, customer data, and local paths out of a
   public template.
 - Keep one owner per concern; a new tool for an owned concern changes the
   tech-stack contract through an ADR.

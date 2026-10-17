@@ -29,9 +29,9 @@ Move the rule to the layer that owns it.
    config, dependency tooling, and deployment surfaces before writing guidance.
 2. **Write the pointers and the start-here guide.** `CLAUDE.md` points to
    `AGENTS.md`, which points to `.agents/README.md`. That guide says how to work
-   here, where to read next, what commands matter, and what must never be
-   bypassed. `.agents/CLAUDE_CODE.md` adds only Claude-specific skills,
-   permissions, and hooks.
+   here, where to read next, what commands matter, and which gates always run.
+   `.agents/CLAUDE_CODE.md` adds only Claude-specific skills, permissions, and
+   hooks.
 3. **Create project context.** Add architecture, conventions, tech stack,
    glossary, Definition of Done, ADRs, and templates under `.agents/`.
 4. **Make gates match the claims.** Every "done" rule should be enforced by a
@@ -43,13 +43,13 @@ Move the rule to the layer that owns it.
 
 ## Truth rules
 
-- Do not claim a gate exists unless the hook, script, or workflow exists.
-- Do not document commands that fail in a clean checkout.
-- Do not describe a future architecture as current fact. Mark it as a target or
-  create an ADR.
-- Do not put rules in the root files. `CLAUDE.md` and `AGENTS.md` point in;
+- Claim a gate only when its hook, script, or workflow exists.
+- Document only commands that pass in a clean checkout.
+- Describe current architecture as fact, and mark future architecture as a
+  target or an ADR.
+- Keep rules out of the root files. `CLAUDE.md` and `AGENTS.md` point in;
   `.agents/` carries everything else.
-- Do not put private project facts in this public template.
+- Keep private project facts out of this public template.
 
 ## What makes it north-star quality
 

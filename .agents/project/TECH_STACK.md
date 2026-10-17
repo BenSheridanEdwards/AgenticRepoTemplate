@@ -1,8 +1,8 @@
 # Tech stack — one tool per concern
 
 The point of this list is not the tools; it is that **each concern has exactly
-one owner**. An agent never has to guess which tool to reach for, and never adds
-a second tool that does the same job a different way. Adding or swapping a tool
+one owner**. An agent knows which tool to reach for, and keeps each job with
+the one tool that owns it. Adding or swapping a tool
 is an ADR-level decision. See [`QUALITY_GATES.md`](QUALITY_GATES.md) for where
 each owner runs locally and in CI.
 
@@ -15,7 +15,7 @@ each owner runs locally and in CI.
 | End-to-end tests | **Playwright** | The behaviour map. |
 | Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
 | Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. |
-| React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks the ESLint plugin cannot express. |
+| React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks outside the ESLint plugin. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence and architecture | **Fallow** | Dead code, cycles, complexity, the dependency graph, the architecture gate (`pnpm arch:gate`), and the role diagram (`pnpm arch:diagram`). |
 | Exported API reports | **API Extractor** | One committed `etc/*.api.md` per public module entry (`pnpm api:report`, `pnpm api:check`). |
@@ -42,8 +42,8 @@ each owner runs locally and in CI.
   [ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)). When two engines
   implement the same check, one turns it off and names the owner. Biome is the
   only formatter.
-- **Do not add a second test runner.** Unit = Jest, E2E = Playwright. That is
-  the whole matrix.
+- **One test runner per layer.** Unit = Jest, E2E = Playwright. That is the
+  whole matrix, and `pnpm check:adr` asks for an ADR before a new one lands.
 - **The unit suite asserts behaviour.** Unit tests stub stylesheets on purpose
   (`jest.style-stub.cjs`).
 

@@ -75,8 +75,8 @@ Layer the infrastructure so every instruction has one owner.
    `.agents/project/PR_QUALITY.md`; require local proof, CI status, visual proof
    or `N/A`, and residual risk.
 9. **Record tradeoffs.** If a gate is too slow for local use, CI-only, advisory,
-   or temporarily absent, write an ADR or explicit gap. Do not imply protection
-   that is not enforced.
+   or temporarily absent, write an ADR or explicit gap. Claim only the protection
+   a gate enforces.
 10. **Verify in layers.** Run the changed hook directly when possible, then the
     repo's local aggregate command, E2E, and finally GitHub Actions on the PR.
 
@@ -86,14 +86,14 @@ Layer the infrastructure so every instruction has one owner.
   template repos.
 - Keep one owner per concern. A new formatter, lint engine, test runner, or
   scanner needs an ADR that names the uncovered requirement it owns.
-- Do not weaken TypeScript, Biome, coverage, Lighthouse, or branch
-  protection thresholds to make an installation green.
+- Keep TypeScript, Biome, coverage, Lighthouse, and branch protection
+  thresholds at full strength while making an installation green.
 - Prefer advisory local gates plus hard CI gates when a tool needs credentials,
   GitHub permissions, paid runners, or a browser environment.
 - For brownfield repos, fail only on introduced issues where possible. A gate
   that drowns the team in old findings will get bypassed.
-- Never report "installed everywhere" from filesystem presence alone. Prove the
-  command, hook, or workflow runs.
+- Report "installed everywhere" once the command, hook, or workflow runs.
+  Filesystem presence is a claim; a run is proof.
 
 ## Done When
 

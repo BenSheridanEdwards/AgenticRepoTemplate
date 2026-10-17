@@ -16,7 +16,7 @@ One block per goal, newest first. Each block carries:
 - **Verification** — the exact commands run and their pass/fail result.
 - **Blockers** — anything unfinished, and why.
 
-Keep it honest: do not record a step as done until its proof exists. When a goal
+Keep it honest: record a step as done once its proof exists. When a goal
 ships, leave its block here as history and open the next one above it.
 
 ---
