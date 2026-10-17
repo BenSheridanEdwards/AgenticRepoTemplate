@@ -1,0 +1,98 @@
+# Seeded-violation evidence for PR2 (each block is a real run on this box)
+
+## Fallow contract seeds, tooling/architecture/boundaries.test.ts run against origin/main's .fallowrc.jsonc (red before the change)
+    ✓ passes the clean layout, including fetch in an integration and Node IO in the api root (201 ms)
+    ✕ fails when a route imports another route (194 ms)
+    ✕ fails when a feature imports another feature (202 ms)
+    ✕ fails when a feature imports a route (208 ms)
+    ✕ fails when the app imports a feature (175 ms)
+    ✕ fails when the api client value-imports the router (194 ms)
+    ✕ fails when a route type-imports the api package (231 ms)
+    ✕ fails when a ui primitive imports the api client (216 ms)
+    ✕ fails when procedures call domain code (183 ms)
+    ✕ fails when the api root imports application logic (190 ms)
+    ✕ fails when the domain imports application logic (184 ms)
+    ✕ fails when an integration imports application logic (207 ms)
+    ✕ fails when a loose file directly under features composes several features, a file outside every role (178 ms)
+    ✕ fails when a loose file sits directly under routes, a file outside every role (202 ms)
+    ✕ fails when the api grows a stray layer, a file outside every role (200 ms)
+    ✕ fails when the web app grows a stray layer, a file outside every role (189 ms)
+    ✕ fails when a new package appears, a file outside every role (187 ms)
+    ✕ fails when the domain imports tRPC (209 ms)
+    ✕ fails when the domain imports Effect (195 ms)
+    ✕ fails when application logic imports tRPC (186 ms)
+    ✕ fails when application logic calls fetch (200 ms)
+    ✕ fails when application logic runs an Effect program (203 ms)
+    ✕ fails when application logic opens an HTTPS request (196 ms)
+    ✕ fails when a procedure imports Node file IO (194 ms)
+    ✕ fails when a route calls fetch (188 ms)
+    ✕ fails when a route wires its own tRPC client (213 ms)
+    ✕ fails when a feature imports the tRPC server (178 ms)
+    ✕ fails when a ui primitive imports TanStack Query (205 ms)
+    ✕ fails when a ui primitive imports React Hook Form (189 ms)
+    ✕ fails a fallow-ignore suppression that gives no reason (209 ms)
+Tests:       29 failed, 1 passed, 30 total
+
+## ESLint contract rules, scripts/eslint-policy.test.ts before the rules existed (red)
+    ✓ turns on every local policy rule as an error for apps/api/src/router.ts (6686 ms)
+    ✕ turns on every local policy rule as an error for packages/ui/src/Button.tsx (692 ms)
+    ✕ turns on every local policy rule as an error for showcase/todo-01/web/src/App.tsx (682 ms)
+    ✕ turns on every local policy rule as an error for showcase/todo-01/api/src/features/todo/procedures.ts (690 ms)
+    ✕ passes a router that imports a feature through its index.ts with an explicit extension (826 ms)
+    ✓ blocks a router that reaches past a feature index.ts (no-restricted-imports) (837 ms)
+    ✕ blocks a route imports another route (policy/slice-isolation) (828 ms)
+    ✕ blocks a backend feature imports another feature (policy/slice-isolation) (795 ms)
+    ✕ blocks a web feature imports another feature (policy/slice-isolation) (817 ms)
+    ✕ blocks a showcase route imports another route (policy/slice-isolation) (684 ms)
+    ✕ blocks a relative import leaves its package (policy/slice-isolation) (866 ms)
+    ✕ blocks the loose file apps/web/src/features/loose.ts directly under a slice folder (policy/slice-isolation) (854 ms)
+    ✕ blocks the loose file apps/web/src/routes/loose.ts directly under a slice folder (policy/slice-isolation) (868 ms)
+    ✕ blocks the loose file apps/api/src/features/loose.ts directly under a slice folder (policy/slice-isolation) (1077 ms)
+    ✕ blocks the loose file showcase/todo-01/web/src/features/loose.ts directly under a slice folder (policy/slice-isolation) (781 ms)
+    ✓ passes a route that imports its own files, a feature, the api client and the ui kit (910 ms)
+    ✕ blocks a procedure input given a cast instead of a schema (policy/procedure-input-schema) (1036 ms)
+    ✕ blocks a procedure input given a bare Effect schema (policy/procedure-input-schema) (1188 ms)
+    ✕ blocks a procedure input given another standard schema (policy/procedure-input-schema) (1132 ms)
+    ✓ passes a procedure input wrapped in Schema.standardSchemaV1 (1308 ms)
+    ✕ blocks a form with no options (policy/form-uses-effect-schema) (1805 ms)
+    ✕ blocks a form with no resolver (policy/form-uses-effect-schema) (1091 ms)
+    ✕ blocks a form with another resolver (policy/form-uses-effect-schema) (1298 ms)
+    ✕ blocks a form with options built elsewhere (policy/form-uses-effect-schema) (1181 ms)
+    ✓ passes a form whose resolver is effectTsResolver (1202 ms)
+    ✕ blocks useQuery called directly in a component (policy/state-and-effects-in-hooks) (993 ms)
+    ✕ blocks useSuspenseQuery called directly in a component (policy/state-and-effects-in-hooks) (1025 ms)
+    ✕ blocks useInfiniteQuery called directly in a component (policy/state-and-effects-in-hooks) (1006 ms)
+    ✕ blocks useMutation called directly in a component (policy/state-and-effects-in-hooks) (1108 ms)
+    ✕ blocks useForm called directly in a component (policy/state-and-effects-in-hooks) (1197 ms)
+    ✕ blocks useFieldArray called directly in a component (policy/state-and-effects-in-hooks) (1197 ms)
+    ✓ passes server state inside a named custom hook (1200 ms)
+Tests:       26 failed, 35 skipped, 6 passed, 67 total
+
+## Biome override, scripts/biome-overrides.test.ts with origin/main's biome.json (red)
+    ✓ blocks a snake_case identifier and file name in apps/web/src/features/x (119 ms)
+    ✓ blocks a snake_case identifier and file name in apps/api/src/features/x (114 ms)
+    ✕ blocks a snake_case identifier and file name in packages/ui/src (61 ms)
+    ✕ blocks a snake_case identifier and file name in showcase/todo-01/web/src/routes/x (56 ms)
+    ✕ blocks a snake_case identifier and file name in showcase/todo-01/api/src/features/x (58 ms)
+    ✓ leaves the same seed alone outside every package src folder (59 ms)
+Tests:       3 failed, 3 passed, 6 total
+
+## Lighthouse scope, scripts/lighthouse-scope.test.ts with origin/main's lighthouse-scope.mjs (red)
+    ✕ audits a pull request that changes packages/ui/src/Button.tsx (3 ms)
+    ✕ audits a pull request that changes packages/ui/src/styles.css
+    ✕ audits a pull request that changes packages/ui/package.json
+    ✕ audits a pull request that changes tsconfig.base.json
+Tests:       4 failed, 40 passed, 44 total
+
+## size-limit at 130 kB with a seeded extra ~10 kB chunk in apps/web/dist/assets
+  Package size limit has exceeded by 3.64 kB
+  Size limit: 130 kB
+  Size:       133.64 kB brotlied
+  Size limit: 5 kB
+  Size:       578 B brotlied
+size exit 1
+
+## The api on Node 22.23.3 (native type stripping), curl through PORT=3912
+api listening on http://127.0.0.1:3912/trpc
+{"result":{"data":{"message":"Hello, Ada!"}}}
+{"error":{"message":"Expected a non empty string, actual \"\"","code":-32600,"data":{"code":"BAD_REQUEST","httpStatus":400,"stack":"TRPCError: Expected a non em
