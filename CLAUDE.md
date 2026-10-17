@@ -51,7 +51,7 @@ refuses the common ways to switch the git hooks off: `--no-verify`,
 `git commit -n`, `HUSKY=0`, and writes to `core.hooksPath`, git aliases, or
 config includes. The hook is deliberately scoped: Claude Code only spawns it for
 Bash commands that run `git`, `env`, `sh`, or `bash`, and the script blocks only
-gate bypasses (ADR 0005, amended by 0017). It is a speed bump, not a sandbox;
+gate bypasses (ADR 0005, amended by 0020). It is a speed bump, not a sandbox;
 CI on a clean checkout is the backstop. The gates are not optional — if one
 fails, fix the cause.
 

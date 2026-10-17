@@ -1,4 +1,4 @@
-# 17. Block the common hook bypasses, not only the long flag
+# 20. Block the common hook bypasses, not only the long flag
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-16

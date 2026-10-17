@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# PreToolUse(Bash) guard (ADR 0005, amended by ADR 0017). settings.json spawns
+# PreToolUse(Bash) guard (ADR 0005, amended by ADR 0020). settings.json spawns
 # it for Bash commands that run git, env, sh, or bash. It refuses the common
 # ways to switch the git hooks off:
 #
@@ -9,7 +9,7 @@
 #   writing core.hooksPath, a git alias, or a config include, through git
 #     config, git -c, --config-env, or GIT_CONFIG_* variables
 #
-# It is a speed bump, not a sandbox. ADR 0017 lists the shapes it misses; CI on
+# It is a speed bump, not a sandbox. ADR 0020 lists the shapes it misses; CI on
 # a clean checkout is the backstop. Exit code 2 blocks the tool call.
 
 block() {
