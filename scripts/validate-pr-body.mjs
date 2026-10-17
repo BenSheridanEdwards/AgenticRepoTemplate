@@ -5,15 +5,19 @@
  * The body, title, and head branch arrive through environment variables
  * (`PR_BODY`, `PR_TITLE`, `PR_HEAD_REF`) rather than as command arguments or
  * interpolated workflow text, so an attacker-controlled PR body can never be
- * evaluated as shell or YAML. The
- * workflow populates them with `${{ toJSON(github.event.pull_request.body) }}`,
+ * evaluated as shell or YAML. The workflow populates them with `${{ toJSON(github.event.pull_request.body) }}`,
  * so each env var holds a JSON-encoded string (quoted, with escaped newlines);
- * the CLI runner JSON-parses it back to the raw text. See
- * `.github/workflows/pr-quality.yml`.
+ * the CLI runner JSON-parses it back to the raw text. The PR head SHA arrives
+ * in `PR_HEAD_SHA` too, but raw, not through `toJSON`, on purpose: a SHA is
+ * plain hex with nothing to escape, and the CLI rejects anything that is not 40
+ * hex characters, so do not "fix" it to match the body. Run locally without it,
+ * the CLI uses `git rev-parse HEAD`. See `.github/workflows/pr-quality.yml`.
  *
  * This module exports `validatePullRequest` for unit tests and runs the CLI when
  * invoked directly. The CLI exits non-zero (fail-closed) with actionable errors.
  */
+
+import { execFileSync } from 'node:child_process';
 
 /**
  * The four template sections, in the order the contract requires them.
@@ -66,6 +70,12 @@ const IMAGE_FILE_URL = /\.(png|jpe?g|gif|webp)(\?[^#]*)?(#.*)?$/i;
 const GITHUB_BLOB_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
 const NOT_APPLICABLE = /not applicable/i;
 const NOT_APPLICABLE_REASON_WORDS = 2;
+
+/**
+ * The `- Head commit:` value: one commit SHA, full or abbreviated, optionally in
+ * a balanced pair of backticks (`` `sha` `` or `sha`, never a lone backtick).
+ */
+const HEAD_COMMIT_VALUE_PATTERN = /^(`?)([0-9a-f]{7,40})\1$/i;
 
 /**
  * Strip HTML comments (`<!-- ... -->`) from a block of text. Template guidance
@@ -303,11 +313,114 @@ function hasNotApplicableReason(proofText) {
 }
 
 /**
- * Validate a PR title, body, and head branch (`branch` is optional). Returns
- * `{ ok, errors }`; `errors` is an array of actionable strings. Pure and
- * side-effect free so it can be unit-tested.
+ * The `- Head commit:` label. A note in parentheses (`- Head commit (short):`)
+ * is still the field, so it cannot dodge the comparison.
  */
-export function validatePullRequest({ title, body, branch }) {
+const HEAD_COMMIT_LABEL = /^[-*+]\s+Head commit\s*(\([^)]*\))?:/i;
+
+/** A full commit SHA: what `headSha` and `PR_HEAD_SHA` must be. */
+const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/i;
+
+/** Quote a rejected value in an error, cut short so a pasted paragraph stays readable. */
+function quoteValue(value) {
+  return JSON.stringify(value.length > 40 ? `${value.slice(0, 40)}…` : value);
+}
+
+/**
+ * Read the `- Head commit:` value: the rest of its line, or, only when that is
+ * empty, the next non-empty line (so a SHA written on the next line counts).
+ * Nothing further is collected, so prose after the field is not part of it.
+ */
+function headCommitValue(lines, index) {
+  const rest = lines[index].replace(HEAD_COMMIT_LABEL, '').trim();
+  if (rest) {
+    return rest;
+  }
+  return lines.slice(index + 1).find((line) => line.length > 0) ?? '';
+}
+
+/**
+ * A body goes stale when commits land after it was written. The Verification
+ * Summary's `- Head commit:` line names the commit the whole body was checked
+ * against, so a push that moves the PR head fails this gate until the author
+ * re-checks the body against the new head and updates the field.
+ *
+ * `verificationBody` is the body of the Verification Summary that
+ * `locateSections` found, so a decoy heading elsewhere cannot be graded instead.
+ * `headSha` must be a full 40-character SHA, or `null` to grade only the field's
+ * shape; anything else is an error, so a caller that forgets it fails closed.
+ */
+function collectHeadCommitErrors(verificationBody, headSha) {
+  const shaErrors = headShaErrors(headSha);
+  if (shaErrors.length > 0) {
+    return shaErrors;
+  }
+  if (verificationBody === undefined) {
+    // The missing section is already reported by `locateSections`.
+    return [];
+  }
+  const field = readHeadCommitField(verificationBody);
+  return field.errors ?? compareHeadCommit(field.value, headSha);
+}
+
+function headShaErrors(headSha) {
+  if (headSha === null || (typeof headSha === 'string' && FULL_SHA_PATTERN.test(headSha))) {
+    return [];
+  }
+  return [
+    `headSha must be the 40-character PR head SHA or null (shape only), got ${quoteValue(String(headSha))}.`,
+  ];
+}
+
+/** Find the single `- Head commit:` line: `{ value }`, or `{ errors }` when there is not exactly one. */
+function readHeadCommitField(verificationBody) {
+  const lines = stripHtmlComments(verificationBody)
+    .split('\n')
+    .map((line) => line.trim());
+  const labelIndexes = lines.flatMap((line, i) => (HEAD_COMMIT_LABEL.test(line) ? [i] : []));
+  if (labelIndexes.length === 0) {
+    return {
+      errors: [
+        'Section "Verification Summary" has no `- Head commit:` line. ' +
+          'Add one naming the SHA the whole body was checked against.',
+      ],
+    };
+  }
+  if (labelIndexes.length > 1) {
+    return {
+      errors: [
+        `Section "Verification Summary" has ${labelIndexes.length} \`- Head commit:\` lines. ` +
+          'Keep exactly one, naming the SHA the whole body was checked against.',
+      ],
+    };
+  }
+  return { value: headCommitValue(lines, labelIndexes[0]) };
+}
+
+function compareHeadCommit(value, headSha) {
+  const named = HEAD_COMMIT_VALUE_PATTERN.exec(value)?.[2];
+  if (named === undefined) {
+    return [
+      '`- Head commit:` must be one commit SHA and nothing else (7-40 hex ' +
+        `characters, optionally in backticks), such as \`1a2b3c4d\`; got ${quoteValue(value)}.`,
+    ];
+  }
+  if (headSha === null || headSha.toLowerCase().startsWith(named.toLowerCase())) {
+    return [];
+  }
+  return [
+    `\`- Head commit:\` says ${named}, but the PR head is ${headSha.slice(0, 12)}. ` +
+      'Re-check the body against the new head, then update the field.',
+  ];
+}
+
+/**
+ * Validate a PR title, body, head SHA, and head branch (`branch` is optional).
+ * `headSha` is required: a full 40-character SHA, or `null` to check only the
+ * `- Head commit:` shape. Returns `{ ok, errors }`; `errors` is an array of
+ * actionable strings. Pure and side-effect free so it can be unit-tested.
+ */
+export function validatePullRequest({ title, body, headSha, branch }) {
   const sections = splitSections(typeof body === 'string' ? body : '');
   const headings = sections.map((section) => section.heading);
   const located = locateSections(headings);
@@ -317,6 +430,10 @@ export function validatePullRequest({ title, body, branch }) {
     ...collectBranchErrors(branch),
     ...located.errors,
     ...collectContentErrors(sections, located.foundIndexBySection),
+    ...collectHeadCommitErrors(
+      sections[located.foundIndexBySection.get('Verification Summary')]?.body,
+      headSha,
+    ),
     ...collectImageErrors(typeof body === 'string' ? body : ''),
   ];
 
@@ -341,10 +458,54 @@ function decodeEnv(rawValue) {
   }
 }
 
+/**
+ * The PR head from `PR_HEAD_SHA`, or the local checkout's `HEAD` (via
+ * `readGitHead`) when run by hand. Fails closed: in CI the checkout is a merge
+ * commit, never the PR head, so a missing or malformed `PR_HEAD_SHA` there is an
+ * error, not a fallback. `env` and `readGitHead` are injected so tests need no
+ * real environment or repository.
+ */
+export function resolveHeadSha(env, readGitHead) {
+  const fromEnv = env.PR_HEAD_SHA;
+  if (fromEnv !== undefined || env.GITHUB_ACTIONS === 'true') {
+    if (!FULL_SHA_PATTERN.test(fromEnv ?? '')) {
+      throw new Error(
+        `PR_HEAD_SHA must be the 40-character PR head SHA, got ${quoteValue(fromEnv ?? '')}. ` +
+          'Set it from `github.event.pull_request.head.sha`.',
+      );
+    }
+    return fromEnv;
+  }
+  return readGitHead();
+}
+
+/** The local checkout's `HEAD`, with a one-line error instead of a stack trace. */
+function readGitHead() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    throw new Error(
+      `Could not read HEAD to check \`- Head commit:\` (${String(error.stderr || error.message).trim()}). ` +
+        "Run inside the PR's checkout, or set PR_HEAD_SHA.",
+    );
+  }
+}
+
 function runCli() {
+  let headSha;
+  try {
+    headSha = resolveHeadSha(process.env, readGitHead);
+  } catch (error) {
+    console.error(`PR quality contract failed:\n\n  ✗ ${error.message}`);
+    process.exit(1);
+  }
   const result = validatePullRequest({
     title: decodeEnv(process.env.PR_TITLE),
     body: decodeEnv(process.env.PR_BODY),
+    headSha,
     branch: decodeEnv(process.env.PR_HEAD_REF),
   });
 
