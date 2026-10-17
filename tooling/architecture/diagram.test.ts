@@ -1,213 +1,275 @@
-import { globToRegExp, renderRoleDiagram } from './diagram.mjs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { loadContract } from './contract.mjs';
+import {
+  diffDiagrams,
+  planDiagrams,
+  renderContractDiagram,
+  renderResultDiagram,
+} from './diagram.mjs';
+import { parseDotGraph } from './graph.mjs';
+import { createMonorepo, resultFiles, runTool } from './temporary-monorepo';
 
-/** Build `fallow viz --viz-format dot` output for the given files and edges. */
-function dotFor(files: string[], edges: Array<[string, string]>): string {
-  const nodeLines = files.map(
-    (file, index) => `  n${index} [label="${file}", fillcolor="#30a46c", fontcolor="#eeeeec"];`,
-  );
-  const edgeLines = edges.map(
-    ([from, to]) => `  n${files.indexOf(from)} -> n${files.indexOf(to)};`,
-  );
-  return [
-    'digraph fallow {',
-    '  rankdir=LR;',
-    '  node [shape=box, style=filled];',
-    '',
-    ...nodeLines,
-    '',
-    ...edgeLines,
-    '}',
-    '',
-  ].join('\n');
-}
+/** A four-role contract: the composition root, the api client, the ui kit and the api root. */
+const contract = loadContract(
+  JSON.stringify({
+    boundaries: {
+      zones: [
+        { name: 'web-app', patterns: ['{apps,showcase/*}/web/src/main.tsx'] },
+        { name: 'web-api-client', patterns: ['{apps,showcase/*}/web/src/api-client/**'] },
+        { name: 'web-routes', patterns: ['{apps,showcase/*}/web/src/routes/*/**'] },
+        { name: 'ui', patterns: ['packages/ui/src/**'] },
+        { name: 'api-app', patterns: ['{apps,showcase/*}/api/src/router.ts'] },
+        { name: 'api-trpc', patterns: ['{apps,showcase/*}/api/src/trpc.ts'] },
+        { name: 'api-procedures', patterns: ['{apps,showcase/*}/api/src/procedures.ts'] },
+        { name: 'api-application', patterns: ['{apps,showcase/*}/api/src/application.ts'] },
+        { name: 'api-domain', patterns: ['{apps,showcase/*}/api/src/domain.ts'] },
+      ],
+      rules: [
+        { from: 'web-app', allow: ['web-api-client', 'ui', 'web-routes'] },
+        { from: 'web-api-client', allow: [], allowTypeOnly: ['api-app'] },
+        { from: 'api-app', allow: ['api-trpc'] },
+      ],
+    },
+  }),
+);
 
-/** `fallow list --boundaries --format json -q` output, shaped like Fallow 3.33.1. */
-const BOUNDARIES = JSON.stringify({
-  kind: 'list-boundaries',
-  boundaries: {
-    configured: true,
-    zone_count: 6,
-    zones: [
-      {
-        name: 'web-app',
-        patterns: ['{apps,showcase/*}/web/src/main.tsx', '{apps,showcase/*}/web/src/App.tsx'],
-        file_count: 2,
-      },
-      {
-        name: 'web-api-client',
-        patterns: ['{apps,showcase/*}/web/src/api-client/**'],
-        file_count: 2,
-      },
-      {
-        name: 'web-routes/greeting',
-        patterns: ['apps/web/src/routes/greeting/**'],
-        file_count: 3,
-      },
-      { name: 'web-routes', patterns: ['{apps,showcase/*}/web/src/routes/*/**'], file_count: 1 },
-      { name: 'ui', patterns: ['packages/ui/src/**'], file_count: 2 },
-      {
-        name: 'api-app',
-        patterns: ['{apps,showcase/*}/api/src/{server,router}.ts'],
-        file_count: 2,
-      },
-    ],
-    rule_count: 6,
-    rules: [],
-    logical_group_count: 1,
-    logical_groups: [
-      {
-        name: 'web-routes',
-        children: ['web-routes/greeting'],
-        auto_discover: ['apps/web/src/routes'],
-        status: 'ok',
-        source_zone_index: 2,
-        file_count: 3,
-        authored_rule: { allow: ['web-api-client', 'ui'] },
-        fallback_zone: 'web-routes',
-      },
-    ],
-  },
-});
+const reference = {
+  id: 'reference',
+  root: 'apps',
+  scope: 'repo',
+  web: 'apps/web',
+  api: 'apps/api',
+};
+const todo = {
+  id: 'todo-01',
+  root: 'showcase/todo-01',
+  scope: 'todo-01',
+  web: 'showcase/todo-01/web',
+  api: 'showcase/todo-01/api',
+};
 
-const FILES = [
-  'apps/web/e2e/greeting.spec.ts',
-  'apps/web/index.html',
-  'scripts/check-context-layer.mjs',
-  'scripts/check-context-layer.test.ts',
-  'apps/web/src/App.tsx',
-  'apps/web/src/main.tsx',
-  'apps/web/src/api-client/index.ts',
-  'apps/web/src/api-client/trpc.ts',
-  'apps/web/src/routes/greeting/GreetingPage.test.tsx',
-  'apps/web/src/routes/greeting/GreetingPage.tsx',
-  'apps/web/src/routes/greeting/index.ts',
-  'packages/ui/src/Button.tsx',
-  'packages/ui/src/index.ts',
-  'apps/api/src/router.ts',
-  'apps/api/src/server.ts',
-  'showcase/todo-01/web/src/routes/todos/TodosPage.tsx',
+/** One result's import graph, with every path under `root`. */
+const edgesUnder = (root: string) => [
+  { from: `${root}/web/src/main.tsx`, to: `${root}/web/src/api-client/index.ts` },
+  { from: `${root}/web/src/main.tsx`, to: 'packages/ui/src/index.ts' },
+  { from: `${root}/web/src/api-client/index.ts`, to: `${root}/web/src/api-client/trpc.ts` },
+  { from: `${root}/web/src/api-client/trpc.ts`, to: `${root}/api/src/router.ts` },
+  { from: `${root}/web/e2e/greeting.spec.ts`, to: `${root}/web/src/main.tsx` },
+  { from: `${root}/api/src/router.ts`, to: `${root}/api/src/trpc.ts` },
 ];
 
-const EDGES: Array<[string, string]> = [
-  ['apps/web/index.html', 'apps/web/src/main.tsx'],
-  ['scripts/check-context-layer.test.ts', 'scripts/check-context-layer.mjs'],
-  ['apps/web/src/main.tsx', 'apps/web/src/App.tsx'],
-  ['apps/web/src/main.tsx', 'apps/web/src/api-client/index.ts'],
-  ['apps/web/src/App.tsx', 'apps/web/src/routes/greeting/index.ts'],
-  ['apps/web/src/routes/greeting/index.ts', 'apps/web/src/routes/greeting/GreetingPage.tsx'],
-  ['apps/web/src/routes/greeting/GreetingPage.test.tsx', 'apps/web/src/api-client/index.ts'],
-  ['apps/web/src/routes/greeting/GreetingPage.tsx', 'packages/ui/src/index.ts'],
-  ['apps/web/src/api-client/index.ts', 'apps/web/src/api-client/trpc.ts'],
-  ['apps/web/src/api-client/trpc.ts', 'apps/api/src/router.ts'],
-  ['packages/ui/src/index.ts', 'packages/ui/src/Button.tsx'],
-  ['apps/api/src/server.ts', 'apps/api/src/router.ts'],
-];
-
-const render = (files = FILES, edges = EDGES) =>
-  renderRoleDiagram(dotFor(files, edges), BOUNDARIES);
-
-const edgeLines = (diagram: string) => diagram.split('\n').filter((line) => line.includes('-->'));
-
-describe('globToRegExp', () => {
-  it('matches a brace-glob zone in the reference and in every showcase result', () => {
-    const routes = globToRegExp('{apps,showcase/*}/web/src/routes/**');
-    expect(
+describe('renderContractDiagram', () => {
+  it('draws every role in the web, api and ui subgraphs and every allowed direction', () => {
+    expect(renderContractDiagram(contract)).toBe(
       [
-        'apps/web/src/routes/greeting/GreetingPage.tsx',
-        'showcase/todo-01/web/src/routes/todos/TodosPage.tsx',
-        'showcase/todo-01/nested/web/src/routes/todos/TodosPage.tsx',
-        'packages/web/src/routes/greeting/GreetingPage.tsx',
-      ].map((file) => routes.test(file)),
-    ).toEqual([true, true, false, false]);
-  });
-
-  it('matches a brace list of file names', () => {
-    const procedures = globToRegExp('{apps,showcase/*}/api/src/features/*/{index,procedures}.ts');
-    expect(
-      [
-        'apps/api/src/features/greeting/index.ts',
-        'apps/api/src/features/greeting/procedures.ts',
-        'apps/api/src/features/greeting/domain.ts',
-      ].map((file) => procedures.test(file)),
-    ).toEqual([true, true, false]);
+        '%% Generated by tooling/architecture/diagram.mjs (pnpm arch:diagram): every role and allowed direction in .fallowrc.jsonc. Do not edit.',
+        'flowchart LR',
+        '  subgraph kind_web["web"]',
+        '    web_app["web-app"]',
+        '    web_api_client["web-api-client"]',
+        '    web_routes["web-routes"]',
+        '  end',
+        '  subgraph kind_api["api"]',
+        '    api_app["api-app"]',
+        '    api_trpc["api-trpc"]',
+        '    api_procedures["api-procedures"]',
+        '    api_application["api-application"]',
+        '    api_domain["api-domain"]',
+        '  end',
+        '  subgraph kind_ui["ui"]',
+        '    ui["ui"]',
+        '  end',
+        '  api_app --> api_trpc',
+        '  web_api_client -.-> api_app',
+        '  web_app --> ui',
+        '  web_app --> web_api_client',
+        '  web_app --> web_routes',
+        '',
+      ].join('\n'),
+    );
   });
 });
 
-describe('renderRoleDiagram', () => {
-  it('collapses files into their roles, using the logical group for child zones', () => {
-    expect(edgeLines(render())).toEqual([
-      '  web_api_client --> api_app',
-      '  web_app --> web_api_client',
-      '  web_app --> web_routes',
-      '  web_routes --> ui',
-      '  web_routes --> web_api_client',
-    ]);
-  });
-
-  it('declares one node per role, named after the role', () => {
-    expect(render()).toContain(
+describe('renderResultDiagram', () => {
+  it('draws the roles present and the role edges of the import graph, with the same conventions', () => {
+    expect(renderResultDiagram(contract, reference, edgesUnder('apps'))).toBe(
       [
-        '  api_app["api-app"]',
-        '  ui["ui"]',
-        '  web_api_client["web-api-client"]',
-        '  web_app["web-app"]',
-        '  web_routes["web-routes"]',
+        "%% Generated by tooling/architecture/diagram.mjs (pnpm arch:diagram): result reference (apps), the role edges of Fallow's import graph. Do not edit.",
+        'flowchart LR',
+        '  subgraph kind_web["web"]',
+        '    web_app["web-app"]',
+        '    web_api_client["web-api-client"]',
+        '  end',
+        '  subgraph kind_api["api"]',
+        '    api_app["api-app"]',
+        '    api_trpc["api-trpc"]',
+        '  end',
+        '  subgraph kind_ui["ui"]',
+        '    ui["ui"]',
+        '  end',
+        '  api_app --> api_trpc',
+        '  web_api_client -.-> api_app',
+        '  web_app --> ui',
+        '  web_app --> web_api_client',
         '',
       ].join('\n'),
     );
   });
 
-  it('drops files that belong to no zone', () => {
-    const diagram = render();
-    expect(diagram).not.toMatch(/index\.html|scripts|e2e/);
+  it('differs between two results of the same shape only in the header', () => {
+    const edges = [...edgesUnder('apps'), ...edgesUnder('showcase/todo-01')];
+    const referenceLines = renderResultDiagram(contract, reference, edges).split('\n');
+    const todoLines = renderResultDiagram(contract, todo, edges).split('\n');
+    expect(todoLines[0]).toContain('result todo-01 (showcase/todo-01)');
+    expect(todoLines.slice(1)).toEqual(referenceLines.slice(1));
   });
 
-  it('dedupes and sorts edges and drops self-edges', () => {
-    const reversed = [...EDGES].reverse();
-    const doubled: Array<[string, string]> = [
-      ...reversed,
-      ['apps/web/src/routes/greeting/GreetingPage.tsx', 'packages/ui/src/index.ts'],
-    ];
-    expect(edgeLines(render(FILES, doubled))).toEqual(edgeLines(render()));
+  it('leaves out the edges of other results and an empty subgraph', () => {
+    const diagram = renderResultDiagram(contract, todo, [
+      ...edgesUnder('apps'),
+      { from: 'showcase/todo-01/web/src/main.tsx', to: 'packages/ui/src/index.ts' },
+    ]);
+    expect(diagram.split('\n').slice(1)).toEqual([
+      'flowchart LR',
+      '  subgraph kind_web["web"]',
+      '    web_app["web-app"]',
+      '  end',
+      '  subgraph kind_ui["ui"]',
+      '    ui["ui"]',
+      '  end',
+      '  web_app --> ui',
+      '',
+    ]);
   });
 
-  it('is byte-identical across repeated runs', () => {
-    expect(render()).toBe(render());
+  it('draws a cross-role edge the contract forbids as a solid edge, so the diagram shows it', () => {
+    const diagram = renderResultDiagram(contract, reference, [
+      ...edgesUnder('apps'),
+      { from: 'apps/web/src/routes/a/index.ts', to: 'apps/api/src/router.ts' },
+    ]);
+    expect(diagram).toContain('  web_routes --> api_app\n');
   });
 
-  it('leaves the output unchanged when a file is added inside an existing role', () => {
-    const file = 'apps/web/src/routes/greeting/useGreeting.ts';
-    const edges: Array<[string, string]> = [
-      ...EDGES,
-      ['apps/web/src/routes/greeting/GreetingPage.tsx', file],
-      [file, 'apps/web/src/api-client/index.ts'],
-    ];
-    expect(render([...FILES, file], edges)).toBe(render());
+  it('dedupes and sorts edges whatever the graph order', () => {
+    const edges = edgesUnder('apps');
+    expect(renderResultDiagram(contract, reference, [...edges].reverse().concat(edges))).toBe(
+      renderResultDiagram(contract, reference, edges),
+    );
+  });
+});
+
+describe('planDiagrams and diffDiagrams', () => {
+  const plan = planDiagrams(contract, [reference, todo], edgesUnder('apps'));
+
+  it('plans the canonical diagram and one diagram per result', () => {
+    expect([...plan.keys()]).toEqual([
+      'docs/architecture/roles.mmd',
+      'apps/architecture.mmd',
+      'showcase/todo-01/architecture.mmd',
+    ]);
   });
 
-  it('adds exactly one line for a new cross-role edge, from a showcase result too', () => {
-    const before = render().split('\n');
-    const after = render(FILES, [
-      ...EDGES,
-      ['showcase/todo-01/web/src/routes/todos/TodosPage.tsx', 'apps/api/src/router.ts'],
-    ]).split('\n');
-    expect(after.filter((line) => !before.includes(line))).toEqual(['  web_routes --> api_app']);
-    expect(after).toHaveLength(before.length + 1);
+  it('reports a missing, a stale and an extra diagram', () => {
+    const onDisk = new Map([
+      ['docs/architecture/roles.mmd', plan.get('docs/architecture/roles.mmd')],
+      ['apps/architecture.mmd', 'flowchart LR\n'],
+      ['showcase/old/architecture.mmd', 'flowchart LR\n'],
+      ['apps/web/architecture.mmd', 'flowchart LR\n'],
+    ]);
+    expect(
+      diffDiagrams(
+        plan,
+        [...onDisk.keys(), 'apps/web/src/main.tsx'],
+        (path) => onDisk.get(path) ?? '',
+      ),
+    ).toEqual({
+      missing: ['showcase/todo-01/architecture.mmd'],
+      stale: ['apps/architecture.mmd'],
+      extra: ['apps/web/architecture.mmd', 'showcase/old/architecture.mmd'],
+    });
+  });
+
+  it('reports nothing when every planned diagram is on disk and current', () => {
+    expect(diffDiagrams(plan, [...plan.keys()], (path) => plan.get(path) ?? '')).toEqual({
+      missing: [],
+      stale: [],
+      extra: [],
+    });
+  });
+});
+
+describe('parseDotGraph', () => {
+  const dot = [
+    'digraph fallow {',
+    '  n0 [label="apps/web/src/main.tsx", fillcolor="#30a46c"];',
+    '  n1 [label="packages/ui/src/index.ts", fillcolor="#30a46c"];',
+    '  n0 -> n1;',
+    '}',
+    '',
+  ].join('\n');
+
+  it('gives the file-to-file edges of `fallow viz --viz-format dot`', () => {
+    expect(parseDotGraph(dot)).toEqual([
+      { from: 'apps/web/src/main.tsx', to: 'packages/ui/src/index.ts' },
+    ]);
+  });
+
+  it('throws when the dot text has no labelled nodes, so a format change fails loudly', () => {
+    expect(() => parseDotGraph('digraph fallow {\n  n0 -> n1;\n}\n')).toThrow(/no labelled nodes/);
   });
 
   it('throws when the dot text has no edges', () => {
-    expect(() => render(FILES, [])).toThrow(/no edges/);
+    expect(() => parseDotGraph(dot.replace('  n0 -> n1;\n', ''))).toThrow(/no edges/);
   });
+});
 
-  it('throws when the roles have nodes but no edge between them', () => {
-    expect(() =>
-      render(FILES, [['scripts/check-context-layer.test.ts', 'scripts/check-context-layer.mjs']]),
-    ).toThrow(/no import crosses two roles/);
+describe('node tooling/architecture/diagram.mjs on a temporary monorepo', () => {
+  let repository: ReturnType<typeof createMonorepo>;
+  const diagramOf = (path: string) => join(repository.directory, path);
+
+  beforeEach(() => {
+    repository = createMonorepo(resultFiles('showcase/x', 'x'));
+    expect(runTool('diagram.mjs', repository.directory).status).toBe(0);
   });
+  afterEach(() => repository.cleanup());
 
-  it('throws when the dot text has no labelled nodes', () => {
-    expect(() => renderRoleDiagram('digraph fallow {\n  n0 -> n1;\n}\n', BOUNDARIES)).toThrow(
-      /no labelled nodes/,
+  it('writes the canonical diagram and one diagram per result, the showcase result included', () => {
+    expect(readFileSync(diagramOf('docs/architecture/roles.mmd'), 'utf8')).toContain(
+      'web_api_client -.-> api_app',
     );
+    expect(readFileSync(diagramOf('showcase/x/architecture.mmd'), 'utf8')).toContain(
+      'result x (showcase/x)',
+    );
+    expect(runTool('diagram.mjs', repository.directory, '--check')).toEqual({
+      status: 0,
+      output: expect.stringMatching(/^OK: 3 diagrams/),
+    });
+  });
+
+  it.each([
+    [
+      'a missing',
+      () => unlinkSync(diagramOf('apps/architecture.mmd')),
+      /missing.*apps\/architecture\.mmd/,
+    ],
+    [
+      'a stale',
+      () => writeFileSync(diagramOf('showcase/x/architecture.mmd'), 'flowchart LR\n'),
+      /stale.*showcase\/x\/architecture\.mmd/,
+    ],
+    [
+      'an extra',
+      () => writeFileSync(diagramOf('apps/web/architecture.mmd'), 'flowchart LR\n'),
+      /extra.*apps\/web\/architecture\.mmd/,
+    ],
+  ])('fails --check on %s diagram, and a write converges', (_, seed, message) => {
+    seed();
+    const check = runTool('diagram.mjs', repository.directory, '--check');
+    expect(check.status).toBe(1);
+    expect(check.output).toMatch(message);
+    expect(runTool('diagram.mjs', repository.directory).status).toBe(0);
+    expect(runTool('diagram.mjs', repository.directory, '--check').status).toBe(0);
+    expect(existsSync(diagramOf('apps/web/architecture.mmd'))).toBe(false);
   });
 });
