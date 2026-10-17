@@ -1,4 +1,4 @@
-# 18. Check that each ADR number is used once
+# 21. Check that each ADR number is used once
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-16
@@ -20,6 +20,13 @@ with one number. On 2026-10-16 this happened three times:
   #64's `0017-required-gates-aggregate`.
 
 Nothing failed in any of them. Each depended on someone noticing.
+
+It kept happening on 2026-10-17. Open PR #74 adds
+`0018-dependency-manifests-are-not-enforcement-paths` while a local branch
+stack (`feat/react-policy-lint` and the two branches on top of it) adds
+`0018-local-eslint-policy-plugin`. This ADR moved from 0018 to 0021 for
+the same reason: open work already holds 0018, and the head-commit and
+hook-bypass branches above moved to 0019 and 0020.
 
 ## Decision
 
