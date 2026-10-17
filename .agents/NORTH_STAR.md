@@ -53,7 +53,7 @@ A standard with no gate behind it is a target and is labelled as one. A rule is
 finished when the routes around it are closed too: aliases, re-exports, inline
 disables, and edits to the rule's own config. A change that loosens or rewrites
 a rule waits for Ben's sign-off on the exact commit
-([ADR 0023](decisions/0023-sign-off-only-loosening-enforcement-changes.md)).
+([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)).
 
 Each lint engine owns its own concerns. Biome owns format and general lint.
 ESLint owns policy rules and the React hooks and Compiler rules. React Doctor
@@ -169,7 +169,7 @@ with acceptance criteria lives in [`TODO.md`](TODO.md).
 | React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 2 |
 | Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 4 |
 | State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
-| Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0023](decisions/0023-sign-off-only-loosening-enforcement-changes.md)) | Installed |
+| Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) | Installed |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
 | Role-named folders | `lib/` and `utils/` folders fail a check | Target |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, `AGENTS.md` and `CONVENTIONS.md` |

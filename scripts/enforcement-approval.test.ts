@@ -56,49 +56,22 @@ describe('GUARDS', () => {
   it('checks the guarded areas in a fixed order, first match wins', () => {
     expect(GUARDS.map((guard: { area: string }) => guard.area)).toEqual([
       'Enforcement-approval gate',
-      'Required-gates contract',
-      'Gate scripts',
-      'ESLint config and local rules',
-      'Biome config',
-      'Fallow config',
-      'TypeScript config',
       'CI workflows',
       'Git hooks',
-      'Claude Code settings and hooks',
-      'Claude Code settings and hooks',
-      'Test and commit config',
-      'Ignore files Biome reads',
+      'Lint config',
+      'Biome config',
     ]);
   });
 
   it.each([
     ['.github/workflows/enforcement-approval.yml', 'Enforcement-approval gate'],
-    ['scripts/enforcement-approval.mjs', 'Enforcement-approval gate'],
-    ['scripts/enforcement-approval.test.ts', 'Enforcement-approval gate'],
-    ['docs/required-gates.md', 'Required-gates contract'],
-    ['scripts/required-gates.test.ts', 'Gate scripts'],
-    ['scripts/required-gates.mjs', 'Gate scripts'],
-    ['scripts/fallow-audit.sh', 'Gate scripts'],
-    ['eslint.config.js', 'ESLint config and local rules'],
-    ['apps/web/eslint.config.mts', 'ESLint config and local rules'],
-    ['tooling/eslint-plugin-policy.js', 'ESLint config and local rules'],
-    ['biome.json', 'Biome config'],
-    ['apps/web/biome.jsonc', 'Biome config'],
-    ['.fallowrc.jsonc', 'Fallow config'],
-    ['tsconfig.json', 'TypeScript config'],
-    ['tsconfig.node.json', 'TypeScript config'],
     ['.github/workflows/ci.yml', 'CI workflows'],
     ['.husky/pre-commit', 'Git hooks'],
-    ['.claude/settings.json', 'Claude Code settings and hooks'],
-    ['.claude/settings.local.json', 'Claude Code settings and hooks'],
-    ['.claude/hooks/block-gate-bypass.sh', 'Claude Code settings and hooks'],
-    ['jest.config.ts', 'Test and commit config'],
-    ['playwright.config.ts', 'Test and commit config'],
-    ['commitlint.config.ts', 'Test and commit config'],
-    ['.commitlintrc.json', 'Test and commit config'],
-    ['.gitignore', 'Ignore files Biome reads'],
-    ['src/.gitignore', 'Ignore files Biome reads'],
-    ['.ignore', 'Ignore files Biome reads'],
+    ['eslint.config.js', 'Lint config'],
+    ['commitlint.config.ts', 'Lint config'],
+    ['tooling/eslint-plugin-policy.js', 'Lint config'],
+    ['scripts/check-suppressions.mjs', 'Lint config'],
+    ['biome.json', 'Biome config'],
   ])('guards %s as %s', (path, area) => {
     expect(guardedPaths([{ filename: path }])).toEqual([path]);
     expect(enforcementProblems([{ path, before: '{}', after: null }])[0]?.area).toBe(area);
@@ -110,9 +83,22 @@ describe('GUARDS', () => {
     '.agents/x.md',
     'package.json',
     'pnpm-lock.yaml',
+    'CLAUDE.md',
     '.github/pull_request_template.md',
+    '.claude/settings.json',
+    '.claude/hooks/block-gate-bypass.sh',
     '.claude/skills/show-me/SKILL.md',
-    'apps/web/jest.config.ts',
+    'scripts/enforcement-approval.mjs',
+    'scripts/enforcement-approval.test.ts',
+    'scripts/required-gates.mjs',
+    'docs/required-gates.md',
+    'tooling/anything.json',
+    'apps/web/eslint.config.mts',
+    'apps/web/biome.jsonc',
+    '.fallowrc.jsonc',
+    'tsconfig.json',
+    'jest.config.ts',
+    '.gitignore',
   ])('leaves %s unguarded', (path) => {
     expect(guardedPaths([{ filename: path }])).toEqual([]);
     expect(enforcementProblems([{ path, before: 'a', after: null }])).toEqual([]);
@@ -154,43 +140,8 @@ describe('rewrite judge', () => {
   });
 
   it('names an edit to the gate itself', () => {
-    expect(reasons('scripts/enforcement-approval.mjs', 'a', 'b')).toEqual([
+    expect(reasons('.github/workflows/enforcement-approval.yml', 'a', 'b')).toEqual([
       'edits the enforcement-approval gate',
-    ]);
-  });
-});
-
-describe('lines judge', () => {
-  it.each([
-    ["it('counts', () => {});\n", "it('counts', () => {});\nit('resets', () => {});\n"],
-    ["it('counts', () => {});\n", "const it = () => {};\nit('counts', () => {});\n"],
-  ])('reads any edit to a gate test as an edit to enforcement code', (before, after) => {
-    expect(reasons('scripts/count.test.ts', before, after)).toEqual(['edits enforcement code']);
-  });
-
-  it('flags removed lines in the required-gates contract and passes added ones', () => {
-    const contract = '# Required gates\n\n- typecheck\n- lint\n';
-    expect(reasons('docs/required-gates.md', contract, '# Required gates\n')).toEqual([
-      'removes or rewrites 2 lines',
-    ]);
-    expect(reasons('docs/required-gates.md', contract, `${contract}- e2e\n`)).toEqual([]);
-    expect(reasons('docs/required-gates.md', contract, null)).toEqual(['deletes the file']);
-  });
-
-  it('flags an added ignore entry in .gitignore', () => {
-    expect(reasons('.gitignore', 'dist\n', 'dist\nsrc/legacy/\n')).toEqual([
-      'adds ignore pattern `src/legacy/`',
-    ]);
-  });
-
-  it('passes a negation, a comment, a blank line, or a removed entry in .gitignore', () => {
-    expect(reasons('.gitignore', 'dist\n', 'dist\n\n# build output\n!dist/keep.ts\n')).toEqual([]);
-    expect(reasons('.gitignore', 'dist\ncoverage\n', 'dist\n')).toEqual([]);
-  });
-
-  it('flags a removed re-include, which ignores more files', () => {
-    expect(reasons('.gitignore', 'docs/*\n!docs/keep.md\n', 'docs/*\n')).toEqual([
-      'removes re-include `!docs/keep.md`',
     ]);
   });
 });
@@ -311,181 +262,19 @@ describe('json judge', () => {
     expect(biomeReasons(change)).toEqual(expected);
   });
 
-  const tsconfig = {
-    compilerOptions: {
-      strict: true,
-      noImplicitOverride: false,
-      skipLibCheck: false,
-      lib: ['ES2022'],
-    },
-    include: ['src'],
-  };
-  type TsConfig = { compilerOptions: Record<string, unknown>; include: string[] } & Record<
-    string,
-    unknown
-  >;
-  const tsReasons = (change: (draft: TsConfig) => void) =>
-    reasons('tsconfig.json', json(tsconfig), json(edited(tsconfig as TsConfig, change)));
-
-  it.each<[string, (draft: TsConfig) => void, string[]]>([
-    [
-      'strict set to false',
-      (draft) => {
-        draft.compilerOptions.strict = false;
-      },
-      ['sets `compilerOptions.strict` to `false`'],
-    ],
-    [
-      'strict removed',
-      (draft) => {
-        delete draft.compilerOptions.strict;
-      },
-      ['removes `compilerOptions.strict`'],
-    ],
-    [
-      'a strict flag turned on',
-      (draft) => {
-        draft.compilerOptions.noImplicitOverride = true;
-      },
-      [],
-    ],
-    [
-      'a strict flag added as true',
-      (draft) => {
-        draft.compilerOptions.noUncheckedIndexedAccess = true;
-      },
-      [],
-    ],
-    [
-      'skipLibCheck turned on',
-      (draft) => {
-        draft.compilerOptions.skipLibCheck = true;
-      },
-      ['sets `compilerOptions.skipLibCheck` to `true`'],
-    ],
-    [
-      'a lib change',
-      (draft) => {
-        draft.compilerOptions.lib = ['ES2023', 'DOM'];
-      },
-      [],
-    ],
-    [
-      'an added extends',
-      (draft) => {
-        draft.extends = './tsconfig.base.json';
-      },
-      ['adds `extends`'],
-    ],
-    [
-      'a removed include',
-      (draft) => {
-        draft.include = [];
-      },
-      ['removes `src` from `include`'],
-    ],
-  ])('judges %s in tsconfig.json', (_name, change, expected) => {
-    expect(tsReasons(change)).toEqual(expected);
-  });
-
-  const settings = {
-    $schema: 'https://json.schemastore.org/claude-code-settings.json',
-    permissions: { allow: ['Bash(pnpm test:*)'], deny: ['Bash(git push:*)'] },
-    hooks: { PreToolUse: [{ matcher: 'Bash' }] },
-  };
-  type Settings = typeof settings & Record<string, unknown>;
-  const settingsReasons = (change: (draft: Settings) => void) =>
-    reasons('.claude/settings.json', json(settings), json(edited(settings as Settings, change)));
-
-  it.each<[string, (draft: Settings) => void, string[]]>([
-    [
-      'an added allow entry',
-      (draft) => {
-        draft.permissions.allow.push('Bash(rm -rf:*)');
-      },
-      ['adds `Bash(rm -rf:*)` to `permissions.allow`'],
-    ],
-    [
-      'an added deny entry',
-      (draft) => {
-        draft.permissions.deny.push('Bash(git clean:*)');
-      },
-      [],
-    ],
-    [
-      'a removed deny entry',
-      (draft) => {
-        draft.permissions.deny = [];
-      },
-      ['removes `Bash(git push:*)` from `permissions.deny`'],
-    ],
-    [
-      'a hook change',
-      (draft) => {
-        draft.hooks.PreToolUse = [{ matcher: 'Edit' }];
-      },
-      ['changes `hooks.PreToolUse[0].matcher`'],
-    ],
-    [
-      'all hooks disabled',
-      (draft) => {
-        draft.disableAllHooks = true;
-      },
-      ['sets `disableAllHooks` to `true`'],
-    ],
-  ])('judges %s in .claude/settings.json', (_name, change, expected) => {
-    expect(settingsReasons(change)).toEqual(expected);
-  });
-
-  it('rewrites on any change to a Claude Code hook script', () => {
-    expect(reasons('.claude/hooks/block-gate-bypass.sh', 'exit 2', 'exit 0')).toEqual([
-      'edits enforcement code',
-    ]);
-  });
-
-  const fallow = `{
-  // Fallow reads this file as JSONC.
-  "$schema": "https://fallow.dev/schema.json", /* a URL keeps its // */
-  "ignorePatterns": ["vendor/**",],
-  "boundaries": {
-    "rules": [
-      { "from": "shared", "allow": [], },
-    ],
-  },
+  it('parses JSONC with comments and trailing commas', () => {
+    const before = `{
+  // Biome reads comments in biome.json.
+  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json", /* a URL keeps its // */
+  "files": { "includes": ["**",], },
 }
 `;
-
-  it('parses JSONC with comments and trailing commas', () => {
-    const after = fallow.replace('Fallow reads this file as JSONC.', 'Reworded.');
-    expect(reasons('.fallowrc.jsonc', fallow, after)).toEqual([]);
-  });
-
-  it.each([
-    [
-      'an added ignore entry',
-      '"vendor/**",',
-      '"vendor/**", "src/**",',
-      ['adds `src/**` to `ignorePatterns`'],
-    ],
-    ['a removed ignore entry', '"vendor/**",', '', []],
-    [
-      'an added boundary allow',
-      '"allow": [],',
-      '"allow": ["features"],',
-      ['adds `features` to `boundaries.rules[0].allow`'],
-    ],
-    [
-      'a changed boundary source',
-      '"from": "shared"',
-      '"from": "app"',
-      ['changes `boundaries.rules[0].from`'],
-    ],
-  ])('judges %s in .fallowrc.jsonc', (_name, find, replace, expected) => {
-    expect(reasons('.fallowrc.jsonc', fallow, fallow.replace(find, replace))).toEqual(expected);
+    const after = before.replace('Biome reads comments in biome.json.', 'Reworded.');
+    expect(reasons('biome.json', before, after)).toEqual([]);
   });
 
   it('refuses to rank a file that is not valid JSON', () => {
-    expect(reasons('.fallowrc.jsonc', fallow, '{ "ignorePatterns": [')).toEqual([
+    expect(reasons('biome.json', json(biome), '{ "files": [')).toEqual([
       'is not valid JSON, so the gate cannot rank the change',
     ]);
   });
@@ -515,16 +304,6 @@ describe('coverage lists created from nothing', () => {
     ).toEqual(['starts `linter.includes`, which limits the files it covers']);
   });
 
-  it('passes a new Claude Code deny list', () => {
-    expect(
-      reasons(
-        '.claude/settings.json',
-        '{"permissions":{}}',
-        '{"permissions":{"deny":["Bash(rm:*)"]}}',
-      ),
-    ).toEqual([]);
-  });
-
   it('asks when Biome import sorting is turned off', () => {
     expect(
       reasons(
@@ -536,17 +315,15 @@ describe('coverage lists created from nothing', () => {
   });
 });
 
-describe('TypeScript flags that turn checking off', () => {
+describe('Biome flags that turn checking off', () => {
   it.each([
-    ['{"compilerOptions":{"strict":null}}', 'removes `compilerOptions.strict`'],
+    ['{"linter":{"enabled":null}}', 'removes `linter.enabled`'],
     [
-      '{"compilerOptions":{"strict":true,"noCheck":true}}',
-      'sets `compilerOptions.noCheck` to `true`',
+      '{"linter":{"enabled":true},"vcs":{"useIgnoreFile":true}}',
+      'sets `vcs.useIgnoreFile` to `true`',
     ],
   ])('flags %s', (after, reason) => {
-    expect(reasons('tsconfig.json', '{"compilerOptions":{"strict":true}}', after)).toEqual([
-      reason,
-    ]);
+    expect(reasons('biome.json', '{"linter":{"enabled":true}}', after)).toEqual([reason]);
   });
 });
 
@@ -1308,10 +1085,10 @@ describe('run', () => {
 
   it('sets a green status and posts nothing when nothing loosens enforcement', async () => {
     const { github, calls } = fakeGitHub({
-      files: [{ filename: 'src/App.tsx' }, { filename: 'docs/required-gates.md' }],
+      files: [{ filename: 'src/App.tsx' }, { filename: 'biome.json' }],
       contents: {
-        [MERGE_BASE]: { 'docs/required-gates.md': '- typecheck\n' },
-        [HEAD]: { 'docs/required-gates.md': '- typecheck\n- e2e\n' },
+        [MERGE_BASE]: { 'biome.json': '{"linter":{"rules":{"style":{"useConst":"warn"}}}}' },
+        [HEAD]: { 'biome.json': '{"linter":{"rules":{"style":{"useConst":"error"}}}}' },
       },
     });
     await run({ github, context: pullRequestContext, core });

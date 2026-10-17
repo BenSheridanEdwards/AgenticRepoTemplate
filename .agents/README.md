@@ -55,7 +55,7 @@ the code-level rules and their checks.
 | --- | --- |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Every hook runs; `--no-verify` is refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code); CI re-runs every gate |
-| A change that loosens or rewrites a gate (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) waits for BenSheridanEdwards to tick the sign-off for its head commit. Ben ticks that box. | `enforcement-approval` status ([ADR 0023](decisions/0023-sign-off-only-loosening-enforcement-changes.md)) |
+| A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `eslint.config.js`, `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`) waits for BenSheridanEdwards to tick the sign-off for its head commit. Ben ticks that box. | `enforcement-approval` status ([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | A new dependency arrives with an ADR. | `pnpm check:adr` |

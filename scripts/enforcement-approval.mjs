@@ -12,7 +12,7 @@
  * edit event in which APPROVER, as a GitHub user, turns this head's unticked box
  * into a ticked one. The gate then labels the box with who ticked it and when.
  * Any other edit, and a new head, rewrites the comment unticked. See
- * `.agents/decisions/0023-sign-off-only-loosening-enforcement-changes.md`.
+ * `.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md`.
  *
  * `GUARDS`, `enforcementProblems`, `signoffComment` and `planApproval` are the
  * pure core. `run` is the thin GitHub shell. Invoked directly,
@@ -59,9 +59,6 @@ const inert = (text) =>
     .replaceAll('\\', '\\\\')
     .replaceAll('|', '\\|')}\``;
 
-/** @param {number} count */
-const lines = (count) => `${count} line${count === 1 ? '' : 's'}`;
-
 /** @param {string} message @returns {Judge} */
 const rewrite =
   (message = 'edits enforcement code') =>
@@ -69,49 +66,6 @@ const rewrite =
     if (before === null) return ['adds enforcement code'];
     return [after === null ? 'deletes the file' : message];
   };
-
-/** @param {string | null} text */
-const lineList = (text) =>
-  (text ?? '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-/**
- * Lines present in `left` beyond their count in `right`.
- *
- * @param {string[]} left
- * @param {string[]} right
- */
-function linesOnlyIn(left, right) {
-  const remaining = new Map();
-  for (const line of right) remaining.set(line, (remaining.get(line) ?? 0) + 1);
-  return left.filter((line) => {
-    const count = remaining.get(line) ?? 0;
-    remaining.set(line, count - 1);
-    return count <= 0;
-  });
-}
-
-/**
- * Compare trimmed lines as multisets and let the policy name the removed and
- * added lines that loosen.
- *
- * @param {{ removed: (lines: string[]) => string[], added: (lines: string[]) => string[] }} policy
- * @returns {Judge}
- */
-const byLines =
-  (policy) =>
-  ({ before, after }) => {
-    if (after === null) return ['deletes the file'];
-    return [
-      ...policy.removed(linesOnlyIn(lineList(before), lineList(after))),
-      ...policy.added(linesOnlyIn(lineList(after), lineList(before))),
-    ];
-  };
-
-/** @param {string} line */
-const isNegation = (line) => line.startsWith('!');
 
 /**
  * Parse JSONC: comments and trailing commas outside strings go, then JSON.parse.
@@ -216,50 +170,11 @@ const isUnder = (path, prefix) =>
 
 /** Lists that name what a tool covers; an absent list means it covers everything. */
 const COVERAGE = new Set(['include', 'includes', 'files']);
-const RESTRICTIVE = new Set([...COVERAGE, 'deny', 'ask']);
-const PERMISSIVE = /ignore|exclude|allow/i;
+const PERMISSIVE = /ignore|exclude/i;
 /** @type {Record<string, number>} */
 const LEVELS = { off: 0, info: 1, warn: 2, on: 2, error: 3 };
-const STRICT_WHEN_TRUE = new Set([
-  'strict',
-  'alwaysStrict',
-  'noImplicitAny',
-  'strictNullChecks',
-  'strictFunctionTypes',
-  'strictBindCallApply',
-  'strictPropertyInitialization',
-  'strictBuiltinIteratorReturn',
-  'noImplicitThis',
-  'useUnknownInCatchVariables',
-  'noUnusedLocals',
-  'noUnusedParameters',
-  'noFallthroughCasesInSwitch',
-  'noImplicitReturns',
-  'noUncheckedIndexedAccess',
-  'noImplicitOverride',
-  'noPropertyAccessFromIndexSignature',
-  'exactOptionalPropertyTypes',
-  'isolatedModules',
-  'verbatimModuleSyntax',
-  'checkJs',
-  'forceConsistentCasingInFileNames',
-  'noUncheckedSideEffectImports',
-  'enabled',
-  'recommended',
-]);
-const LOOSE_WHEN_TRUE = new Set([
-  'skipLibCheck',
-  'skipDefaultLibCheck',
-  'allowUnreachableCode',
-  'allowUnusedLabels',
-  'suppressExcessPropertyErrors',
-  'suppressImplicitAnyIndexErrors',
-  'noStrictGenericChecks',
-  'useIgnoreFile',
-  'ignoreUnknown',
-  'disableAllHooks',
-  'noCheck',
-]);
+const STRICT_WHEN_TRUE = new Set(['enabled', 'recommended']);
+const LOOSE_WHEN_TRUE = new Set(['useIgnoreFile', 'ignoreUnknown']);
 
 /** The value of each strictness flag that loosens the gate. */
 const LOOSENING_FLAG_VALUE = new Map([
@@ -317,7 +232,7 @@ const LEAF_RULES = [
       : undefined,
   (leaf, key, at) => {
     if (!leaf.member) return undefined;
-    const restrictive = RESTRICTIVE.has(key);
+    const restrictive = COVERAGE.has(key);
     if (restrictive && leaf.path.includes('overrides')) {
       return 'changes the files an override covers';
     }
@@ -369,39 +284,33 @@ const byJson =
 
 /**
  * The guard table, in order; the first guard with a pattern that matches a path
- * judges it. Code can loosen in ways a text diff cannot rank, so code paths read
- * any change as a rewrite.
+ * judges it. Only the files that run the gates are guarded: the git hooks, the
+ * CI workflows and the lint files (ADR 0023). Code can loosen in ways a text
+ * diff cannot rank, so code paths read any change as a rewrite.
  *
  * @type {ReadonlyArray<Guard>}
  */
 export const GUARDS = [
   {
     area: 'Enforcement-approval gate',
-    paths: [
-      /^\.github\/workflows\/enforcement-approval\.yml$/,
-      /^scripts\/enforcement-approval\.mjs$/,
-      /^scripts\/enforcement-approval\.test\.ts$/,
-    ],
+    paths: [/^\.github\/workflows\/enforcement-approval\.yml$/],
     judge: rewrite('edits the enforcement-approval gate'),
   },
+  { area: 'CI workflows', paths: [/^\.github\/workflows\//], judge: rewrite() },
+  { area: 'Git hooks', paths: [/^\.husky\//], judge: rewrite() },
   {
-    area: 'Required-gates contract',
-    paths: [/^docs\/required-gates\.md$/],
-    judge: byLines({
-      removed: (removed) =>
-        removed.length ? [`removes or rewrites ${lines(removed.length)}`] : [],
-      added: () => [],
-    }),
-  },
-  { area: 'Gate scripts', paths: [/^scripts\//], judge: rewrite() },
-  {
-    area: 'ESLint config and local rules',
-    paths: [/(^|\/)eslint\.config\.[cm]?[jt]s$/, /^tooling\//],
+    area: 'Lint config',
+    paths: [
+      /^eslint\.config\.js$/,
+      /^commitlint\.config\.ts$/,
+      /^tooling\/eslint-plugin-policy\.js$/,
+      /^scripts\/check-suppressions\.mjs$/,
+    ],
     judge: rewrite(),
   },
   {
     area: 'Biome config',
-    paths: [/(^|\/)biome\.jsonc?$/],
+    paths: [/^biome\.json$/],
     judge: byJson([
       '$schema',
       'formatter',
@@ -409,41 +318,6 @@ export const GUARDS = [
       'json.formatter',
       'css.formatter',
     ]),
-  },
-  {
-    area: 'Fallow config',
-    paths: [/(^|\/)\.fallowrc\.jsonc?$/],
-    judge: byJson(['$schema']),
-  },
-  {
-    area: 'TypeScript config',
-    paths: [/(^|\/)tsconfig[^/]*\.json$/],
-    judge: byJson(['$schema', 'compilerOptions', 'ts-node']),
-  },
-  { area: 'CI workflows', paths: [/^\.github\/workflows\//], judge: rewrite() },
-  { area: 'Git hooks', paths: [/^\.husky\//], judge: rewrite() },
-  {
-    area: 'Claude Code settings and hooks',
-    paths: [/^\.claude\/settings(\.local)?\.json$/],
-    judge: byJson(['$schema']),
-  },
-  { area: 'Claude Code settings and hooks', paths: [/^\.claude\/hooks\//], judge: rewrite() },
-  {
-    area: 'Test and commit config',
-    paths: [/^((jest|playwright|commitlint)\.config\.[^/]+|\.commitlintrc(\.[^/]+)?)$/],
-    judge: rewrite(),
-  },
-  {
-    area: 'Ignore files Biome reads',
-    paths: [/(^|\/)\.(git)?ignore$/],
-    judge: byLines({
-      removed: (removed) =>
-        removed.filter(isNegation).map((line) => `removes re-include ${inert(line)}`),
-      added: (added) =>
-        added
-          .filter((line) => !line.startsWith('#') && !isNegation(line))
-          .map((line) => `adds ignore pattern ${inert(line)}`),
-    }),
   },
 ];
 

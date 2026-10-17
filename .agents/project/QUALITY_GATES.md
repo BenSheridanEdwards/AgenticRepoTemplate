@@ -19,7 +19,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Doc phrasing | `scripts/check-doc-phrasing.mjs` (`pnpm check:docs`) | Guidance docs state each rule as the action to take ([ADR 0021](../decisions/0021-guidance-docs-state-the-action.md)). |
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | Each dependency name new since the merge base with the PR's base branch is named by an ADR added in the same change ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
-| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0023](../decisions/0023-sign-off-only-loosening-enforcement-changes.md)). |
+| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)). |
 
 ## Tool ownership
 
@@ -116,22 +116,24 @@ Visual style checking returns once StyleProof is fixed
 ## Enforcement approval
 
 [`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
-applies [ADR 0023](../decisions/0023-sign-off-only-loosening-enforcement-changes.md).
-A PR that loosens or rewrites enforcement waits for Ben's sign-off. Every other
-PR passes with no comment.
+applies [ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)
+to the files [ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)
+protects. A PR that loosens or rewrites one of them waits for Ben's sign-off.
+Every other PR passes with no comment.
 
 - **What asks.** `GUARDS` in
   [`scripts/enforcement-approval.mjs`](../../scripts/enforcement-approval.mjs)
-  compares each guarded file at the merge base and at the head. An edit to gate
-  code asks: the gate's own files, `scripts/**` and its tests,
-  `eslint.config.*`, `tooling/**`, `.github/workflows/**`, `.husky/**`,
-  `.claude/hooks/**`, and the Jest, Playwright, and commitlint configs. In the
-  Biome, Fallow, TypeScript, and Claude Code settings JSON, a lowered rule, an
-  added ignore or allow entry, a removed or newly created include list, or a
-  strictness flag turned off asks. Raising a rule or adding a strict flag
-  passes. A removed line in `docs/required-gates.md` asks. A new `.gitignore`
-  or `.ignore` entry asks, because Biome reads those files. The ADR lists every
-  rule.
+  guards only the files that run the gates: the git hooks (`.husky/**`), the CI
+  workflows (`.github/workflows/**`), and the lint files (`eslint.config.js`,
+  `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`,
+  `scripts/check-suppressions.mjs`). It compares each guarded file at the merge
+  base and at the head. Any edit to a hook, a workflow, or a lint file other
+  than `biome.json` asks. In `biome.json`, a lowered rule, an added ignore
+  entry, a removed or newly created include list, or a strictness flag turned
+  off asks, and raising a rule passes. Everything else, including
+  `package.json`, the lockfile, the agent docs, the rest of `scripts/` (the
+  gate's own script included) and `tsconfig.json`, needs no sign-off. A rename
+  counts when either side is guarded. The ADR lists every rule.
 - **One comment, one box, one approver.** The comment lists each change and
   names the head commit, and its box reads `Approve these enforcement changes
   at <sha>`. The status turns green only on the edit in which the GitHub user
