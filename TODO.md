@@ -38,8 +38,8 @@ only asserted.
 ## Grow the carrier app with a second, async feature
 
 There is one synchronous feature (`threshold-counter`), so the E2E and a11y
-gates never exercise loading or error states, and the architecture audit
-cannot measure cross-feature coupling.
+gates exercise only its synchronous states, and the architecture audit has no
+cross-feature coupling to measure.
 
 - **Acceptance:** a second `src/features/*` slice with an async/route surface
   exists, built from the templates; `e2e/app.spec.ts` covers its loading and

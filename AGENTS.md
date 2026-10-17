@@ -30,22 +30,39 @@ pnpm e2e              # the end-to-end behaviour map
 ## The golden rules
 
 1. **Read `.agents/` before you write.** Architecture, conventions, the
-   Definition of Done, the glossary, and ADRs live there. Code that ignores them
-   is rejected by the gates.
+   Definition of Done, the glossary, and ADRs live there.
 2. **Follow the patterns; copy the templates.** New files come from
    `.agents/templates/`. Consistency is the deliverable.
 3. **Behaviour is defined by the E2E map** (`e2e/app.spec.ts`), not by the
    implementation. Add behaviour there first.
-4. **Never bypass the gates.** No `--no-verify`, no weakening `tsconfig.json` or
-   `biome.json` to make red turn green. Fix the cause. (A hook enforces this.)
-5. **Commits are Conventional** (`type(scope): subject`), enforced on commit.
-6. **Done means the gates are green.** Do not report a task complete until
-   `pnpm verify` and `pnpm e2e` pass — see
+4. **When a gate fails, fix the cause.** Keep every gate and its config as it
+   is; the checks below enforce this.
+5. **Done means the gates are green.** Report a task complete once
+   `pnpm verify` and `pnpm e2e` pass; see
    `.agents/project/DEFINITION_OF_DONE.md`.
-7. **PRs need proof.** Before opening or marking a PR ready, complete the
-   pull request template and follow `.agents/project/PR_QUALITY.md`.
-8. **Change rules in the open.** If a constraint is wrong, propose an ADR in
-   `.agents/decisions/`; don't quietly diverge.
+6. **PRs carry proof.** Complete the pull request template and follow
+   `.agents/project/PR_QUALITY.md` before opening a PR or marking it ready.
+7. **Change rules in the open.** When a constraint is wrong, propose an ADR in
+   `.agents/decisions/` and change the rule there.
+
+## Rules and what enforces them
+
+Each rule below fails a check when it is broken, so the check's message is the
+first place to look. `.agents/project/CONVENTIONS.md` lists the code-level
+rules and their checks.
+
+| Rule | Enforced by |
+| --- | --- |
+| Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
+| Every hook runs; `--no-verify` is refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code); CI re-runs every gate |
+| Gate config (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) changes with a maintainer's sign-off. | `enforcement-approval` status ([ADR 0007](.agents/decisions/0007-protect-enforcement-paths-by-default.md)) |
+| Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
+| A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
+| A new dependency arrives with an ADR. | `pnpm check:adr` |
+| Secrets stay out of commits. | gitleaks in pre-commit and CI |
+| Every lint or type suppression names its rule and its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
+| Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
+| Guidance docs state rules as the action to take. | `pnpm check:docs` |
 
 ## Simplicity Mode
 
@@ -71,13 +88,13 @@ stdlib or native platform features before adding abstractions or dependencies.
 
 ## Safety
 
-- Do not commit secrets; CI runs a secret scan and a dependency audit.
+- Keep secrets out of commits; CI runs a secret scan and a dependency audit.
 - Keep one owner per concern: Biome formats and runs general lint, ESLint runs
   policy and React rules, Jest and Playwright run tests. A new tool for an owned
   concern needs an ADR (see `TECH_STACK.md`); `pnpm check:adr` fails a new
   dependency that no new ADR names.
 - Treat generated artefacts (`dist/`, `coverage/`, `graphify-out/`,
-  `.gitnexus/`) as disposable; never edit them by hand.
+  `.gitnexus/`) as disposable; regenerate them with their command.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
