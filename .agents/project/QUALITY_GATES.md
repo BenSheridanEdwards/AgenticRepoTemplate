@@ -115,7 +115,7 @@ Visual style checking returns once StyleProof is fixed
 ## Enforcement approval
 
 [`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
-applies [ADR 0020](../decisions/0020-protect-only-the-files-that-run-the-gates.md):
+applies [ADR 0021](../decisions/0021-protect-only-the-files-that-run-the-gates.md):
 changes to the files that define the gates wait for a maintainer's sign-off.
 
 - **Protected areas**, checked in order by

@@ -25,7 +25,7 @@ role map as JSON). The repo currently resolves Fallow 2.97, which has neither.
   (`etc/<package>.api.md`). CI runs `api-extractor run` and fails when the
   report is stale, so export changes appear as a reviewed diff.
 - **Role map.** `.fallowrc.jsonc` and any Fallow baseline files are not behind
-  the enforcement sign-off ([0020](0020-protect-only-the-files-that-run-the-gates.md)),
+  the enforcement sign-off ([0021](0021-protect-only-the-files-that-run-the-gates.md)),
   so role-map changes show in the reviewed diff and the role-diagram freshness check.
 - Architecture consistency is measured between `main` and the PR head. This
   replaces the two-run comparison.

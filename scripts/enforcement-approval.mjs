@@ -33,7 +33,7 @@ export const GATE_AUTHOR = 'github-actions[bot]';
 /**
  * The lint, format and commit-message configs, the local ESLint policy plugin
  * and the suppression check. With the hooks and workflows they are the files
- * that run the gates (ADR 0020).
+ * that run the gates (ADR 0021).
  */
 const LINT_FILES = new Set([
   'eslint.config.js',
@@ -50,7 +50,7 @@ const under = (prefix) => (/** @type {string} */ path) => path.startsWith(prefix
  * Ordered table of protected areas; the first matching rule names the area.
  * Only the files that run the gates are protected: the git hooks, the CI
  * workflows and the lint configs. Agent docs, scripts and other config change
- * freely (ADR 0020).
+ * freely (ADR 0021).
  *
  * @type {ReadonlyArray<{ area: string, matches: (path: string) => boolean }>}
  */

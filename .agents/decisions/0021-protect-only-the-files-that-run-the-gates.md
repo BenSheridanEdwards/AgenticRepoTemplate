@@ -1,4 +1,4 @@
-# 20. Protect only the files that run the gates
+# 21. Protect only the files that run the gates
 
 - **Status:** Accepted
 - **Date:** 2026-10-17
