@@ -30,20 +30,20 @@ const BOUNDARIES = JSON.stringify({
     zones: [
       {
         name: 'app',
-        patterns: ['src/main.tsx', 'src/App.tsx', 'src/index.css'],
+        patterns: ['apps/web/src/main.tsx', 'apps/web/src/App.tsx', 'apps/web/src/index.css'],
         file_count: 3,
       },
       {
         name: 'features/service-status',
-        patterns: ['src/features/service-status/**'],
+        patterns: ['apps/web/src/features/service-status/**'],
         file_count: 2,
       },
       {
         name: 'features/threshold-counter',
-        patterns: ['src/features/threshold-counter/**'],
+        patterns: ['apps/web/src/features/threshold-counter/**'],
         file_count: 2,
       },
-      { name: 'shared', patterns: ['src/shared/**'], file_count: 2 },
+      { name: 'shared', patterns: ['apps/web/src/shared/**'], file_count: 2 },
     ],
     rule_count: 4,
     rules: [],
@@ -52,7 +52,7 @@ const BOUNDARIES = JSON.stringify({
       {
         name: 'features',
         children: ['features/service-status', 'features/threshold-counter'],
-        auto_discover: ['src/features'],
+        auto_discover: ['apps/web/src/features'],
         status: 'ok',
         source_zone_index: 1,
         file_count: 4,
@@ -63,40 +63,49 @@ const BOUNDARIES = JSON.stringify({
 });
 
 const FILES = [
-  'e2e/app.spec.ts',
-  'index.html',
+  'apps/web/e2e/app.spec.ts',
+  'apps/web/index.html',
   'scripts/check-context-layer.mjs',
   'scripts/check-context-layer.test.ts',
-  'src/App.tsx',
-  'src/features/service-status/ServiceStatus.test.tsx',
-  'src/features/service-status/ServiceStatus.tsx',
-  'src/features/service-status/index.ts',
-  'src/features/threshold-counter/ThresholdCounter.tsx',
-  'src/features/threshold-counter/index.ts',
-  'src/index.css',
-  'src/main.tsx',
-  'src/shared/async-resource/asyncResource.ts',
-  'src/shared/async-resource/index.ts',
+  'apps/web/src/App.tsx',
+  'apps/web/src/features/service-status/ServiceStatus.test.tsx',
+  'apps/web/src/features/service-status/ServiceStatus.tsx',
+  'apps/web/src/features/service-status/index.ts',
+  'apps/web/src/features/threshold-counter/ThresholdCounter.tsx',
+  'apps/web/src/features/threshold-counter/index.ts',
+  'apps/web/src/index.css',
+  'apps/web/src/main.tsx',
+  'apps/web/src/shared/async-resource/asyncResource.ts',
+  'apps/web/src/shared/async-resource/index.ts',
 ];
 
 const EDGES: Array<[string, string]> = [
-  ['index.html', 'src/main.tsx'],
+  ['apps/web/index.html', 'apps/web/src/main.tsx'],
   ['scripts/check-context-layer.test.ts', 'scripts/check-context-layer.mjs'],
-  ['src/App.tsx', 'src/features/service-status/index.ts'],
-  ['src/App.tsx', 'src/features/threshold-counter/index.ts'],
+  ['apps/web/src/App.tsx', 'apps/web/src/features/service-status/index.ts'],
+  ['apps/web/src/App.tsx', 'apps/web/src/features/threshold-counter/index.ts'],
   [
-    'src/features/service-status/ServiceStatus.test.tsx',
-    'src/features/service-status/ServiceStatus.tsx',
+    'apps/web/src/features/service-status/ServiceStatus.test.tsx',
+    'apps/web/src/features/service-status/ServiceStatus.tsx',
   ],
-  ['src/features/service-status/ServiceStatus.tsx', 'src/shared/async-resource/index.ts'],
-  ['src/features/service-status/index.ts', 'src/features/service-status/ServiceStatus.tsx'],
   [
-    'src/features/threshold-counter/index.ts',
-    'src/features/threshold-counter/ThresholdCounter.tsx',
+    'apps/web/src/features/service-status/ServiceStatus.tsx',
+    'apps/web/src/shared/async-resource/index.ts',
   ],
-  ['src/main.tsx', 'src/App.tsx'],
-  ['src/main.tsx', 'src/index.css'],
-  ['src/shared/async-resource/index.ts', 'src/shared/async-resource/asyncResource.ts'],
+  [
+    'apps/web/src/features/service-status/index.ts',
+    'apps/web/src/features/service-status/ServiceStatus.tsx',
+  ],
+  [
+    'apps/web/src/features/threshold-counter/index.ts',
+    'apps/web/src/features/threshold-counter/ThresholdCounter.tsx',
+  ],
+  ['apps/web/src/main.tsx', 'apps/web/src/App.tsx'],
+  ['apps/web/src/main.tsx', 'apps/web/src/index.css'],
+  [
+    'apps/web/src/shared/async-resource/index.ts',
+    'apps/web/src/shared/async-resource/asyncResource.ts',
+  ],
 ];
 
 const render = (files = FILES, edges = EDGES) =>
@@ -122,7 +131,10 @@ describe('renderRoleDiagram', () => {
     const reversed = [...EDGES].reverse();
     const doubled: Array<[string, string]> = [
       ...reversed,
-      ['src/features/service-status/ServiceStatus.tsx', 'src/shared/async-resource/index.ts'],
+      [
+        'apps/web/src/features/service-status/ServiceStatus.tsx',
+        'apps/web/src/shared/async-resource/index.ts',
+      ],
     ];
     expect(edgeLines(render(FILES, doubled))).toEqual([
       '  app --> features',
@@ -135,11 +147,11 @@ describe('renderRoleDiagram', () => {
   });
 
   it('leaves the output unchanged when a file is added inside an existing role', () => {
-    const file = 'src/features/threshold-counter/useThresholdCounter.ts';
+    const file = 'apps/web/src/features/threshold-counter/useThresholdCounter.ts';
     const edges: Array<[string, string]> = [
       ...EDGES,
-      ['src/features/threshold-counter/ThresholdCounter.tsx', file],
-      [file, 'src/shared/async-resource/index.ts'],
+      ['apps/web/src/features/threshold-counter/ThresholdCounter.tsx', file],
+      [file, 'apps/web/src/shared/async-resource/index.ts'],
     ];
     expect(render([...FILES, file], edges)).toBe(render());
   });
@@ -148,7 +160,7 @@ describe('renderRoleDiagram', () => {
     const before = render().split('\n');
     const after = render(FILES, [
       ...EDGES,
-      ['src/App.tsx', 'src/shared/async-resource/index.ts'],
+      ['apps/web/src/App.tsx', 'apps/web/src/shared/async-resource/index.ts'],
     ]).split('\n');
     expect(after.filter((line) => !before.includes(line))).toEqual(['  app --> shared']);
     expect(after).toHaveLength(before.length + 1);

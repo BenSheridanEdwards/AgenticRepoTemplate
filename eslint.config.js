@@ -90,7 +90,7 @@ const policyRules = {
 export default [
   {
     ignores: [
-      'dist/**',
+      '**/dist/**',
       'coverage/**',
       'vendor/**',
       'playwright-report/**',
@@ -103,7 +103,7 @@ export default [
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['apps/*/src/**/*.{ts,tsx}'],
     languageOptions: { parser: tseslint.parser },
     plugins: {
       ...reactHooksRecommended.plugins,

@@ -27,9 +27,9 @@
     "types": ["node", "jest", "@testing-library/jest-dom"]
   },
   "include": [
-    "src",
-    "e2e",
-    "vite.config.ts",
+    "apps/web/src",
+    "apps/web/e2e",
+    "apps/web/vite.config.ts",
     "jest.config.ts",
     "jest.setup.ts",
     "commitlint.config.ts",

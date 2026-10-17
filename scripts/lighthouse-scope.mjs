@@ -3,8 +3,8 @@
  * Decide whether a pull request is UI-relevant, so `lighthouse.yml` audits it.
  *
  * A pull request is UI-relevant when it changes a file that can change the
- * shipped bundle or the audit itself. Test files under `src/` never ship, so
- * they do not count. When nothing UI-relevant changes, the Lighthouse job
+ * shipped bundle or the audit itself. Test files under `apps/web/src/` never
+ * ship, so they do not count. When nothing UI-relevant changes, the Lighthouse job
  * reports green without auditing; this rule is that skip, kept here so it is
  * tested (ADR 0017).
  *
@@ -20,12 +20,17 @@ import { appendFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 /** Directories whose files ship in the bundle. */
-const UI_DIRECTORIES = ['src/', 'public/'];
+const UI_DIRECTORIES = ['apps/web/src/', 'apps/web/public/'];
 
-/** Root files that change the bundle, the build, or the audit. */
+/** Test files under the source folder never ship; `public/` ships every file as is. */
+const SOURCE_DIRECTORY = 'apps/web/src/';
+
+/** Files that change the bundle, the build, or the audit. */
 const UI_FILES = new Set([
-  'index.html',
-  'vite.config.ts',
+  'apps/web/index.html',
+  'apps/web/vite.config.ts',
+  'apps/web/package.json',
+  'pnpm-workspace.yaml',
   'tsconfig.json',
   'package.json',
   'pnpm-lock.yaml',
@@ -35,11 +40,11 @@ const UI_FILES = new Set([
   'scripts/lighthouse-scope.mjs',
 ]);
 
-const SOURCE_TEST_FILE = /^src\/(?:.*\/)?[^/]*\.test\.[^/]*$/;
+const TEST_FILE = /\.test\.[^/]*$/;
 
 /** @param {string} path */
 function isUiRelevant(path) {
-  if (SOURCE_TEST_FILE.test(path)) {
+  if (path.startsWith(SOURCE_DIRECTORY) && TEST_FILE.test(path)) {
     return false;
   }
   return UI_FILES.has(path) || UI_DIRECTORIES.some((directory) => path.startsWith(directory));

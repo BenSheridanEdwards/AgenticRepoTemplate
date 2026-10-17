@@ -18,7 +18,7 @@ specified here first.
 
 ## Process
 
-1. **Read the contract first.** Open `e2e/app.spec.ts` to see existing
+1. **Read the contract first.** Open `apps/web/e2e/app.spec.ts` to see existing
    behaviour, and `.agents/project/ARCHITECTURE.md` for where behaviour belongs.
 2. **Write from the template.** Copy
    `.agents/templates/e2e-flow.spec.ts.template`. Add a `test` per distinct user
@@ -34,8 +34,8 @@ specified here first.
 ```bash
 pnpm e2e            # run the behaviour map (Playwright boots the dev server)
 pnpm e2e:install    # one-time: install the Chromium browser
-pnpm exec playwright test e2e/app.spec.ts --headed   # watch it run
-pnpm exec playwright show-report                     # open the last HTML report
+pnpm exec playwright test apps/web/e2e/app.spec.ts --headed   # watch it run
+pnpm exec playwright show-report                              # open the last HTML report
 ```
 
 ## Done when

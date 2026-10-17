@@ -4,12 +4,14 @@
  *
  * The entries come from the zones in `.fallowrc.jsonc`: every zone except the
  * `app` composition root is a module tree `<dir>/**` whose public surface is
- * `<dir>/index.ts`. A zone without its own `index.ts` (such as `src/shared/**`)
+ * `<dir>/index.ts`. A zone without its own `index.ts` (such as `apps/web/src/shared/**`)
  * holds one public module per sub-folder, `<dir>/<module>/index.ts`.
  *
- * `node scripts/api-report.mjs --local` (`pnpm api:report`) rewrites
- * `etc/<entry>.api.md`. Without `--local` (`pnpm api:check`) it compares and
- * exits 1 when any committed report differs from the code.
+ * Each report lives in `<package>/etc/<entry>.api.md`, where `<package>` is the
+ * nearest folder above the entry with a `package.json` (`apps/web/etc/` today).
+ * `node scripts/api-report.mjs --local` (`pnpm api:report`) rewrites the
+ * reports. Without `--local` (`pnpm api:check`) it compares and exits 1 when any
+ * committed report differs from the code.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -22,7 +24,15 @@ import { readFallowBoundaries } from './fallow-roles.mjs';
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE_DIRECTORY = join(REPOSITORY_ROOT, '.cache/api');
 const DECLARATIONS_DIRECTORY = join(CACHE_DIRECTORY, 'dts');
-const REPORT_DIRECTORY = join(REPOSITORY_ROOT, 'etc');
+
+/** The nearest folder above `entry` that holds a `package.json`, repository-relative. */
+function packageRootOf(entry) {
+  let directory = dirname(entry);
+  while (directory !== '.' && !existsSync(join(REPOSITORY_ROOT, directory, 'package.json'))) {
+    directory = dirname(directory);
+  }
+  return directory;
+}
 
 /** The public entries under one zone pattern `<dir>/**`: `<dir>/index.ts`, else `<dir>/<module>/index.ts`. */
 function entriesOfPattern(zoneName, pattern) {
@@ -37,12 +47,16 @@ function entriesOfPattern(zoneName, pattern) {
     }));
 }
 
-/** List `{ name, entry }` for every public module outside the app zone. */
+/**
+ * List `{ name, entry }` once for every public module outside the app zone. A
+ * group zone and its discovered child zone find the same entry file, so keep one.
+ */
 function listPublicEntries(boundariesJson) {
   const { boundaries } = JSON.parse(boundariesJson);
-  return boundaries.zones
+  const entries = boundaries.zones
     .filter((zone) => zone.name !== 'app')
     .flatMap((zone) => zone.patterns.flatMap((pattern) => entriesOfPattern(zone.name, pattern)));
+  return [...new Map(entries.map((entry) => [entry.entry, entry])).values()];
 }
 
 function emitDeclarations() {
@@ -59,6 +73,8 @@ function emitDeclarations() {
 
 function runExtractor({ name, entry }, localBuild) {
   const reportName = name.replaceAll('/', '-');
+  const reportDirectory = join(packageRootOf(entry), 'etc');
+  mkdirSync(join(REPOSITORY_ROOT, reportDirectory), { recursive: true });
   const configObject = {
     projectFolder: REPOSITORY_ROOT,
     mainEntryPointFilePath: join(DECLARATIONS_DIRECTORY, entry.replace(/\.ts$/, '.d.ts')),
@@ -80,7 +96,7 @@ function runExtractor({ name, entry }, localBuild) {
     apiReport: {
       enabled: true,
       reportFileName: reportName,
-      reportFolder: REPORT_DIRECTORY,
+      reportFolder: join(REPOSITORY_ROOT, reportDirectory),
       reportTempFolder: join(CACHE_DIRECTORY, 'temp'),
     },
     docModel: { enabled: false },
@@ -96,13 +112,13 @@ function runExtractor({ name, entry }, localBuild) {
   const config = ExtractorConfig.prepare({
     configObject,
     configObjectFullPath: undefined,
-    packageJsonFullPath: join(REPOSITORY_ROOT, 'package.json'),
+    packageJsonFullPath: join(REPOSITORY_ROOT, packageRootOf(entry), 'package.json'),
     packageJson: { name: reportName, version: '0.0.0' },
   });
   const result = Extractor.invoke(config, { localBuild });
   if (result.apiReportChanged && !localBuild) {
     console.error(
-      `api: ${entry} differs from etc/${reportName}.api.md. Run \`pnpm api:report\` and commit the report.`,
+      `api: ${entry} differs from ${reportDirectory}/${reportName}.api.md. Run \`pnpm api:report\` and commit the report.`,
     );
   }
   return result.succeeded;
@@ -114,7 +130,6 @@ if (entries.length === 0) {
   console.error('api: .fallowrc.jsonc lists no public module entries.');
   process.exit(1);
 }
-mkdirSync(REPORT_DIRECTORY, { recursive: true });
 emitDeclarations();
 const failed = entries.filter((entry) => !runExtractor(entry, localBuild));
 process.exit(failed.length === 0 ? 0 : 1);

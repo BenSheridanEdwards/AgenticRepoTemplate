@@ -153,7 +153,7 @@ symptom. A reviewer reads exactly what was verified.
 
 ### Visual style checking
 
-The behaviour map in [`e2e/app.spec.ts`](e2e/app.spec.ts) drives the product
+The behaviour map in [`apps/web/e2e/app.spec.ts`](apps/web/e2e/app.spec.ts) drives the product
 through the real interface using roles and visible text. Visual style checking
 returns once [StyleProof](https://github.com/BenSheridanEdwards/styleproof) is
 fixed.
@@ -241,7 +241,7 @@ repository has to finish this list before the gates truly block:
 ## Adopt it
 
 For a new project, press **Use this template**, run `pnpm install` and
-`pnpm setup:agents`, then build inside `src/features/*` using the templates in
+`pnpm setup:agents`, then build inside `apps/web/src/features/*` using the templates in
 [`.agents/templates/`](.agents/templates). The gates are live from the first
 commit.
 
@@ -307,14 +307,13 @@ playwright.config.ts        Browser harness for the E2E behaviour map.
 .size-limit.json            Bundle-size budget.
 lighthouserc.json           Lighthouse budget (accessibility floor and performance).
 .fallowrc.jsonc             Fallow config: the role zones and rules, plus runtime-loaded plugins.
-pnpm-workspace.yaml         pnpm settings: trusted builds and security overrides.
+pnpm-workspace.yaml         Workspace packages (apps/*), trusted builds, and security overrides.
 tsconfig.json               strict, with extra strictness; the first gate.
-vite.config.ts              The runnable carrier.
 scripts/
   setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus, Ponytail.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
   fallow-roles.mjs          Renders docs/architecture/roles.mmd from the Fallow graph.
-  api-report.mjs            Writes and checks the etc/*.api.md API Extractor reports.
+  api-report.mjs            Writes and checks the apps/web/etc/*.api.md API Extractor reports.
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
   license-check.mjs         License-compliance gate (pnpm licenses and allow-list).
   check-suppressions.mjs    Every lint or type suppression names a rule and a reason.
@@ -325,12 +324,19 @@ scripts/
 docs/architecture/roles.mmd  Generated role diagram (pnpm arch:diagram).
 docs/required-gates.md      Generated required-check inventory (pnpm gates:inventory).
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
-e2e/
-  app.spec.ts               The behaviour map.
-  accessibility.spec.ts     Real-browser axe scan (WCAG A and AA, including contrast).
-src/routes/home/            The one page; routes compose features.
-src/features/threshold-counter/  The one small but real feature.
-etc/                        Generated API Extractor reports, one per public module (pnpm api:report).
+apps/web/                   The app, the @repo/web workspace package. Root configs own every gate.
+  package.json              The app's dev, build, and preview scripts and its runtime dependencies.
+  index.html                The page shell Vite serves.
+  vite.config.ts            The runnable carrier; serves /api/service-status in dev and preview.
+  src/routes/home/          The one page; routes compose features.
+  src/features/threshold-counter/  The one small but real feature.
+  src/features/service-status/     The async feature, fed by /api/service-status.
+  src/shared/async-resource/       Shared async-state module.
+  e2e/
+    app.spec.ts             The behaviour map.
+    service-status.spec.ts  The service-status behaviour.
+    accessibility.spec.ts   Real-browser axe scan (WCAG A and AA, including contrast).
+  etc/                      Generated API Extractor reports, one per public module (pnpm api:report).
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
 graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). Rebuild with graphify.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.

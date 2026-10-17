@@ -4,8 +4,8 @@
  *
  * ESLint cannot hold this rule itself: a blanket disable comment also silences
  * the rule that would report it. This script reads every tracked source file,
- * so it covers `src/`, `scripts/`, `e2e/`, `tooling/`, and the root configs.
- * Biome already refuses a `biome-ignore` without a reason.
+ * so it covers every workspace package (`apps/*`), `scripts/`, `tooling/`, and
+ * the root configs. Biome already refuses a `biome-ignore` without a reason.
  */
 
 import { execFileSync } from 'node:child_process';

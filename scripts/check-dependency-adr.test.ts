@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findDependenciesWithoutAdr } from './check-dependency-adr.mjs';
+import { findDependenciesWithoutAdr, workspaceManifestPaths } from './check-dependency-adr.mjs';
 
 const SCRIPT = join(process.cwd(), 'scripts/check-dependency-adr.mjs');
 const ADR = '.agents/decisions/0018-adopt-zod.md';
@@ -19,7 +19,11 @@ describe('findDependenciesWithoutAdr', () => {
   it('reports an added dependency without an ADR', () => {
     const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
+      findDependenciesWithoutAdr({
+        baseManifests: [base],
+        headManifests: [headPackageJson],
+        addedAdrs: [],
+      }),
     ).toEqual(['zod']);
   });
 
@@ -27,8 +31,8 @@ describe('findDependenciesWithoutAdr', () => {
     const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
     expect(
       findDependenciesWithoutAdr({
-        basePackageJson: base,
-        headPackageJson,
+        baseManifests: [base],
+        headManifests: [headPackageJson],
         addedAdrs: [{ path: ADR, text: '# 18. Adopt zod' }],
       }),
     ).toEqual([]);
@@ -38,8 +42,8 @@ describe('findDependenciesWithoutAdr', () => {
     const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
     expect(
       findDependenciesWithoutAdr({
-        basePackageJson: base,
-        headPackageJson,
+        baseManifests: [base],
+        headManifests: [headPackageJson],
         addedAdrs: [{ path: ADR, text: '# 18. Adopt valibot' }],
       }),
     ).toEqual(['zod']);
@@ -48,14 +52,22 @@ describe('findDependenciesWithoutAdr', () => {
   it('passes a version bump of an existing dependency', () => {
     const headPackageJson = { ...base, dependencies: { react: '^19.2.0' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
+      findDependenciesWithoutAdr({
+        baseManifests: [base],
+        headManifests: [headPackageJson],
+        addedAdrs: [],
+      }),
     ).toEqual([]);
   });
 
   it('passes a removed dependency', () => {
     const headPackageJson = { dependencies: base.dependencies };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
+      findDependenciesWithoutAdr({
+        baseManifests: [base],
+        headManifests: [headPackageJson],
+        addedAdrs: [],
+      }),
     ).toEqual([]);
   });
 
@@ -67,14 +79,22 @@ describe('findDependenciesWithoutAdr', () => {
       peerDependencies: { 'react-dom': '^19.0.0' },
     };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
+      findDependenciesWithoutAdr({
+        baseManifests: [base],
+        headManifests: [headPackageJson],
+        addedAdrs: [],
+      }),
     ).toEqual(['vitest', 'fsevents', 'react-dom']);
   });
 
   it('does not report a dependency that only moved between sections', () => {
     const headPackageJson = { dependencies: base.dependencies, peerDependencies: { jest: '*' } };
     expect(
-      findDependenciesWithoutAdr({ basePackageJson: base, headPackageJson, addedAdrs: [] }),
+      findDependenciesWithoutAdr({
+        baseManifests: [base],
+        headManifests: [headPackageJson],
+        addedAdrs: [],
+      }),
     ).toEqual([]);
   });
 
@@ -87,11 +107,138 @@ describe('findDependenciesWithoutAdr', () => {
     const headPackageJson = { ...base, dependencies: { ...base.dependencies, zod: '^3.0.0' } };
     expect(
       findDependenciesWithoutAdr({
-        basePackageJson: base,
-        headPackageJson,
+        baseManifests: [base],
+        headManifests: [headPackageJson],
         addedAdrs: [{ path, text: '# Adopt zod' }],
       }),
     ).toEqual(['zod']);
+  });
+});
+
+describe('findDependenciesWithoutAdr across workspace manifests', () => {
+  const root = { devDependencies: { jest: '^29.7.0' } };
+  const web = { name: '@repo/web', dependencies: { react: '^19.1.0' } };
+
+  it('passes a dependency that moved from the root manifest to a workspace package', () => {
+    expect(
+      findDependenciesWithoutAdr({
+        baseManifests: [base],
+        headManifests: [root, web],
+        addedAdrs: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it('reports a new name that only a workspace package lists', () => {
+    expect(
+      findDependenciesWithoutAdr({
+        baseManifests: [base],
+        headManifests: [root, { ...web, dependencies: { ...web.dependencies, lodash: '^4.0.0' } }],
+        addedAdrs: [],
+      }),
+    ).toEqual(['lodash']);
+  });
+
+  it('passes a version bump inside a workspace package', () => {
+    expect(
+      findDependenciesWithoutAdr({
+        baseManifests: [root, web],
+        headManifests: [root, { ...web, dependencies: { react: '^19.2.0' } }],
+        addedAdrs: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it('passes a workspace: reference to another package in the workspace', () => {
+    expect(
+      findDependenciesWithoutAdr({
+        baseManifests: [root, web],
+        headManifests: [
+          root,
+          { ...web, dependencies: { ...web.dependencies, '@x/api': 'workspace:*' } },
+        ],
+        addedAdrs: [],
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('workspaceManifestPaths', () => {
+  const tracked = [
+    'package.json',
+    'apps/web/package.json',
+    'apps/web/src/App.tsx',
+    'apps/web/src/nested/package.json',
+    'packages/ui/package.json',
+    'vendor/braces/package.json',
+  ];
+
+  it('lists only the root manifest without a workspace file', () => {
+    expect(workspaceManifestPaths(null, tracked)).toEqual(['package.json']);
+  });
+
+  it('lists only the root manifest when the workspace file has no packages', () => {
+    expect(workspaceManifestPaths('allowBuilds:\n  esbuild: true\n', tracked)).toEqual([
+      'package.json',
+    ]);
+  });
+
+  it('adds each package.json one level under a listed glob, and nothing else', () => {
+    const yaml = [
+      '# settings',
+      'packages:',
+      "  - 'apps/*'",
+      '  - packages/*  # the shared kit',
+      '',
+      'allowBuilds:',
+      '  esbuild: true',
+    ].join('\n');
+    expect(workspaceManifestPaths(yaml, tracked)).toEqual([
+      'package.json',
+      'apps/web/package.json',
+      'packages/ui/package.json',
+    ]);
+  });
+
+  it('honours a negated glob', () => {
+    const yaml = 'packages:\n  - "apps/*"\n  - "packages/*"\n  - "!packages/ui"\n';
+    expect(workspaceManifestPaths(yaml, tracked)).toEqual([
+      'package.json',
+      'apps/web/package.json',
+    ]);
+  });
+
+  it('reads unindented items and items after a comment line', () => {
+    const yaml =
+      "packages:\n- 'apps/*'\n# the shared kit\n\n- packages/*\nallowBuilds:\n  esbuild: true\n";
+    expect(workspaceManifestPaths(yaml, tracked)).toEqual([
+      'package.json',
+      'apps/web/package.json',
+      'packages/ui/package.json',
+    ]);
+  });
+
+  it('reads a glob written with a leading ./', () => {
+    expect(workspaceManifestPaths("packages:\n  - './apps/*'\n", tracked)).toEqual([
+      'package.json',
+      'apps/web/package.json',
+    ]);
+  });
+
+  it('fails closed on a packages key with no globs', () => {
+    expect(() => workspaceManifestPaths('packages:\nallowBuilds: {}\n', tracked)).toThrow(
+      /packages/,
+    );
+  });
+
+  it('fails closed on a list item it cannot read', () => {
+    expect(() => workspaceManifestPaths("packages:\n  - { path: 'apps/*' }\n", tracked)).toThrow(
+      /packages/,
+    );
+  });
+
+  it('fails closed on a packages list it cannot read', () => {
+    expect(() => workspaceManifestPaths("packages: ['apps/*']\n", tracked)).toThrow(/packages/);
   });
 });
 
@@ -179,6 +326,31 @@ describe('check-dependency-adr CLI', () => {
     const { status, output } = run('origin/missing');
     expect(status).toBe(1);
     expect(output).toContain('git fetch origin');
+  });
+
+  it('fails a new dependency that only a workspace package manifest lists', () => {
+    write(ADR, '# 18. Adopt zod\n');
+    write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
+    write('apps/web/package.json', JSON.stringify({ dependencies: { lodash: '^4.0.0' } }));
+    git('add', '-A');
+    git('commit', '-q', '-m', 'workspace');
+    const { status, output } = run();
+    expect(status).toBe(1);
+    expect(output).toContain('lodash');
+    expect(output).not.toContain('zod');
+  });
+
+  it('passes a dependency that moves from the root manifest into a workspace package', () => {
+    write(ADR, '# 18. Adopt zod\n');
+    write('pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n");
+    write('package.json', JSON.stringify({ devDependencies: base.devDependencies }));
+    write(
+      'apps/web/package.json',
+      JSON.stringify({ dependencies: { ...base.dependencies, zod: '^3.0.0' } }),
+    );
+    git('add', '-A');
+    git('commit', '-q', '-m', 'workspace');
+    expect(run().status).toBe(0);
   });
 
   it('compares against origin/$GITHUB_BASE_REF in a pull request', () => {

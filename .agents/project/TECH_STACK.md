@@ -14,19 +14,19 @@ each owner runs locally and in CI.
 | Unit / component tests | **Jest + React Testing Library** | Behaviour through the accessibility tree. |
 | End-to-end tests | **Playwright** | The behaviour map. |
 | Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
-| Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. |
+| Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `apps/*/src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. |
 | React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks outside the ESLint plugin. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence and architecture | **Fallow** | Dead code, cycles, complexity, the dependency graph, the architecture gate (`pnpm arch:gate`), and the role diagram (`pnpm arch:diagram`). |
-| Exported API reports | **API Extractor** | One committed `etc/*.api.md` per public module entry (`pnpm api:report`, `pnpm api:check`). |
+| Exported API reports | **API Extractor** | One committed `apps/web/etc/*.api.md` per public module entry (`pnpm api:report`, `pnpm api:check`). |
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
-| Bundle-size budget | **size-limit** | Fails CI when `dist/` exceeds the budget. |
+| Bundle-size budget | **size-limit** | Fails CI when `apps/web/dist/` exceeds the budget. |
 | Performance budget | **Lighthouse CI** | a11y floor + perf budget on UI-relevant pull requests. |
 | Git hooks | **husky** | Runs the gates locally before commit/push. |
 | Dependency vulnerabilities | **`pnpm audit`** | High/critical advisories fail CI. |
 | Secret scanning | **gitleaks** | Staged content on pre-commit; full history in CI. |
 | Static application security | **CodeQL** | SAST on every push and pull request. |
-| License compliance | **pnpm licenses + allow-list** | CI fails on a dependency license outside the permissive allow-list. |
+| License compliance | **pnpm licenses + allow-list** | `pnpm --recursive licenses list` covers every workspace package; CI fails on a dependency license outside the permissive allow-list. |
 | Dependency updates | **Dependabot** | Weekly npm + GitHub-Actions update PRs. |
 | Repo health audits | **ArchitectPlaybook** | Claude Code skills; the health-check (showcase #1). |
 | Codebase knowledge graph | **graphify** | Powers ArchitectPlaybook's `/pre-audit-setup`. |

@@ -1,4 +1,4 @@
-// TEMPLATE — copy to src/features/<feature-name>/<Feature>.test.tsx.
+// TEMPLATE — copy to apps/web/src/features/<feature-name>/<Feature>.test.tsx.
 // Assert on observable behaviour through the accessibility tree (roles, names,
 // live regions) — never on implementation detail. One `it` per behaviour.
 // See .claude/skills/write-unit-tests/SKILL.md.

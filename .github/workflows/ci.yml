@@ -128,7 +128,7 @@ jobs:
         continue-on-error: true
         with:
           name: dist
-          path: dist/
+          path: apps/web/dist/
           retention-days: 3
 
   e2e:

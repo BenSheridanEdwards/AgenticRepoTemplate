@@ -1,4 +1,4 @@
-// TEMPLATE — copy to src/features/<feature-name>/<Feature>.tsx and replace the
+// TEMPLATE — copy to apps/web/src/features/<feature-name>/<Feature>.tsx and replace the
 // __PLACEHOLDERS__. A component only renders; it pulls state from its hook and
 // holds no business logic (see .agents/project/ARCHITECTURE.md).
 

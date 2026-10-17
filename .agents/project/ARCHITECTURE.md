@@ -9,8 +9,12 @@
 This codebase is organised by **feature**, not by technical layer. A feature is
 a self-contained vertical slice that owns its UI, its state, and its logic.
 
+The app is the `@repo/web` package in `apps/web/`. `pnpm-workspace.yaml` lists
+`apps/*`, and the root configs own every gate and reach each package by glob
+([ADR 0031](../decisions/0031-workspace-conversion.md)).
+
 ```
-src/
+apps/web/src/
 ├── main.tsx                 # composition root, the one place that wires the app to the DOM
 ├── App.tsx                  # mounts the routes; holds no business logic
 ├── routes/
@@ -27,7 +31,7 @@ src/
     └── <module-name>/       # cross-feature code, one folder per module
         └── index.ts               # the module's public surface
 ```
-Reference implementation: [`src/features/threshold-counter/`](../../src/features/threshold-counter).
+Reference implementation: [`apps/web/src/features/threshold-counter/`](../../apps/web/src/features/threshold-counter).
 
 ## Roles
 
@@ -36,10 +40,10 @@ Fallow zone, and Fallow fails the build on any import the table does not allow.
 
 | Role | Folder | May import | Fallow zone |
 | --- | --- | --- | --- |
-| app | `src/main.tsx`, `src/App.tsx`, `src/index.css` | routes | `app` |
-| routes | `src/routes/<route-name>/` | features, shared | `routes` (one child zone per folder) |
-| features | `src/features/<feature-name>/` | shared | `features` (one child zone per folder) |
-| shared | `src/shared/<module-name>/` | its own files | `shared` |
+| app | `apps/web/src/main.tsx`, `apps/web/src/App.tsx`, `apps/web/src/index.css` | routes | `app` |
+| routes | `apps/web/src/routes/<route-name>/` | features, shared | `routes` (one child zone per folder) |
+| features | `apps/web/src/features/<feature-name>/` | shared | `features` (one child zone per folder) |
+| shared | `apps/web/src/shared/<module-name>/` | its own files | `shared` |
 
 Three checks read the rules file, and `pnpm verify` runs all three through
 `pnpm arch:check`:
@@ -50,7 +54,7 @@ Three checks read the rules file, and `pnpm verify` runs all three through
   Fallow's import graph. Commit the result; CI fails when the committed copy
   differs from a fresh run.
 - `pnpm api:report` rewrites one API Extractor report per public module entry
-  (each route, feature, and shared `index.ts`) under [`etc/`](../../etc). Commit the
+  (each route, feature, and shared `index.ts`) under [`apps/web/etc/`](../../apps/web/etc). Commit the
   result; `pnpm api:check` fails when a report differs from the code, so every
   export change shows up as a reviewed diff.
 
@@ -59,19 +63,19 @@ Three checks read the rules file, and `pnpm verify` runs all three through
 The gates enforce the first three rules. The last two are judgment calls.
 
 1. **Features are islands.** A feature imports only its own files and
-   `src/shared/`. Fallow fails an import from one feature into another, or
+   `apps/web/src/shared/`. Fallow fails an import from one feature into another, or
    from a feature into the app zone. When two features need the same thing, it
-   moves to a `src/shared/` module with its own public surface.
+   moves to an `apps/web/src/shared/` module with its own public surface.
 
 2. **Routes compose pages.** A page component lives in
-   `src/routes/<route-name>/` (ESLint `policy/pages-in-routes`). A route
+   `apps/web/src/routes/<route-name>/` (ESLint `policy/pages-in-routes`). A route
    imports features and shared code, and Fallow fails an import from one route
    into another ([ADR 0013](../decisions/0013-one-role-table-for-structure.md)).
 
 3. **The public surface is `index.ts`.** ESLint `no-restricted-imports` fails
    an import that reaches past a route, feature, or shared module's `index.ts`.
    Adding an export to `index.ts` is a deliberate act, and its API report in
-   `etc/` shows the change for review.
+   `apps/web/etc/` shows the change for review.
 
 4. **Logic is pure and lives apart from React.** Business rules are plain
    functions (`statusForCount`), unit-testable without rendering. Hooks
@@ -81,24 +85,24 @@ The gates enforce the first three rules. The last two are judgment calls.
    tested at the unit level and is cheap for an agent to reason about.
 
 5. **Behaviour is defined by the E2E map.** What the product *does* is the
-   contract in `e2e/app.spec.ts`. Refactor the implementation freely while the
+   contract in `apps/web/e2e/app.spec.ts`. Refactor the implementation freely while the
    behaviour map stays green; see
    [`../decisions/0003-behaviour-mapped-with-e2e.md`](../decisions/0003-behaviour-mapped-with-e2e.md).
 
 ## What this template intentionally omits
 
 The template leaves out a router library, a store, a data layer, and a backend.
-They are stack choices, not agentic principles. When you add them, give each its own boundary (e.g. `src/shared/api`)
+They are stack choices, not agentic principles. When you add them, give each its own boundary (e.g. `apps/web/src/shared/api`)
 with a public surface, and record the choice as an ADR in `../decisions/`.
 
 ## How to extend
 
 Adding a feature is a mechanical, repeatable act:
 
-1. `mkdir src/features/<feature-name>` (kebab-case).
+1. `mkdir apps/web/src/features/<feature-name>` (kebab-case).
 2. Copy the three templates from [`../templates/`](../templates) and fill them in.
-3. Specify the behaviour in `e2e/app.spec.ts`.
-4. Run `pnpm api:report` and commit the new `etc/<role>-<name>.api.md`. The
+3. Specify the behaviour in `apps/web/e2e/app.spec.ts`.
+4. Run `pnpm api:report` and commit the new `apps/web/etc/<role>-<name>.api.md`. The
    role diagram stays the same, because the new folder joins an existing role.
-   A new page follows the same steps under `src/routes/<route-name>/`.
+   A new page follows the same steps under `apps/web/src/routes/<route-name>/`.
 5. `pnpm verify` must pass before you call it done.

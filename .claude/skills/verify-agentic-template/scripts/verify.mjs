@@ -26,7 +26,8 @@ import { JOURNEYS } from './journeys.mjs';
 
 const REPOSITORY_ROOT = resolve(import.meta.dirname, '../../../..');
 const VERIFY_ROOT = join(REPOSITORY_ROOT, '.verify');
-const VITE_BIN = join(REPOSITORY_ROOT, 'node_modules/.bin/vite');
+const WEB_ROOT = join(REPOSITORY_ROOT, 'apps/web');
+const VITE_BIN = join(WEB_ROOT, 'node_modules/.bin/vite');
 const APP_HEADING = 'Agentic Project Template';
 const READY_TIMEOUT_MS = 60_000;
 
@@ -149,7 +150,7 @@ async function launch(options) {
   mkdirSync(paths.evidence, { recursive: true });
 
   const port = Number(options.port ?? (await freePort()));
-  const distDirectory = options.dist ? resolve(REPOSITORY_ROOT, options.dist) : undefined;
+  const distDirectory = options.dist ? resolve(WEB_ROOT, options.dist) : undefined;
   if (distDirectory && !existsSync(join(distDirectory, 'index.html'))) {
     throw new Error(
       `${distDirectory} has no index.html. Build or download the dist artifact first.`,
@@ -174,7 +175,7 @@ async function launch(options) {
 
   const log = openSync(paths.serverLog, 'a');
   const server = spawn(VITE_BIN, viteArguments, {
-    cwd: REPOSITORY_ROOT,
+    cwd: WEB_ROOT,
     detached: true,
     stdio: ['ignore', log, log],
   });

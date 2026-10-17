@@ -1,4 +1,4 @@
-// TEMPLATE — add to e2e/app.spec.ts (or a new e2e/<feature>.spec.ts).
+// TEMPLATE — add to apps/web/e2e/app.spec.ts (or a new apps/web/e2e/<feature>.spec.ts).
 // This is the BEHAVIOUR MAP: the product's contract from the user's point of
 // view. Drive the real UI; assert via the accessibility tree. Keep it about
 // WHAT the product does, not HOW it is built.

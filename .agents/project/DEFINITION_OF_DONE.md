@@ -11,7 +11,7 @@ complete once `pnpm verify` and `pnpm e2e` are green.
 ## The checklist
 
 - [ ] **Behaviour is specified.** New or changed behaviour is covered by
-      `e2e/app.spec.ts` (the behaviour map). The product's contract is explicit.
+      `apps/web/e2e/app.spec.ts` (the behaviour map). The product's contract is explicit.
 - [ ] **Logic is unit-tested.** Pure functions and hooks have tests that assert
       behaviour through the public surface — coverage stays at/above the
       threshold in `jest.config.ts` (80%).
@@ -24,7 +24,7 @@ complete once `pnpm verify` and `pnpm e2e` are green.
       code, circular dependencies, or complexity/architecture violations.
 - [ ] **Architecture checks pass.** `pnpm arch:check` passes: no forbidden
       import, `docs/architecture/roles.mmd` matches `pnpm arch:diagram`, and
-      every `etc/*.api.md` matches the code (`pnpm api:report` after an
+      every `apps/web/etc/*.api.md` matches the code (`pnpm api:report` after an
       intended export change).
 - [ ] **Build succeeds.** `pnpm build` produces a clean production bundle.
 - [ ] **Accessible.** No axe violations (jest-axe in unit tests, `@axe-core/playwright`

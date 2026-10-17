@@ -41,8 +41,8 @@ There is one synchronous feature (`threshold-counter`), so the E2E and a11y
 gates exercise only its synchronous states, and the architecture audit has no
 cross-feature coupling to measure.
 
-- **Acceptance:** a second `src/features/*` slice with an async/route surface
-  exists, built from the templates; `e2e/app.spec.ts` covers its loading and
+- **Acceptance:** a second `apps/web/src/features/*` slice with an async/route surface
+  exists, built from the templates; `apps/web/e2e/app.spec.ts` covers its loading and
   error states through roles and visible text; jest-axe and `@axe-core/playwright`
   pass on it; and the architecture audit now has
   cross-feature coupling to measure.

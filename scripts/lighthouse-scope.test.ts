@@ -11,12 +11,15 @@ const SCRIPT = join(process.cwd(), 'scripts/lighthouse-scope.mjs');
 
 describe('uiRelevantFiles', () => {
   it.each([
-    'src/App.tsx',
-    'src/features/status/StatusCard.tsx',
-    'src/styles/global.css',
-    'public/favicon.svg',
-    'index.html',
-    'vite.config.ts',
+    'apps/web/src/App.tsx',
+    'apps/web/src/features/status/StatusCard.tsx',
+    'apps/web/src/styles/global.css',
+    'apps/web/public/favicon.svg',
+    'apps/web/public/fixture.test.js',
+    'apps/web/index.html',
+    'apps/web/vite.config.ts',
+    'apps/web/package.json',
+    'pnpm-workspace.yaml',
     'tsconfig.json',
     'package.json',
     'pnpm-lock.yaml',
@@ -29,27 +32,34 @@ describe('uiRelevantFiles', () => {
   });
 
   it.each([
-    'src/App.test.tsx',
-    'src/features/status/StatusCard.test.tsx',
-    'src/lib/format.test.ts',
+    'apps/web/src/App.test.tsx',
+    'apps/web/src/features/status/StatusCard.test.tsx',
+    'apps/web/src/lib/format.test.ts',
     'README.md',
     'docs/required-gates.md',
     'scripts/required-gates.mjs',
     'scripts/lighthouse-scope.test.ts',
     '.github/workflows/ci.yml',
-    'e2e/app.spec.ts',
+    'apps/web/e2e/app.spec.ts',
+    'apps/web/etc/routes-home.api.md',
     '.agents/project/QUALITY_GATES.md',
-    'srcfile.ts',
+    'apps/web/srcfile.ts',
     'nested/index.html',
     'nested/package.json',
+    'apps/other/package.json',
   ])('skips audits for a pull request that changes only %s', (path) => {
     expect(uiRelevantFiles([path])).toEqual([]);
   });
 
   it('keeps only the UI-relevant files of a mixed change, in order', () => {
     expect(
-      uiRelevantFiles(['README.md', 'src/App.tsx', 'src/App.test.tsx', 'package.json']),
-    ).toEqual(['src/App.tsx', 'package.json']);
+      uiRelevantFiles([
+        'README.md',
+        'apps/web/src/App.tsx',
+        'apps/web/src/App.test.tsx',
+        'package.json',
+      ]),
+    ).toEqual(['apps/web/src/App.tsx', 'package.json']);
   });
 
   it('skips audits when nothing changed', () => {
@@ -101,33 +111,33 @@ describe('lighthouse-scope CLI', () => {
   }
 
   it('reports ui-changed=true and lists the files when the head commit touches UI', () => {
-    const outcome = scopeOf(['src/App.tsx', 'README.md']);
+    const outcome = scopeOf(['apps/web/src/App.tsx', 'README.md']);
     expect(outcome.status).toBe(0);
     expect(outcome.output).toBe('ui-changed=true\n');
-    expect(outcome.summary).toContain('src/App.tsx');
+    expect(outcome.summary).toContain('apps/web/src/App.tsx');
     expect(outcome.summary).not.toContain('README.md');
   });
 
   it('reports ui-changed=false when the head commit touches only non-UI files', () => {
-    const outcome = scopeOf(['README.md', 'src/App.test.tsx']);
+    const outcome = scopeOf(['README.md', 'apps/web/src/App.test.tsx']);
     expect(outcome.status).toBe(0);
     expect(outcome.output).toBe('ui-changed=false\n');
     expect(outcome.summary).toContain('Lighthouse audits skipped');
   });
 
-  it('audits a pull request that moves a file out of src', () => {
-    const { directory, git } = runInRepository([], ['src/Card.tsx']);
+  it('audits a pull request that moves a file out of apps/web/src', () => {
+    const { directory, git } = runInRepository([], ['apps/web/src/Card.tsx']);
     mkdirSync(join(directory, 'archive'));
-    git('mv', 'src/Card.tsx', 'archive/Card.tsx');
+    git('mv', 'apps/web/src/Card.tsx', 'archive/Card.tsx');
     git('commit', '-q', '-m', 'move');
     const outcome = runScope(directory);
     expect(outcome.output).toBe('ui-changed=true\n');
-    expect(outcome.summary).toContain('src/Card.tsx');
+    expect(outcome.summary).toContain('apps/web/src/Card.tsx');
   });
 
-  it('audits a pull request that changes a non-ASCII file name under src', () => {
-    const outcome = scopeOf(['src/café.tsx']);
+  it('audits a pull request that changes a non-ASCII file name under apps/web/src', () => {
+    const outcome = scopeOf(['apps/web/src/café.tsx']);
     expect(outcome.output).toBe('ui-changed=true\n');
-    expect(outcome.summary).toContain('src/café.tsx');
+    expect(outcome.summary).toContain('apps/web/src/café.tsx');
   });
 });

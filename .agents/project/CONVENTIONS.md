@@ -9,9 +9,9 @@ feature.
 
 | Convention | Enforced by |
 | --- | --- |
-| Folders under `src/` are kebab-case (`threshold-counter`). | ESLint `policy/folder-names` |
-| Identifiers: `camelCase` functions and variables, `PascalCase` types and components, `SCREAMING_SNAKE_CASE` for true configuration constants. | Biome `style/useNamingConvention` (`src/**`) |
-| File names are camelCase, PascalCase, or the name of their export. | Biome `style/useFilenamingConvention` (`src/**`) |
+| Folders under `apps/*/src/` are kebab-case (`threshold-counter`). | ESLint `policy/folder-names` |
+| Identifiers: `camelCase` functions and variables, `PascalCase` types and components, `SCREAMING_SNAKE_CASE` for true configuration constants. | Biome `style/useNamingConvention` (`apps/*/src/**`) |
+| File names are camelCase, PascalCase, or the name of their export. | Biome `style/useFilenamingConvention` (`apps/*/src/**`) |
 | A component or hook lives in the file of the same name (`ThresholdCounter.tsx`, `useThresholdCounter.ts`). | ESLint `policy/file-matches-export` |
 | One React component per file. | ESLint `policy/one-component-per-file` |
 | Function components only. | ESLint `react-doctor/prefer-function-component` |
@@ -19,7 +19,7 @@ feature.
 | Derived values are computed during render instead of copied into state by an effect. | ESLint `react-hooks/set-state-in-effect`, `react-doctor/no-derived-state`, `react-doctor/no-mirror-prop-effect` |
 | Functions defined inside a component start with `handle` (`handleReset`). | ESLint `policy/handler-names` |
 | Callback props start with `on` (`onReset`). | ESLint `policy/callback-prop-names` |
-| Page components live in `src/routes/<route-name>/`. | ESLint `policy/pages-in-routes`, Fallow `routes` zone |
+| Page components live in `apps/web/src/routes/<route-name>/`. | ESLint `policy/pages-in-routes`, Fallow `routes` zone |
 | Another module imports a feature, route, or shared module only through its `index.ts`. | ESLint `no-restricted-imports` |
 | `strict` TypeScript with `noUncheckedIndexedAccess` and `noUnusedLocals`. | `pnpm typecheck`; review of the diff catches a loosened `tsconfig.json` ([ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)) |
 | `unknown` and narrowing in place of `any`. | Biome `suspicious/noExplicitAny` |
