@@ -1,6 +1,6 @@
 # 7. Protect enforcement paths by default
 
-- **Status:** Accepted
+- **Status:** Superseded by [0020](0020-protect-only-the-files-that-run-the-gates.md)
 - **Date:** 2026-10-15
 
 ## Context
@@ -15,13 +15,13 @@ guidance docs themselves.
 
 Every path that shapes enforcement is protected by default:
 
-- every root config file, except the dependency manifests `package.json` and
-  `pnpm-lock.yaml` ([0018](0018-dependency-manifests-are-not-enforcement-paths.md))
+- every root config file
 - `.github/**`
 - `.claude/**`
 - `.husky/**`
 - `scripts/**`
 - `tooling/**`
+- `pnpm-lock.yaml`
 - the agent docs: `AGENTS.md`, `GUARDRAILS.md`, and `.agents/**`
 
 Content checks also flag:
