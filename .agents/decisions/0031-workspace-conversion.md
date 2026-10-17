@@ -39,7 +39,10 @@ package carries a config of its own, so no package can loosen a rule locally.
   `patterns` fallback that `routes` already has. A file directly under
   `features/` sat in no zone and could import anything. It now sits in the
   fallback zone, which may import `shared` and the feature folders, and no
-  feature may import it. The config
+  feature may import it. A loose file can still compose several features
+  outside `routes/`. This is a known gap, no wider than main, and a test
+  records it as one. The ESLint `policy/slice-isolation` rule in the next PR
+  closes it and must cover files directly under `features/`. The config
   also stays valid on a tree without `apps/web/src/features`, which is what
   `fallow audit` reads when it builds its base-revision snapshot with the head
   config. Without it the audit of this change exits 2.

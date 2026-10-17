@@ -12,9 +12,11 @@ const trackedFiles = execFileSync('git', ['ls-files', '-z', '--', 'apps'], { enc
 const isTest = (path: string) => /\.test\.[^/]+$/.test(path);
 const isSource = (path: string) => /\.tsx?$/.test(path) && !isTest(path);
 
-/** The composition root and the re-export barriers the E2E map covers instead. */
+/** Type declarations, the re-export barriers, and the composition root the E2E map covers. */
 const isDeclaredExclusion = (path: string) =>
-  basename(path) === 'index.ts' || /^apps\/[^/]+\/src\/(main|App)\.tsx$/.test(path);
+  path.endsWith('.d.ts') ||
+  basename(path) === 'index.ts' ||
+  /^apps\/[^/]+\/src\/(main|App)\.tsx$/.test(path);
 
 function isCollectedForCoverage(path: string) {
   const patterns = config.collectCoverageFrom ?? [];
@@ -25,6 +27,12 @@ function isCollectedForCoverage(path: string) {
     !excluded.some((pattern) => matchesGlob(path, pattern))
   );
 }
+
+/** Sources whose coverage collection disagrees with the declared exclusions. */
+const misjudged = (paths: string[]) =>
+  paths
+    .filter(isSource)
+    .filter((path) => isCollectedForCoverage(path) === isDeclaredExclusion(path));
 
 /** The test files Jest itself would run, as repository-relative paths. */
 function testsJestRuns() {
@@ -41,10 +49,11 @@ describe('Jest scope over workspace package sources', () => {
   });
 
   it('collects coverage from every source file except the declared exclusions', () => {
-    const misjudged = trackedFiles
-      .filter(isSource)
-      .filter((path) => isCollectedForCoverage(path) === isDeclaredExclusion(path));
-    expect(misjudged).toEqual([]);
+    expect(misjudged(trackedFiles)).toEqual([]);
+  });
+
+  it('accepts a tracked declaration file as a declared exclusion', () => {
+    expect(misjudged(['apps/web/src/vite-env.d.ts'])).toEqual([]);
   });
 
   it('runs every test file', () => {
