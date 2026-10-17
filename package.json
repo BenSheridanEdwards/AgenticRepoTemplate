@@ -7,13 +7,13 @@
   "type": "module",
   "packageManager": "pnpm@11.3.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
-    "dev": "pnpm --filter @repo/web dev",
-    "build": "pnpm --filter @repo/web build",
+    "dev": "pnpm --parallel --filter @repo/web --filter @repo/api dev",
+    "build": "pnpm -r build",
     "preview": "pnpm --filter @repo/web preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.api.json --noEmit",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",
@@ -28,7 +28,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "e2e": "playwright test apps/web/e2e/accessibility.spec.ts",
+    "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",
     "lhci": "lhci autorun",

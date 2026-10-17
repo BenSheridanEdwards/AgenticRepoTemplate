@@ -1,0 +1,1 @@
+export { GreetingPage } from './GreetingPage';

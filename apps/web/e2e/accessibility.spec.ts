@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 /**
  * Real-browser accessibility scan. Unlike the jsdom unit check, this runs in
@@ -7,14 +7,31 @@ import { expect, test } from '@playwright/test';
  * visibility, real roles. A violation fails the push (pre-push) and the merge
  * (CI), so accessibility regressions cannot ship silently.
  */
+const scan = (page: Page) =>
+  new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+
 test.describe('Accessibility', () => {
-  test('the landing page has no detectable WCAG A/AA violations', async ({ page }) => {
+  test('the greeting page has no detectable WCAG A/AA violations', async ({ page }) => {
     await page.goto('/');
+    await expect(page.getByRole('button', { name: 'Greet' })).toBeVisible();
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .analyze();
+    expect((await scan(page)).violations).toEqual([]);
+  });
 
-    expect(results.violations).toEqual([]);
+  test('the validation error state has no detectable WCAG A/AA violations', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Greet' }).click();
+    await expect(page.getByRole('alert')).toHaveText('Enter a name');
+
+    expect((await scan(page)).violations).toEqual([]);
+  });
+
+  test('the greeting result has no detectable WCAG A/AA violations', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('textbox', { name: 'Name' }).fill('Ada');
+    await page.getByRole('button', { name: 'Greet' }).click();
+    await expect(page.getByRole('status')).toHaveText('Hello, Ada!');
+
+    expect((await scan(page)).violations).toEqual([]);
   });
 });

@@ -1,0 +1,15 @@
+{
+  // The Node program: every api package. Node runs its source with native type
+  // stripping, so it sees no DOM, imports relative files with their `.ts`
+  // extension, and uses only syntax Node can erase.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "types": ["node", "jest"]
+  },
+  "include": ["apps/api/src", "showcase/*/api/src"]
+}

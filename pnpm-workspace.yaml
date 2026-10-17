@@ -2,6 +2,7 @@
 # glob (ADR 0031).
 packages:
   - 'apps/*'
+  - 'packages/*'
 
 # pnpm settings (pnpm ≥ 11 reads them here, not from package.json).
 # Native packages whose post-install build scripts we explicitly trust to run.

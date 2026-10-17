@@ -1,0 +1,60 @@
+.ui-button {
+  padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #1d263f;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.ui-button:hover {
+  background: #26314f;
+  border-color: #3a4a72;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.ui-text-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ui-text-field__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ui-text-field__input {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.ui-text-field__input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.ui-text-field__input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.ui-text-field__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 14px;
+}

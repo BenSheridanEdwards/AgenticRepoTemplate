@@ -1,28 +1,15 @@
 {
+  // The browser program: every web package, the ui kit, and the root configs.
+  // It reaches the api only through the type-only `@repo/api` contract, whose
+  // source uses explicit `.ts` import extensions.
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
-
-    /* Strictness — the type system is the first quality gate. */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-
-    /* Module hygiene. */
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "noEmit": true,
+    "allowImportingTsExtensions": true,
 
     "types": ["node", "jest", "@testing-library/jest-dom"]
   },
@@ -30,6 +17,11 @@
     "apps/web/src",
     "apps/web/e2e",
     "apps/web/vite.config.ts",
+    "showcase/*/web/src",
+    "showcase/*/web/e2e",
+    "showcase/*/web/vite.config.ts",
+    "packages/ui/src",
+    "tooling/results.d.mts",
     "jest.config.ts",
     "jest.setup.ts",
     "commitlint.config.ts",
