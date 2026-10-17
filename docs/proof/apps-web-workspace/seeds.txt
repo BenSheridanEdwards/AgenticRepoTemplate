@@ -1,0 +1,34 @@
+# Seeded violations under apps/web, each run with the real gate and then restored.
+# Every seed below must exit non-zero; tsc uses exit 2 for type errors.
+
+## pnpm typecheck  (seed: export const broken: number = "not a number" in apps/web/src/App.tsx)
+apps/web/src/App.tsx(7,14): error TS2322: Type 'string' is not assignable to type 'number'.
+exit 2
+
+## pnpm lint:policy  (seed: SettingsPage in apps/web/src/features/settings/)
+  1:17  error  Move `SettingsPage` to `src/routes/<route-name>/SettingsPage.tsx` in its package. Page components live in `src/routes/`, which composes features and shared code  policy/pages-in-routes
+exit 1
+
+## pnpm check  (seed: export const bad_name in apps/web/src/features/threshold-counter/bad_name.ts)
+apps/web/src/features/threshold-counter/bad_name.ts:1:14 lint/style/useNamingConvention ━━━━━━━━━━━━
+exit 1
+
+## pnpm arch:gate  (seed: features/threshold-counter imports ../service-status)
+  apps/web/src/features/threshold-counter/index.ts:5 → apps/web/src/features/service-status/index.ts (features/threshold-counter → features/service-status)
+exit 1
+
+## pnpm api:check  (seed: extra export in apps/web/src/routes/home/index.ts)
+api: apps/web/src/routes/home/index.ts differs from apps/web/etc/routes-home.api.md. Run `pnpm api:report` and commit the report.
+exit 1
+
+## pnpm size  (seed: .size-limit.json globs pointed at an empty folder)
+  Size Limit can’t find files at apps/web/dist-missing/assets/*.js
+  Size Limit can’t find files at apps/web/dist-missing/assets/*.css
+exit 1
+
+## jest apps/web/src/features/threshold-counter  (seed: useThresholdCounter returns early)
+Tests:       11 failed, 11 total
+exit 1
+
+## node scripts/lighthouse-scope.mjs origin/main...HEAD
+apps/web/src files listed: 14
