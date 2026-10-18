@@ -107,6 +107,7 @@ export default [
       'test-results/**',
       'graphify-out/**',
       '.architect-audits/**',
+      '.cache/**',
     ],
   },
   {

@@ -65,6 +65,14 @@ describe('ESLint policy stack', () => {
     expect(run.stdout.trim()).toBe('undefined');
   });
 
+  it('ignores the gitignored type-check and diagram cache', () => {
+    const run = spawnSync(ESLINT_BIN, ['--print-config', '.cache/types/apps/web/src/App.d.ts'], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+    });
+    expect(run.stdout.trim()).toBe('undefined');
+  });
+
   it('blocks a hook called inside a condition (react-hooks/rules-of-hooks)', () => {
     const result = lintPolicy(`
 import { useState } from 'react';

@@ -3,7 +3,10 @@
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-18
 - **Amends:** [0015](0015-eslint-policy-stack-wiring.md), replacing its
-  `reportUnusedDisableDirectives` line
+  `reportUnusedDisableDirectives` line, and
+  [0019](0019-local-eslint-policy-plugin.md), replacing its suppression bullet:
+  `check-suppressions.mjs` no longer reads ESLint disables, because ESLint
+  now blocks every one
 - **Follows:** [0033](0033-result-diagrams-and-structure-validation.md), which
   left `noInlineConfig` for a separate change
 
@@ -74,8 +77,10 @@ This change is about ESLint comments only, so `biome-ignore` and
   reasoned disable leaves its finding reported, and that `eslint .` lints every
   tracked source file. Each of these tests fails on the previous config.
 - ESLint's ignore list (build output, `coverage/`, `graphify-out/`,
-  `.architect-audits/` and the rest) stays as it is. A source file committed
-  under one of them fails the tracked-files test in `pnpm test`.
+  `.architect-audits/` and the rest) gains `.cache/`, the gitignored output of
+  `pnpm typecheck`, `pnpm api:report` and `pnpm arch:diagram`, because the wider file globs would
+  otherwise lint its generated `.d.ts` files. A source file committed under an
+  ignored folder fails the tracked-files test in `pnpm test`.
 - The structure validator keeps its own ban on every suppression under a
   result root, including `biome-ignore` and `@ts-expect-error`.
 - An editor shows each inline config comment as a warning, and the gate fails
