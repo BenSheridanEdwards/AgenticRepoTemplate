@@ -269,6 +269,18 @@ describe('Fallow contract over the reference result', () => {
       ['policy contract/effects-in-integrations'],
     ],
     [
+      'application logic runs an Effect program with services through Effect 4 runPromiseWith',
+      `${GREETING}/application.ts`,
+      "import { Context, Effect } from 'effect';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => { void Effect.runPromiseWith(Context.empty())(Effect.succeed(name)); return { message: formatGreeting(name) }; };\n",
+      ['policy contract/effects-in-integrations'],
+    ],
+    [
+      'application logic runs an Effect program through a named Effect 4 runSyncWith import',
+      `${GREETING}/application.ts`,
+      "import { runSyncWith, succeed } from 'effect/Effect';\nimport { Context } from 'effect';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => ({ message: formatGreeting(runSyncWith(Context.empty())(succeed(name))) });\n",
+      ['policy contract/effects-in-integrations'],
+    ],
+    [
       'application logic calls globalThis.fetch',
       `${GREETING}/application.ts`,
       "import { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => { void globalThis.fetch('https://example.com'); return { message: formatGreeting(name) }; };\n",
