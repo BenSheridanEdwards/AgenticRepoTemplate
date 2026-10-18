@@ -578,6 +578,25 @@ describe('compareResults', () => {
     expect(comparison.consistent).toBe(false);
   });
 
+  it('holds the form to an Effect schema behind standardSchemaResolver', () => {
+    const resolver = (call: string) =>
+      replaceIn(`${ROUTES}/useTodoForm.ts`, 'effectTsResolver(todoFormSchema)', call);
+    const effect = facts(
+      'todo-02',
+      resolver('standardSchemaResolver(Schema.toStandardSchemaV1(todoFormSchema))'),
+    );
+    const otherSchema = facts('todo-03', resolver('standardSchemaResolver(todoFormSchema)'));
+    expect(effect.hooks.find((hook) => hook.name === 'useTodoForm')?.calls).toEqual([
+      'standardSchemaResolver',
+      'toStandardSchemaV1',
+      'useForm',
+    ]);
+    const oneForm = (pair: Parameters<typeof compareResults>[0]) =>
+      find(compareResults(pair), 'conventions · one form').classification;
+    expect(oneForm([facts('todo-01'), effect])).toBe('identical');
+    expect(oneForm([effect, otherSchema])).toBe('outside-spec');
+  });
+
   it('reads a hook called as a property, such as React.useState', () => {
     const local = facts(
       'todo-02',

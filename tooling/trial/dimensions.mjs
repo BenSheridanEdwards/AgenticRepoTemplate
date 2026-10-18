@@ -79,8 +79,14 @@ const SERVER_STATE = new Set([
   'useInfiniteQuery',
 ]);
 const LOCAL_STATE = new Set(['useState', 'useReducer']);
-/** The Effect Schema form resolver of Effect 4 and, for earlier results, of Effect 3 (ADR 0036). */
-const EFFECT_SCHEMA_RESOLVERS = new Set(['standardSchemaResolver', 'effectTsResolver']);
+/**
+ * Whether a form's calls validate it with Effect Schema: `standardSchemaResolver`
+ * over `toStandardSchemaV1` on Effect 4, or `effectTsResolver` in a result from
+ * before Effect 4 (ADR 0036).
+ */
+const usesEffectSchema = (calls) =>
+  calls.includes('effectTsResolver') ||
+  (calls.includes('standardSchemaResolver') && calls.includes('toStandardSchemaV1'));
 const ABSENT = '(absent)';
 const SCAFFOLD = SCAFFOLD_ROLES.join('|');
 /** `<prefix> <role>` for every role but the scaffold roles and `outside-roles`. */
@@ -297,7 +303,7 @@ function conventionAspects(facts) {
     ),
     invariant(
       'one form',
-      forms.length === 1 && forms[0].calls.some((call) => EFFECT_SCHEMA_RESOLVERS.has(call)),
+      forms.length === 1 && usesEffectSchema(forms[0].calls),
       listed(forms.map((entry) => entry.name)),
     ),
     invariant(

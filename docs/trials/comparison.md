@@ -139,7 +139,7 @@ Written forms where the runs differ:
 | `local state` | holds | holds | holds | identical |
 | `storage role` | holds | holds | holds | identical |
 | `hooks web-api-client` | `calls(useState)` | `calls(useState)` | `calls(useState)` | identical |
-| `hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | outside the spec |
+| `hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,toStandardSchemaV1,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,toStandardSchemaV1,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | outside the spec |
 | `id generation` | `randomUUID` | `counter` | `randomUUID` | spec freedom 3 |
 
 ## Runs
@@ -211,7 +211,7 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 | `dependencies · web dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | the spec freedoms leave this aspect fixed | script rule |
 | `dependencies · web devDependencies @standard-schema/spec` | `(absent)` | `^1.1.0` | `^1.1.0` | the spec freedoms leave this aspect fixed | script rule |
 | `dependencies · api dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | the spec freedoms leave this aspect fixed | script rule |
-| `conventions · hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | the role-wide calls differ, and freedom 2 covers only where they sit | script rule |
+| `conventions · hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,toStandardSchemaV1,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,toStandardSchemaV1,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | the role-wide calls differ, and freedom 2 covers only where they sit | script rule |
 
 ## Inside a spec freedom
 
