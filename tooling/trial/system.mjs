@@ -5,7 +5,14 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { createWriteStream, statfsSync } from 'node:fs';
+import {
+  createWriteStream,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  statfsSync,
+} from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -184,10 +191,57 @@ const isPortBusy = (port) =>
     server.listen(port, '127.0.0.1', () => server.close(() => done(false)));
   });
 
-/** The processes listening on TCP `port`, from `lsof`, or none when it is missing. */
-function listeners(port) {
-  const found = spawnSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
-  return (found.stdout ?? '').split('\n').filter(Boolean).map(Number);
+/** `TCP_LISTEN` in the kernel's socket tables. */
+const LISTEN_STATE = '0A';
+
+/**
+ * The processes listening on TCP `port`: from the `/proc` socket tables, so a
+ * Linux box without `lsof` still finds them, and from `lsof` where those
+ * tables are missing or unreadable, or none when `lsof` is missing too.
+ */
+export function listeners(port, proc = '/proc') {
+  try {
+    return procListeners(port, proc);
+  } catch {
+    const found = spawnSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
+    return (found.stdout ?? '').split('\n').filter(Boolean).map(Number);
+  }
+}
+
+/** Throws when `proc` has no readable IPv4 socket table. */
+function procListeners(port, proc) {
+  const address = `:${port.toString(16).toUpperCase().padStart(4, '0')}`;
+  const ipv6 = `${proc}/net/tcp6`;
+  const sockets = new Set();
+  for (const table of [`${proc}/net/tcp`, ...(existsSync(ipv6) ? [ipv6] : [])]) {
+    for (const row of readFileSync(table, 'utf8').trim().split('\n').slice(1)) {
+      const [, local, , state, , , , , , inode] = row.trim().split(/\s+/);
+      if (local.endsWith(address) && state === LISTEN_STATE) {
+        sockets.add(`socket:[${inode}]`);
+      }
+    }
+  }
+  if (sockets.size === 0) {
+    return [];
+  }
+  return readdirSync(proc)
+    .filter((entry) => /^\d+$/.test(entry) && holdsAny(`${proc}/${entry}/fd`, sockets))
+    .map(Number);
+}
+
+/** Whether a process's open files include one of `sockets`; false for one that exited or is not ours. */
+function holdsAny(fdDir, sockets) {
+  try {
+    return readdirSync(fdDir).some((fd) => {
+      try {
+        return sockets.has(readlinkSync(join(fdDir, fd)));
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return false;
+  }
 }
 
 const pause = (ms) => new Promise((done) => setTimeout(done, ms));

@@ -361,18 +361,20 @@ describe('a showcase result', () => {
 
   it('runs its unit tests in the web and api projects and is held to coverage on its own', () => {
     const listed = run(['jest', '--listTests', '--selectProjects', 'web', 'api']);
+    // In band: Jest's default workers took 2.3 GB beside the outer run's own,
+    // and a memory-starved box stalls them past each test's 5 s budget.
     const covered = run([
       'sh',
       '-c',
-      'jest --coverage --selectProjects web api && node tooling/coverage-by-result.mjs',
+      'jest --coverage --selectProjects web api --runInBand && node tooling/coverage-by-result.mjs',
     ]);
-    const summary = JSON.parse(readFileSync(join(copy, 'coverage/coverage-summary.json'), 'utf8'));
 
     expect(listed.output).toContain(`${copy}/showcase/x/web/src/routes/greeting/`);
     expect(listed.output).toContain(`${copy}/showcase/x/api/src/features/greeting/`);
-    expect(covered.code).toBe(0);
-    expect(Object.keys(summary)).toContain(join(copy, `showcase/x/${API_FILE}`));
     expect(covered.output).toContain('Coverage per result is at 80% or more: reference, x');
+    expect(covered.code).toBe(0);
+    const summary = JSON.parse(readFileSync(join(copy, 'coverage/coverage-summary.json'), 'utf8'));
+    expect(Object.keys(summary)).toContain(join(copy, `showcase/x/${API_FILE}`));
   });
 
   it('passes the architecture gate as a copy of the reference', () => {
