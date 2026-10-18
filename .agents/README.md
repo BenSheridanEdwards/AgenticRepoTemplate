@@ -45,6 +45,12 @@ fails), and prints its workdir. Fetch the result branch, then remove the
 workdir before the next trial; the harness refuses to start while one
 remains. Pass `--retry` only after a failure from before the agent started.
 
+Each trial's commands use a private temp and cache folder inside its
+workdir, and an agent that names the shared `/tmp` fails the run. No time
+limit applies. Stop a trial with Ctrl-C, and read how long it took from
+`run.durationMs` and `run.agentDurationMs` in its record
+([ADR 0038](decisions/0038-trial-isolation-and-no-time-limit.md)).
+
 After the three trials, merge each passed result branch with `git merge --no-ff`,
 commit every record, stream and patch, and run
 `node tooling/trial/compare.mjs` to write `docs/trials/comparison.md`: the
