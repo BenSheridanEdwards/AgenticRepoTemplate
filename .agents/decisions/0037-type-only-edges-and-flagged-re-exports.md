@@ -99,8 +99,14 @@ aspect is outside the spec now.
 
 ## Consequences
 
-- The regenerated report reads `consistent`: todo-03's edge sits in freedom 8
-  and todo-02's export list in freedom 9. The pass count stays 2/3.
+- todo-03's edge sits in freedom 8 and todo-02's export list in freedom 9, so
+  every aspect this ADR covers sits inside the spec. The regenerated report
+  reads `inconsistent` on 4 other aspects: the three Effect dependency rows and
+  the form resolver in `hooks web-routes`. ADR 0036's move left them between
+  todo-01's Effect 3 patch and the migrated todo-02 and todo-03, and the trial
+  rerun on the Effect 4 trunk replaces all three results. On main the same
+  evidence reads 6 aspects outside the spec and 4 inside a freedom. The pass
+  count stays 2/3.
 - The trial prompt `tooling/trial/todo-prompt.md` holds no freedom list, and
   it stays as is, so the template hash the runs recorded still matches. The
   agent-facing rule lives in the role table of
