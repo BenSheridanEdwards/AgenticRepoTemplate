@@ -8,7 +8,7 @@ This report compares the Todo trial results under ADR 0035: the full pass count,
 
 - Full pass count 2/3
 - `todo-01` failed only on `/tmp/verify.log`, which existed before its run; every run wrote logs under `/tmp` (see Runs).
-- Consistency: `inconsistent`. 2 aspects sit outside the spec, 2 with an author's note; 4 sit inside a spec freedom, 4 by the script's rules and 0 by an author's ruling.
+- Consistency: `inconsistent`. 6 aspects sit outside the spec, 2 with an author's note; 4 sit inside a spec freedom, 4 by the script's rules and 0 by an author's ruling.
 - Baseline: shared. All 13 baseline checks hold.
 
 ## Structure
@@ -106,16 +106,17 @@ Written forms where the runs differ:
 | `web dependencies @trpc/client` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
 | `web dependencies @trpc/server` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
 | `web dependencies @trpc/tanstack-react-query` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
-| `web dependencies effect` | `^3.22.3` | `^3.22.3` | `^3.22.3` | identical |
+| `web dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | outside the spec |
 | `web dependencies react` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
 | `web dependencies react-dom` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
 | `web dependencies react-hook-form` | `^7.90.0` | `^7.90.0` | `^7.90.0` | identical |
+| `web devDependencies @standard-schema/spec` | `(absent)` | `^1.1.0` | `^1.1.0` | outside the spec |
 | `web devDependencies @{id}/api` | `workspace:*` | `workspace:*` | `workspace:*` | identical |
 | `web devDependencies @vitejs/plugin-react` | `^4.3.4` | `^4.3.4` | `^4.3.4` | identical |
 | `web devDependencies vite` | `^6.0.7` | `^6.0.7` | `^6.0.7` | identical |
 | `web manifest` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | identical |
 | `api dependencies @trpc/server` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
-| `api dependencies effect` | `^3.22.3` | `^3.22.3` | `^3.22.3` | identical |
+| `api dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | outside the spec |
 | `api manifest` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | identical |
 
 ## Component boundaries
@@ -138,7 +139,7 @@ Written forms where the runs differ:
 | `local state` | holds | holds | holds | identical |
 | `storage role` | holds | holds | holds | identical |
 | `hooks web-api-client` | `calls(useState)` | `calls(useState)` | `calls(useState)` | identical |
-| `hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | identical |
+| `hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | outside the spec |
 | `id generation` | `randomUUID` | `counter` | `randomUUID` | spec freedom 3 |
 
 ## Runs
@@ -187,7 +188,7 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 | Public API | Procedures by kind and operation, inferred from their shapes, with normalized input and output; the item shape; export names and kinds per API report of a scaffold role, export kind counts per other API report, keyed by package and role | One list query and three mutations for create, toggle and delete; create takes `title: string`; toggle and delete take `id`; the item has exactly `id`, `title: string` and `completed: boolean` |
 | Dependencies | Dependency names and ranges per package and section, the own workspace package as `@{id}`; the rest of each manifest | Equal sets |
 | Component boundaries | Components per role as prop kinds, `@repo/ui` primitives, raw controls and hook calls, names erased | Page in `web-routes`; form controls from `@repo/ui` where a primitive exists; feature components only in `web-routes` and `ui` |
-| Conventions | Hook calls per hook, names erased; `effectTsResolver` use; local state; storage role; id generation | Server state in `use*` hooks through `useTrpc`; one form through React Hook Form and Effect Schema; local state in `use*` hooks; storage in `api-integrations` |
+| Conventions | Hook calls per hook, names erased; Effect Schema resolver use; local state; storage role; id generation | Server state in `use*` hooks through `useTrpc`; one form through React Hook Form and Effect Schema; local state in `use*` hooks; storage in `api-integrations` |
 
 ### Spec freedoms
 
@@ -207,6 +208,10 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 | --- | --- | --- | --- | --- | --- |
 | `structure · edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | todo-03 annotates its toggle procedure's return type with `Todo`, imported type-only from `domain.ts`. The contract allows the direction; the spec freedoms keep role edges fixed. | author's note |
 | `public-api · exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | todo-02's route hook types its arguments from `RouterOutputs`, so the `RouterInputs` re-export in the api-client barrel had no importer. `fallow audit` flagged it as an unused type export, and the agent removed it from `index.ts`; `trpc.ts` still declares it. The reference and the other runs export it, and no spec freedom names a scaffold role's exports. | author's note |
+| `dependencies · web dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | the spec freedoms leave this aspect fixed | script rule |
+| `dependencies · web devDependencies @standard-schema/spec` | `(absent)` | `^1.1.0` | `^1.1.0` | the spec freedoms leave this aspect fixed | script rule |
+| `dependencies · api dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | the spec freedoms leave this aspect fixed | script rule |
+| `conventions · hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(standardSchemaResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | the role-wide calls differ, and freedom 2 covers only where they sit | script rule |
 
 ## Inside a spec freedom
 

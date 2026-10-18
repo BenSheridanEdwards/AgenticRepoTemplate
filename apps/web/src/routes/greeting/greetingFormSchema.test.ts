@@ -1,15 +1,13 @@
-import { Either, ParseResult, Schema } from 'effect';
+import { Schema } from 'effect';
 import { greetingFormSchema } from './greetingFormSchema';
 
-const decode = (name: string) =>
-  Schema.decodeUnknownEither(greetingFormSchema)({ name }).pipe(
-    Either.mapLeft((error) => ParseResult.ArrayFormatter.formatErrorSync(error)[0]?.message),
-  );
+const validate = (name: string) =>
+  Schema.toStandardSchemaV1(greetingFormSchema)['~standard'].validate({ name });
 
 it('trims the name', () => {
-  expect(decode('  Ada ')).toEqual(Either.right({ name: 'Ada' }));
+  expect(validate('  Ada ')).toEqual({ value: { name: 'Ada' } });
 });
 
 it.each(['', '   '])('asks for a name when it is %j', (name) => {
-  expect(decode(name)).toEqual(Either.left('Enter a name'));
+  expect(validate(name)).toEqual({ issues: [{ path: ['name'], message: 'Enter a name' }] });
 });

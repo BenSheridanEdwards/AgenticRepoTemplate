@@ -19,8 +19,8 @@ The ESLint rules and the Biome naming override run on every package source:
 | One React component per file. | ESLint `policy/one-component-per-file` |
 | Function components only. | ESLint `react-doctor/prefer-function-component` |
 | `useState`, `useReducer`, effects, TanStack Query hooks (`useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`) and React Hook Form hooks (`useForm`, `useFieldArray`) run only inside a named custom `use*` hook. | ESLint `policy/state-and-effects-in-hooks` ([ADR 0012](../decisions/0012-local-state-inside-custom-hooks.md)) |
-| `useForm` takes `resolver: effectTsResolver(schema)` from `@hookform/resolvers/effect-ts`. | ESLint `policy/form-uses-effect-schema` |
-| Every api procedure input is `.input(Schema.standardSchemaV1(schema))` with `Schema` from `effect`. | ESLint `policy/procedure-input-schema` |
+| `useForm` takes `resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema))`, with `standardSchemaResolver` from `@hookform/resolvers/standard-schema` and `Schema` from `effect`. | ESLint `policy/form-uses-effect-schema` |
+| Every api procedure input is `.input(Schema.toStandardSchemaV1(schema))` with `Schema` from `effect`. | ESLint `policy/procedure-input-schema` |
 | Derived values are computed during render instead of copied into state by an effect. | ESLint `react-hooks/set-state-in-effect`, `react-doctor/no-derived-state`, `react-doctor/no-mirror-prop-effect` |
 | Functions defined inside a component start with `handle` (`handleGreet`). | ESLint `policy/handler-names` |
 | Callback props start with `on` (`onGreet`). | ESLint `policy/callback-prop-names` |
@@ -66,7 +66,7 @@ outside every rule.
 | State | Owner | File |
 | --- | --- | --- |
 | Server state | TanStack Query through `useTrpc()` from the api client, with `queryOptions` or `mutationOptions` | `use<Name>.ts` in the route folder (`useGreeting.ts`) |
-| Form state | React Hook Form with `effectTsResolver(schema)` and `defaultValues` | `use<Name>Form.ts` (`useGreetingForm.ts`) |
+| Form state | React Hook Form with `standardSchemaResolver(Schema.toStandardSchemaV1(schema))` and `defaultValues` | `use<Name>Form.ts` (`useGreetingForm.ts`) |
 | Form schema | Effect Schema | `<name>FormSchema.ts` (`greetingFormSchema.ts`) |
 | Local UI state | `useState` or `useReducer` | a `use*` hook |
 
@@ -77,7 +77,7 @@ After a mutation, refresh the queries it changes in `onSuccess` with
 
 | File | Holds |
 | --- | --- |
-| `features/<name>/procedures.ts` | The feature router. Validates each input with `Schema.standardSchemaV1` and delegates to application. |
+| `features/<name>/procedures.ts` | The feature router. Validates each input with `Schema.toStandardSchemaV1` and delegates to application. |
 | `features/<name>/application.ts` | Use cases. Calls domain and integrations; knows no transport. |
 | `features/<name>/domain.ts` | Pure types and rules. |
 | `features/<name>/integrations.ts` | Storage, including in-memory storage, and every effect. |

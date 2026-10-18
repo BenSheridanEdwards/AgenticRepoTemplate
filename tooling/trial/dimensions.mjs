@@ -79,6 +79,8 @@ const SERVER_STATE = new Set([
   'useInfiniteQuery',
 ]);
 const LOCAL_STATE = new Set(['useState', 'useReducer']);
+/** The Effect Schema form resolver of Effect 4 and, for earlier results, of Effect 3 (ADR 0036). */
+const EFFECT_SCHEMA_RESOLVERS = new Set(['standardSchemaResolver', 'effectTsResolver']);
 const ABSENT = '(absent)';
 const SCAFFOLD = SCAFFOLD_ROLES.join('|');
 /** `<prefix> <role>` for every role but the scaffold roles and `outside-roles`. */
@@ -295,7 +297,7 @@ function conventionAspects(facts) {
     ),
     invariant(
       'one form',
-      forms.length === 1 && forms[0].calls.includes('effectTsResolver'),
+      forms.length === 1 && forms[0].calls.some((call) => EFFECT_SCHEMA_RESOLVERS.has(call)),
       listed(forms.map((entry) => entry.name)),
     ),
     invariant(
@@ -393,7 +395,7 @@ const DIMENSIONS = [
     id: 'conventions',
     title: 'Conventions',
     normalizedForm:
-      'Hook calls per hook, names erased; `effectTsResolver` use; local state; storage role; id generation',
+      'Hook calls per hook, names erased; Effect Schema resolver use; local state; storage role; id generation',
     mustBeIdentical:
       'Server state in `use*` hooks through `useTrpc`; one form through React Hook Form and Effect Schema; local state in `use*` hooks; storage in `api-integrations`',
     aspects: conventionAspects,

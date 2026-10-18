@@ -543,6 +543,7 @@ describe('ESLint contract rules', () => {
     ['a bare Effect schema', '.input(greetInputSchema)'],
     ['another standard schema', '.input(z.object({ name: z.string() }))'],
     ['a cast through a computed member', "['input']((value) => value as { name: string })"],
+    ['the Effect 3 adapter', '.input(Schema.standardSchemaV1(greetInputSchema))'],
   ])('blocks a procedure input given %s (policy/procedure-input-schema)', (_label, input) => {
     const result = lintPolicy(
       `
@@ -559,26 +560,26 @@ export const unused = [z, greetInputSchema];
     expect(result.ruleIds).toEqual(['policy/procedure-input-schema']);
   });
 
-  it('passes a procedure input wrapped in standardSchemaV1 from effect/Schema', () => {
+  it('passes a procedure input wrapped in toStandardSchemaV1 from effect/Schema', () => {
     const result = lintPolicy(
       `
 import * as Schema from 'effect/Schema';
 import { procedure } from '../../trpc.ts';
 const greetInputSchema = Schema.Struct({ name: Schema.String });
-export const greet = procedure.input(Schema.standardSchemaV1(greetInputSchema)).query(({ input }) => input);
+export const greet = procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => input);
 `,
       'apps/api/src/features/greeting/procedures.ts',
     );
     expect(result.ruleIds).toEqual([]);
   });
 
-  it('passes a procedure input wrapped in Schema.standardSchemaV1', () => {
+  it('passes a procedure input wrapped in Schema.toStandardSchemaV1', () => {
     const result = lintPolicy(
       `
 import { Schema } from 'effect';
 import { procedure } from '../../trpc.ts';
 const greetInputSchema = Schema.Struct({ name: Schema.String });
-export const greet = procedure.input(Schema.standardSchemaV1(greetInputSchema)).query(({ input }) => input);
+export const greet = procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => input);
 `,
       'apps/api/src/features/greeting/procedures.ts',
     );
@@ -590,17 +591,27 @@ export const greet = procedure.input(Schema.standardSchemaV1(greetInputSchema)).
     ['no resolver', "useForm({ defaultValues: { name: '' } })"],
     ['another resolver', 'useForm({ resolver: zodResolver(schema) })'],
     ['options built elsewhere', 'useForm(options)'],
-    ['a spread after the resolver', 'useForm({ resolver: effectTsResolver(schema), ...options })'],
+    [
+      'a spread after the resolver',
+      'useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema)), ...options })',
+    ],
+    [
+      'a standard schema not built by Effect',
+      'useForm({ resolver: standardSchemaResolver(schema) })',
+    ],
+    ['the Effect 3 resolver', 'useForm({ resolver: effectTsResolver(schema) })'],
   ])('blocks a form with %s (policy/form-uses-effect-schema)', (_label, call) => {
     const result = lintPolicy(
       `
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Schema } from 'effect';
 import { useForm } from 'react-hook-form';
 declare const schema: never;
 declare const options: never;
 export function useNameForm() {
-  return [${call}, zodResolver, effectTsResolver];
+  return [${call}, zodResolver, effectTsResolver, standardSchemaResolver, Schema];
 }
 `,
       'apps/web/src/routes/greeting/useNameForm.ts',
@@ -609,14 +620,37 @@ export function useNameForm() {
     expect(result.ruleIds).toEqual(['policy/form-uses-effect-schema']);
   });
 
-  it('passes a form whose resolver is effectTsResolver', () => {
+  it('passes a form whose resolver takes Schema.toStandardSchemaV1', () => {
     const result = lintPolicy(
       `
-import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { Schema } from 'effect';
 import { useForm } from 'react-hook-form';
 import { greetingFormSchema } from './greetingFormSchema';
 export function useGreetingForm() {
-  return useForm({ resolver: effectTsResolver(greetingFormSchema), defaultValues: { name: '' } });
+  return useForm({
+    resolver: standardSchemaResolver(Schema.toStandardSchemaV1(greetingFormSchema)),
+    defaultValues: { name: '' },
+  });
+}
+`,
+      'apps/web/src/routes/greeting/useGreetingForm.ts',
+    );
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it('passes a form whose resolver takes toStandardSchemaV1 from effect/Schema', () => {
+    const result = lintPolicy(
+      `
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { toStandardSchemaV1 } from 'effect/Schema';
+import { useForm } from 'react-hook-form';
+import { greetingFormSchema } from './greetingFormSchema';
+export function useGreetingForm() {
+  return useForm({
+    resolver: standardSchemaResolver(toStandardSchemaV1(greetingFormSchema)),
+    defaultValues: { name: '' },
+  });
 }
 `,
       'apps/web/src/routes/greeting/useGreetingForm.ts',
