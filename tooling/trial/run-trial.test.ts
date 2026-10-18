@@ -166,7 +166,7 @@ function plan(options: {
       claudeConfigDir: join(sandbox, 'claude-config'),
       corepackHome: join(homedir(), '.cache/node/corepack'),
       browsersPath: join(homedir(), '.cache/ms-playwright'),
-      sharedTmp: options.sharedTmp ?? join(sandbox, 'shared-tmp'),
+      sharedTmp: options.sharedTmp ?? join(caseDir, 'shared-tmp'),
       retry: options.retry ?? false,
     }),
     setup: [
@@ -1220,23 +1220,26 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
   });
 
   it('looks for a stray server after the result commit, so one that starts late is still stopped', async () => {
-    const real = systemDeps();
     let committed = false;
     let stopped = false;
+    const deps = quietDeps({
+      isPortBusy: async () => committed && !stopped,
+      stopListeners: async () => {
+        stopped = true;
+      },
+    });
     const evidence = await runTrial(
       { ...plan({ agent: fakeAgent('late-server', WRITES_RESULT) }), ports: [5183] },
-      quietDeps({
+      {
+        ...deps,
         exec: async (argv, options) => {
           committed ||= argv[0] === 'git' && argv[1] === 'commit';
-          return real.exec(argv, options);
+          return deps.exec(argv, options);
         },
-        isPortBusy: async () => committed && !stopped,
-        stopListeners: async () => {
-          stopped = true;
-        },
-      }),
+      },
     );
 
+    expect(evidence.failures).toEqual([]);
     expect(evidence.result).toMatchObject({ status: 'passed', stoppedServers: [5183] });
   });
 
