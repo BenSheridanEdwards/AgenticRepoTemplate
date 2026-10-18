@@ -1,6 +1,6 @@
 # 32. Add apps/api, packages/ui and the greeting feature under an executable contract
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Proposed (Ben accepts it by approving the PR), amended by [0036](0036-effect-4.md)
 - **Date:** 2026-10-17
 - **Implements:** [0008](0008-convert-template-into-the-monorepo.md),
   [0011](0011-effect-schema-everywhere.md),

@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
 
 export const greetingFormSchema = Schema.Struct({
-  name: Schema.Trim.pipe(Schema.nonEmptyString({ message: () => 'Enter a name' })),
+  name: Schema.Trim.check(Schema.isNonEmpty({ message: 'Enter a name' })),
 });

@@ -143,7 +143,7 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
 
 | File | Holds | Shape in the greeting feature |
 | --- | --- | --- |
-| `procedures.ts` | The feature's tRPC router. Each procedure validates its input with `.input(Schema.standardSchemaV1(schema))`, with `Schema` from `effect`, and delegates to application. It maps application errors to `TRPCError`. | `greetingRouter = router({ greet: procedure.input(Schema.standardSchemaV1(greetInputSchema)).query(({ input }) => greet(input)) })` |
+| `procedures.ts` | The feature's tRPC router. Each procedure validates its input with `.input(Schema.toStandardSchemaV1(schema))`, with `Schema` from `effect`, and delegates to application. It maps application errors to `TRPCError`. | `greetingRouter = router({ greet: procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => greet(input)) })` |
 | `application.ts` | The use cases. It calls domain rules and integrations and knows no transport. | `greet(request)` returns `{ message: formatGreeting(request.name) }` |
 | `domain.ts` | Pure types and rules. It imports nothing: no tRPC, no Effect, no Node. | `Greeting`, `formatGreeting(name)` |
 | `integrations.ts` | Storage, including in-memory storage, and every effect: `fetch`, Node IO, `Effect.runPromise`, `Effect.runSync`, `Effect.runFork`. Application calls it. | The greeting needs none, so the file is absent. |
@@ -170,7 +170,7 @@ because Vite resolves it.
 | State | Owner | Where |
 | --- | --- | --- |
 | Server state | TanStack Query through `useTrpc()` with `trpc.<router>.<procedure>.queryOptions(input)` or `.mutationOptions(options)` | a `use*` hook in the route folder, such as `useGreeting.ts` |
-| Form state | React Hook Form: `useForm({ resolver: effectTsResolver(schema), defaultValues })` | `use<Name>Form.ts`, with the schema in `<name>FormSchema.ts` in Effect Schema |
+| Form state | React Hook Form: `useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema)), defaultValues })` | `use<Name>Form.ts`, with the schema in `<name>FormSchema.ts` in Effect Schema |
 | Local UI state | `useState` or `useReducer` | a `use*` hook |
 
 A component calls its hooks and renders. It holds no state, effect, query,
@@ -317,7 +317,7 @@ reference result; a trial result uses `showcase/<id>/` in place of `apps/`.
 ### Add a procedure
 
 1. Add the input schema in `procedures.ts` and pass it as
-   `.input(Schema.standardSchemaV1(schema))`.
+   `.input(Schema.toStandardSchemaV1(schema))`.
 2. End with `.query(...)` for a read and `.mutation(...)` for a write, and
    delegate to one application function.
 3. Cover the valid input and the rejected input (`BAD_REQUEST`) in

@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
 
 export const todoFormSchema = Schema.Struct({
-  title: Schema.Trim.pipe(Schema.nonEmptyString({ message: () => 'Enter a title' })),
+  title: Schema.Trim.check(Schema.isNonEmpty({ message: 'Enter a title' })),
 });

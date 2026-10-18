@@ -2,7 +2,10 @@ import { createHTTPServer } from '@trpc/server/adapters/standalone';
 import { Schema } from 'effect';
 import { appRouter } from './router.ts';
 
-const Port = Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, 65_535));
+const Port = Schema.NumberFromString.check(
+  Schema.isInt(),
+  Schema.isBetween({ minimum: 1, maximum: 65_535 }),
+);
 
 const port = Schema.decodeUnknownSync(Port)(process.env.PORT ?? '3001');
 

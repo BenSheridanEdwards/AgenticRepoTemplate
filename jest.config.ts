@@ -17,6 +17,12 @@ const shared = {
     '\\.(css|less|scss|sass)$': '<rootDir>/jest.style-stub.cjs',
   },
   transform: {
+    // Effect 4 ships ES modules only and reads `import.meta?.env`, which has no
+    // CommonJS form; under Jest there is no Vite env, so it reads as undefined.
+    '/node_modules/(\\.pnpm/)?effect[@/].+\\.js$': [
+      '@swc/jest',
+      { jsc: { transform: { optimizer: { globals: { vars: { 'import.meta': 'undefined' } } } } } },
+    ],
     // Also transform .mjs so scripts/*.mjs (e.g. validate-pr-body.mjs) can be
     // imported directly by their co-located tests.
     '^.+\\.(t|j)sx?$|^.+\\.mjs$': [
@@ -29,6 +35,7 @@ const shared = {
       },
     ],
   },
+  transformIgnorePatterns: ['/node_modules/(?!(\\.pnpm/)?effect[@/])'],
 } satisfies Config;
 
 const config: Config = {

@@ -2,7 +2,7 @@
   {
     "name": "app bundle (JS, brotli)",
     "path": "apps/web/dist/assets/*.js",
-    "limit": "130 kB"
+    "limit": "110 kB"
   },
   {
     "name": "app styles (CSS, brotli)",

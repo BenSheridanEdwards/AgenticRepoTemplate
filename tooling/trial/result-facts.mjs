@@ -625,12 +625,16 @@ function calleeName(node) {
   return ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
 }
 
-/** Called hooks and form resolvers, by name, sorted. */
+/** Called hooks, form resolvers and the Effect Standard Schema adapter, by name, sorted. */
 const callsIn = (nodes) =>
   nodes
     .filter(ts.isCallExpression)
     .map(calleeName)
-    .filter((name) => name !== null && (/^use[A-Z]/.test(name) || /Resolver$/.test(name)))
+    .filter(
+      (name) =>
+        name !== null &&
+        (/^use[A-Z]/.test(name) || /Resolver$/.test(name) || name === 'toStandardSchemaV1'),
+    )
     .sort(sortText);
 
 /** The intrinsic control a JSX element is, or null. */

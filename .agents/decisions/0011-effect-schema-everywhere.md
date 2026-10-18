@@ -1,6 +1,6 @@
 # 11. Effect Schema validates every boundary
 
-- **Status:** Accepted
+- **Status:** Accepted, amended by [0036](0036-effect-4.md)
 - **Date:** 2026-10-15
 
 ## Context

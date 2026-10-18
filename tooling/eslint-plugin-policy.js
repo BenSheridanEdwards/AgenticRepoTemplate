@@ -569,6 +569,33 @@ function importTracker(source, name) {
   };
 }
 
+/**
+ * Tracks `Schema.toStandardSchemaV1(<schema>)` with `Schema` from `effect`, or
+ * `toStandardSchemaV1` from `effect/Schema`: an Effect Schema handed to a
+ * Standard Schema consumer (ADR 0036).
+ */
+function effectStandardSchema() {
+  const schema = importTracker('effect', 'Schema');
+  const schemaModule = importTracker('effect/Schema', 'toStandardSchemaV1');
+  return {
+    ImportDeclaration(node) {
+      schema.ImportDeclaration(node);
+      schemaModule.ImportDeclaration(node);
+    },
+    /** Whether `node` is that call. */
+    wraps(node) {
+      return (
+        node?.type === 'CallExpression' &&
+        (schemaModule.names(node.callee) ||
+          (node.callee.type === 'MemberExpression' &&
+            node.callee.property.type === 'Identifier' &&
+            node.callee.property.name === 'toStandardSchemaV1' &&
+            schema.names(node.callee.object)))
+      );
+    },
+  };
+}
+
 const API_SOURCE = /(^|\/)api\/src\//;
 
 const procedureInputSchema = {
@@ -576,7 +603,7 @@ const procedureInputSchema = {
     type: 'problem',
     messages: {
       schema:
-        'Pass the procedure input as `Schema.standardSchemaV1(<schema>)` with `Schema` from ' +
+        'Pass the procedure input as `Schema.toStandardSchemaV1(<schema>)` with `Schema` from ' +
         '`effect`, so the procedure validates its input with Effect Schema (ADR 0011).',
     },
     schema: [],
@@ -585,26 +612,15 @@ const procedureInputSchema = {
     if (!API_SOURCE.test(repositoryPath(context)) || isTestFile(context.filename)) {
       return {};
     }
-    const schema = importTracker('effect', 'Schema');
-    const schemaModule = importTracker('effect/Schema', 'standardSchemaV1');
-    const isStandardSchema = (argument) =>
-      argument?.type === 'CallExpression' &&
-      (schemaModule.names(argument.callee) ||
-        (argument.callee.type === 'MemberExpression' &&
-          argument.callee.property.type === 'Identifier' &&
-          argument.callee.property.name === 'standardSchemaV1' &&
-          schema.names(argument.callee.object)));
+    const standardSchema = effectStandardSchema();
     return {
-      ImportDeclaration(node) {
-        schema.ImportDeclaration(node);
-        schemaModule.ImportDeclaration(node);
-      },
+      ImportDeclaration: standardSchema.ImportDeclaration,
       CallExpression(node) {
         const { callee } = node;
         if (
           callee.type === 'MemberExpression' &&
           (callee.computed ? callee.property.value : callee.property.name) === 'input' &&
-          !isStandardSchema(node.arguments[0])
+          !standardSchema.wraps(node.arguments[0])
         ) {
           context.report({ node, messageId: 'schema' });
         }
@@ -618,25 +634,31 @@ const formUsesEffectSchema = {
     type: 'problem',
     messages: {
       resolver:
-        'Pass `useForm({ resolver: effectTsResolver(<schema>) })` with `effectTsResolver` from ' +
-        '`@hookform/resolvers/effect-ts` and the schema in Effect Schema (ADR 0011). Write ' +
-        'the options inline, with no spread that could replace the resolver.',
+        'Pass `useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(<schema>)) })` ' +
+        'with `standardSchemaResolver` from `@hookform/resolvers/standard-schema` and `Schema` ' +
+        'from `effect`, so the form validates with Effect Schema (ADR 0011). Pass the schema ' +
+        'as the only argument, so the form submits the decoded value, and write the options ' +
+        'inline, with no spread that could replace the resolver.',
     },
     schema: [],
   },
   create(context) {
     const useForm = importTracker('react-hook-form', 'useForm');
-    const resolver = importTracker('@hookform/resolvers/effect-ts', 'effectTsResolver');
+    const resolver = importTracker('@hookform/resolvers/standard-schema', 'standardSchemaResolver');
+    const standardSchema = effectStandardSchema();
     const isEffectResolver = (property) =>
       property.type === 'Property' &&
       !property.computed &&
       (property.key.name ?? property.key.value) === 'resolver' &&
       property.value.type === 'CallExpression' &&
-      resolver.names(property.value.callee);
+      resolver.names(property.value.callee) &&
+      property.value.arguments.length === 1 &&
+      standardSchema.wraps(property.value.arguments[0]);
     return {
       ImportDeclaration(node) {
         useForm.ImportDeclaration(node);
         resolver.ImportDeclaration(node);
+        standardSchema.ImportDeclaration(node);
       },
       CallExpression(node) {
         if (!useForm.names(node.callee)) {
