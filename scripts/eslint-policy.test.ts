@@ -2,8 +2,11 @@
  * @jest-environment node
  */
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Linter } from 'eslint';
 import policy from '../tooling/eslint-plugin-policy.js';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -321,8 +324,8 @@ export function SettingsPage() {
     const result = lintPolicy('export const x = 1;\n', filename);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/role-named-folders']);
-    expect(result.output).toContain(folder);
-    expect(result.output).toContain('@repo/ui');
+    expect(result.messages[0]?.message).toContain(`\`${folder}/\``);
+    expect(result.messages[0]?.message).toContain('`@repo/ui`');
   });
 
   it.each([
@@ -353,7 +356,7 @@ export function SettingsPage() {
     const result = lintPolicy('export const value = 1;\n', filename);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/test-beside-subject']);
-    expect(result.output).toContain(subject);
+    expect(result.messages[0]?.message).toContain(`\`${subject}.ts\` or`);
   });
 
   it.each([
@@ -364,6 +367,31 @@ export function SettingsPage() {
   ])('passes %s beside its subject (policy/test-beside-subject)', (filename) => {
     const result = lintPolicy('export const value = 1;\n', filename);
     expect(result.ruleIds).toEqual([]);
+  });
+
+  it('passes a test beside a dotted subject such as todo.schema.ts (policy/test-beside-subject)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'policy-dotted-'));
+    const folder = join(root, 'apps/api/src/features/todos');
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, 'todo.schema.ts'), 'export const schema = 1;\n');
+    const lint = (name: string) =>
+      new Linter({ cwd: root }).verify(
+        'export const value = 1;\n',
+        {
+          files: ['**/*.ts'],
+          plugins: { policy },
+          rules: { 'policy/test-beside-subject': 'error' },
+        },
+        join(folder, name),
+      );
+    try {
+      expect(lint('todo.schema.test.ts')).toEqual([]);
+      expect(lint('todo.other.test.ts').map(({ message }) => message)).toEqual([
+        expect.stringContaining('`apps/api/src/features/todos/todo.ts` or'),
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('finds no catch-all folder or misplaced test in the tree', () => {

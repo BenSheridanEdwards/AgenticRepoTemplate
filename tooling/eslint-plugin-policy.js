@@ -481,10 +481,19 @@ const testBesideSubject = {
     if (!isTestFile(path)) {
       return {};
     }
-    const name = basename(path).split('.')[0];
+    // `Foo.a11y.test.tsx` tests `Foo`, and `todo.schema.test.ts` tests `todo.schema`.
+    const parts = basename(path)
+      .replace(/\.test\.tsx?$/, '')
+      .split('.');
     const folders = posix.dirname(path).split('/');
     const subjectFolders = folders.filter((folder) => folder !== '__tests__');
-    const subject = [...subjectFolders, name].join('/');
+    const subject = [...subjectFolders, parts[0]].join('/');
+    const subjectFiles = parts.flatMap((_, index) =>
+      ['.ts', '.tsx'].map(
+        (extension) =>
+          `${[...subjectFolders, parts.slice(0, index + 1).join('.')].join('/')}${extension}`,
+      ),
+    );
     return {
       Program(program) {
         if (subjectFolders.length < folders.length) {
@@ -493,9 +502,7 @@ const testBesideSubject = {
             messageId: 'testsFolder',
             data: { test: path, subject },
           });
-        } else if (
-          !['.ts', '.tsx'].some((extension) => existsSync(join(context.cwd, subject + extension)))
-        ) {
+        } else if (!subjectFiles.some((file) => existsSync(join(context.cwd, file)))) {
           context.report({ node: program, messageId: 'missingSubject', data: { subject } });
         }
       },
