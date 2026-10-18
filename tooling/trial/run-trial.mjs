@@ -9,8 +9,10 @@
  * workdir, runs one fresh Claude session on the fixed prompt, commits the
  * result, runs every check on a clean clone of that commit and writes
  * `docs/trials/<id>.json` (plus a patch when the run fails) into the invoking
- * checkout. It never deletes the workdir; it prints the path for whoever runs
- * the next trial.
+ * checkout. Each command that runs the trial's code gets a private temp and
+ * cache folder inside the workdir, and none runs under a time limit (ADR
+ * 0038). It never deletes the workdir; it prints the path for whoever runs the
+ * next trial.
  *
  * `planTrial` and `renderPrompt` are pure. `runTrial` reaches the system only
  * through the injected `Deps`, so the tests drive it with a fake agent.
@@ -28,18 +30,17 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { REQUIRED_CHECKS, validateEvidence } from './evidence.mjs';
 import { findOutsideReads, redactSecrets, streamEvents, summarizeStream } from './stream.mjs';
-import { agentEnv, checkEnv, stopAll, systemDeps } from './system.mjs';
+import { agentEnv, checkEnv, stopAll, systemDeps, trialEnv } from './system.mjs';
 
 const HARNESS_ROOT = resolve(import.meta.dirname, '../..');
 const TEMPLATE_PATH = 'tooling/trial/todo-prompt.md';
 const LOCKFILE = 'pnpm-lock.yaml';
 const SIGN_OFF = 'Signed-off-by: Ben Sheridan-Edwards <bensheridanedwards@gmail.com>';
-const MINUTE = 60_000;
 const MIN_FREE_DISK_BYTES = 5e9;
 const OUTPUT_TAIL_LINES = 200;
 /** The reference result's ports and the ports `listResults` gives the one showcase result in a trial clone. */
@@ -59,7 +60,24 @@ const AGENT_FLAGS = [
   '--verbose',
   '--session-id',
 ];
-const AGENT_TIMEOUT_MS = 90 * MINUTE;
+
+/**
+ * The temp and cache variables every trial command gets, each naming a folder
+ * inside the workdir (ADR 0038), so no tool the agent or a check runs reads or
+ * writes the shared `/tmp` or `~/.cache`. `CLAUDE_CODE_TMPDIR` also keeps
+ * Claude Code's sandboxed commands off their `/tmp/claude` default. The
+ * checks get their own `check-` folders, so nothing the agent left in its
+ * temp or cache folder reaches them.
+ */
+const PRIVATE_ENV = {
+  TMPDIR: 'tmp',
+  TMP: 'tmp',
+  TEMP: 'tmp',
+  CLAUDE_CODE_TMPDIR: 'tmp',
+  XDG_RUNTIME_DIR: 'tmp',
+  XDG_CACHE_HOME: 'cache',
+  npm_config_cache: 'cache/npm',
+};
 
 /** A trial's `enforcementRev` is the last scaffold commit that touched one of these. */
 const ENFORCEMENT_PATHS = [
@@ -98,18 +116,20 @@ const USER_CONFIG_ENTRIES = [
 ];
 
 /**
- * @typedef {{ name: string, argv: readonly string[], timeoutMs: number }} Command
+ * @typedef {{ name: string, argv: readonly string[] }} Command
  * @typedef {{
  *   trial: 1 | 2 | 3, id: string, scaffoldRev: string, root: string, trialsRoot: string,
  *   workdir: string, origin: string, clone: string, checkClone: string, branch: string,
  *   evidencePath: string, patchPath: string, keptStreamPath: string, promptPath: string, streamPath: string,
  *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
- *   claudeConfigDir: string, claudeStateFile: string, tmpDir: string, pnpmStore: string | null,
+ *   claudeConfigDir: string, claudeStateFile: string,
+ *   privateEnv: Readonly<Record<string, string>>, checkPrivateEnv: Readonly<Record<string, string>>,
+ *   sharedCaches: readonly string[],
  *   ports: readonly number[], setup: readonly Command[], checks: readonly Command[],
  * }} TrialPlan
- * @typedef {{ code: number, timedOut: boolean, stdout: string, output: string, ms: number }} ExecResult
+ * @typedef {{ code: number, stdout: string, output: string, ms: number }} ExecResult
  * @typedef {{
- *   exec: (argv: readonly string[], options: { cwd: string, input?: string, timeoutMs?: number, stdoutFile?: string, env?: NodeJS.ProcessEnv }) => Promise<ExecResult>,
+ *   exec: (argv: readonly string[], options: { cwd: string, input?: string, stdoutFile?: string, env?: NodeJS.ProcessEnv }) => Promise<ExecResult>,
  *   now: () => Date,
  *   freeDiskBytes: (path: string) => number,
  *   isPortBusy: (port: number) => Promise<boolean>,
@@ -119,28 +139,25 @@ const USER_CONFIG_ENTRIES = [
  */
 
 /** Before the agent: install the clone's dependencies, which also installs its git hooks. */
-const SETUP = [
-  { name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'], timeoutMs: 15 * MINUTE },
-];
+const SETUP = [{ name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'] }];
 
 /** After the commit, on a clean clone of it: every gate, as a pull request runs them. */
 const CHECKS = [
-  { name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'], timeoutMs: 15 * MINUTE },
-  { name: 'verify', argv: ['pnpm', 'verify'], timeoutMs: 45 * MINUTE },
-  { name: 'e2e', argv: ['pnpm', 'e2e'], timeoutMs: 30 * MINUTE },
-  {
-    name: 'structure',
-    argv: ['node', 'tooling/architecture/structure.mjs'],
-    timeoutMs: 5 * MINUTE,
-  },
+  { name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'] },
+  { name: 'verify', argv: ['pnpm', 'verify'] },
+  { name: 'e2e', argv: ['pnpm', 'e2e'] },
+  { name: 'structure', argv: ['node', 'tooling/architecture/structure.mjs'] },
 ];
 
 /**
  * @param {{
  *   trial: number, scaffoldRev: string, root: string, trialsRoot: string, now: Date,
  *   sessionId: string, agentCommand?: string, claudeConfigDir: string, claudeStateFile?: string,
- *   tmpDir?: string, pnpmStore?: string | null, retry: boolean,
+ *   corepackHome: string, browsersPath: string, pnpmStore?: string | null, retry: boolean,
  * }} options
+ *   `corepackHome`, `browsersPath` and `pnpmStore` are the shared caches the
+ *   trial's commands still read: the pinned pnpm, the Playwright browsers and
+ *   the package store.
  * @returns {TrialPlan}
  */
 export function planTrial(options) {
@@ -180,11 +197,34 @@ export function planTrial(options) {
     claudeConfigDir: options.claudeConfigDir,
     claudeStateFile:
       options.claudeStateFile ?? join(dirname(options.claudeConfigDir), '.claude.json'),
-    tmpDir: options.tmpDir ?? tmpdir(),
-    pnpmStore: options.pnpmStore ?? null,
+    privateEnv: privateEnvIn(workdir, '', options),
+    checkPrivateEnv: privateEnvIn(workdir, 'check-', options),
+    sharedCaches: [
+      options.corepackHome,
+      options.browsersPath,
+      ...(options.pnpmStore ? [options.pnpmStore] : []),
+    ],
     ports: TRIAL_PORTS,
     setup: SETUP,
     checks: CHECKS,
+  };
+}
+
+/**
+ * `PRIVATE_ENV` with each folder under `workdir`, its name after `prefix`, and
+ * the shared caches.
+ *
+ * @param {string} workdir
+ * @param {string} prefix
+ * @param {{ corepackHome: string, browsersPath: string }} shared
+ */
+function privateEnvIn(workdir, prefix, { corepackHome, browsersPath }) {
+  return {
+    ...Object.fromEntries(
+      Object.entries(PRIVATE_ENV).map(([name, folder]) => [name, join(workdir, prefix + folder)]),
+    ),
+    COREPACK_HOME: corepackHome,
+    PLAYWRIGHT_BROWSERS_PATH: browsersPath,
   };
 }
 
@@ -371,12 +411,12 @@ async function prepareClone(plan, deps) {
  * @param {readonly Command[]} commands
  * @param {string} cwd
  * @param {Deps} deps
- * @param {NodeJS.ProcessEnv} [env]
+ * @param {NodeJS.ProcessEnv} env
  */
 async function runCommands(commands, cwd, deps, env) {
   const records = [];
   for (const command of commands) {
-    const run = await deps.exec(command.argv, { cwd, timeoutMs: command.timeoutMs, env });
+    const run = await deps.exec(command.argv, { cwd, env });
     records.push({
       name: command.name,
       command: commandText(command.argv),
@@ -523,7 +563,7 @@ async function commitResult(plan, deps) {
       '-m',
       `Trial ${plan.trial} of the Todo trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
     ],
-    { cwd: plan.clone, timeoutMs: 15 * MINUTE },
+    { cwd: plan.clone, env: trialEnv(plan.privateEnv) },
   );
   if (commit.code !== 0) {
     return {
@@ -597,13 +637,16 @@ async function writeEvidence(plan, evidence, deps) {
 
 /** @param {RunState} state */
 async function setupStage({ plan, deps, failures, agent }) {
-  for (const setup of await runCommands(plan.setup, plan.clone, deps)) {
+  for (const setup of await runCommands(plan.setup, plan.clone, deps, trialEnv(plan.privateEnv))) {
     if (setup.exitCode !== 0) {
       failures.push(`setup ${setup.name} exited ${setup.exitCode}`);
     }
   }
   failures.push(...missingCheckEntries(plan));
-  const version = await deps.exec([plan.agentArgv[0], '--version'], { cwd: plan.clone });
+  const version = await deps.exec([plan.agentArgv[0], '--version'], {
+    cwd: plan.clone,
+    env: agentEnv(plan.privateEnv),
+  });
   agent.version = version.stdout.trim();
   if (version.code !== 0) {
     failures.push(
@@ -613,23 +656,18 @@ async function setupStage({ plan, deps, failures, agent }) {
   agent.userConfigSha256 = userConfigSha256(plan);
 }
 
-const tmpEntries = (plan) => new Set(existsSync(plan.tmpDir) ? readdirSync(plan.tmpDir) : []);
-
 /**
- * Where the agent may read (ADR 0034): its workdir, the Claude config it
- * loads, its own session folders under the config's `projects/` and the
- * `claude-<uid>` tmp folder, the tmp entries it created, `~/.cache` and the
- * pnpm store. The trials root, every other session's folders and the rest
- * of `claude-<uid>` stay denied, even inside an allowed root.
+ * Where the agent may read (ADR 0034, 0038): its workdir, which holds its
+ * private temp and cache folders, the Claude config it loads, its own session
+ * folder under the config's `projects/`, and the shared caches. The trials
+ * root and every other session's folder stay denied, even inside an allowed
+ * root.
  *
  * @param {TrialPlan} plan
- * @param {Set<string>} tmpBefore the tmp folder's entries before the agent ran
  */
-function readScope(plan, tmpBefore) {
+function readScope(plan) {
   const slug = plan.clone.replace(/[^a-zA-Z0-9]/g, '-');
   const projects = join(plan.claudeConfigDir, 'projects');
-  const claudeTmp = join(plan.tmpDir, `claude-${process.getuid?.()}`);
-  const created = [...tmpEntries(plan)].filter((entry) => !tmpBefore.has(entry));
   return {
     clone: plan.clone,
     allowedRoots: [
@@ -637,12 +675,9 @@ function readScope(plan, tmpBefore) {
       ...USER_CONFIG_ENTRIES.map((entry) => join(plan.claudeConfigDir, entry)),
       join(plan.claudeConfigDir, 'plugins'),
       join(projects, slug, plan.sessionId),
-      join(claudeTmp, slug),
-      ...created.map((entry) => join(plan.tmpDir, entry)),
-      join(homedir(), '.cache'),
-      ...(plan.pnpmStore ? [plan.pnpmStore] : []),
+      ...plan.sharedCaches,
     ],
-    deniedRoots: [plan.trialsRoot, projects, claudeTmp],
+    deniedRoots: [plan.trialsRoot, projects],
   };
 }
 
@@ -656,7 +691,6 @@ function readScope(plan, tmpBefore) {
 async function agentStage(state) {
   const { plan, deps, scaffold, failures, agent, run, result } = state;
   writeFileSync(plan.promptPath, scaffold.prompt);
-  const tmpBefore = tmpEntries(plan);
   run.agentExitCode = -1;
   await writeEvidence(
     plan,
@@ -666,16 +700,13 @@ async function agentStage(state) {
   const session = await deps.exec(plan.agentArgv, {
     cwd: plan.clone,
     input: scaffold.prompt,
-    timeoutMs: AGENT_TIMEOUT_MS,
     stdoutFile: plan.streamPath,
-    env: agentEnv(),
+    env: agentEnv(plan.privateEnv),
   });
   run.agentExitCode = session.code;
   run.agentDurationMs = session.ms;
   if (session.code !== 0) {
-    failures.push(
-      session.timedOut ? 'the agent ran past its 90 minute limit' : `agent exited ${session.code}`,
-    );
+    failures.push(`agent exited ${session.code}`);
   }
   const streamText = readFileSync(plan.streamPath, 'utf8');
   const events = streamEvents(streamText);
@@ -690,7 +721,7 @@ async function agentStage(state) {
     sha256: sha256(kept),
     userTextEvents,
   };
-  result.outsideReads = findOutsideReads(events, readScope(plan, tmpBefore));
+  result.outsideReads = findOutsideReads(events, readScope(plan));
   if (result.outsideReads.length > 0) {
     failures.push(`named paths outside the clone: ${result.outsideReads.join(', ')}`);
   }
@@ -757,7 +788,12 @@ async function checksStage(state) {
     plan.clone,
     plan.checkClone,
   );
-  state.checks = await runCommands(plan.checks, plan.checkClone, deps, checkEnv());
+  state.checks = await runCommands(
+    plan.checks,
+    plan.checkClone,
+    deps,
+    checkEnv(plan.checkPrivateEnv),
+  );
   for (const check of state.checks.filter(({ exitCode }) => exitCode !== 0)) {
     failures.push(`check ${check.name} exited ${check.exitCode}`);
   }
@@ -771,21 +807,35 @@ async function checksStage(state) {
 /**
  * The run protocol in order. A stage marked `beforeAgent` stops the run on
  * its first failure, so a broken setup never reaches the agent; after the
- * agent, every stage runs, so a failed run still records all it can.
+ * agent, every stage runs, so a failed run still records all it can. A stage
+ * with `stopped` runs with no time limit, so a record naming it as the
+ * failure is written before it starts, in case the operator stops the harness.
  */
 const STAGES = [
   { run: ({ plan, deps }) => prepareClone(plan, deps), beforeAgent: true },
   { run: setupStage, beforeAgent: true },
   { run: agentStage, beforeAgent: false },
-  { run: resultStage, beforeAgent: false },
+  {
+    run: resultStage,
+    beforeAgent: false,
+    stopped: 'the harness stopped while the commit hooks ran',
+  },
   { run: strayServerStage, beforeAgent: false },
-  { run: checksStage, beforeAgent: false },
+  { run: checksStage, beforeAgent: false, stopped: 'the harness stopped while the checks ran' },
 ];
 
 /** @param {RunState} state */
 async function runStages(state) {
   for (const stage of STAGES) {
     try {
+      if (stage.stopped) {
+        const failures = [...state.failures, stage.stopped];
+        await writeEvidence(
+          state.plan,
+          toEvidence({ ...state, failures }, state.deps.now()),
+          state.deps,
+        );
+      }
       await stage.run(state);
     } catch (error) {
       state.failures.push(`harness: ${error instanceof Error ? error.message : String(error)}`);
@@ -859,7 +909,11 @@ function toEvidence(state, finishedAt) {
 export async function runTrial(plan, deps) {
   const scaffold = await readScaffold(plan, deps);
   const retries = await checkPreconditions(plan, deps);
-  mkdirSync(plan.workdir, { recursive: true });
+  for (const env of [plan.privateEnv, plan.checkPrivateEnv]) {
+    for (const name of Object.keys(PRIVATE_ENV)) {
+      mkdirSync(env[name], { recursive: true, mode: 0o700 });
+    }
+  }
   /** @type {RunState} */
   const state = {
     plan,
@@ -942,10 +996,24 @@ function resolveCheckout(scaffold) {
   return { root, scaffoldRev };
 }
 
+/**
+ * A shared cache from the caller's environment, which must sit inside
+ * `~/.cache`, so the read allowlist never reaches past what ADR 0034 allowed.
+ */
+function sharedCache(name, path) {
+  const bound = join(homedir(), '.cache');
+  const resolved = resolve(path);
+  if (!resolved.startsWith(`${bound}/`)) {
+    throw new Error(`${name} must name a folder inside ${bound}, got ${JSON.stringify(path)}.`);
+  }
+  return resolved;
+}
+
 function planFromArguments(options) {
   const { root, scaffoldRev } = resolveCheckout(options.scaffold);
   const configDirFromEnv = process.env.CLAUDE_CONFIG_DIR;
   const claudeConfigDir = configDirFromEnv ?? join(homedir(), '.claude');
+  const userCache = process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache');
   return planTrial({
     trial: Number(options.trial),
     scaffoldRev,
@@ -956,16 +1024,38 @@ function planFromArguments(options) {
     agentCommand: options.agentCommand && resolve(options.agentCommand),
     claudeConfigDir,
     claudeStateFile: configDirFromEnv && join(configDirFromEnv, '.claude.json'),
+    corepackHome: sharedCache(
+      'COREPACK_HOME',
+      process.env.COREPACK_HOME ?? join(userCache, 'node/corepack'),
+    ),
+    browsersPath: sharedCache(
+      'PLAYWRIGHT_BROWSERS_PATH',
+      process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(userCache, 'ms-playwright'),
+    ),
     pnpmStore: output(['pnpm', 'store', 'path'], root),
     retry: options.retry,
   });
 }
 
+/** The plan fields a dry run prints. */
+const DRY_RUN_FIELDS = /** @type {const} */ ([
+  'trial',
+  'id',
+  'scaffoldRev',
+  'branch',
+  'workdir',
+  'clone',
+  'evidencePath',
+  'agentArgv',
+  'fake',
+  'privateEnv',
+  'checkPrivateEnv',
+]);
+
 /** @param {TrialPlan} plan */
 async function printDryRun(plan, deps) {
   const { prompt, harness } = await readScaffold(plan, deps);
-  const { trial, id, scaffoldRev, branch, workdir, clone, evidencePath, agentArgv, fake } = plan;
-  const printed = { trial, id, scaffoldRev, branch, workdir, clone, evidencePath, agentArgv, fake };
+  const printed = Object.fromEntries(DRY_RUN_FIELDS.map((field) => [field, plan[field]]));
   console.log(JSON.stringify({ ...printed, promptSha256: sha256(prompt), harness }, null, 2));
 }
 
