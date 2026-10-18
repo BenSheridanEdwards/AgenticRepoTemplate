@@ -10,8 +10,8 @@
  * result, runs every check on a clean clone of that commit and writes
  * `docs/trials/<id>.json` (plus a patch when the run fails) into the invoking
  * checkout. Each command that runs the trial's code gets a private temp and
- * cache folder inside the workdir, and none runs under a time limit (ADR
- * 0038). It never deletes the workdir; it prints the path for whoever runs the
+ * cache folder inside the workdir, with the temp folder mounted over `/tmp`
+ * by bubblewrap, and none runs under a time limit (ADR 0038). It never deletes the workdir; it prints the path for whoever runs the
  * next trial.
  *
  * `planTrial` and `renderPrompt` are pure. `runTrial` reaches the system only
@@ -25,6 +25,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -64,7 +65,8 @@ const AGENT_FLAGS = [
 /**
  * The temp and cache variables every trial command gets, each naming a folder
  * inside the workdir (ADR 0038), so no tool the agent or a check runs reads or
- * writes the shared `/tmp` or `~/.cache`. `CLAUDE_CODE_TMPDIR` also keeps
+ * writes the shared `/tmp` or `~/.cache`. The `TMPDIR` folder is also mounted
+ * over `/tmp`, so a command that names `/tmp` reaches it too. `CLAUDE_CODE_TMPDIR` also keeps
  * Claude Code's sandboxed commands off their `/tmp/claude` default. The
  * checks get their own `check-` folders, so nothing the agent left in its
  * temp or cache folder reaches them.
@@ -124,12 +126,15 @@ const USER_CONFIG_ENTRIES = [
  *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
  *   claudeConfigDir: string, claudeStateFile: string,
  *   privateEnv: Readonly<Record<string, string>>, checkPrivateEnv: Readonly<Record<string, string>>,
- *   sharedCaches: readonly string[],
+ *   sharedCaches: readonly string[], sharedTmp: string,
  *   ports: readonly number[], setup: readonly Command[], checks: readonly Command[],
  * }} TrialPlan
  * @typedef {{ code: number, stdout: string, output: string, ms: number }} ExecResult
+ * @typedef {{ folder: string, over: string, keep: readonly string[] }} PrivateTmp
+ *   A command's own temp folder, mounted over the shared `over`, and the
+ *   paths under `over` it still needs: its workdir and its executable.
  * @typedef {{
- *   exec: (argv: readonly string[], options: { cwd: string, input?: string, stdoutFile?: string, env?: NodeJS.ProcessEnv }) => Promise<ExecResult>,
+ *   exec: (argv: readonly string[], options: { cwd: string, input?: string, stdoutFile?: string, env?: NodeJS.ProcessEnv, privateTmp?: PrivateTmp }) => Promise<ExecResult>,
  *   now: () => Date,
  *   freeDiskBytes: (path: string) => number,
  *   isPortBusy: (port: number) => Promise<boolean>,
@@ -153,11 +158,13 @@ const CHECKS = [
  * @param {{
  *   trial: number, scaffoldRev: string, root: string, trialsRoot: string, now: Date,
  *   sessionId: string, agentCommand?: string, claudeConfigDir: string, claudeStateFile?: string,
- *   corepackHome: string, browsersPath: string, pnpmStore?: string | null, retry: boolean,
+ *   corepackHome: string, browsersPath: string, pnpmStore?: string | null,
+ *   sharedTmp?: string, retry: boolean,
  * }} options
  *   `corepackHome`, `browsersPath` and `pnpmStore` are the shared caches the
  *   trial's commands still read: the pinned pnpm, the Playwright browsers and
- *   the package store.
+ *   the package store. `sharedTmp` is the box's temp folder, `/tmp` unless a
+ *   test names another, which each trial command sees as its own.
  * @returns {TrialPlan}
  */
 export function planTrial(options) {
@@ -204,6 +211,7 @@ export function planTrial(options) {
       options.browsersPath,
       ...(options.pnpmStore ? [options.pnpmStore] : []),
     ],
+    sharedTmp: options.sharedTmp ?? '/tmp',
     ports: TRIAL_PORTS,
     setup: SETUP,
     checks: CHECKS,
@@ -225,6 +233,26 @@ function privateEnvIn(workdir, prefix, { corepackHome, browsersPath }) {
     ),
     COREPACK_HOME: corepackHome,
     PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+  };
+}
+
+/**
+ * The exec options of a command that runs the trial's code: `env`, and the
+ * `TMPDIR` folder of `privateEnv` mounted over the shared `/tmp`, keeping the
+ * workdir and an agent named by path in view.
+ *
+ * @param {TrialPlan} plan
+ * @param {NodeJS.ProcessEnv} env
+ * @param {Readonly<Record<string, string>>} privateEnv
+ */
+function confined(plan, env, privateEnv) {
+  return {
+    env,
+    privateTmp: {
+      folder: privateEnv.TMPDIR,
+      over: plan.sharedTmp,
+      keep: [plan.workdir, plan.agentArgv[0]].filter((path) => path.startsWith('/')),
+    },
   };
 }
 
@@ -411,12 +439,12 @@ async function prepareClone(plan, deps) {
  * @param {readonly Command[]} commands
  * @param {string} cwd
  * @param {Deps} deps
- * @param {NodeJS.ProcessEnv} env
+ * @param {ReturnType<typeof confined>} options
  */
-async function runCommands(commands, cwd, deps, env) {
+async function runCommands(commands, cwd, deps, options) {
   const records = [];
   for (const command of commands) {
-    const run = await deps.exec(command.argv, { cwd, env });
+    const run = await deps.exec(command.argv, { cwd, ...options });
     records.push({
       name: command.name,
       command: commandText(command.argv),
@@ -563,7 +591,7 @@ async function commitResult(plan, deps) {
       '-m',
       `Trial ${plan.trial} of the Todo trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
     ],
-    { cwd: plan.clone, env: trialEnv(plan.privateEnv) },
+    { cwd: plan.clone, ...confined(plan, trialEnv(plan.privateEnv), plan.privateEnv) },
   );
   if (commit.code !== 0) {
     return {
@@ -635,9 +663,23 @@ async function writeEvidence(plan, evidence, deps) {
  * }} RunState
  */
 
-/** @param {RunState} state */
+/**
+ * Installs the clone and reads the agent's version. First it checks that
+ * bubblewrap can mount the private temp folder over `/tmp`, and stops the run
+ * when it cannot, so no trial ever runs on the shared `/tmp`.
+ *
+ * @param {RunState} state
+ */
 async function setupStage({ plan, deps, failures, agent }) {
-  for (const setup of await runCommands(plan.setup, plan.clone, deps, trialEnv(plan.privateEnv))) {
+  const options = confined(plan, trialEnv(plan.privateEnv), plan.privateEnv);
+  const probe = await deps.exec(['true'], { cwd: plan.clone, ...options });
+  if (probe.code !== 0) {
+    failures.push(
+      `bubblewrap could not give the trial a private /tmp (exit ${probe.code}): ${probe.output.trim()}. Install bubblewrap (bwrap) and allow unprivileged user namespaces; the harness runs no trial on the shared /tmp.`,
+    );
+    return;
+  }
+  for (const setup of await runCommands(plan.setup, plan.clone, deps, options)) {
     if (setup.exitCode !== 0) {
       failures.push(`setup ${setup.name} exited ${setup.exitCode}`);
     }
@@ -645,7 +687,7 @@ async function setupStage({ plan, deps, failures, agent }) {
   failures.push(...missingCheckEntries(plan));
   const version = await deps.exec([plan.agentArgv[0], '--version'], {
     cwd: plan.clone,
-    env: agentEnv(plan.privateEnv),
+    ...confined(plan, agentEnv(plan.privateEnv), plan.privateEnv),
   });
   agent.version = version.stdout.trim();
   if (version.code !== 0) {
@@ -658,10 +700,10 @@ async function setupStage({ plan, deps, failures, agent }) {
 
 /**
  * Where the agent may read (ADR 0034, 0038): its workdir, which holds its
- * private temp and cache folders, the Claude config it loads, its own session
- * folder under the config's `projects/`, and the shared caches. The trials
- * root and every other session's folder stay denied, even inside an allowed
- * root.
+ * private temp and cache folders, `/tmp`, which is that temp folder inside
+ * bubblewrap, the Claude config it loads, its own session folder under the
+ * config's `projects/`, and the shared caches. The trials root and every
+ * other session's folder stay denied, even inside an allowed root.
  *
  * @param {TrialPlan} plan
  */
@@ -672,6 +714,7 @@ function readScope(plan) {
     clone: plan.clone,
     allowedRoots: [
       plan.workdir,
+      plan.sharedTmp,
       ...USER_CONFIG_ENTRIES.map((entry) => join(plan.claudeConfigDir, entry)),
       join(plan.claudeConfigDir, 'plugins'),
       join(projects, slug, plan.sessionId),
@@ -701,7 +744,7 @@ async function agentStage(state) {
     cwd: plan.clone,
     input: scaffold.prompt,
     stdoutFile: plan.streamPath,
-    env: agentEnv(plan.privateEnv),
+    ...confined(plan, agentEnv(plan.privateEnv), plan.privateEnv),
   });
   run.agentExitCode = session.code;
   run.agentDurationMs = session.ms;
@@ -768,8 +811,9 @@ async function resultStage({ plan, deps, scaffold, failures, result }) {
 
 /**
  * Runs the checks on a fresh clone of the result commit, with CI's
- * environment, so they see exactly what was committed and nothing the agent
- * left behind in its tree.
+ * environment and their own temp and cache folders, so they see exactly what
+ * was committed and nothing the agent left behind. The agent can reach the
+ * workdir, so a check folder it already filled fails the run unchecked.
  *
  * @param {RunState} state
  */
@@ -777,6 +821,20 @@ async function checksStage(state) {
   const { plan, deps, failures, result } = state;
   if (result.commit === null) {
     return;
+  }
+  const folders = [...new Set(Object.keys(PRIVATE_ENV).map((name) => plan.checkPrivateEnv[name]))];
+  const filled = folders.filter((folder) => existsSync(folder));
+  if (filled.length > 0) {
+    failures.push(
+      ...filled.map(
+        (folder) =>
+          `the agent wrote into ${relative(plan.workdir, folder)}, the checks' private folder`,
+      ),
+    );
+    return;
+  }
+  for (const folder of folders) {
+    mkdirSync(folder, { recursive: true, mode: 0o700 });
   }
   await git(
     deps,
@@ -792,7 +850,7 @@ async function checksStage(state) {
     plan.checks,
     plan.checkClone,
     deps,
-    checkEnv(plan.checkPrivateEnv),
+    confined(plan, checkEnv(plan.checkPrivateEnv), plan.checkPrivateEnv),
   );
   for (const check of state.checks.filter(({ exitCode }) => exitCode !== 0)) {
     failures.push(`check ${check.name} exited ${check.exitCode}`);
@@ -820,7 +878,11 @@ const STAGES = [
     beforeAgent: false,
     stopped: 'the harness stopped while the commit hooks ran',
   },
-  { run: strayServerStage, beforeAgent: false },
+  {
+    run: strayServerStage,
+    beforeAgent: false,
+    stopped: 'the harness stopped while it looked for servers the agent left',
+  },
   { run: checksStage, beforeAgent: false, stopped: 'the harness stopped while the checks ran' },
 ];
 
@@ -909,10 +971,8 @@ function toEvidence(state, finishedAt) {
 export async function runTrial(plan, deps) {
   const scaffold = await readScaffold(plan, deps);
   const retries = await checkPreconditions(plan, deps);
-  for (const env of [plan.privateEnv, plan.checkPrivateEnv]) {
-    for (const name of Object.keys(PRIVATE_ENV)) {
-      mkdirSync(env[name], { recursive: true, mode: 0o700 });
-    }
+  for (const name of Object.keys(PRIVATE_ENV)) {
+    mkdirSync(plan.privateEnv[name], { recursive: true, mode: 0o700 });
   }
   /** @type {RunState} */
   const state = {
@@ -996,17 +1056,20 @@ function resolveCheckout(scaffold) {
   return { root, scaffoldRev };
 }
 
+/** Where `path` really is, through any symlink, once it exists. */
+const located = (path) => (existsSync(path) ? realpathSync(path) : resolve(path));
+
 /**
- * A shared cache from the caller's environment, which must sit inside
- * `~/.cache`, so the read allowlist never reaches past what ADR 0034 allowed.
+ * A shared cache from the caller's environment, which must really sit inside
+ * `~/.cache`, symlinks followed, so the read allowlist never reaches past
+ * what ADR 0034 allowed.
  */
 function sharedCache(name, path) {
   const bound = join(homedir(), '.cache');
-  const resolved = resolve(path);
-  if (!resolved.startsWith(`${bound}/`)) {
+  if (!located(path).startsWith(`${located(bound)}/`)) {
     throw new Error(`${name} must name a folder inside ${bound}, got ${JSON.stringify(path)}.`);
   }
-  return resolved;
+  return resolve(path);
 }
 
 function planFromArguments(options) {

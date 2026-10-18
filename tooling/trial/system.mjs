@@ -129,6 +129,29 @@ export function checkEnv(privateEnv) {
   return { ...trialEnv(privateEnv), CI: '1' };
 }
 
+/**
+ * `argv` inside bubblewrap, with `folder` mounted over `over` (the shared
+ * `/tmp`) and each `keep` path mounted back at itself, so a kept path under
+ * `over` stays in view (ADR 0038). The rest of the filesystem is the host's.
+ *
+ * @param {readonly string[]} argv
+ * @param {import('./run-trial.mjs').PrivateTmp} privateTmp
+ */
+function confine(argv, { folder, over, keep }) {
+  return [
+    'bwrap',
+    '--dev-bind',
+    '/',
+    '/',
+    '--bind',
+    folder,
+    over,
+    ...keep.flatMap((path) => ['--bind', path, path]),
+    '--',
+    ...argv,
+  ];
+}
+
 /** The process groups still running, so a stopped harness can stop them too. */
 const running = new Set();
 
@@ -148,14 +171,16 @@ function stopGroup(pid, signal) {
 }
 
 /**
- * Runs one command in its own process group and resolves when it exits, with
- * no time limit (ADR 0038). It then stops the whole group, because a server a
- * command left running would hold a port the next step needs.
+ * Runs one command in its own process group, inside `confine` when it has a
+ * `privateTmp`, and resolves when it exits, with no time limit (ADR 0038). It
+ * then stops the whole group, because a server a command left running would
+ * hold a port the next step needs.
  */
-function exec(argv, { cwd, input, stdoutFile, env = commandEnv() }) {
+function exec(argv, { cwd, input, stdoutFile, env = commandEnv(), privateTmp }) {
   return new Promise((done) => {
     const started = Date.now();
-    const child = spawn(argv[0], argv.slice(1), { cwd, env, detached: true });
+    const [command, ...args] = privateTmp ? confine(argv, privateTmp) : argv;
+    const child = spawn(command, args, { cwd, env, detached: true });
     running.add(child.pid);
     const file = stdoutFile ? createWriteStream(stdoutFile) : null;
     let stdout = '';
