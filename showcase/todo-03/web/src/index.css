@@ -1,0 +1,125 @@
+:root {
+  --color-bg: #0b1020;
+  --color-surface: #141a2e;
+  --color-text: #e6e9f2;
+  --color-muted: #9aa3bd;
+  --color-border: #273150;
+  --color-focus: #4ade80;
+  --color-danger: #f87171;
+
+  --radius: 12px;
+  --space: 16px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px var(--space);
+}
+
+.app__header {
+  margin-bottom: 32px;
+}
+
+.app__title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.app__tagline {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 16px;
+}
+
+.todos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.todo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.todo-item__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+
+.todo-item__checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-focus);
+}
+
+.todo-item__checkbox:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.todo-item--completed .todo-item__title {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.todos-empty {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.todos-error {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .app {
+    padding: 24px var(--space);
+  }
+}
