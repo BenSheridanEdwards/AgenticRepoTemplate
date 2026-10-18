@@ -171,7 +171,7 @@ Every row comes from the committed evidence and files (ADR 0034, "New baseline")
 | Rendered prompt SHA-256 | re-derived with `renderPrompt` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
 | Recorded prompt text | re-derived from `prompt.text` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
 
-The runs recorded enforcement rev `3d35bf1`. After the trials ran, the branch merged main `1321f04` (#93). Among the enforcement paths it changes only `scripts/enforcement-approval.mjs` and its test, the sign-off gate, and this branch adds only the comparison under `tooling/trial`, which reads the results. Every gate that judges the showcase code is the one the runs ran.
+The runs recorded enforcement rev `3d35bf1`. After the trials ran, the branch merged main `1321f04` (#93). Among the enforcement paths it changes only `scripts/enforcement-approval.mjs` and its test, the gate that asks for approval of gate changes, and this branch adds only the comparison under `tooling/trial`, which reads the results. Every gate that judges the showcase code is the one the runs ran.
 
 A record with `agent.fake: true` stops the report before this table renders, so every run here ran the real agent. The template rows read `tooling/trial/todo-prompt.md` as committed, so a later prompt change shows `no` there, which is the new-baseline rule of ADR 0034.
 

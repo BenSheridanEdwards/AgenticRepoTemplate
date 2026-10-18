@@ -76,7 +76,7 @@ const OUTSIDE_PATH_CAUSES = {
  */
 const TRUNK_DRIFT = {
   since: '3d35bf1c35f3b3ce16a3bfb2b4df8f3424441cc1',
-  text: 'After the trials ran, the branch merged main `1321f04` (#93). Among the enforcement paths it changes only `scripts/enforcement-approval.mjs` and its test, the sign-off gate, and this branch adds only the comparison under `tooling/trial`, which reads the results. Every gate that judges the showcase code is the one the runs ran.',
+  text: 'After the trials ran, the branch merged main `1321f04` (#93). Among the enforcement paths it changes only `scripts/enforcement-approval.mjs` and its test, the gate that asks for approval of gate changes, and this branch adds only the comparison under `tooling/trial`, which reads the results. Every gate that judges the showcase code is the one the runs ran.',
 };
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
