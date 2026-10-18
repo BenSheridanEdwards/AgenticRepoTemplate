@@ -144,10 +144,37 @@ describe("the repository's contract, read through Fallow", () => {
     ]);
   });
 
-  it('allows exactly two type-only directions', () => {
-    expect(repository.directions.filter((direction) => direction.typeOnly)).toEqual([
-      { from: 'web-api-client', to: 'api-app', typeOnly: true },
-      { from: 'api-procedures', to: 'api-domain', typeOnly: true },
+  it('lets every role reach every other role, by value or by type', () => {
+    const reach = new Set(repository.directions.map(({ from, to }) => `${from} ${to}`));
+    const missing = repository.roles.flatMap((from: string) =>
+      repository.roles
+        .filter((to: string) => to !== from && !reach.has(`${from} ${to}`))
+        .map((to: string) => `${from} ${to}`),
+    );
+    expect(missing).toEqual([]);
+    expect(repository.directions.filter(({ from, to }) => from === to)).toEqual([]);
+  });
+
+  it('allows value imports along exactly the listed directions', () => {
+    const valueDirections = repository.directions
+      .filter((direction) => !direction.typeOnly)
+      .map(({ from, to }) => `${from} -> ${to}`);
+    expect(valueDirections).toEqual([
+      'web-app -> web-routes',
+      'web-app -> web-api-client',
+      'web-app -> ui',
+      'web-routes -> web-features',
+      'web-routes -> web-api-client',
+      'web-routes -> ui',
+      'web-features -> web-api-client',
+      'web-features -> ui',
+      'api-app -> api-trpc',
+      'api-app -> api-procedures',
+      'api-procedures -> api-trpc',
+      'api-procedures -> api-application',
+      'api-application -> api-domain',
+      'api-application -> api-integrations',
+      'api-integrations -> api-domain',
     ]);
   });
 });

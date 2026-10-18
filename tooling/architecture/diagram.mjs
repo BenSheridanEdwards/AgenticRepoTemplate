@@ -3,7 +3,10 @@
  * Render the architecture diagrams from the contract and Fallow's graph.
  *
  * `docs/architecture/roles.mmd` is the canonical diagram: every role in
- * `.fallowrc.jsonc` and every direction its rules allow. Each result gets
+ * `.fallowrc.jsonc` and every direction its rules allow by value. A type-only
+ * import between any two roles is allowed (ADR 0037), so the canonical diagram
+ * leaves those out; a result diagram dashes an edge whose pair the contract
+ * allows for types only. Each result gets
  * `<root>/architecture.mmd`: the roles its files hold and the role edges its
  * imports resolve to. Both use one set of conventions (node ids, labels,
  * subgraphs, sort order, dashed type-only edges), so two diagrams differ in
@@ -58,10 +61,14 @@ function renderDiagram(contract, header, roles, edges) {
 
 /** @param {import('./contract.mjs').Contract} contract */
 export function renderContractDiagram(contract) {
-  const edges = new Map(contract.directions.map(({ from, to }) => [`${from} ${to}`, [from, to]]));
+  const edges = new Map(
+    contract.directions
+      .filter(({ typeOnly }) => !typeOnly)
+      .map(({ from, to }) => [`${from} ${to}`, [from, to]]),
+  );
   return renderDiagram(
     contract,
-    `${GENERATOR}: every role and allowed direction in .fallowrc.jsonc`,
+    `${GENERATOR}: every role and value direction in .fallowrc.jsonc; any role may import types from any other role`,
     new Set(contract.roles),
     edges.values(),
   );

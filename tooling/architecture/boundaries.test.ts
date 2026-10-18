@@ -154,10 +154,10 @@ describe('Fallow contract over the reference result', () => {
       'boundary web-api-client -> api-app',
     ],
     [
-      'a route type-imports the api package',
-      `${WEB}/routes/settings/index.ts`,
-      "import type { AppRouter } from '@repo/api';\nexport const settings = 1;\nexport type Router = AppRouter;\n",
-      'boundary web-routes/settings -> api-app',
+      'a route type-imports a sibling route',
+      `${WEB}/routes/greeting/index.ts`,
+      "import type { settings } from '../settings';\nexport type Settings = typeof settings;\nexport const greeting = 1;\n",
+      'boundary web-routes/greeting -> web-routes/settings',
     ],
     [
       'a ui primitive imports the api client',
@@ -191,6 +191,46 @@ describe('Fallow contract over the reference result', () => {
     ],
   ])('fails when %s', (_label, path, source, finding) => {
     expect(architectureGate({ [path]: source })).toEqual({ status: 1, findings: [finding] });
+  });
+
+  it.each([
+    [
+      'a route type-imports the api package',
+      `${WEB}/routes/settings/index.ts`,
+      "import type { AppRouter } from '@repo/api';\nexport const settings = 1;\nexport type Router = AppRouter;\n",
+    ],
+    [
+      'the domain type-imports application logic',
+      `${GREETING}/domain.ts`,
+      "import type { greet } from './application.ts';\nexport interface Greeting { readonly message: string }\nexport type Greet = typeof greet;\nexport const formatGreeting = (name: string) => 'Hello, ' + name;\n",
+    ],
+    [
+      'an integration type-imports application logic',
+      `${GREETING}/integrations.ts`,
+      "import type { greet } from './application.ts';\nexport const remember = (name: string) => name;\nexport type Greet = typeof greet;\n",
+    ],
+    [
+      'the api root type-imports application logic',
+      `${API}/router.ts`,
+      "import { greetingRouter } from './features/greeting/index.ts';\nimport type { greet } from './features/greeting/application.ts';\nimport { router } from './trpc.ts';\nexport const appRouter = router(greetingRouter);\nexport type AppRouter = typeof appRouter;\nexport type Greet = typeof greet;\n",
+    ],
+    [
+      'the app type-imports a feature',
+      `${WEB}/App.tsx`,
+      "import { greeting } from './routes/greeting';\nimport type { status } from './features/status';\nexport type Status = typeof status;\nexport const App = greeting;\n",
+    ],
+    [
+      'a feature type-imports a route',
+      `${WEB}/features/status/index.ts`,
+      "import type { settings } from '../../routes/settings';\nexport type Settings = typeof settings;\nexport const status = 1;\n",
+    ],
+    [
+      'the api root re-exports a domain type',
+      `${API}/router.ts`,
+      "import { greetingRouter } from './features/greeting/index.ts';\nimport { router } from './trpc.ts';\nexport type { Greeting } from './features/greeting/domain.ts';\nexport const appRouter = router(greetingRouter);\nexport type AppRouter = typeof appRouter;\n",
+    ],
+  ])('passes when %s, a type-only import between roles', (_label, path, source) => {
+    expect(architectureGate({ [path]: source })).toEqual({ status: 0, findings: [] });
   });
 
   it.each([
