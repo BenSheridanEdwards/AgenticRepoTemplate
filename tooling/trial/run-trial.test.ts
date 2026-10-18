@@ -54,7 +54,8 @@ const savedEnv = { ...process.env };
 
 // A `runTrial` test spawns about 30 real processes (git, Biome, the fake
 // agent), so its time grows with the box's load: the slowest, with two runs,
-// took 16 s at a load average of 195 on 8 cores. The budget covers the file.
+// took 16 s at a load average of 195 on 8 cores. Only the `runTrial` cases are
+// asynchronous, and Jest can time out nothing else, so the budget is theirs.
 jest.setTimeout(60_000);
 
 let sandbox: string;
@@ -748,7 +749,7 @@ emit({ type: 'assistant', message: { content: [
   });
 
   it('starts the agent as a fresh session with its credentials, and nothing that points back', async () => {
-    const seen = join(sandbox, 'agent-env.json');
+    const seen = join(caseDir, 'agent-env.json');
     const parent = {
       CLAUDECODE: '1',
       CLAUDE_CODE_SESSION_ID: 'parent-session',
@@ -839,7 +840,7 @@ emit({ type: 'assistant', message: { content: [
   });
 
   it('runs the checks as CI does, on a clean clone of the result commit', async () => {
-    const seen = join(sandbox, 'check-saw.json');
+    const seen = join(caseDir, 'check-saw.json');
     const planned = {
       ...plan({
         agent: fakeAgent('leaves-residue', `${WRITES_RESULT}\nput('secret.local', 'x');`),
@@ -870,7 +871,7 @@ emit({ type: 'assistant', message: { content: [
 
   it('stops a server the agent left on a trial port before the checks, and the run still passes', async () => {
     const port = await freePort();
-    const pidFile = join(sandbox, 'stray-server.pid');
+    const pidFile = join(caseDir, 'stray-server.pid');
     const portIsFree = `const s = require('net').createServer(); s.once('error', () => process.exit(1)); s.listen(${port}, '127.0.0.1', () => s.close(() => process.exit(0)));`;
     const agent = fakeAgent(
       'stray-server',
@@ -950,7 +951,7 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
   });
 
   it('marks the trial as run before the agent starts, so a stopped harness leaves a final record', async () => {
-    const copy = join(sandbox, 'provisional.json');
+    const copy = join(caseDir, 'provisional.json');
     const evidencePath = join(checkout, 'docs/trials/todo-01.json');
     const agent = fakeAgent(
       'provisional',
