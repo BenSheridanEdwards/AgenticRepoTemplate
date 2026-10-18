@@ -87,6 +87,10 @@ a Fallow zone, and its patterns match every result through the brace glob
 and `coverage.requireAllFiles` fails any source file that sits in no role. A
 role may import types (`import type`, `export type … from`) from any other
 role ([ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)).
+Inline `type` specifiers count too, as in `import { type Greeting }`, when
+every specifier carries one. Fallow reads a plain `import { Greeting }` as a
+value import even when the file uses `Greeting` only as a type, so write
+`import type`.
 A slice of a role still imports nothing from a sibling slice. Paths below are
 relative to a result root (`apps/` or `showcase/<id>/`).
 
@@ -114,7 +118,10 @@ shows every role and every value direction the rules allow. Each result has
 its own generated diagram,
 [`apps/architecture.mmd`](../../apps/architecture.mmd) for the reference and
 `showcase/<id>/architecture.mmd` for a trial, with the role edges its imports
-resolve to, dashed where an edge is a type-only import. Both come from
+resolve to. An edge is dashed where the contract allows its pair for types
+only. A type-only import along a direction that also allows values draws
+solid, because Fallow's graph records no import kind; the trial comparison
+reads the sources and counts that edge as type-only. Both come from
 `pnpm arch:diagram`, with the same node names.
 
 ## Result structure
