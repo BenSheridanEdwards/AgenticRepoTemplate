@@ -9,9 +9,16 @@ import policy from '../tooling/eslint-plugin-policy.js';
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const ESLINT_BIN = resolve(REPOSITORY_ROOT, 'node_modules/.bin/eslint');
 
+interface LintMessage {
+  line: number;
+  message: string;
+  ruleId: string | null;
+}
+
 interface LintResult {
   exitCode: number | null;
   ruleIds: string[];
+  messages: LintMessage[];
   output: string;
 }
 
@@ -26,14 +33,14 @@ function lintPolicy(
     { cwd: REPOSITORY_ROOT, input: source, encoding: 'utf8' },
   );
   const output = `${run.stdout}${run.stderr}`;
-  let ruleIds: string[] = [];
+  let messages: LintMessage[] = [];
   try {
-    const [report] = JSON.parse(run.stdout) as [{ messages: { ruleId: string | null }[] }];
-    ruleIds = report.messages.map((message) => message.ruleId ?? 'parse-error');
+    [{ messages }] = JSON.parse(run.stdout) as [{ messages: LintMessage[] }];
   } catch {
-    ruleIds = [];
+    messages = [];
   }
-  return { exitCode: run.status, ruleIds, output };
+  const ruleIds = messages.map((message) => message.ruleId ?? 'parse-error');
+  return { exitCode: run.status, ruleIds, messages, output };
 }
 
 describe('ESLint policy stack', () => {
@@ -705,5 +712,74 @@ export function useGreeting() {
       'apps/web/src/routes/greeting/useGreeting.ts',
     );
     expect(result.ruleIds).toEqual([]);
+  });
+});
+
+describe('ESLint inline config', () => {
+  jest.setTimeout(60_000);
+  // Split, so this file holds no inline config of its own.
+  const ESLINT = 'eslint';
+
+  it.each([
+    'apps/web/src/routes/greeting/GreetingPage.tsx',
+    'apps/web/src/App.test.tsx',
+    'apps/web/e2e/greeting.spec.ts',
+    'apps/api/src/server.ts',
+    'packages/ui/src/index.ts',
+    'showcase/x/web/src/App.tsx',
+    'tooling/architecture/structure.mjs',
+    'tooling/trial/compare.test.ts',
+    'scripts/check-suppressions.mjs',
+    'playwright.config.ts',
+  ])('blocks every inline config form in %s', (filename) => {
+    const forms = [
+      `/* ${ESLINT}-disable */`,
+      `/* ${ESLINT}-enable */`,
+      `// ${ESLINT}-disable-next-line policy/handler-names -- a stated reason`,
+      `export const one = 1; // ${ESLINT}-disable-line`,
+      `/* ${ESLINT} policy/one-component-per-file: off */`,
+      '/* global document */',
+    ];
+    const result = lintPolicy(`${forms.join('\n')}\n`, filename);
+
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.messages.map(({ line, message }) => [line, /noInlineConfig/.test(message)]),
+    ).toEqual(forms.map((_, index) => [index + 1, true]));
+  });
+
+  it('keeps a suppressed finding reported when a disable comment names its rule', () => {
+    const result = lintPolicy(`
+export function Fixture() {
+  return <Badge />;
+}
+// ${ESLINT}-disable-next-line policy/one-component-per-file -- a stated reason
+function Badge() {
+  return <span>new</span>;
+}
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/one-component-per-file');
+  });
+
+  it('lints every tracked source file', () => {
+    const tracked = spawnSync(
+      'git',
+      ['ls-files', '*.ts', '*.tsx', '*.mts', '*.cts', '*.js', '*.mjs', '*.cjs'],
+      { cwd: REPOSITORY_ROOT, encoding: 'utf8' },
+    )
+      .stdout.split('\n')
+      .filter((path) => path && !path.startsWith('vendor/'));
+    const run = spawnSync(ESLINT_BIN, ['--format=json', '.'], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    const linted = (JSON.parse(run.stdout) as { filePath: string }[]).map(({ filePath }) =>
+      filePath.slice(REPOSITORY_ROOT.length + 1),
+    );
+
+    expect(tracked.length).toBeGreaterThan(100);
+    expect(tracked.filter((path) => !linted.includes(path))).toEqual([]);
   });
 });

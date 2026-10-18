@@ -39,7 +39,8 @@ The ESLint rules and the Biome naming override run on every package source:
 | `interface` for object shapes, `type` for unions and aliases. | Biome `style/useConsistentTypeDefinitions` |
 | Import order. | Biome `organizeImports` |
 | Every block has a body; a handled error does something observable. | Biome `suspicious/noEmptyBlockStatements` |
-| Every lint or type suppression names its rule and carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
+| An ESLint exception lives in `eslint.config.js` with its reason. | ESLint `noInlineConfig` on every source file ([ADR 0039](../decisions/0039-block-inline-lint-disable-comments.md)) |
+| Every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
 | Every `fallow-ignore` comment names its reason. | Fallow `require-suppression-reason` |
 | Accessible, labelled controls and status regions. | Biome `a11y/*`, jest-axe, `@axe-core/playwright`, Lighthouse |
 
