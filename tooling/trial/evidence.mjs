@@ -20,7 +20,9 @@
  * }} TrialEvidence
  *
  * `run.agentExitCode` is null when the agent never started, and -1 in the
- * provisional record written as it starts; `retries` holds the earlier
+ * provisional record written as it starts. `run.durationMs` is the whole
+ * run and `run.agentDurationMs` the agent's session, recorded in place of a
+ * time limit (ADR 0038); `retries` holds the earlier
  * attempts that failed before the agent (`--retry`). `stream` names the
  * agent's stream kept beside the record, secrets redacted, or nulls when the
  * agent never ran.
@@ -183,6 +185,17 @@ const CONSISTENCY = [
     path: 'evidence.trial.branch',
     holds: ({ trial }) => trial.branch === `trial/${trial.id}`,
     rule: 'the branch is trial/<id>',
+  },
+  {
+    path: 'evidence.run.agentDurationMs',
+    holds: ({ run }) =>
+      (run.agentDurationMs === null) === (run.agentExitCode === null || run.agentExitCode === -1),
+    rule: 'the agent duration is recorded exactly when the agent ran to an exit',
+  },
+  {
+    path: 'evidence.run.durationMs',
+    holds: ({ run }) => run.durationMs === Date.parse(run.finishedAt) - Date.parse(run.startedAt),
+    rule: 'the run duration is the finish minus the start',
   },
   {
     path: 'evidence.result.status',

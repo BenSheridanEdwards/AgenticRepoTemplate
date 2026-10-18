@@ -1,7 +1,11 @@
 /**
  * @jest-environment node
  */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
+
+const TRIALS = resolve(import.meta.dirname, '../../docs/trials');
 
 const REV = 'a'.repeat(40);
 const SHA256 = 'b'.repeat(64);
@@ -192,6 +196,42 @@ describe('validateEvidence', () => {
     spoil(value);
 
     expect(() => validateEvidence(value)).toThrow('evidence.result.status');
+  });
+
+  it.each([
+    [
+      'an agent that finished without its duration',
+      { agentDurationMs: null },
+      'evidence.run.agentDurationMs',
+    ],
+    [
+      'an agent duration where the agent never ran',
+      { agentExitCode: null, agentDurationMs: 1_000 },
+      'evidence.run.agentDurationMs',
+    ],
+    [
+      'an agent duration in the provisional record',
+      { agentExitCode: -1, agentDurationMs: 1_000 },
+      'evidence.run.agentDurationMs',
+    ],
+    [
+      'a total that is not the finish minus the start',
+      { durationMs: 60_000 },
+      'evidence.run.durationMs',
+    ],
+  ])('throws on %s', (_case, run, path) => {
+    const value = passed();
+    Object.assign(value.run, run);
+
+    expect(() => validateEvidence(value)).toThrow(path);
+  });
+
+  it.each(
+    readdirSync(TRIALS).filter((name) => /^todo-0[1-3]\.json$/.test(name)),
+  )('still accepts the committed record %s', (name) => {
+    const record = JSON.parse(readFileSync(join(TRIALS, name), 'utf8'));
+
+    expect(validateEvidence(record)).toEqual(record);
   });
 
   it('throws on a failed status with no failure named', () => {

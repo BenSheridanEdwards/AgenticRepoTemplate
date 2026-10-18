@@ -11,11 +11,12 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
 import { planTrial, renderPrompt, runTrial, systemDeps } from './run-trial.mjs';
 
@@ -114,12 +115,21 @@ const lastCall = (agent: string) =>
 
 const WRITES_RESULT = "put('showcase/todo-01/web/src/main.tsx', 'export {};\\n');";
 
-const quietDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => ({
+const hostDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => ({
   ...systemDeps(),
   freeDiskBytes: () => 100e9,
   isPortBusy: async () => false,
   ...overrides,
 });
+
+/** `hostDeps` without bubblewrap, which CI lacks, so each command runs on the shared `/tmp`. */
+const quietDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => {
+  const { exec } = systemDeps();
+  return hostDeps({
+    exec: (argv, options) => exec(argv, { ...options, privateTmp: undefined }),
+    ...overrides,
+  });
+};
 
 /** A TCP port nothing listens on, so a test never takes a trial port another process needs. */
 const freePort = () =>
@@ -133,10 +143,15 @@ const freePort = () =>
 const passingChecks = ['install', 'verify', 'e2e', 'structure'].map((name) => ({
   name,
   argv: ['true', name],
-  timeoutMs: 30_000,
 }));
 
-function plan(options: { agent: string; trial?: number; scaffoldRev?: string; retry?: boolean }) {
+function plan(options: {
+  agent: string;
+  trial?: number;
+  scaffoldRev?: string;
+  retry?: boolean;
+  sharedTmp?: string;
+}) {
   const trialsRoot = join(sandbox, `trials-${Math.random().toString(16).slice(2)}`);
   mkdirSync(trialsRoot);
   return {
@@ -149,14 +164,15 @@ function plan(options: { agent: string; trial?: number; scaffoldRev?: string; re
       sessionId: '0b7f6c1e-3f7a-4d2b-9c51-2f0e8f6b2a10',
       agentCommand: options.agent,
       claudeConfigDir: join(sandbox, 'claude-config'),
-      tmpDir: join(sandbox, 'tmp'),
+      corepackHome: join(homedir(), '.cache/node/corepack'),
+      browsersPath: join(homedir(), '.cache/ms-playwright'),
+      sharedTmp: options.sharedTmp ?? join(caseDir, 'shared-tmp'),
       retry: options.retry ?? false,
     }),
     setup: [
       {
         name: 'install',
         argv: ['git', 'config', 'core.hooksPath', '.githooks'],
-        timeoutMs: 30_000,
       },
     ],
     checks: passingChecks,
@@ -226,6 +242,46 @@ describe('planTrial', () => {
       patchPath: '/repo/docs/trials/todo-02.patch',
       fake: false,
     });
+  });
+
+  it('points every temp and cache variable into the workdir, keeping only the shared read-only caches outside it', () => {
+    const planned = planTrial({
+      trial: 2,
+      scaffoldRev: 'c'.repeat(40),
+      root: '/repo',
+      trialsRoot: '/trials',
+      now: new Date('2026-10-17T12:34:56.789Z'),
+      sessionId: '0b7f6c1e-3f7a-4d2b-9c51-2f0e8f6b2a10',
+      claudeConfigDir: '/home/me/.claude',
+      corepackHome: '/home/me/.cache/node/corepack',
+      browsersPath: '/home/me/.cache/ms-playwright',
+      pnpmStore: '/home/me/.local/share/pnpm/store/v10',
+      retry: false,
+    });
+    const workdir = '/trials/todo-02-20261017T123456Z';
+
+    expect(planned.privateEnv).toEqual({
+      TMPDIR: `${workdir}/tmp`,
+      TMP: `${workdir}/tmp`,
+      TEMP: `${workdir}/tmp`,
+      CLAUDE_CODE_TMPDIR: `${workdir}/tmp`,
+      XDG_RUNTIME_DIR: `${workdir}/tmp`,
+      XDG_CACHE_HOME: `${workdir}/cache`,
+      npm_config_cache: `${workdir}/cache/npm`,
+      COREPACK_HOME: '/home/me/.cache/node/corepack',
+      PLAYWRIGHT_BROWSERS_PATH: '/home/me/.cache/ms-playwright',
+    });
+    expect(planned.checkPrivateEnv).toMatchObject({
+      TMPDIR: `${workdir}/check-tmp`,
+      XDG_CACHE_HOME: `${workdir}/check-cache`,
+      COREPACK_HOME: '/home/me/.cache/node/corepack',
+    });
+    expect(planned.sharedCaches).toEqual([
+      '/home/me/.cache/node/corepack',
+      '/home/me/.cache/ms-playwright',
+      '/home/me/.local/share/pnpm/store/v10',
+    ]);
+    expect(planned.sharedTmp).toBe('/tmp');
   });
 
   it('runs exactly the brief command plus the evidence flags, with a fresh session id and no resume', () => {
@@ -497,7 +553,6 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
         {
           name: 'e2e',
           argv: ['node', '-e', 'console.log("1 failed"); process.exit(3)'],
-          timeoutMs: 30_000,
         },
         ...passingChecks.slice(3),
       ],
@@ -572,6 +627,8 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     const claudeTmp = join(sandbox, 'tmp', `claude-${process.getuid?.()}`);
     const otherTasks = join(claudeTmp, '-workspace-mono-pr5/1111/tasks/b1.output');
     const otherSession = join(sandbox, 'claude-config/projects', slug, '2222/tool-results/x.txt');
+    const sharedScratch = join(claudeTmp, slug, planned.sessionId, 'tasks/b1.output');
+    const otherCache = join(homedir(), '.cache/some-tool/data.json');
     const otherWorkdir = join(planned.trialsRoot, 'todo-02-20261001T000000Z/repo/README.md');
     fakeAgent(
       'outside-read',
@@ -589,6 +646,8 @@ emit({ type: 'assistant', message: { content: [
   tool('Read', { file_path: ${JSON.stringify(otherTasks)} }),
   tool('Read', { file_path: ${JSON.stringify(otherSession)} }),
   tool('Read', { file_path: ${JSON.stringify(otherWorkdir)} }),
+  tool('Read', { file_path: ${JSON.stringify(sharedScratch)} }),
+  tool('Read', { file_path: '~/.cache/some-tool/data.json' }),
   tool('Read', { file_path: '~/.ssh/config' }),
   tool('Bash', { command: 'cat ${join(sandbox, 'tmp/earlier-scratch/result.txt')}' }),
   tool('Bash', { command: '(cd showcase/todo-01/web && ls) && cat ../../../NOTES.md' }),
@@ -614,6 +673,8 @@ emit({ type: 'assistant', message: { content: [
         otherTasks,
         otherSession,
         otherWorkdir,
+        sharedScratch,
+        otherCache,
         join(homedir(), '.ssh/config'),
         planned.trialsRoot,
       ].sort(),
@@ -622,9 +683,8 @@ emit({ type: 'assistant', message: { content: [
   });
 
   it('passes a clean run whose agent reads its own session files, its scratch and caches, and cds about its clone', async () => {
-    const tmp = join(sandbox, 'tmp');
-    mkdirSync(tmp, { recursive: true });
     const planned = plan({ agent: join(caseDir, 'clean-agent.mjs') });
+    const tmp = planned.privateEnv.TMPDIR;
     const slug = planned.clone.replace(/[^a-zA-Z0-9]/g, '-');
     const tasks = join(tmp, `claude-${process.getuid?.()}`, slug, planned.sessionId, 'tasks');
     const toolResults = join(
@@ -635,11 +695,13 @@ emit({ type: 'assistant', message: { content: [
       'tool-results/verify.txt',
     );
     const scratch = join(tmp, 'agent-scratch/notes.txt');
+    const sharedTmpLog = join(planned.sharedTmp, 'verify.log');
     fakeAgent(
       'clean-agent',
       `${WRITES_RESULT}
 put(${JSON.stringify(join(tasks, 'b1.output'))}, 'verify ok\\n');
 put(${JSON.stringify(scratch)}, 'notes\\n');
+put(${JSON.stringify(sharedTmpLog)}, 'verify ok\\n');
 const tool = (name, input) => ({ type: 'tool_use', name, input });
 const bash = (command) => tool('Bash', { command });
 emit({ type: 'assistant', message: { content: [
@@ -648,6 +710,8 @@ emit({ type: 'assistant', message: { content: [
   tool('Read', { file_path: ${JSON.stringify(toolResults)} }),
   tool('Read', { file_path: ${JSON.stringify(scratch)} }),
   bash('cat ${scratch}'),
+  tool('Read', { file_path: ${JSON.stringify(sharedTmpLog)} }),
+  bash('tail ${sharedTmpLog}'),
   tool('Read', { file_path: '~/.cache/ms-playwright/chromium/INSTALLATION_COMPLETE' }),
   tool('Glob', { pattern: '*', path: ${JSON.stringify(join(homedir(), '.cache/node/corepack'))} }),
   bash('cd showcase/todo-01/web && ls ../..'),
@@ -655,7 +719,7 @@ emit({ type: 'assistant', message: { content: [
   bash('(cd src && ls ..) && ls ../../..'),
   bash('cd ../../.. && git status'),
   bash('cd .. && ls'),
-  bash('cd ~/.cache && ls'),
+  bash('cd ~/.cache/ms-playwright && ls'),
   bash('ls ..'),
 ] } });`,
     );
@@ -664,6 +728,252 @@ emit({ type: 'assistant', message: { content: [
 
     expect(evidence.result.outsideReads).toEqual([]);
     expect(evidence.result.status).toBe('passed');
+  });
+
+  it('gives every command a private temp folder, so a decoy in the parent one stays unseen and reading it fails the run', async () => {
+    const parentTmp = join(caseDir, 'parent-tmp');
+    mkdirSync(parentTmp, { recursive: true });
+    const decoy = join(parentTmp, 'verify.log');
+    writeFileSync(decoy, "another job's log\n");
+    const views = join(caseDir, 'temp-views');
+    mkdirSync(views, { recursive: true });
+    const look = (who: string) =>
+      `const os = require('node:os'), fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(join(views, `${who}.json`))}, JSON.stringify({ tmpdir: os.tmpdir(), entries: fs.readdirSync(os.tmpdir()), env: process.env }));`;
+    const base = plan({
+      agent: fakeAgent(
+        'decoy',
+        `${WRITES_RESULT}
+const { createRequire } = await import('node:module');
+const require = createRequire(import.meta.url);
+${look('agent')}
+const tool = (name, input) => ({ type: 'tool_use', name, input });
+emit({ type: 'assistant', message: { content: [
+  tool('Read', { file_path: ${JSON.stringify(decoy)} }),
+  tool('Bash', { command: 'cat ${decoy}' }),
+] } });`,
+      ),
+    });
+    const planned = {
+      ...base,
+      setup: [...base.setup, { name: 'look', argv: ['node', '-e', look('setup')] }],
+      checks: [
+        ...passingChecks.filter(({ name }) => name !== 'verify'),
+        { name: 'verify', argv: ['node', '-e', look('check')] },
+      ],
+    };
+
+    const callerTmp = process.env.TMPDIR;
+    process.env.TMPDIR = parentTmp;
+    try {
+      const evidence = await runTrial(planned, quietDeps());
+
+      for (const who of ['setup', 'agent', 'check']) {
+        const view = JSON.parse(readFileSync(join(views, `${who}.json`), 'utf8'));
+        expect(view.tmpdir.startsWith(`${planned.workdir}/`)).toBe(true);
+        expect(view.entries).not.toContain(basename(decoy));
+        for (const name of ['TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CODE_TMPDIR', 'XDG_RUNTIME_DIR']) {
+          expect(view.env[name]).toBe(view.tmpdir);
+        }
+        expect(view.env.XDG_CACHE_HOME.startsWith(`${planned.workdir}/`)).toBe(true);
+        expect(view.env.npm_config_cache.startsWith(`${planned.workdir}/`)).toBe(true);
+      }
+      const tmpOf = (who: string) =>
+        JSON.parse(readFileSync(join(views, `${who}.json`), 'utf8')).tmpdir;
+      expect(tmpOf('check')).not.toBe(tmpOf('agent'));
+      expect(evidence.result.outsideReads).toEqual([decoy]);
+      expect(evidence.result.status).toBe('failed');
+      expect(readdirSync(parentTmp)).toEqual(['verify.log']);
+      expect(readFileSync(decoy, 'utf8')).toBe("another job's log\n");
+    } finally {
+      process.env.TMPDIR = callerTmp;
+    }
+  });
+
+  it('runs the setup, the agent, the commit hooks and the checks each with its own folder over the shared /tmp', async () => {
+    const agent = fakeAgent('confined', WRITES_RESULT);
+    const planned = plan({ agent });
+    const calls: { argv: readonly string[]; privateTmp: unknown }[] = [];
+    const deps = quietDeps();
+
+    const evidence = await runTrial(planned, {
+      ...deps,
+      exec: (argv, options) => {
+        calls.push({ argv, privateTmp: options.privateTmp });
+        return deps.exec(argv, options);
+      },
+    });
+
+    const over = (folder: string) => ({
+      folder,
+      over: planned.sharedTmp,
+      keep: [planned.workdir, agent],
+    });
+    expect(
+      calls
+        .filter(({ privateTmp }) => privateTmp)
+        .map(({ argv, privateTmp }) => [argv.slice(0, 2).join(' '), privateTmp]),
+    ).toEqual([
+      ['true', over(planned.privateEnv.TMPDIR)],
+      ['git config', over(planned.privateEnv.TMPDIR)],
+      [`${agent} --version`, over(planned.privateEnv.TMPDIR)],
+      [`${agent} -p`, over(planned.privateEnv.TMPDIR)],
+      ['git commit', over(planned.privateEnv.TMPDIR)],
+      ...passingChecks.map(({ argv }) => [argv.join(' '), over(planned.checkPrivateEnv.TMPDIR)]),
+    ]);
+    expect(evidence.result.status).toBe('passed');
+  });
+
+  it('fails before the agent starts, naming bubblewrap, when it cannot give the trial a private /tmp', async () => {
+    write(
+      caseDir,
+      'no-userns-bin/bwrap',
+      '#!/bin/sh\necho "bwrap: setting up uid map: Permission denied" >&2\nexit 1\n',
+    );
+    chmodSync(join(caseDir, 'no-userns-bin/bwrap'), 0o755);
+    const agent = fakeAgent('never-confined', WRITES_RESULT);
+    const callerPath = process.env.PATH;
+    process.env.PATH = `${join(caseDir, 'no-userns-bin')}:${callerPath}`;
+    try {
+      const evidence = await runTrial(plan({ agent }), hostDeps());
+
+      expect(evidence.failures).toEqual([
+        expect.stringMatching(/^bubblewrap could not give the trial a private \/tmp \(exit 1\)/),
+      ]);
+      expect(evidence.failures[0]).toContain('setting up uid map: Permission denied');
+      expect(evidence.run.agentExitCode).toBeNull();
+      expect(existsSync(`${agent}.call.json`)).toBe(false);
+    } finally {
+      process.env.PATH = callerPath;
+    }
+  });
+
+  it('gives the setup, the agent and the checks their own /tmp on this host, or fails before the agent naming bubblewrap', async () => {
+    const hostConfines = spawnSync('bwrap', ['--dev-bind', '/', '/', 'true']).status === 0;
+    const decoyFolder = mkdtempSync('/tmp/run-trial-decoy-');
+    writeFileSync(join(decoyFolder, 'verify.log'), "another job's log\n");
+    const log = `verify-${Math.random().toString(16).slice(2)}.log`;
+    const look = (who: string) => `ls -A /tmp > ../${who}.tmp-view`;
+    const agent = fakeAgent(
+      'host-confined',
+      `${WRITES_RESULT}
+execSync(${JSON.stringify(`echo ok > /tmp/${log} && ${look('agent')}`)});
+const tool = (name, input) => ({ type: 'tool_use', name, input });
+emit({ type: 'assistant', message: { content: [
+  tool('Bash', { command: ${JSON.stringify(`pnpm verify > /tmp/${log} 2>&1`)} }),
+  tool('Read', { file_path: ${JSON.stringify(`/tmp/${log}`)} }),
+  tool('Bash', { command: ${JSON.stringify(`tail -5 /tmp/${log}`)} }),
+] } });`,
+    );
+    const base = plan({ agent, sharedTmp: '/tmp' });
+    const planned = {
+      ...base,
+      setup: [...base.setup, { name: 'look', argv: ['sh', '-c', look('setup')] }],
+      checks: [
+        ...passingChecks.filter(({ name }) => name !== 'verify'),
+        { name: 'verify', argv: ['sh', '-c', look('check')] },
+      ],
+    };
+    const view = (who: string) =>
+      readFileSync(join(planned.workdir, `${who}.tmp-view`), 'utf8').split('\n');
+
+    try {
+      const evidence = await runTrial(planned, hostDeps());
+
+      if (hostConfines) {
+        expect(evidence.failures).toEqual([]);
+        expect(evidence.result.outsideReads).toEqual([]);
+        for (const who of ['setup', 'agent', 'check']) {
+          expect(view(who)).not.toContain(basename(decoyFolder));
+        }
+        expect(view('agent')).toContain(log);
+        expect(view('check')).not.toContain(log);
+        expect(existsSync(join('/tmp', log))).toBe(false);
+        expect(readFileSync(join(planned.privateEnv.TMPDIR, log), 'utf8')).toBe('ok\n');
+      } else {
+        expect(evidence.failures).toEqual([
+          expect.stringMatching(/^bubblewrap could not give the trial a private \/tmp/),
+        ]);
+        expect(evidence.run.agentExitCode).toBeNull();
+      }
+    } finally {
+      rmSync(decoyFolder, { recursive: true, force: true });
+    }
+  });
+
+  it("fails a run whose agent wrote into the checks' private folders, and runs no check", async () => {
+    const agent = fakeAgent(
+      'poisons-checks',
+      `${WRITES_RESULT}\nput(process.cwd() + '/../check-cache/jest/haste-map', 'stale');`,
+    );
+
+    const evidence = await runTrial(plan({ agent }), quietDeps());
+
+    expect(evidence.failures).toEqual([
+      "the agent wrote into check-cache, the checks' private folder",
+    ]);
+    expect(evidence.checks).toEqual([]);
+    expect(evidence.result.status).toBe('failed');
+  });
+
+  it('puts no time limit on the agent or the checks, and records how long each took', async () => {
+    const hold = (name: string) => ({
+      started: join(caseDir, `${name}.started`),
+      release: join(caseDir, `${name}.release`),
+    });
+    const holdUntilReleased = ({ started, release }: { started: string; release: string }) =>
+      `require('node:fs').writeFileSync(${JSON.stringify(started)}, ''); while (!require('node:fs').existsSync(${JSON.stringify(release)})) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);`;
+    const agentHold = hold('slow-agent');
+    const checkHold = hold('slow-check');
+    const base = plan({
+      agent: fakeAgent(
+        'slow-agent',
+        `${WRITES_RESULT}
+const { createRequire } = await import('node:module');
+const require = createRequire(import.meta.url);
+${holdUntilReleased(agentHold)}`,
+      ),
+    });
+    const planned = {
+      ...base,
+      checks: [
+        ...passingChecks.filter(({ name }) => name !== 'verify'),
+        { name: 'verify', argv: ['node', '-e', holdUntilReleased(checkHold)] },
+      ],
+    };
+    const hundredHours = 100 * 60 * 60 * 1000;
+    let settled = false;
+    const outlast = async ({ started, release }: { started: string; release: string }) => {
+      while (!existsSync(started)) {
+        if (settled) {
+          throw new Error(`the run ended before ${started} appeared`);
+        }
+        await new Promise((done) => setImmediate(done));
+      }
+      jest.advanceTimersByTime(hundredHours);
+      writeFileSync(release, '');
+    };
+
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    try {
+      const running = runTrial(planned, quietDeps());
+      running.finally(() => {
+        settled = true;
+      });
+      await outlast(agentHold);
+      await outlast(checkHold);
+      const evidence = await running;
+
+      expect(evidence.failures).toEqual([]);
+      expect(evidence.run.agentExitCode).toBe(0);
+      expect(evidence.run.agentDurationMs).toBeGreaterThanOrEqual(hundredHours);
+      expect(
+        evidence.checks.find(({ name }) => name === 'verify')?.durationMs,
+      ).toBeGreaterThanOrEqual(hundredHours);
+      expect(evidence.run.durationMs).toBeGreaterThanOrEqual(2 * hundredHours);
+      expect(validateEvidence(readEvidence())).toEqual(evidence);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('keeps a run whose agent fails, with its evidence and its patch', async () => {
@@ -707,7 +1017,7 @@ emit({ type: 'assistant', message: { content: [
     const agent = fakeAgent('never-runs', WRITES_RESULT);
     const planned = {
       ...plan({ agent }),
-      setup: [{ name: 'install', argv: ['node', '-e', 'process.exit(7)'], timeoutMs: 30_000 }],
+      setup: [{ name: 'install', argv: ['node', '-e', 'process.exit(7)'] }],
     };
 
     const evidence = await runTrial(planned, quietDeps());
@@ -854,7 +1164,6 @@ emit({ type: 'assistant', message: { content: [
             '-e',
             `require('fs').writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ cwd: process.cwd(), ci: process.env.CI, residue: require('fs').existsSync('secret.local'), result: require('fs').existsSync('showcase/todo-01/web/src/main.tsx') }))`,
           ],
-          timeoutMs: 30_000,
         },
       ],
     };
@@ -911,23 +1220,26 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
   });
 
   it('looks for a stray server after the result commit, so one that starts late is still stopped', async () => {
-    const real = systemDeps();
     let committed = false;
     let stopped = false;
+    const deps = quietDeps({
+      isPortBusy: async () => committed && !stopped,
+      stopListeners: async () => {
+        stopped = true;
+      },
+    });
     const evidence = await runTrial(
       { ...plan({ agent: fakeAgent('late-server', WRITES_RESULT) }), ports: [5183] },
-      quietDeps({
+      {
+        ...deps,
         exec: async (argv, options) => {
           committed ||= argv[0] === 'git' && argv[1] === 'commit';
-          return real.exec(argv, options);
+          return deps.exec(argv, options);
         },
-        isPortBusy: async () => committed && !stopped,
-        stopListeners: async () => {
-          stopped = true;
-        },
-      }),
+      },
     );
 
+    expect(evidence.failures).toEqual([]);
     expect(evidence.result).toMatchObject({ status: 'passed', stoppedServers: [5183] });
   });
 
@@ -966,6 +1278,55 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
     expect(provisional.failures).toEqual(['the harness stopped while the agent ran']);
   });
 
+  it('rewrites the record before the checks, so a harness stopped during one keeps the agent result', async () => {
+    const copy = join(caseDir, 'during-checks.json');
+    const evidencePath = join(checkout, 'docs/trials/todo-01.json');
+    const base = plan({ agent: fakeAgent('during-checks', WRITES_RESULT) });
+    const planned = {
+      ...base,
+      checks: [
+        ...passingChecks.filter(({ name }) => name !== 'verify'),
+        {
+          name: 'verify',
+          argv: [
+            'node',
+            '-e',
+            `require('fs').copyFileSync(${JSON.stringify(evidencePath)}, ${JSON.stringify(copy)})`,
+          ],
+        },
+      ],
+    };
+
+    const evidence = await runTrial(planned, quietDeps());
+
+    const during = validateEvidence(JSON.parse(readFileSync(copy, 'utf8')));
+    expect(during.failures).toEqual(['the harness stopped while the checks ran']);
+    expect(during.run.agentExitCode).toBe(0);
+    expect(during.run.agentDurationMs).toBe(evidence.run.agentDurationMs);
+    expect(during.result.commit).toBe(evidence.result.commit);
+    expect(evidence.result.status).toBe('passed');
+  });
+
+  it('rewrites the record before the stray-server sweep, naming that stage', async () => {
+    const evidencePath = join(checkout, 'docs/trials/todo-01.json');
+    const seen: string[][] = [];
+    const agent = fakeAgent('during-sweep', WRITES_RESULT);
+
+    await runTrial(
+      plan({ agent }),
+      quietDeps({
+        isPortBusy: async () => {
+          if (existsSync(evidencePath)) {
+            seen.push(JSON.parse(readFileSync(evidencePath, 'utf8')).failures);
+          }
+          return false;
+        },
+      }),
+    );
+
+    expect(seen[0]).toEqual(['the harness stopped while it looked for servers the agent left']);
+  });
+
   it.each([
     [
       'a check whose script the scaffold lacks',
@@ -974,7 +1335,6 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
           {
             name: 'structure',
             argv: ['node', 'tooling/architecture/structure.mjs'],
-            timeoutMs: 1_000,
           },
         ],
       },
@@ -982,7 +1342,7 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
     ],
     [
       'a check whose pnpm script the scaffold lacks',
-      { checks: [{ name: 'verify', argv: ['pnpm', 'verify'], timeoutMs: 1_000 }] },
+      { checks: [{ name: 'verify', argv: ['pnpm', 'verify'] }] },
       'check verify needs verify, which the scaffold lacks',
     ],
   ])('fails before the agent starts on %s', async (_case, override, failure) => {
@@ -1028,7 +1388,7 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
     const first = await runTrial(
       {
         ...plan({ agent: fakeAgent('first-attempt', WRITES_RESULT) }),
-        setup: [{ name: 'install', argv: ['node', '-e', 'process.exit(7)'], timeoutMs: 30_000 }],
+        setup: [{ name: 'install', argv: ['node', '-e', 'process.exit(7)'] }],
       },
       quietDeps(),
     );
@@ -1106,6 +1466,7 @@ describe('the run-trial CLI', () => {
       fake: false,
     });
     expect(printed.workdir.startsWith(`${trialsRoot}/todo-02-`)).toBe(true);
+    expect(printed.privateEnv.TMPDIR).toBe(join(printed.workdir, 'tmp'));
     expect(printed.agentArgv.slice(0, -1)).toEqual([
       'claude',
       '-p',
@@ -1120,6 +1481,46 @@ describe('the run-trial CLI', () => {
     ]);
     expect(printed.agentArgv.at(-1)).toMatch(/^[0-9a-f-]{36}$/);
     expect(readdirSync(trialsRoot)).toEqual([]);
+  });
+
+  it.each([
+    '/',
+    '/tmp/browsers',
+    '',
+  ])('refuses a Playwright browsers folder outside ~/.cache, such as %j, so the read allowlist cannot widen', (browsers) => {
+    const run = spawnSync(
+      process.execPath,
+      [CLI, '--trial', '1', '--scaffold', scaffold, '--dry-run'],
+      { cwd: source, env: { ...gitEnv, PLAYWRIGHT_BROWSERS_PATH: browsers }, encoding: 'utf8' },
+    );
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('PLAYWRIGHT_BROWSERS_PATH must name a folder inside');
+  });
+
+  it('refuses a Playwright browsers folder that links out of ~/.cache', () => {
+    const home = join(sandbox, 'linked-home');
+    mkdirSync(join(home, '.cache/node/corepack'), { recursive: true });
+    mkdirSync(join(sandbox, 'browsers-elsewhere'), { recursive: true });
+    symlinkSync(join(sandbox, 'browsers-elsewhere'), join(home, '.cache/ms-playwright'));
+
+    const run = spawnSync(
+      process.execPath,
+      [CLI, '--trial', '1', '--scaffold', scaffold, '--dry-run'],
+      {
+        cwd: source,
+        env: {
+          ...gitEnv,
+          HOME: home,
+          COREPACK_HOME: join(home, '.cache/node/corepack'),
+          PLAYWRIGHT_BROWSERS_PATH: join(home, '.cache/ms-playwright'),
+        },
+        encoding: 'utf8',
+      },
+    );
+
+    expect(run.stderr).toContain('PLAYWRIGHT_BROWSERS_PATH must name a folder inside');
+    expect(run.status).toBe(1);
   });
 
   it('fails on a scaffold rev the checkout does not have', () => {
