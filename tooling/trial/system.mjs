@@ -14,6 +14,7 @@ import {
   statfsSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
+import { join } from 'node:path';
 
 /** Git's per-repository variables, which a hook exports and a child repository must not inherit. */
 const GIT_LOCAL_ENV = (

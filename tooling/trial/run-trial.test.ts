@@ -731,11 +731,11 @@ emit({ type: 'assistant', message: { content: [
   });
 
   it('gives every command a private temp folder, so a decoy in the parent one stays unseen and reading it fails the run', async () => {
-    const parentTmp = join(sandbox, 'parent-tmp');
+    const parentTmp = join(caseDir, 'parent-tmp');
     mkdirSync(parentTmp, { recursive: true });
     const decoy = join(parentTmp, 'verify.log');
     writeFileSync(decoy, "another job's log\n");
-    const views = join(sandbox, 'temp-views');
+    const views = join(caseDir, 'temp-views');
     mkdirSync(views, { recursive: true });
     const look = (who: string) =>
       `const os = require('node:os'), fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(join(views, `${who}.json`))}, JSON.stringify({ tmpdir: os.tmpdir(), entries: fs.readdirSync(os.tmpdir()), env: process.env }));`;
@@ -818,21 +818,21 @@ emit({ type: 'assistant', message: { content: [
       [`${agent} --version`, over(planned.privateEnv.TMPDIR)],
       [`${agent} -p`, over(planned.privateEnv.TMPDIR)],
       ['git commit', over(planned.privateEnv.TMPDIR)],
-      ...passingChecks.map(() => ['node -e', over(planned.checkPrivateEnv.TMPDIR)]),
+      ...passingChecks.map(({ argv }) => [argv.join(' '), over(planned.checkPrivateEnv.TMPDIR)]),
     ]);
     expect(evidence.result.status).toBe('passed');
   });
 
   it('fails before the agent starts, naming bubblewrap, when it cannot give the trial a private /tmp', async () => {
     write(
-      sandbox,
+      caseDir,
       'no-userns-bin/bwrap',
       '#!/bin/sh\necho "bwrap: setting up uid map: Permission denied" >&2\nexit 1\n',
     );
-    chmodSync(join(sandbox, 'no-userns-bin/bwrap'), 0o755);
+    chmodSync(join(caseDir, 'no-userns-bin/bwrap'), 0o755);
     const agent = fakeAgent('never-confined', WRITES_RESULT);
     const callerPath = process.env.PATH;
-    process.env.PATH = `${join(sandbox, 'no-userns-bin')}:${callerPath}`;
+    process.env.PATH = `${join(caseDir, 'no-userns-bin')}:${callerPath}`;
     try {
       const evidence = await runTrial(plan({ agent }), hostDeps());
 
@@ -917,8 +917,8 @@ emit({ type: 'assistant', message: { content: [
 
   it('puts no time limit on the agent or the checks, and records how long each took', async () => {
     const hold = (name: string) => ({
-      started: join(sandbox, `${name}.started`),
-      release: join(sandbox, `${name}.release`),
+      started: join(caseDir, `${name}.started`),
+      release: join(caseDir, `${name}.release`),
     });
     const holdUntilReleased = ({ started, release }: { started: string; release: string }) =>
       `require('node:fs').writeFileSync(${JSON.stringify(started)}, ''); while (!require('node:fs').existsSync(${JSON.stringify(release)})) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);`;
@@ -1276,8 +1276,8 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
   });
 
   it('rewrites the record before the checks, so a harness stopped during one keeps the agent result', async () => {
-    const copy = join(sandbox, 'during-checks.json');
-    const evidencePath = join(source, 'docs/trials/todo-01.json');
+    const copy = join(caseDir, 'during-checks.json');
+    const evidencePath = join(checkout, 'docs/trials/todo-01.json');
     const base = plan({ agent: fakeAgent('during-checks', WRITES_RESULT) });
     const planned = {
       ...base,
@@ -1305,7 +1305,7 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
   });
 
   it('rewrites the record before the stray-server sweep, naming that stage', async () => {
-    const evidencePath = join(source, 'docs/trials/todo-01.json');
+    const evidencePath = join(checkout, 'docs/trials/todo-01.json');
     const seen: string[][] = [];
     const agent = fakeAgent('during-sweep', WRITES_RESULT);
 
