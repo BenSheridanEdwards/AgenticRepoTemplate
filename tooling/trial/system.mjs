@@ -195,18 +195,25 @@ const isPortBusy = (port) =>
 const LISTEN_STATE = '0A';
 
 /**
- * The processes listening on TCP `port`: from `/proc` on Linux, so a box
- * without `lsof` still finds them, and from `lsof` elsewhere, or none when it
- * is missing.
+ * The processes listening on TCP `port`: from the `/proc` socket tables, so a
+ * Linux box without `lsof` still finds them, and from `lsof` where those
+ * tables are missing or unreadable, or none when `lsof` is missing too.
  */
-function listeners(port) {
-  if (!existsSync('/proc/net/tcp')) {
+export function listeners(port, proc = '/proc') {
+  try {
+    return procListeners(port, proc);
+  } catch {
     const found = spawnSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
     return (found.stdout ?? '').split('\n').filter(Boolean).map(Number);
   }
+}
+
+/** Throws when `proc` has no readable IPv4 socket table. */
+function procListeners(port, proc) {
   const address = `:${port.toString(16).toUpperCase().padStart(4, '0')}`;
+  const ipv6 = `${proc}/net/tcp6`;
   const sockets = new Set();
-  for (const table of ['/proc/net/tcp', '/proc/net/tcp6'].filter(existsSync)) {
+  for (const table of [`${proc}/net/tcp`, ...(existsSync(ipv6) ? [ipv6] : [])]) {
     for (const row of readFileSync(table, 'utf8').trim().split('\n').slice(1)) {
       const [, local, , state, , , , , , inode] = row.trim().split(/\s+/);
       if (local.endsWith(address) && state === LISTEN_STATE) {
@@ -217,8 +224,8 @@ function listeners(port) {
   if (sockets.size === 0) {
     return [];
   }
-  return readdirSync('/proc')
-    .filter((entry) => /^\d+$/.test(entry) && holdsAny(`/proc/${entry}/fd`, sockets))
+  return readdirSync(proc)
+    .filter((entry) => /^\d+$/.test(entry) && holdsAny(`${proc}/${entry}/fd`, sockets))
     .map(Number);
 }
 
