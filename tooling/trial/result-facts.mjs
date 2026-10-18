@@ -17,11 +17,12 @@
  * @typedef {'list' | 'create' | 'toggle' | 'delete'} Operation
  * @typedef {{
  *   readonly path: string,
- *   readonly kind: 'query' | 'mutation',
+ *   readonly kind: string,
  *   readonly operation: Operation | null,
  *   readonly input: TypeText,
  *   readonly output: TypeText,
- * }} Procedure
+ * }} Procedure  `kind`: `query`, `mutation` or `subscription`, else the member's type name as
+ *   written or `(unknown)`; an input or output the member lacks reads `(unknown)`
  * @typedef {{
  *   readonly key: string,
  *   readonly exports: readonly { readonly name: string, readonly kind: 'value' | 'type' }[],
@@ -304,7 +305,12 @@ function readApiReports(tree, root, roleOf) {
 const memberType = (literal, name) =>
   literal.members.find((member) => member.name?.getText() === name)?.type;
 
-const PROCEDURE_KINDS = { TRPCQueryProcedure: 'query', TRPCMutationProcedure: 'mutation' };
+const PROCEDURE_KINDS = new Map([
+  ['TRPCQueryProcedure', 'query'],
+  ['TRPCMutationProcedure', 'mutation'],
+  ['TRPCSubscriptionProcedure', 'subscription'],
+]);
+const UNKNOWN = '(unknown)';
 const unquote = (name) => name.getText().replace(/^['"]|['"]$/g, '');
 
 /** The `{ key: procedure }` literal inside a TRPCBuiltRouter type, or null. */
@@ -315,28 +321,34 @@ function routerLiteral(router) {
   return literal && ts.isTypeLiteralNode(literal) ? literal : null;
 }
 
-/** The procedure a router member holds, or every procedure of the router it holds. */
+/** Every procedure of the router a member holds, else the member as one procedure. */
 function memberProcedures(member, prefix) {
-  const type = member.type;
-  if (!type || !ts.isTypeReferenceNode(type)) {
-    return [];
-  }
-  const path = `${prefix}${unquote(member.name)}`;
-  const name = type.typeName.getText();
+  const path = `${prefix}${member.name ? unquote(member.name) : UNKNOWN}`;
+  const type = member.type && ts.isTypeReferenceNode(member.type) ? member.type : undefined;
+  const name = type?.typeName.getText();
   if (name === 'TRPCBuiltRouter') {
     return walkRouter(type, `${path}.`);
   }
-  return procedureOf(path, PROCEDURE_KINDS[name], type.typeArguments?.[0]);
+  return [procedureOf(path, name, type?.typeArguments?.[0])];
 }
 
-/** One procedure from its `{ input; output; meta }` definition, or none when the type is another. */
-function procedureOf(path, kind, definition) {
-  if (!kind || !definition || !ts.isTypeLiteralNode(definition)) {
-    return [];
+/**
+ * One router member as a procedure. A known kind with an `{ input; output }`
+ * definition reads as that kind; any other member keeps its type name as its
+ * kind, so the operations check counts it instead of losing it.
+ */
+function procedureOf(path, typeName, definition) {
+  const [input, output] = definitionTypes(definition);
+  const kind = (input && output && PROCEDURE_KINDS.get(typeName)) || (typeName ?? UNKNOWN);
+  return { path, kind, input, output };
+}
+
+/** `[input, output]` of an `{ input; output; meta }` definition, each null when absent. */
+function definitionTypes(definition) {
+  if (!definition || !ts.isTypeLiteralNode(definition)) {
+    return [null, null];
   }
-  const input = memberType(definition, 'input');
-  const output = memberType(definition, 'output');
-  return input && output ? [{ path, kind, input, output }] : [];
+  return [memberType(definition, 'input') ?? null, memberType(definition, 'output') ?? null];
 }
 
 /** The procedures of a TRPCBuiltRouter type, nested routers flattened into dotted paths. */
@@ -464,6 +476,12 @@ function membersOf(node, context, seen = new Set()) {
   return resolved ? membersOf(resolved.declared, context, resolved.seen) : null;
 }
 
+/** The no-input queries whose output is an array: the candidates for list. */
+const listCandidates = (procedures, inputOf) =>
+  procedures.filter(
+    (p) => p.kind === 'query' && takesNothing(inputOf(p)) && elementOf(p.output) !== null,
+  );
+
 const elementOf = (node) => {
   const inner = ts.isTypeOperatorNode(node) || ts.isParenthesizedTypeNode(node) ? node.type : node;
   return ts.isArrayTypeNode(inner) ? inner.elementType : null;
@@ -478,16 +496,15 @@ const pick = (candidates, hint) =>
   candidates.length === 1 ? candidates[0] : byHint(candidates, hint);
 
 /**
- * Operations by shape: the query with no input is list; the mutation that
- * takes exactly `{ title: string }` is create; of the mutations that take
- * exactly `{ id }`, the one returning the item is toggle and the other delete.
+ * Operations by shape: the query with no input and an array output is list;
+ * the mutation that takes exactly `{ title: string }` is create; of the
+ * mutations that take exactly `{ id }`, the one returning the item is toggle
+ * and the other delete.
  * The key name only breaks a tie shape leaves; an open tie stays null.
  */
 function recognizeOperations(procedures, normalized) {
   const operations = new Map();
-  const queries = procedures.filter(
-    (p) => p.kind === 'query' && takesNothing(normalized.get(p).input),
-  );
+  const queries = listCandidates(procedures, (p) => normalized.get(p).input);
   const mutations = procedures.filter((p) => p.kind === 'mutation');
   const takes = (input) => mutations.filter((p) => normalized.get(p).input === input);
   const byId = takes('{ id: Id }');
@@ -517,7 +534,7 @@ const takesNothing = (input) => /^(void|undefined)$/.test(input);
 /** The element of the list query's output, its members and its fields as `[name, type]`. */
 function readItem(parsed, types) {
   const bare = { types, item: null, idType: null };
-  const list = parsed.find((p) => p.kind === 'query' && takesNothing(normalize(p.input, bare)));
+  const list = listCandidates(parsed, (p) => normalize(p.input, bare))[0];
   const element = list ? elementOf(list.output) : null;
   const members = element ? membersOf(element, bare) : null;
   if (!element || !members) {
@@ -525,7 +542,10 @@ function readItem(parsed, types) {
   }
   const shape = members
     .filter((member) => ts.isPropertySignature(member) && member.type)
-    .map((member) => [member.name.getText(), normalize(member.type, bare)])
+    .map((member) => [
+      `${member.name.getText()}${member.questionToken ? '?' : ''}`,
+      normalize(member.type, bare),
+    ])
     .sort(([a], [b]) => sortText(a, b));
   return { element, shape, idType: shape.find(([name]) => name === 'id')?.[1] ?? null };
 }
@@ -541,12 +561,11 @@ function readProcedures(tree) {
     item: item ? normalize(item.element, { types, item: null, idType }) : null,
     idType,
   };
+  const normalizedOf = (node) => (node ? normalize(node, context) : UNKNOWN);
   const normalized = new Map(
-    parsed.map((p) => [
-      p,
-      { input: normalize(p.input, context), output: normalize(p.output, context) },
-    ]),
+    parsed.map((p) => [p, { input: normalizedOf(p.input), output: normalizedOf(p.output) }]),
   );
+  const written = (node) => (node ? oneLine(node) : UNKNOWN);
   const operations = recognizeOperations(parsed, normalized);
   return {
     item: item ? { shape: item.shape, written: oneLine(item.element) } : null,
@@ -554,8 +573,8 @@ function readProcedures(tree) {
       path: p.path,
       kind: p.kind,
       operation: operations.get(p) ?? null,
-      input: { normalized: normalized.get(p).input, written: oneLine(p.input) },
-      output: { normalized: normalized.get(p).output, written: oneLine(p.output) },
+      input: { normalized: normalized.get(p).input, written: written(p.input) },
+      output: { normalized: normalized.get(p).output, written: written(p.output) },
     })),
   };
 }
@@ -596,12 +615,21 @@ function descendants(node) {
   return found;
 }
 
+/** The name a call calls: `useY` for `useY()` and for `X.useY()`, else null. */
+function calleeName(node) {
+  const callee = node.expression;
+  if (ts.isIdentifier(callee)) {
+    return callee.text;
+  }
+  return ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
+}
+
 /** Called hooks and form resolvers, by name, sorted. */
 const callsIn = (nodes) =>
   nodes
-    .filter((node) => ts.isCallExpression(node) && ts.isIdentifier(node.expression))
-    .map((node) => node.expression.text)
-    .filter((name) => /^use[A-Z]/.test(name) || /Resolver$/.test(name))
+    .filter(ts.isCallExpression)
+    .map(calleeName)
+    .filter((name) => name !== null && (/^use[A-Z]/.test(name) || /Resolver$/.test(name)))
     .sort(sortText);
 
 /** The intrinsic control a JSX element is, or null. */

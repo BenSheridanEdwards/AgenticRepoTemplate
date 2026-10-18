@@ -251,6 +251,63 @@ describe('compareResults', () => {
     ]);
   });
 
+  it('keeps a split that moves a call into a new component of the role under freedom 2', () => {
+    const page = `${ROUTES}/TodosPage.tsx`;
+    const withId = replaceIn(
+      page,
+      '<h1 className="app__title">',
+      '<h1 id={useId()} className="app__title">',
+    );
+    const moved = facts(
+      'todo-02',
+      replaceIn(page, '<h1 className="app__title">Todos</h1>', '<TodoHeading />'),
+      (tree) => {
+        tree.set(
+          `${ROUTES}/TodoHeading.tsx`,
+          'export function TodoHeading() {\n  return <h1 id={useId()} className="app__title">Todos</h1>;\n}\n',
+        );
+      },
+    );
+    expect(departures(compareResults([facts('todo-01', withId), moved]))).toEqual([
+      ['structure · files web-routes', 'spec-freedom', 2],
+      ['component-boundaries · components web-routes', 'spec-freedom', 2],
+    ]);
+  });
+
+  it('marks another call in a feature hook outside the spec', () => {
+    const effect = facts(
+      'todo-02',
+      replaceIn(
+        `${ROUTES}/useTodos.ts`,
+        'const trpc = useTrpc();',
+        'const trpc = useTrpc();\n  useEffect(() => {}, []);',
+      ),
+    );
+    expect(departures(compareResults([facts('todo-01'), effect]))).toEqual([
+      ['conventions · hooks web-routes', 'outside-spec', null],
+    ]);
+  });
+
+  it('marks another @repo/ui primitive in a feature component outside the spec', () => {
+    const item = `${ROUTES}/TodoItem.tsx`;
+    const field = facts(
+      'todo-02',
+      replaceIn(
+        item,
+        "import { Button } from '@repo/ui';",
+        "import { Button, TextField } from '@repo/ui';",
+      ),
+      replaceIn(
+        item,
+        '      <Button aria-label',
+        '      <TextField label="Note" />\n      <Button aria-label',
+      ),
+    );
+    expect(departures(compareResults([facts('todo-01'), field]))).toEqual([
+      ['component-boundaries · components web-routes', 'outside-spec', null],
+    ]);
+  });
+
   it('marks an extra role edge outside the spec', () => {
     const comparison = compareResults([facts('todo-01'), facts('todo-03', addEdge)]);
     expect(departures(comparison)).toEqual([[EDGE, 'outside-spec', null]]);
@@ -407,7 +464,7 @@ describe('compareResults', () => {
     );
     expect(departures(compareResults([facts('todo-01'), raw]))).toEqual([
       ['component-boundaries · ui controls', 'outside-spec', null],
-      ['component-boundaries · components web-routes', 'spec-freedom', 2],
+      ['component-boundaries · components web-routes', 'outside-spec', null],
     ]);
   });
 
@@ -477,6 +534,72 @@ describe('compareResults', () => {
     expect(() =>
       compareResults(pair, [{ key: 'public-api · operations', freedom: 2, why: 'x' }]),
     ).toThrow('public-api · operations');
+  });
+
+  it.each([99, 0, 2.5])('throws on a ruling that names freedom %p, which the list lacks', (n) => {
+    const pair = [facts('todo-01'), facts('todo-03', addEdge)];
+    const ruling = { key: EDGE, freedom: n as 1, why: 'x' };
+    expect(() => compareResults(pair, [ruling])).toThrow(EDGE);
+  });
+
+  it('keeps an optional item field in the item shape, so the item shape breaks', () => {
+    const optional = facts(
+      'todo-02',
+      replaceIn(
+        'api/src/features/todos/domain.ts',
+        'readonly title: string',
+        'readonly title?: string',
+      ),
+    );
+    const comparison = compareResults([facts('todo-01'), optional]);
+    const shape = find(comparison, 'public-api · item shape');
+    expect(shape.classification).toBe('outside-spec');
+    expect(shape.values.get('todo-02')?.written).toContain('title?: string');
+    expect(comparison.consistent).toBe(false);
+  });
+
+  it.each([
+    [
+      'a subscription',
+      'changes: TRPCSubscriptionProcedure<    {\ninput: void;\noutput: Todo;\nmeta: object;\n}>;\n',
+    ],
+    [
+      'a member of an unknown type',
+      'ping: SomethingElse<    {\ninput: void;\noutput: Todo;\nmeta: object;\n}>;\n',
+    ],
+    ['a member that is no type reference', 'extra: object;\n'],
+  ])('records %s in the router, so the operations break', (_, member) => {
+    const extra = facts('todo-02', replaceIn(API_REPORT, /^delete:/m, `${member}delete:`));
+    const comparison = compareResults([facts('todo-01'), extra]);
+    expect(find(comparison, 'public-api · operations').classification).toBe('outside-spec');
+    expect(find(comparison, 'public-api · unrecognized procedure 1').classification).toBe(
+      'outside-spec',
+    );
+    expect(comparison.consistent).toBe(false);
+  });
+
+  it('reads a hook called as a property, such as React.useState', () => {
+    const local = facts(
+      'todo-02',
+      replaceIn(
+        `${ROUTES}/TodoForm.tsx`,
+        '  const { register,',
+        '  const [n] = React.useState(0);\n  const { register,',
+      ),
+    );
+    expect(
+      find(compareResults([facts('todo-01'), local]), 'conventions · local state').classification,
+    ).toBe('outside-spec');
+  });
+
+  it('takes the no-input query whose output is an array as the list', () => {
+    const count =
+      'count: TRPCQueryProcedure<    {\ninput: void;\noutput: number;\nmeta: object;\n}>;\n';
+    const extra = facts('todo-02', replaceIn(API_REPORT, /^list:/m, `${count}list:`));
+    expect(departures(compareResults([facts('todo-01'), extra]))).toEqual([
+      ['public-api · operations', 'outside-spec', null],
+      ['public-api · unrecognized procedure 1', 'outside-spec', null],
+    ]);
   });
 
   it('judges an invariant in each run, so one broken in all three stays outside the spec', () => {
@@ -678,6 +801,50 @@ describe('renderComparison', () => {
     expect(report).toContain('existed before the agent ran');
   });
 
+  it('names the /tmp paths every run wrote, and which of them existed before the run', () => {
+    const report = renderComparison(runs(), read);
+    expect(report).toContain(
+      'Every run wrote logs under `/tmp`: `todo-01` to `/tmp/verify.log`; `todo-02` to `/tmp/verify-todo02.log` and `/tmp/e2e-todo02.log`; `todo-03` to `/tmp/verify03.log` and `/tmp/e2e03.log`. The paths of `todo-02` and `todo-03` were new during their runs, so the ADR 0034 allowlist covers them. `/tmp/verify.log` already existed when `todo-01` started, from an unrelated job on the shared box.',
+    );
+    expect(verdict(report).split('\n')[1]).toBe(
+      '- `todo-01` failed only on `/tmp/verify.log`, which existed before its run; every run wrote logs under `/tmp` (see Runs).',
+    );
+  });
+
+  it('throws on a cause for a path that no run found before its agent ran', () => {
+    expect(() =>
+      renderComparison(runs(), read, { causes: { '/tmp/e2e03.log': 'from another job' } }),
+    ).toThrow('stale');
+  });
+
+  it('states the trunk drift since the recorded enforcement rev, and throws when it names another rev', () => {
+    const baseline = renderComparison(runs(), read).split('## Baseline')[1]?.split('\n## ')[0];
+    expect(baseline).toContain('The runs recorded enforcement rev `3d35bf1`.');
+    expect(baseline).toContain('`1321f04`');
+    expect(() =>
+      renderComparison(runs(), read, { drift: { since: 'f'.repeat(40), text: 'x' } }),
+    ).toThrow('enforcement rev');
+  });
+
+  it('puts the dimension tables right after the verdict', () => {
+    const headings = [...renderComparison(runs(), read).matchAll(/^## (.+)$/gm)].map(
+      ([, heading]) => heading,
+    );
+    expect(headings).toEqual([
+      'Verdict',
+      'Structure',
+      'Public API',
+      'Dependencies',
+      'Component boundaries',
+      'Conventions',
+      'Runs',
+      'Baseline',
+      'Method',
+      'Outside the spec',
+      'Diagrams',
+    ]);
+  });
+
   it('lists only the baseline rows a rendered report can show, with the template caveat', () => {
     const report = renderComparison(runs(), read);
     expect(report).not.toContain('Real agent session');
@@ -729,7 +896,7 @@ describe('checkLandedRuns', () => {
 });
 
 describe('the committed comparison', () => {
-  it('keeps docs/trials/COMPARISON.md equal to what the committed results give', () => {
+  it('keeps docs/trials/comparison.md equal to what the committed results give', () => {
     expect(read(REPORT_PATH)).toBe(comparisonReport(ROOT));
   });
 

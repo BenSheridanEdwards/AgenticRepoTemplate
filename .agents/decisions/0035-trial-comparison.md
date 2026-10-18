@@ -24,7 +24,7 @@ brief, so it adds to 0014 and supersedes none of it.
 **One generated report.** `node tooling/trial/compare.mjs` reads every
 `docs/trials/<id>.json` through `validateEvidence`, each passed run's
 committed `showcase/<id>/`, and each failed run's `docs/trials/<id>.patch`,
-and writes `docs/trials/COMPARISON.md`. `tooling/trial/compare.test.ts`
+and writes `docs/trials/comparison.md`. `tooling/trial/compare.test.ts`
 regenerates the report and fails when the committed copy differs, so
 `pnpm verify` keeps it current. It reads committed files: its one git call is
 `git ls-files`, which lists a passed run's tracked files, and the only
@@ -48,12 +48,21 @@ it like the others and marks it failed with the recorded reason. For each
 path in `outsideReads` it quotes the first tool call input in the run's
 committed stream that names the path, and states the harness rule it broke: a
 tool call that names a path outside the workdir that existed before the agent
-ran fails the run ([0034](0034-trial-harness-and-evidence.md)).
+ran fails the run ([0034](0034-trial-harness-and-evidence.md)). It then lists
+the `/tmp` paths each run's tool calls name, and says which ones were new
+during their run and which existed before it. A failure that every run
+shares in behaviour reads as such. The cause of a pre-existing path is not in
+the evidence, so the author states it in `OUTSIDE_PATH_CAUSES` in
+`compare.mjs`, and a cause that names no recorded outside path fails the
+script.
 
 **Pass count and verdict.** The report opens with `Full pass count x/n`,
-the number of records with status `passed` over the number of records. The
-consistency verdict follows, separately: `consistent` when every difference
-is `identical` or `spec-freedom`, else `inconsistent`.
+the number of records with status `passed` over the number of records, and
+a line on each failed run's cause. The consistency verdict follows,
+separately: `consistent` when every difference is `identical` or
+`spec-freedom`, else `inconsistent`. One table per dimension comes next, as
+PLAN orders it. The runs, the baseline, the method, the departures and the
+diagrams follow the tables.
 
 **Shared baseline.** The report proves the runs shared one baseline: equal
 scaffold revision, enforcement revision, lockfile hash, prompt template hash,
@@ -61,7 +70,16 @@ harness hash, CLI version, resolved model and user config hash, the template
 file's hash equal to the recorded one, each recorded prompt re-rendered from
 the template with `renderPrompt`, and distinct session ids. A field that
 differs shows `no`, and the verdict states that the baseline differs. A fake
-agent needs no row: such a record stops the script first.
+agent needs no row: such a record stops the script first. Next to the table,
+the report names the enforcement revision the runs recorded and gives the
+author's account of what trunk changed since, from `TRUNK_DRIFT` in
+`compare.mjs`. CI checks out one commit, so the script cannot read the head's
+enforcement revision from git. `TRUNK_DRIFT` names the revision it starts
+from, and the script fails when that is not the one every run recorded, so a
+new baseline makes the author rewrite it. A gate change since the recorded
+revision is the new-baseline rule of [0034](0034-trial-harness-and-evidence.md),
+so the reader sees whether the gates that judged the runs still judge the
+head.
 
 **Dimensions.** Each dimension compares a normalized form, so a name alone
 makes no difference. Facts come from the committed generated artifacts
@@ -79,17 +97,26 @@ the shapes the Structure rows compare.
 | Conventions | Hook calls per hook, `effectTsResolver` use, storage role | Server state in `use*` hooks through `useTrpc`; one form through React Hook Form and Effect Schema; storage in `api-integrations` |
 
 The operation of a procedure comes from its shape: the query with no input
-lists, the mutation that takes a title creates, and of the two that take an
+that returns an array lists, the mutation that takes a title creates, and of the two that take an
 id, the one that returns the item toggles. Names reach only written forms,
 with two exceptions: a router key breaks a tie between two `{ id }` mutations
 whose outputs match, and a type name the result does not declare stays as
-written.
+written. Every router member counts. A member of a kind other than query or
+mutation, such as a subscription, or of a type the parse cannot read, is its
+own unrecognized procedure, so the operations check breaks. The item shape
+keeps each field's optionality, so an optional `title` breaks the item check.
+A hook call counts whether it is written `useX()` or `React.useX()`.
 
 The scaffold roles are the ones the reference fills with scaffold code:
 `web-app`, `web-api-client`, `api-app` and `api-trpc`, listed once in
 `SCAFFOLD_ROLES`. They are fixed, not free: a difference in their files,
 components, hooks or export names is `outside-spec`, and freedom 2 covers
-only the other roles. The scaffold's own components (`App`, the api
+only the other roles. Freedom 2 is about placement. A role's components
+differ inside it only when the role-wide multiset of `@repo/ui` primitives,
+raw controls and hook calls is equal in every run, and a role's hooks only
+when the role-wide multiset of their calls is equal. Calls to the result's
+own hooks drop out of that multiset, since they only move code. A change to
+what the role uses or calls is `outside-spec`. The scaffold's own components (`App`, the api
 providers) sit outside `web-routes` in the reference too, so the boundary rule
 reads "feature components", while the `@repo/ui` primitive rule holds the
 components of every role.
@@ -120,16 +147,23 @@ author writes notes in `AUTHOR_NOTES` in `compare.mjs`, each naming one
 the aspect stays `outside-spec`, and the note is its Why cell, marked as the
 author's. A note with a freedom is a ruling: it moves the aspect into that
 freedom, and the report lists it under "Rulings by the author", a section it
-leaves out when no ruling lands. A note that matches no `outside-spec`
+leaves out when no ruling lands. A ruling's freedom must be an integer
+from 1 to 7, or the script fails. A note that matches no `outside-spec`
 difference fails the script. `compare.test.ts` holds this list equal to the
 script's.
 
 ## Consequences
 
-- The first report reads `Full pass count 2/3` and `inconsistent`. todo-01
-  failed because its agent wrote `/tmp/verify.log`, a file that existed before
-  the run, in the command `pnpm verify > /tmp/verify.log 2>&1; …`, and the
-  harness counts any tool call naming such a path. Its four checks exited 0.
+- The first report reads `Full pass count 2/3` and `inconsistent`. All
+  three agents redirected their check output to logs under `/tmp`. todo-02
+  and todo-03 wrote to paths that were new during their runs, which the
+  allowlist of [0034](0034-trial-harness-and-evidence.md) covers. todo-01
+  wrote `pnpm verify > /tmp/verify.log 2>&1; …`, and `/tmp/verify.log`
+  already existed from an unrelated job on the shared box. The harness fails
+  a run on any tool call that names such a path, so todo-01 failed, though
+  its four checks exited 0. The behaviour was the same in all three runs;
+  only the leftover file differed. The count stays 2/3 under the rule as
+  merged, and PLAN allows no retry once the agent has started.
 - Two aspects sit outside the spec, each with an author's note and no ruling.
   todo-03 holds a type-only edge from `api-procedures` to `api-domain`: it
   annotates its toggle procedure's return type with `Todo`, imported type-only

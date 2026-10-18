@@ -7,8 +7,139 @@ This report compares the Todo trial results under ADR 0035: the full pass count,
 ## Verdict
 
 - Full pass count 2/3
+- `todo-01` failed only on `/tmp/verify.log`, which existed before its run; every run wrote logs under `/tmp` (see Runs).
 - Consistency: `inconsistent`. 2 aspects sit outside the spec, 2 with an author's note; 4 sit inside a spec freedom, 4 by the script's rules and 0 by an author's ruling.
 - Baseline: shared. All 13 baseline checks hold.
+
+## Structure
+
+| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
+| --- | --- | --- | --- | --- |
+| `role web-app` | `present` | `present` | `present` | identical |
+| `role web-api-client` | `present` | `present` | `present` | identical |
+| `role web-routes` | `present` | `present` | `present` | identical |
+| `role web-features` | `absent` | `absent` | `absent` | identical |
+| `role ui` | `present` | `present` | `present` | identical |
+| `role api-app` | `present` | `present` | `present` | identical |
+| `role api-trpc` | `present` | `present` | `present` | identical |
+| `role api-procedures` | `present` | `present` | `present` | identical |
+| `role api-application` | `present` | `present` | `present` | identical |
+| `role api-domain` | `present` | `present` | `present` | identical |
+| `role api-integrations` | `present` | `present` | `present` | identical |
+| `edge api-app --> api-procedures` | `present` | `present` | `present` | identical |
+| `edge api-app --> api-trpc` | `present` | `present` | `present` | identical |
+| `edge api-application --> api-domain` | `present` | `present` | `present` | identical |
+| `edge api-application --> api-integrations` | `present` | `present` | `present` | identical |
+| `edge api-integrations --> api-domain` | `present` | `present` | `present` | identical |
+| `edge api-procedures --> api-application` | `present` | `present` | `present` | identical |
+| `edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | outside the spec |
+| `edge api-procedures --> api-trpc` | `present` | `present` | `present` | identical |
+| `edge web-api-client -.-> api-app` | `present` | `present` | `present` | identical |
+| `edge web-app --> ui` | `present` | `present` | `present` | identical |
+| `edge web-app --> web-api-client` | `present` | `present` | `present` | identical |
+| `edge web-app --> web-routes` | `present` | `present` | `present` | identical |
+| `edge web-routes --> ui` | `present` | `present` | `present` | identical |
+| `edge web-routes --> web-api-client` | `present` | `present` | `present` | identical |
+| `files web-app` | `3` | `3` | `3` | identical |
+| `files web-api-client` | `6` | `6` | `6` | identical |
+| `files web-routes` | `8` | `8` | `8` | identical |
+| `files web-features` | `0` | `0` | `0` | identical |
+| `files ui` | `0` | `0` | `0` | identical |
+| `files api-app` | `2` | `2` | `2` | identical |
+| `files api-trpc` | `1` | `1` | `1` | identical |
+| `files api-procedures` | `2` | `2` | `2` | identical |
+| `files api-application` | `1` | `1` | `1` | identical |
+| `files api-domain` | `1` | `1` | `1` | identical |
+| `files api-integrations` | `1` | `1` | `1` | identical |
+| `files outside-roles` | `9` | `9` | `9` | identical |
+| `tests web-app` | `0` | `0` | `0` | identical |
+| `tests web-api-client` | `2` | `2` | `2` | identical |
+| `tests web-routes` | `3` | `2` | `3` | spec freedom 6 |
+| `tests api-app` | `1` | `1` | `1` | identical |
+| `tests api-trpc` | `0` | `0` | `0` | identical |
+| `tests api-procedures` | `1` | `1` | `1` | identical |
+| `tests api-application` | `1` | `1` | `1` | identical |
+| `tests api-domain` | `1` | `1` | `1` | identical |
+| `tests api-integrations` | `1` | `0` | `1` | spec freedom 6 |
+| `tests outside-roles` | `0` | `0` | `0` | identical |
+| `tests e2e` | `2` | `1` | `2` | spec freedom 6 |
+| `file web/index.html` | `3c4143801c2a` | `3c4143801c2a` | `3c4143801c2a` | identical |
+| `file web/vite.config.ts` | `0002d92d5d0d` | `0002d92d5d0d` | `0002d92d5d0d` | identical |
+
+Written forms where the runs differ:
+
+- `tests web-routes`: `todo-01` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts, web/src/routes/todos/useTodos.test.tsx`; `todo-02` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts`; `todo-03` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts, web/src/routes/todos/useTodos.test.tsx`
+- `tests api-integrations`: `todo-01` `api/src/features/todos/integrations.test.ts`; `todo-02` `(none)`; `todo-03` `api/src/features/todos/integrations.test.ts`
+- `tests e2e`: `todo-01` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`; `todo-02` `web/e2e/todos.spec.ts`; `todo-03` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`
+
+## Public API
+
+| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
+| --- | --- | --- | --- | --- |
+| `operations` | holds | holds | holds | identical |
+| `item shape` | holds | holds | holds | identical |
+| `item id type` | `string` | `string` | `string` | identical |
+| `list input` | `void` | `void` | `void` | identical |
+| `list output` | `Item[]` | `Item[]` | `Item[]` | identical |
+| `create input` | `{ title: string }` | `{ title: string }` | `{ title: string }` | identical |
+| `create output` | `Item` | `Item` | `Item` | identical |
+| `toggle input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
+| `toggle output` | `Item` | `Item` | `Item` | identical |
+| `delete input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
+| `delete output` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
+| `exports api:api-app` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | identical |
+| `exports api:api-procedures` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
+| `exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | outside the spec |
+| `exports web:web-routes` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
+
+Written forms where the runs differ:
+
+- `delete output`: `todo-01` `{ id: string; }`; `todo-02` `TodoRequest`; `todo-03` `{ readonly id: string; }`
+
+## Dependencies
+
+| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
+| --- | --- | --- | --- | --- |
+| `web dependencies @hookform/resolvers` | `^5.9.1` | `^5.9.1` | `^5.9.1` | identical |
+| `web dependencies @repo/ui` | `workspace:*` | `workspace:*` | `workspace:*` | identical |
+| `web dependencies @tanstack/react-query` | `^5.104.3` | `^5.104.3` | `^5.104.3` | identical |
+| `web dependencies @trpc/client` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
+| `web dependencies @trpc/server` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
+| `web dependencies @trpc/tanstack-react-query` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
+| `web dependencies effect` | `^3.22.3` | `^3.22.3` | `^3.22.3` | identical |
+| `web dependencies react` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
+| `web dependencies react-dom` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
+| `web dependencies react-hook-form` | `^7.90.0` | `^7.90.0` | `^7.90.0` | identical |
+| `web devDependencies @{id}/api` | `workspace:*` | `workspace:*` | `workspace:*` | identical |
+| `web devDependencies @vitejs/plugin-react` | `^4.3.4` | `^4.3.4` | `^4.3.4` | identical |
+| `web devDependencies vite` | `^6.0.7` | `^6.0.7` | `^6.0.7` | identical |
+| `web manifest` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | identical |
+| `api dependencies @trpc/server` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
+| `api dependencies effect` | `^3.22.3` | `^3.22.3` | `^3.22.3` | identical |
+| `api manifest` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | identical |
+
+## Component boundaries
+
+| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
+| --- | --- | --- | --- | --- |
+| `page` | holds | holds | holds | identical |
+| `ui controls` | holds | holds | holds | identical |
+| `feature component roles` | holds | holds | holds | identical |
+| `components web-api-client` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | identical |
+| `components web-app` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | identical |
+| `components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | identical |
+
+## Conventions
+
+| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
+| --- | --- | --- | --- | --- |
+| `server state` | holds | holds | holds | identical |
+| `one form` | holds | holds | holds | identical |
+| `local state` | holds | holds | holds | identical |
+| `storage role` | holds | holds | holds | identical |
+| `hooks web-api-client` | `calls(useState)` | `calls(useState)` | `calls(useState)` | identical |
+| `hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | identical |
+| `id generation` | `randomUUID` | `counter` | `randomUUID` | spec freedom 3 |
 
 ## Runs
 
@@ -18,7 +149,7 @@ This report compares the Todo trial results under ADR 0035: the full pass count,
 | `todo-02` | `passed` | `showcase/todo-02` | `feb8d22` | `9 min 0 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
 | `todo-03` | `passed` | `showcase/todo-03` | `47b2715` | `10 min 39 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
 
-`todo-01` is `failed`: its checks `install`, `verify`, `e2e` and `structure` each exited `0`, and its evidence names the failure `named paths outside the clone: /tmp/verify.log`. Its code comes from `docs/trials/todo-01.patch`, and the report compares it like the others. Under the harness rule (ADR 0034), a tool call that names a path outside the workdir that existed before the agent ran fails the run; the tmp entries that appear while the agent runs are on its allowlist. The first tool call in `docs/trials/todo-01.stream.jsonl` that names `/tmp/verify.log` is `pnpm verify > /tmp/verify.log 2>&1; echo EXIT=$?; git status --short; git status --short --ignored showcase | head; git diff --stat`.
+`todo-01` is `failed`: its checks `install`, `verify`, `e2e` and `structure` each exited `0`, and its evidence names the failure `named paths outside the clone: /tmp/verify.log`. Its code comes from `docs/trials/todo-01.patch`, and the report compares it like the others. Under the harness rule (ADR 0034), a tool call that names a path outside the workdir that existed before the agent ran fails the run; the tmp entries that appear while the agent runs are on its allowlist. The first tool call in `docs/trials/todo-01.stream.jsonl` that names `/tmp/verify.log` is `pnpm verify > /tmp/verify.log 2>&1; echo EXIT=$?; git status --short; git status --short --ignored showcase | head; git diff --stat`. Every run wrote logs under `/tmp`: `todo-01` to `/tmp/verify.log`; `todo-02` to `/tmp/verify-todo02.log` and `/tmp/e2e-todo02.log`; `todo-03` to `/tmp/verify03.log` and `/tmp/e2e03.log`. The paths of `todo-02` and `todo-03` were new during their runs, so the ADR 0034 allowlist covers them. `/tmp/verify.log` already existed when `todo-01` started, from an unrelated job on the shared box.
 
 ## Baseline
 
@@ -39,6 +170,8 @@ Every row comes from the committed evidence and files (ADR 0034, "New baseline")
 | Template file hash | re-derived from the template at `prompt.path` | `113b09b2044f…` | `113b09b2044f…` | `113b09b2044f…` | yes |
 | Rendered prompt SHA-256 | re-derived with `renderPrompt` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
 | Recorded prompt text | re-derived from `prompt.text` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
+
+The runs recorded enforcement rev `3d35bf1`. After the trials ran, the branch merged main `1321f04` (#93). Among the enforcement paths it changes only `scripts/enforcement-approval.mjs` and its test, the sign-off gate, and this branch adds only the comparison under `tooling/trial`, which reads the results. Every gate that judges the showcase code is the one the runs ran.
 
 A record with `agent.fake: true` stops the report before this table renders, so every run here ran the real agent. The template rows read `tooling/trial/todo-prompt.md` as committed, so a later prompt change shows `no` there, which is the new-baseline rule of ADR 0034.
 
@@ -193,133 +326,3 @@ flowchart LR
   web_routes --> ui
   web_routes --> web_api_client
 ```
-
-## Structure
-
-| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
-| --- | --- | --- | --- | --- |
-| `role web-app` | `present` | `present` | `present` | identical |
-| `role web-api-client` | `present` | `present` | `present` | identical |
-| `role web-routes` | `present` | `present` | `present` | identical |
-| `role web-features` | `absent` | `absent` | `absent` | identical |
-| `role ui` | `present` | `present` | `present` | identical |
-| `role api-app` | `present` | `present` | `present` | identical |
-| `role api-trpc` | `present` | `present` | `present` | identical |
-| `role api-procedures` | `present` | `present` | `present` | identical |
-| `role api-application` | `present` | `present` | `present` | identical |
-| `role api-domain` | `present` | `present` | `present` | identical |
-| `role api-integrations` | `present` | `present` | `present` | identical |
-| `edge api-app --> api-procedures` | `present` | `present` | `present` | identical |
-| `edge api-app --> api-trpc` | `present` | `present` | `present` | identical |
-| `edge api-application --> api-domain` | `present` | `present` | `present` | identical |
-| `edge api-application --> api-integrations` | `present` | `present` | `present` | identical |
-| `edge api-integrations --> api-domain` | `present` | `present` | `present` | identical |
-| `edge api-procedures --> api-application` | `present` | `present` | `present` | identical |
-| `edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | outside the spec |
-| `edge api-procedures --> api-trpc` | `present` | `present` | `present` | identical |
-| `edge web-api-client -.-> api-app` | `present` | `present` | `present` | identical |
-| `edge web-app --> ui` | `present` | `present` | `present` | identical |
-| `edge web-app --> web-api-client` | `present` | `present` | `present` | identical |
-| `edge web-app --> web-routes` | `present` | `present` | `present` | identical |
-| `edge web-routes --> ui` | `present` | `present` | `present` | identical |
-| `edge web-routes --> web-api-client` | `present` | `present` | `present` | identical |
-| `files web-app` | `3` | `3` | `3` | identical |
-| `files web-api-client` | `6` | `6` | `6` | identical |
-| `files web-routes` | `8` | `8` | `8` | identical |
-| `files web-features` | `0` | `0` | `0` | identical |
-| `files ui` | `0` | `0` | `0` | identical |
-| `files api-app` | `2` | `2` | `2` | identical |
-| `files api-trpc` | `1` | `1` | `1` | identical |
-| `files api-procedures` | `2` | `2` | `2` | identical |
-| `files api-application` | `1` | `1` | `1` | identical |
-| `files api-domain` | `1` | `1` | `1` | identical |
-| `files api-integrations` | `1` | `1` | `1` | identical |
-| `files outside-roles` | `9` | `9` | `9` | identical |
-| `tests web-app` | `0` | `0` | `0` | identical |
-| `tests web-api-client` | `2` | `2` | `2` | identical |
-| `tests web-routes` | `3` | `2` | `3` | spec freedom 6 |
-| `tests api-app` | `1` | `1` | `1` | identical |
-| `tests api-trpc` | `0` | `0` | `0` | identical |
-| `tests api-procedures` | `1` | `1` | `1` | identical |
-| `tests api-application` | `1` | `1` | `1` | identical |
-| `tests api-domain` | `1` | `1` | `1` | identical |
-| `tests api-integrations` | `1` | `0` | `1` | spec freedom 6 |
-| `tests outside-roles` | `0` | `0` | `0` | identical |
-| `tests e2e` | `2` | `1` | `2` | spec freedom 6 |
-| `file web/index.html` | `3c4143801c2a` | `3c4143801c2a` | `3c4143801c2a` | identical |
-| `file web/vite.config.ts` | `0002d92d5d0d` | `0002d92d5d0d` | `0002d92d5d0d` | identical |
-
-Written forms where the runs differ:
-
-- `tests web-routes`: `todo-01` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts, web/src/routes/todos/useTodos.test.tsx`; `todo-02` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts`; `todo-03` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts, web/src/routes/todos/useTodos.test.tsx`
-- `tests api-integrations`: `todo-01` `api/src/features/todos/integrations.test.ts`; `todo-02` `(none)`; `todo-03` `api/src/features/todos/integrations.test.ts`
-- `tests e2e`: `todo-01` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`; `todo-02` `web/e2e/todos.spec.ts`; `todo-03` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`
-
-## Public API
-
-| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
-| --- | --- | --- | --- | --- |
-| `operations` | holds | holds | holds | identical |
-| `item shape` | holds | holds | holds | identical |
-| `item id type` | `string` | `string` | `string` | identical |
-| `list input` | `void` | `void` | `void` | identical |
-| `list output` | `Item[]` | `Item[]` | `Item[]` | identical |
-| `create input` | `{ title: string }` | `{ title: string }` | `{ title: string }` | identical |
-| `create output` | `Item` | `Item` | `Item` | identical |
-| `toggle input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `toggle output` | `Item` | `Item` | `Item` | identical |
-| `delete input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `delete output` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `exports api:api-app` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | identical |
-| `exports api:api-procedures` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
-| `exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | outside the spec |
-| `exports web:web-routes` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
-
-Written forms where the runs differ:
-
-- `delete output`: `todo-01` `{ id: string; }`; `todo-02` `TodoRequest`; `todo-03` `{ readonly id: string; }`
-
-## Dependencies
-
-| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
-| --- | --- | --- | --- | --- |
-| `web dependencies @hookform/resolvers` | `^5.9.1` | `^5.9.1` | `^5.9.1` | identical |
-| `web dependencies @repo/ui` | `workspace:*` | `workspace:*` | `workspace:*` | identical |
-| `web dependencies @tanstack/react-query` | `^5.104.3` | `^5.104.3` | `^5.104.3` | identical |
-| `web dependencies @trpc/client` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
-| `web dependencies @trpc/server` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
-| `web dependencies @trpc/tanstack-react-query` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
-| `web dependencies effect` | `^3.22.3` | `^3.22.3` | `^3.22.3` | identical |
-| `web dependencies react` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
-| `web dependencies react-dom` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
-| `web dependencies react-hook-form` | `^7.90.0` | `^7.90.0` | `^7.90.0` | identical |
-| `web devDependencies @{id}/api` | `workspace:*` | `workspace:*` | `workspace:*` | identical |
-| `web devDependencies @vitejs/plugin-react` | `^4.3.4` | `^4.3.4` | `^4.3.4` | identical |
-| `web devDependencies vite` | `^6.0.7` | `^6.0.7` | `^6.0.7` | identical |
-| `web manifest` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | identical |
-| `api dependencies @trpc/server` | `^11.19.0` | `^11.19.0` | `^11.19.0` | identical |
-| `api dependencies effect` | `^3.22.3` | `^3.22.3` | `^3.22.3` | identical |
-| `api manifest` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | `{"exports":{".":{"types":"./src/router.ts"}},"name":"@{id}/api","private":true,"scripts":{"dev":"node --watch src/server.ts","start":"node src/server.ts"},"type":"module","version":"0.1.0"}` | identical |
-
-## Component boundaries
-
-| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
-| --- | --- | --- | --- | --- |
-| `page` | holds | holds | holds | identical |
-| `ui controls` | holds | holds | holds | identical |
-| `feature component roles` | holds | holds | holds | identical |
-| `components web-api-client` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | identical |
-| `components web-app` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | identical |
-| `components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | identical |
-
-## Conventions
-
-| Aspect | `todo-01` | `todo-02` | `todo-03` | Classification |
-| --- | --- | --- | --- | --- |
-| `server state` | holds | holds | holds | identical |
-| `one form` | holds | holds | holds | identical |
-| `local state` | holds | holds | holds | identical |
-| `storage role` | holds | holds | holds | identical |
-| `hooks web-api-client` | `calls(useState)` | `calls(useState)` | `calls(useState)` | identical |
-| `hooks web-routes` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | `calls(effectTsResolver,useForm) ; calls(useMutation,useMutation,useMutation,useQuery,useQueryClient,useTrpc)` | identical |
-| `id generation` | `randomUUID` | `counter` | `randomUUID` | spec freedom 3 |

@@ -85,6 +85,8 @@ const SCAFFOLD = SCAFFOLD_ROLES.join('|');
 const featureRole = (prefix) => new RegExp(`^${prefix} (?!(?:${SCAFFOLD}|outside-roles)$)`);
 const scaffoldRole = (prefix) => new RegExp(`^${prefix} (?:\\w+:)?(?:${SCAFFOLD})$`);
 const SCAFFOLD_FIXED = 'the reference fixes the scaffold roles';
+const SPLIT_DIFFERS = (parts) =>
+  `the role-wide ${parts} differ, and freedom 2 covers only where they sit`;
 const shortHash = (text) => createHash('sha256').update(text).digest('hex').slice(0, 12);
 
 /** @returns {Aspect} */
@@ -202,6 +204,31 @@ const callsOf = (facts, calls) => {
 const byRole = (entries) =>
   [...Map.groupBy(entries, (entry) => entry.role)].sort(([a], [b]) => (a < b ? -1 : 1));
 
+const isFeatureRole = (role) => !SCAFFOLD_ROLES.includes(role) && role !== 'outside-roles';
+
+/** Calls other than to the result's own hooks: calling one is placement, as its body is compared too. */
+const foreignCalls = (facts, calls) => {
+  const own = new Set(facts.hooks.map((hook) => hook.name));
+  return calls.filter((call) => !own.has(call));
+};
+
+/**
+ * The `within` of a feature role's split: the role-wide multiset of `parts`,
+ * so the role sits in freedom 2 when only their placement differs.
+ *
+ * @returns {{ within?: Within }}
+ */
+const splitOf = (role, entries, parts, into, named) =>
+  isFeatureRole(role)
+    ? {
+        within: {
+          value: entries.flatMap(parts).sort().join(','),
+          freedom: /** @type {Freedom} */ (2),
+          why: `how a role splits into ${into}; the role-wide ${named} match`,
+        },
+      }
+    : {};
+
 /** @param {ResultFacts} facts */
 function componentAspects(facts) {
   const features = facts.components.filter((c) => !SCAFFOLD_ROLES.includes(c.role));
@@ -224,8 +251,8 @@ function componentAspects(facts) {
       features.every((c) => FEATURE_COMPONENT_ROLES.includes(c.role)),
       listed([...new Set(features.map((c) => c.role))].sort()),
     ),
-    ...byRole(facts.components).map(([role, components]) =>
-      form(
+    ...byRole(facts.components).map(([role, components]) => ({
+      ...form(
         `components ${role}`,
         components
           .map(
@@ -236,7 +263,18 @@ function componentAspects(facts) {
           .join(' ; '),
         listed(components.map((c) => c.name)),
       ),
-    ),
+      ...splitOf(
+        role,
+        components,
+        (c) => [
+          ...c.uiPrimitives.map((name) => `ui:${name}`),
+          ...c.rawControls.map((name) => `raw:${name}`),
+          ...foreignCalls(facts, c.calls).map((name) => `call:${name}`),
+        ],
+        'components',
+        'primitives, raw controls and calls',
+      ),
+    })),
   ];
 }
 
@@ -270,8 +308,8 @@ function conventionAspects(facts) {
       facts.storage.roles.join() === 'api-integrations',
       listed(facts.storage.roles),
     ),
-    ...byRole(facts.hooks).map(([role, hooks]) =>
-      form(
+    ...byRole(facts.hooks).map(([role, hooks]) => ({
+      ...form(
         `hooks ${role}`,
         hooks
           .map((hook) => `calls(${callsOf(facts, hook.calls)})`)
@@ -279,7 +317,8 @@ function conventionAspects(facts) {
           .join(' ; '),
         listed(hooks.map((hook) => hook.name)),
       ),
-    ),
+      ...splitOf(role, hooks, (hook) => foreignCalls(facts, hook.calls), 'hooks', 'calls'),
+    })),
     form('id generation', facts.storage.idSource),
   ];
 }
@@ -344,10 +383,11 @@ const DIMENSIONS = [
     mustBeIdentical:
       'Page in `web-routes`; form controls from `@repo/ui` where a primitive exists; feature components only in `web-routes` and `ui`',
     aspects: componentAspects,
-    freedoms: [
-      { key: featureRole('components'), freedom: 2, why: 'how a role splits into components' },
+    freedoms: [],
+    fixed: [
+      { key: scaffoldRole('components'), why: SCAFFOLD_FIXED },
+      { key: featureRole('components'), why: SPLIT_DIFFERS('primitives, raw controls or calls') },
     ],
-    fixed: [{ key: scaffoldRole('components'), why: SCAFFOLD_FIXED }],
   },
   {
     id: 'conventions',
@@ -357,11 +397,11 @@ const DIMENSIONS = [
     mustBeIdentical:
       'Server state in `use*` hooks through `useTrpc`; one form through React Hook Form and Effect Schema; local state in `use*` hooks; storage in `api-integrations`',
     aspects: conventionAspects,
-    freedoms: [
-      { key: featureRole('hooks'), freedom: 2, why: 'how a role splits into hooks' },
-      { key: /^id generation$/, freedom: 3, why: 'the generation of `id`' },
+    freedoms: [{ key: /^id generation$/, freedom: 3, why: 'the generation of `id`' }],
+    fixed: [
+      { key: scaffoldRole('hooks'), why: SCAFFOLD_FIXED },
+      { key: featureRole('hooks'), why: SPLIT_DIFFERS('calls') },
     ],
-    fixed: [{ key: scaffoldRole('hooks'), why: SCAFFOLD_FIXED }],
   },
 ];
 
@@ -451,10 +491,20 @@ function classify(dimension, key, aspects, results) {
   };
 }
 
+/** No freedom, or the number of one in FREEDOMS; nothing type-checks the JSDoc `Freedom`. */
+const isFreedom = (freedom) =>
+  freedom === undefined ||
+  (Number.isInteger(freedom) && freedom >= 1 && freedom <= FREEDOMS.length);
+
 /** @returns {readonly Difference[]} */
 function applyNotes(differences, notes) {
   const noted = new Map(differences.map((difference) => [difference.key, difference]));
   for (const note of notes) {
+    if (!isFreedom(note.freedom)) {
+      throw new Error(
+        `compare: the author ruling on "${note.key}" names freedom ${note.freedom}; a ruling names one from 1 to ${FREEDOMS.length}.`,
+      );
+    }
     const difference = noted.get(note.key);
     if (difference?.classification !== 'outside-spec') {
       throw new Error(
@@ -485,7 +535,8 @@ function applyNotes(differences, notes) {
  * @param {readonly ResultFacts[]} results
  * @param {readonly AuthorNote[]} [notes]
  * @returns {Comparison}
- * @throws when a note names a missing aspect or one that is not outside the spec
+ * @throws when a note names a missing aspect or one that is not outside the spec, or a ruling
+ *   names a freedom FREEDOMS lacks
  */
 export function compareResults(results, notes = []) {
   const ids = results.map((facts) => facts.id);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Writes docs/trials/COMPARISON.md: the full pass count, the proof that the
+ * Writes docs/trials/comparison.md: the full pass count, the proof that the
  * Todo trials shared one baseline, and every aspect of the results compared
  * under ADR 0035, each identical, inside a named spec freedom, or outside the
  * spec. `node tooling/trial/compare.mjs` writes it; compare.test.ts holds the
@@ -11,6 +11,10 @@
  * @typedef {import('./dimensions.mjs').Comparison} Comparison
  * @typedef {import('./dimensions.mjs').Difference} Difference
  * @typedef {{ readonly evidence: TrialEvidence, readonly source: string, readonly facts: ResultFacts }} Run
+ * @typedef {{ readonly id: string, readonly paths: readonly { readonly path: string, readonly before: boolean }[] }} TmpPaths
+ *   the distinct `/tmp` paths a run's tool calls name, in first-seen order; `before`: in `result.outsideReads`
+ * @typedef {{ readonly since: string, readonly text: string }} Drift
+ *   the author's account of the trunk changes since the enforcement rev `since` the runs recorded
  * @typedef {{
  *   readonly label: string,
  *   readonly proof: string,
@@ -31,7 +35,7 @@ import { readContract, readResultFacts, treeFromPatch } from './result-facts.mjs
 import { renderPrompt } from './run-trial.mjs';
 import { streamEvents } from './stream.mjs';
 
-export const REPORT_PATH = 'docs/trials/COMPARISON.md';
+export const REPORT_PATH = 'docs/trials/comparison.md';
 const TRIALS = 'docs/trials';
 
 /**
@@ -51,6 +55,29 @@ const AUTHOR_NOTES = [
     why: "todo-03 annotates its toggle procedure's return type with `Todo`, imported type-only from `domain.ts`. The contract allows the direction; the spec freedoms keep role edges fixed.",
   },
 ];
+
+/**
+ * The author's statement of where each path came from that a run found outside
+ * its workdir before its agent ran; the evidence records only that it existed.
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+const OUTSIDE_PATH_CAUSES = {
+  '/tmp/verify.log': 'from an unrelated job on the shared box',
+};
+
+/**
+ * The author's account of what trunk changed after the trials ran. CI checks
+ * out one commit, so the report cannot read the head's enforcement rev from
+ * git; `since` must equal the rev every run recorded, so a new baseline makes
+ * the author rewrite it.
+ *
+ * @type {Drift}
+ */
+const TRUNK_DRIFT = {
+  since: '3d35bf1c35f3b3ce16a3bfb2b4df8f3424441cc1',
+  text: 'After the trials ran, the branch merged main `1321f04` (#93). Among the enforcement paths it changes only `scripts/enforcement-approval.mjs` and its test, the sign-off gate, and this branch adds only the comparison under `tooling/trial`, which reads the results. Every gate that judges the showcase code is the one the runs ran.',
+};
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 
@@ -140,9 +167,9 @@ function duration(ms) {
   return code(`${Math.floor(seconds / 60)} min ${seconds % 60} s`);
 }
 
-/** The first tool call input in a stream that names `path`, on one line, cut at 160 characters. */
-function firstCallNaming(streamText, path) {
-  const inputs = streamEvents(streamText).flatMap((event) =>
+/** Every tool call input in a stream: a command as written, any other input as JSON. */
+const toolInputs = (streamText) =>
+  streamEvents(streamText).flatMap((event) =>
     (Array.isArray(event.message?.content) ? event.message.content : [])
       .filter(
         (block) => block?.type === 'tool_use' && block.input && typeof block.input === 'object',
@@ -151,7 +178,10 @@ function firstCallNaming(streamText, path) {
         typeof block.input.command === 'string' ? block.input.command : JSON.stringify(block.input),
       ),
   );
-  const found = inputs
+
+/** The first tool call input in a stream that names `path`, on one line, cut at 160 characters. */
+function firstCallNaming(streamText, path) {
+  const found = toolInputs(streamText)
     .find((input) => input.includes(path))
     ?.replace(/\s+/g, ' ')
     .trim();
@@ -176,11 +206,96 @@ function explainOutsideReads(evidence, readText) {
   ];
 }
 
+const TMP_PATH = /\/tmp\/[^\s"'`<>|;&)\\]+/g;
+
+/**
+ * @param {TrialEvidence} evidence
+ * @param {(path: string) => string} readText
+ * @returns {TmpPaths}
+ */
+function tmpPathsOf(evidence, readText) {
+  const stream = evidence.stream.path;
+  const named = stream
+    ? toolInputs(readText(stream)).flatMap((input) => input.match(TMP_PATH) ?? [])
+    : [];
+  return {
+    id: evidence.trial.id,
+    paths: [...new Set(named)].map((path) => ({
+      path,
+      before: evidence.result.outsideReads.includes(path),
+    })),
+  };
+}
+
+/** Throws when a cause names a path that no run found before its agent ran. */
+function checkCauses(causes, evidences) {
+  for (const path of Object.keys(causes)) {
+    if (!evidences.some((e) => e.result.outsideReads.includes(path))) {
+      throw new Error(
+        `compare: the cause for ${path} is stale; no run found it before its agent ran.`,
+      );
+    }
+  }
+}
+
+/** Who wrote under `/tmp` and what, for a clause: `every run` and `logs` when it fits. */
+function tmpWriters(tmp) {
+  const writers = tmp.filter((run) => run.paths.length > 0);
+  const paths = writers.flatMap((run) => run.paths);
+  return {
+    writers,
+    who: writers.length === tmp.length ? 'every run' : andList(writers.map((run) => code(run.id))),
+    what: paths.every(({ path }) => path.endsWith('.log')) ? 'logs' : 'files',
+  };
+}
+
+/**
+ * Which `/tmp` paths each run named, which were new during its run and which
+ * existed before it, with the author's cause for those.
+ *
+ * @param {readonly TmpPaths[]} tmp
+ * @param {Readonly<Record<string, string>>} causes
+ */
+function explainTmpPaths(tmp, causes) {
+  const { writers, who, what } = tmpWriters(tmp);
+  if (writers.length === 0) {
+    return '';
+  }
+  const listed = (paths) => andList(paths.map(({ path }) => code(path)));
+  const allNew = writers.filter((run) => run.paths.every(({ before }) => !before));
+  const mixed = writers.filter((run) => !allNew.includes(run));
+  return [
+    `${who[0].toUpperCase()}${who.slice(1)} wrote ${what} under \`/tmp\`: ${writers.map((run) => `${code(run.id)} to ${listed(run.paths)}`).join('; ')}.`,
+    ...(allNew.length === 0
+      ? []
+      : [
+          `The paths of ${andList(allNew.map((run) => code(run.id)))} were new during ${allNew.length === 1 ? 'its run' : 'their runs'}, so the ADR 0034 allowlist covers them.`,
+        ]),
+    ...mixed.flatMap((run) => {
+      const fresh = run.paths.filter(({ before }) => !before);
+      return fresh.length === 0
+        ? []
+        : [
+            `Of the paths of ${code(run.id)}, ${listed(fresh)} ${fresh.length === 1 ? 'was' : 'were'} new during its run, so the ADR 0034 allowlist covers ${fresh.length === 1 ? 'it' : 'them'}.`,
+          ];
+    }),
+    ...writers.flatMap((run) =>
+      run.paths
+        .filter(({ before }) => before)
+        .map(
+          ({ path }) =>
+            `${code(path)} already existed when ${code(run.id)} started${causes[path] ? `, ${causes[path]}` : ''}.`,
+        ),
+    ),
+  ].join(' ');
+}
+
 /**
  * @param {readonly Run[]} runs
  * @param {(path: string) => string} readText
+ * @param {string} tmpNote  see `explainTmpPaths`; empty when no run names `/tmp`
  */
-function renderRuns(runs, readText) {
+function renderRuns(runs, readText, tmpNote) {
   const rows = runs.map(({ evidence: e, source }) => [
     code(e.trial.id),
     e.result.status === 'passed' ? code('passed') : `**${code('failed')}**`,
@@ -203,18 +318,39 @@ function renderRuns(runs, readText) {
         ...explainOutsideReads(e, readText),
       ].join(' ');
     });
+  const [first, ...rest] = notes;
+  const withTmp = first === undefined ? [tmpNote] : [[first, tmpNote].join(' ').trim(), ...rest];
   return [
     '## Runs',
     table(
       ['Run', 'Status', 'Read from', 'Commit', 'Agent time', 'Checks (exit code)', 'Failure'],
       rows,
     ),
-    ...notes,
+    ...withTmp.filter(Boolean),
   ];
 }
 
-/** @param {readonly BaselineCheck[]} checks */
-function renderBaseline(checks, ids) {
+/**
+ * The recorded enforcement rev and the author's account of the trunk since it.
+ *
+ * @param {readonly TrialEvidence[]} evidences
+ * @param {Drift} drift
+ */
+function driftLine(evidences, drift) {
+  if (!evidences.every((e) => e.scaffold.enforcementRev === drift.since)) {
+    throw new Error(
+      `compare: the trunk drift starts at enforcement rev ${drift.since}; the runs recorded another.`,
+    );
+  }
+  return `The runs recorded enforcement rev ${code(drift.since.slice(0, 7))}. ${drift.text}`;
+}
+
+/**
+ * @param {readonly BaselineCheck[]} checks
+ * @param {readonly string[]} ids
+ * @param {string} drift  see `driftLine`
+ */
+function renderBaseline(checks, ids, drift) {
   return [
     '## Baseline',
     'Every row comes from the committed evidence and files (ADR 0034, "New baseline").',
@@ -227,6 +363,7 @@ function renderBaseline(checks, ids) {
         check.holds ? 'yes' : 'no',
       ]),
     ),
+    drift,
     'A record with `agent.fake: true` stops the report before this table renders, so every run here ran the real agent. The template rows read `tooling/trial/todo-prompt.md` as committed, so a later prompt change shows `no` there, which is the new-baseline rule of ADR 0034.',
   ];
 }
@@ -347,7 +484,26 @@ function renderDiagrams(runs) {
   ];
 }
 
-function renderVerdict(runs, comparison, checks) {
+/** A bullet per failed run whose only failure is paths that existed before it ran. */
+function outsideOnlyBullets(runs, tmp) {
+  const { writers, who, what } = tmpWriters(tmp);
+  const also = writers.length === 0 ? '' : `; ${who} wrote ${what} under \`/tmp\` (see Runs)`;
+  return runs
+    .map(({ evidence: e }) => e)
+    .filter(
+      (e) =>
+        e.result.status === 'failed' &&
+        e.result.outsideReads.length > 0 &&
+        e.failures.length === 1 &&
+        e.checks.every((check) => check.exitCode === 0),
+    )
+    .map(
+      (e) =>
+        `- ${code(e.trial.id)} failed only on ${andList(e.result.outsideReads.map(code))}, which existed before its run${also}.`,
+    );
+}
+
+function renderVerdict(runs, comparison, checks, tmp) {
   const passed = runs.filter(({ evidence }) => evidence.result.status === 'passed').length;
   const outside = comparison.differences.filter((d) => d.classification === 'outside-spec');
   const noted = outside.filter((d) => d.by === 'note').length;
@@ -358,6 +514,7 @@ function renderVerdict(runs, comparison, checks) {
     '## Verdict',
     [
       `- Full pass count ${passed}/${runs.length}`,
+      ...outsideOnlyBullets(runs, tmp),
       `- Consistency: ${code(comparison.consistent ? 'consistent' : 'inconsistent')}. ${count(outside.length, 'aspect sits', 'aspects sit')} outside the spec, ${noted} with an author's note; ${inside.length} sit inside a spec freedom, ${inside.length - ruled} by the script's rules and ${ruled} by an author's ruling.`,
       split.length === 0
         ? `- Baseline: shared. All ${checks.length} baseline checks hold.`
@@ -367,32 +524,34 @@ function renderVerdict(runs, comparison, checks) {
 }
 
 /**
- * The report for `runs`, reading the prompt template through `readText`.
+ * The report for `runs`, reading the prompt template and the streams through
+ * `readText`.
  *
  * @param {readonly Run[]} runs
  * @param {(path: string) => string} readText
+ * @param {{ causes?: Readonly<Record<string, string>>, drift?: Drift }} [options]
+ *   `causes`: where each path a run found before its agent ran came from, by path;
+ *   `drift`: the author's account of the trunk since the recorded enforcement rev
  * @returns {string}
+ * @throws when a cause names a path that no run found before its agent ran, or the
+ *   drift starts at another enforcement rev than the runs recorded
  */
-export function renderComparison(runs, readText) {
-  const ids = runs.map(({ evidence }) => evidence.trial.id);
+export function renderComparison(runs, readText, options = {}) {
+  const { causes = OUTSIDE_PATH_CAUSES, drift = TRUNK_DRIFT } = options;
+  const evidences = runs.map((run) => run.evidence);
+  checkCauses(causes, evidences);
+  const ids = evidences.map((evidence) => evidence.trial.id);
   const comparison = compareResults(
     runs.map((run) => run.facts),
     AUTHOR_NOTES,
   );
-  const checks = proveBaseline(
-    runs.map((run) => run.evidence),
-    readText,
-  );
+  const checks = proveBaseline(evidences, readText);
+  const tmp = evidences.map((evidence) => tmpPathsOf(evidence, readText));
   const sections = [
     '<!-- Generated by tooling/trial/compare.mjs (node tooling/trial/compare.mjs). Edit the generator, then regenerate. -->',
     '# Todo trial comparison',
     'This report compares the Todo trial results under ADR 0035: the full pass count, the shared baseline, and every aspect of five dimensions, each identical, inside a named spec freedom, or outside the spec.',
-    ...renderVerdict(runs, comparison, checks),
-    ...renderRuns(runs, readText),
-    ...renderBaseline(checks, ids),
-    ...renderMethod(comparison),
-    ...renderDepartures(comparison.differences, ids),
-    ...renderDiagrams(runs),
+    ...renderVerdict(runs, comparison, checks, tmp),
     ...comparison.method.flatMap(({ id, title }) =>
       renderDimension(
         title,
@@ -400,6 +559,11 @@ export function renderComparison(runs, readText) {
         ids,
       ),
     ),
+    ...renderRuns(runs, readText, explainTmpPaths(tmp, causes)),
+    ...renderBaseline(checks, ids, driftLine(evidences, drift)),
+    ...renderMethod(comparison),
+    ...renderDepartures(comparison.differences, ids),
+    ...renderDiagrams(runs),
   ];
   return `${sections.join('\n\n')}\n`;
 }
