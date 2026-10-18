@@ -39,7 +39,7 @@
   // keep the config valid on a tree where those folders are missing, such as
   // the base revision `fallow audit` reads.
   // The rules below make Fallow FAIL (boundary-violation defaults to error) on
-  // any import they do not allow. This file is also the source for the role
+  // any value import they do not allow. This file is also the source for the role
   // diagram (pnpm arch:diagram).
   "boundaries": {
     "zones": [
@@ -97,35 +97,185 @@
         ]
       }
     ],
+    // `allow` lists the roles a role may import by value. `allowTypeOnly` lists
+    // every other role, so a type-only import (`import type`, `export type ...
+    // from`) between any two roles passes (ADR 0037). A role is never listed
+    // for itself: sibling slices stay isolated for types too.
     "rules": [
       // The composition root mounts the routes inside the api providers.
-      { "from": "web-app", "allow": ["web-routes", "web-api-client", "ui"] },
-      // The api client is the one web role that names the api, and only its
-      // router type.
-      { "from": "web-api-client", "allow": [], "allowTypeOnly": ["api-app"] },
+      {
+        "from": "web-app",
+        "allow": ["web-routes", "web-api-client", "ui"],
+        "allowTypeOnly": [
+          "web-features",
+          "api-app",
+          "api-trpc",
+          "api-procedures",
+          "api-application",
+          "api-domain",
+          "api-integrations"
+        ]
+      },
+      // The api client wires the tRPC client over the router type; it imports
+      // no other role by value.
+      {
+        "from": "web-api-client",
+        "allow": [],
+        "allowTypeOnly": [
+          "web-app",
+          "web-routes",
+          "web-features",
+          "ui",
+          "api-app",
+          "api-trpc",
+          "api-procedures",
+          "api-application",
+          "api-domain",
+          "api-integrations"
+        ]
+      },
       // A route composes a page from features, the api client and the ui kit.
       // Each route folder is its own child zone, so a route never imports
-      // another route.
-      { "from": "web-routes", "allow": ["web-features", "web-api-client", "ui"] },
+      // another route, not even a type.
+      {
+        "from": "web-routes",
+        "allow": ["web-features", "web-api-client", "ui"],
+        "allowTypeOnly": [
+          "web-app",
+          "api-app",
+          "api-trpc",
+          "api-procedures",
+          "api-application",
+          "api-domain",
+          "api-integrations"
+        ]
+      },
       // A feature is shared web code that routes compose; one feature never
-      // imports another.
-      { "from": "web-features", "allow": ["web-api-client", "ui"] },
-      // UI primitives import nothing from any role.
-      { "from": "ui", "allow": [] },
+      // imports another, not even a type.
+      {
+        "from": "web-features",
+        "allow": ["web-api-client", "ui"],
+        "allowTypeOnly": [
+          "web-app",
+          "web-routes",
+          "api-app",
+          "api-trpc",
+          "api-procedures",
+          "api-application",
+          "api-domain",
+          "api-integrations"
+        ]
+      },
+      // UI primitives import no other role by value.
+      {
+        "from": "ui",
+        "allow": [],
+        "allowTypeOnly": [
+          "web-app",
+          "web-api-client",
+          "web-routes",
+          "web-features",
+          "api-app",
+          "api-trpc",
+          "api-procedures",
+          "api-application",
+          "api-domain",
+          "api-integrations"
+        ]
+      },
       // The api composition root mounts the feature routers on the tRPC base.
-      { "from": "api-app", "allow": ["api-trpc", "api-procedures"] },
-      { "from": "api-trpc", "allow": [] },
+      {
+        "from": "api-app",
+        "allow": ["api-trpc", "api-procedures"],
+        "allowTypeOnly": [
+          "web-app",
+          "web-api-client",
+          "web-routes",
+          "web-features",
+          "ui",
+          "api-application",
+          "api-domain",
+          "api-integrations"
+        ]
+      },
+      {
+        "from": "api-trpc",
+        "allow": [],
+        "allowTypeOnly": [
+          "web-app",
+          "web-api-client",
+          "web-routes",
+          "web-features",
+          "ui",
+          "api-app",
+          "api-procedures",
+          "api-application",
+          "api-domain",
+          "api-integrations"
+        ]
+      },
       // Procedures validate input and delegate to application logic; they may
       // name domain types, never call domain code.
       {
         "from": "api-procedures",
         "allow": ["api-trpc", "api-application"],
-        "allowTypeOnly": ["api-domain"]
+        "allowTypeOnly": [
+          "web-app",
+          "web-api-client",
+          "web-routes",
+          "web-features",
+          "ui",
+          "api-app",
+          "api-domain",
+          "api-integrations"
+        ]
       },
-      { "from": "api-application", "allow": ["api-domain", "api-integrations"] },
-      // The domain is pure: it imports no other role.
-      { "from": "api-domain", "allow": [] },
-      { "from": "api-integrations", "allow": ["api-domain"] }
+      {
+        "from": "api-application",
+        "allow": ["api-domain", "api-integrations"],
+        "allowTypeOnly": [
+          "web-app",
+          "web-api-client",
+          "web-routes",
+          "web-features",
+          "ui",
+          "api-app",
+          "api-trpc",
+          "api-procedures"
+        ]
+      },
+      // The domain is pure: it imports no other role by value.
+      {
+        "from": "api-domain",
+        "allow": [],
+        "allowTypeOnly": [
+          "web-app",
+          "web-api-client",
+          "web-routes",
+          "web-features",
+          "ui",
+          "api-app",
+          "api-trpc",
+          "api-procedures",
+          "api-application",
+          "api-integrations"
+        ]
+      },
+      {
+        "from": "api-integrations",
+        "allow": ["api-domain"],
+        "allowTypeOnly": [
+          "web-app",
+          "web-api-client",
+          "web-routes",
+          "web-features",
+          "ui",
+          "api-app",
+          "api-trpc",
+          "api-procedures",
+          "api-application"
+        ]
+      }
     ],
     "coverage": {
       // Every source file belongs to a role; no extra layers.

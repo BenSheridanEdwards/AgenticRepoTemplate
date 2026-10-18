@@ -2,13 +2,13 @@
 
 # Todo trial comparison
 
-This report compares the Todo trial results under ADR 0035: the full pass count, the shared baseline, and every aspect of five dimensions, each identical, inside a named spec freedom, or outside the spec.
+This report compares the Todo trial results under ADR 0035 and ADR 0037: the full pass count, the shared baseline, and every aspect of five dimensions, each identical, inside a named spec freedom, or outside the spec.
 
 ## Verdict
 
 - Full pass count 2/3
 - `todo-01` failed only on `/tmp/verify.log`, which existed before its run; every run wrote logs under `/tmp` (see Runs).
-- Consistency: `inconsistent`. 6 aspects sit outside the spec, 2 with an author's note; 4 sit inside a spec freedom, 4 by the script's rules and 0 by an author's ruling.
+- Consistency: `inconsistent`. 4 aspects sit outside the spec, 0 with an author's note; 6 sit inside a spec freedom, 6 by the script's rules and 0 by an author's ruling.
 - Baseline: shared. All 13 baseline checks hold.
 
 ## Structure
@@ -30,9 +30,9 @@ This report compares the Todo trial results under ADR 0035: the full pass count,
 | `edge api-app --> api-trpc` | `present` | `present` | `present` | identical |
 | `edge api-application --> api-domain` | `present` | `present` | `present` | identical |
 | `edge api-application --> api-integrations` | `present` | `present` | `present` | identical |
-| `edge api-integrations --> api-domain` | `present` | `present` | `present` | identical |
+| `edge api-integrations -.-> api-domain` | `present` | `present` | `present` | identical |
 | `edge api-procedures --> api-application` | `present` | `present` | `present` | identical |
-| `edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | outside the spec |
+| `edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | spec freedom 8 |
 | `edge api-procedures --> api-trpc` | `present` | `present` | `present` | identical |
 | `edge web-api-client -.-> api-app` | `present` | `present` | `present` | identical |
 | `edge web-app --> ui` | `present` | `present` | `present` | identical |
@@ -89,7 +89,7 @@ Written forms where the runs differ:
 | `delete output` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
 | `exports api:api-app` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | identical |
 | `exports api:api-procedures` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
-| `exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | outside the spec |
+| `exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | spec freedom 9 |
 | `exports web:web-routes` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
 
 Written forms where the runs differ:
@@ -172,7 +172,7 @@ Every row comes from the committed evidence and files (ADR 0034, "New baseline")
 | Rendered prompt SHA-256 | re-derived with `renderPrompt` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
 | Recorded prompt text | re-derived from `prompt.text` | `2d14d3fc862a…` | `11f21d4953b3…` | `abb366580768…` | yes |
 
-The runs recorded enforcement rev `3d35bf1`. After the trials ran, the branch merged main `1321f04` (#93). Among the enforcement paths it changes only `scripts/enforcement-approval.mjs` and its test, the gate that asks for approval of gate changes, and this branch adds only the comparison under `tooling/trial`, which reads the results. Every gate that judges the showcase code is the one the runs ran.
+The runs recorded enforcement rev `3d35bf1`. After the trials ran, trunk merged `1321f04` (#93), which changes only `scripts/enforcement-approval.mjs` and its test, the gate that asks for approval of gate changes. It then merged #94, which adds this comparison under `tooling/trial`, and #95, which keeps the trial harness tests reliable under load and finds a stray server through `/proc` in `system.mjs`. #96 (ADR 0036) moves the workspace to Effect 4. It migrates the todo-02 and todo-03 sources, tests and manifests mechanically, adds the Effect 4 runners to the contract rules and names the `Schema.toStandardSchemaV1` idiom in the ESLint policy plugin. todo-01 is a patch, so it keeps Effect 3, and the four aspects outside the spec come from that move; the trial rerun on the Effect 4 trunk replaces all three results. #97 blocks inline lint-disable comments. This change adds ADR 0037, which admits a type-only import between any two roles in `.fallowrc.jsonc` and keeps every value direction. Every gate that judged the showcase code still judges it, and the boundary rules only admit more type-only imports.
 
 A record with `agent.fake: true` stops the report before this table renders, so every run here ran the real agent. The template rows read `tooling/trial/todo-prompt.md` as committed, so a later prompt change shows `no` there, which is the new-baseline rule of ADR 0034.
 
@@ -184,7 +184,7 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 
 | Dimension | Normalized form | Must be identical |
 | --- | --- | --- |
-| Structure | Roles and role edges from `architecture.mmd` without its header, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}` | Role set and role edges |
+| Structure | Roles and role edges from `architecture.mmd` without its header, an edge dashed where its pair is allowed for types only or every import along it brings in types only, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}` | Role set and role edges |
 | Public API | Procedures by kind and operation, inferred from their shapes, with normalized input and output; the item shape; export names and kinds per API report of a scaffold role, export kind counts per other API report, keyed by package and role | One list query and three mutations for create, toggle and delete; create takes `title: string`; toggle and delete take `id`; the item has exactly `id`, `title: string` and `completed: boolean` |
 | Dependencies | Dependency names and ranges per package and section, the own workspace package as `@{id}`; the rest of each manifest | Equal sets |
 | Component boundaries | Components per role as prop kinds, `@repo/ui` primitives, raw controls and hook calls, names erased | Page in `web-routes`; form controls from `@repo/ui` where a primitive exists; feature components only in `web-routes` and `ui` |
@@ -201,13 +201,13 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 | 5 | Copy text and styling outside the UI contract names. |  |
 | 6 | Test names and the number of tests beyond what the gates require. | `structure · tests web-routes`, `structure · tests api-integrations`, `structure · tests e2e` |
 | 7 | Optional roles left empty, when all three agree. |  |
+| 8 | A type-only import between roles, along any direction, which the comparison reads as a dashed edge. | `structure · edge api-procedures -.-> api-domain` |
+| 9 | Dropping a re-export that a gate flagged, such as an unused export Fallow reports. | `public-api · exports web:web-api-client` |
 
 ## Outside the spec
 
 | Aspect | `todo-01` | `todo-02` | `todo-03` | Why | By |
 | --- | --- | --- | --- | --- | --- |
-| `structure · edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | todo-03 annotates its toggle procedure's return type with `Todo`, imported type-only from `domain.ts`. The contract allows the direction; the spec freedoms keep role edges fixed. | author's note |
-| `public-api · exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | todo-02's route hook types its arguments from `RouterOutputs`, so the `RouterInputs` re-export in the api-client barrel had no importer. `fallow audit` flagged it as an unused type export, and the agent removed it from `index.ts`; `trpc.ts` still declares it. The reference and the other runs export it, and no spec freedom names a scaffold role's exports. | author's note |
 | `dependencies · web dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | the spec freedoms leave this aspect fixed | script rule |
 | `dependencies · web devDependencies @standard-schema/spec` | `(absent)` | `^1.1.0` | `^1.1.0` | the spec freedoms leave this aspect fixed | script rule |
 | `dependencies · api dependencies effect` | `^3.22.3` | `^4.0.5` | `^4.0.5` | the spec freedoms leave this aspect fixed | script rule |
@@ -217,9 +217,11 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 
 | Aspect | `todo-01` | `todo-02` | `todo-03` | Freedom | By | Why |
 | --- | --- | --- | --- | --- | --- | --- |
+| `structure · edge api-procedures -.-> api-domain` | `(absent)` | `(absent)` | `present` | 8 | script rule | a type-only import between roles; every run's `verify` check exited `0` |
 | `structure · tests web-routes` | `3` | `2` | `3` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `structure · tests api-integrations` | `1` | `0` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `structure · tests e2e` | `2` | `1` | `2` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `public-api · exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | 9 | script rule | a re-export the run's own gate flagged and the run dropped |
 | `conventions · id generation` | `randomUUID` | `counter` | `randomUUID` | 3 | script rule | the generation of `id` |
 
 ## Diagrams

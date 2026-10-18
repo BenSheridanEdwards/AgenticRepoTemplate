@@ -25,8 +25,10 @@
  *   written or `(unknown)`; an input or output the member lacks reads `(unknown)`
  * @typedef {{
  *   readonly key: string,
+ *   readonly entries: readonly string[],
  *   readonly exports: readonly { readonly name: string, readonly kind: 'value' | 'type' }[],
- * }} ApiReport  keyed `<package>:<role of its entry>`, so a slice name drops out
+ * }} ApiReport  keyed `<package>:<role of its entry>`, so a slice name drops out;
+ *   `entries`: the result-root-relative entry files its reports read
  * @typedef {{
  *   readonly name: string, readonly role: Role | 'outside-roles', readonly file: string,
  *   readonly props: readonly string[], readonly uiPrimitives: readonly string[],
@@ -52,12 +54,20 @@
  *   readonly hooks: readonly Hook[],
  *   readonly outsideFiles: readonly { readonly path: string, readonly text: string }[],
  *   readonly storage: { readonly roles: readonly string[], readonly idSource: string },
- * }} ResultFacts  `verified`: the run's `verify` check exited 0; `outsideFiles`: see `readOutsideFiles`
+ *   readonly flaggedReExports: readonly FlaggedReExport[],
+ * }} ResultFacts  `verified`: the run's `verify` check exited 0; `outsideFiles`: see `readOutsideFiles`;
+ *   `flaggedReExports`: see `flaggedDrops`
+ * @typedef {{ readonly key: string, readonly name: string, readonly kind: 'value' | 'type' }} FlaggedReExport
+ *   a re-export a gate flagged in the entry of the ApiReport `key`, which that report no longer lists
+ * @typedef {{ readonly file: string, readonly name: string, readonly kind: 'value' | 'type' }} GateFinding
+ *   `file`: result-root-relative
  */
 
+import { posix } from 'node:path';
 import ts from 'typescript';
 import { listPublicEntries } from '../../scripts/api-report.mjs';
 import { loadContract } from '../architecture/contract.mjs';
+import { streamEvents } from './stream.mjs';
 
 const OUTSIDE = 'outside-roles';
 const HUNK = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/;
@@ -170,8 +180,10 @@ const oneLine = (node) => node.getText().replace(/\s+/g, ' ').trim();
 /** Code-unit order, the same on every locale. */
 export const sortText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
+const SCRIPT_KINDS = { tsx: ts.ScriptKind.TSX, jsx: ts.ScriptKind.JSX, js: ts.ScriptKind.JS };
+
 function parse(path, text) {
-  const kind = path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const kind = SCRIPT_KINDS[/\.[cm]?([jt]sx?)$/.exec(path)?.[1]] ?? ts.ScriptKind.TS;
   return ts.createSourceFile(path, text, ts.ScriptTarget.ES2022, true, kind);
 }
 
@@ -196,8 +208,11 @@ function filesByRole(tree, roleOf, contract) {
   return { sourceFiles, testFiles };
 }
 
-/** Roles and edges of a result diagram; the header line drops out. `-.->` is a type-only edge. */
-function parseDiagram(text) {
+/**
+ * Roles and edges of a result diagram; the header line drops out. An edge is
+ * type-only when the diagram dashes it or `typeOnlyPairs` holds its pair.
+ */
+function parseDiagram(text, typeOnlyPairs) {
   const labels = new Map();
   const edges = [];
   for (const line of (text ?? '').split('\n')) {
@@ -216,12 +231,113 @@ function parseDiagram(text) {
       .join('\n')
       .trim(),
     roles: [...labels.values()],
-    edges: edges.map((edge) => ({
-      ...edge,
-      from: labels.get(edge.from) ?? edge.from,
-      to: labels.get(edge.to) ?? edge.to,
-    })),
+    edges: edges.map((edge) => {
+      const from = labels.get(edge.from) ?? edge.from;
+      const to = labels.get(edge.to) ?? edge.to;
+      return { from, to, typeOnly: edge.typeOnly || typeOnlyPairs.has(`${from} ${to}`) };
+    }),
   };
+}
+
+const allTypes = (elements) => elements.length > 0 && elements.every((e) => e.isTypeOnly);
+const namedTypesOnly = (bindings, isNamed) =>
+  bindings !== undefined && isNamed(bindings) && allTypes(bindings.elements);
+
+/** Whether an import or re-export brings in types only, the forms Fallow reads as type-only. */
+function bringsTypesOnly(statement) {
+  if (ts.isExportDeclaration(statement)) {
+    return statement.isTypeOnly || namedTypesOnly(statement.exportClause, ts.isNamedExports);
+  }
+  const clause = statement.importClause;
+  return (
+    clause !== undefined &&
+    (clause.isTypeOnly || (!clause.name && namedTypesOnly(clause.namedBindings, ts.isNamedImports)))
+  );
+}
+
+const MODULE_CALLS =
+  /^(?:import|require|(?:jest|vi)\.(?:mock|doMock|requireActual|unstable_mockModule))$/;
+
+/** Each way a node names a module, as `{ specifier, typeOnly }` or null. */
+const REFERENCE_READERS = [
+  (node) =>
+    (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier
+      ? { specifier: node.moduleSpecifier.getText().slice(1, -1), typeOnly: bringsTypesOnly(node) }
+      : null,
+  (node) =>
+    ts.isImportTypeNode(node) &&
+    ts.isLiteralTypeNode(node.argument) &&
+    ts.isStringLiteral(node.argument.literal)
+      ? { specifier: node.argument.literal.text, typeOnly: true }
+      : null,
+  (node) => {
+    const [first] = ts.isCallExpression(node) ? node.arguments : [];
+    return first && ts.isStringLiteralLike(first) && MODULE_CALLS.test(node.expression.getText())
+      ? { specifier: first.text, typeOnly: false }
+      : null;
+  },
+];
+
+/** Each module specifier of one file, with whether it brings in types only. */
+const moduleReferences = (path, text) =>
+  descendants(parse(path, text)).flatMap((node) =>
+    REFERENCE_READERS.map((read) => read(node)).filter(Boolean),
+  );
+
+/** The source forms TypeScript's bundler resolution tries for each specifier extension. */
+const RESOLVED_FORMS = {
+  '.js': ['.ts', '.tsx', '.js', '.jsx'],
+  '.jsx': ['.tsx', '.jsx'],
+  '.mjs': ['.mts', '.mjs'],
+  '.cjs': ['.cts', '.cjs'],
+  '': ['.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx', '/index.js', '/index.jsx'],
+};
+
+/** The tree file a relative specifier from `path` names, the way TypeScript's bundler resolution finds it. */
+function resolveRelative(tree, path, specifier) {
+  const target = posix.join(posix.dirname(path), specifier);
+  const [, stem, ext = ''] = /^(.*?)(\.[cm]?jsx?)?$/.exec(target);
+  return [target, ...RESOLVED_FORMS[ext].map((form) => stem + form)].find((candidate) =>
+    tree.has(candidate),
+  );
+}
+
+/**
+ * The role pairs `from to` whose every crossing, each import or re-export from
+ * a file of one role that may land on a file of the other, brings in types
+ * only. Fallow's graph records no import kind, so a result diagram draws such
+ * an edge solid where the contract also allows values (ADR 0037). A relative
+ * specifier that names no tree file may land anywhere; a specifier of the
+ * result's own package may land on any of its roles; any other package
+ * specifier on any role no tree file holds, such as `ui`.
+ */
+function readTypeOnlyPairs(tree, roleOf, contract) {
+  const sources = [...tree].filter(([path]) => /\.[cm]?[jt]sx?$/.test(path) && roleOf(path));
+  const rolesUnder = (prefix) =>
+    new Set(sources.filter(([path]) => path.startsWith(prefix)).map(([path]) => roleOf(path)));
+  const held = rolesUnder('');
+  const packages = ['web', 'api'].flatMap((dir) => {
+    const name = JSON.parse(tree.get(`${dir}/package.json`) ?? '{}').name;
+    return name ? [{ name, roles: rolesUnder(`${dir}/`) }] : [];
+  });
+  const landings = (path, specifier) => {
+    if (specifier.startsWith('.')) {
+      const target = resolveRelative(tree, path, specifier);
+      return target ? [roleOf(target)].filter(Boolean) : contract.roles;
+    }
+    const own = packages.find(({ name }) => specifier === name || specifier.startsWith(`${name}/`));
+    return [...(own?.roles ?? contract.roles.filter((role) => !held.has(role)))];
+  };
+  const pairs = new Map();
+  for (const [path, text] of sources) {
+    const from = roleOf(path);
+    for (const { specifier, typeOnly } of moduleReferences(path, text)) {
+      for (const to of landings(path, specifier).filter((role) => role !== from)) {
+        pairs.set(`${from} ${to}`, (pairs.get(`${from} ${to}`) ?? true) && typeOnly);
+      }
+    }
+  }
+  return new Set([...pairs].filter(([, typeOnly]) => typeOnly).map(([pair]) => pair));
 }
 
 function canonical(value) {
@@ -293,13 +409,18 @@ function readApiReports(tree, root, roleOf) {
     const key = `${packageRoot.split('/').pop()}:${roleOf(local(entry)) ?? OUTSIDE}`;
     const text = tree.get(`${local(packageRoot)}/etc/${name}.api.md`);
     const exports = text === undefined ? [] : parseReportExports(parseReport(text));
-    reports.set(key, [...(reports.get(key) ?? []), ...exports]);
-  }
-  return [...reports]
-    .sort(([a], [b]) => sortText(a, b))
-    .map(([key, exports]) => ({
+    const report = reports.get(key) ?? { key, entries: [], exports: [] };
+    reports.set(key, {
       key,
-      exports: exports.sort((a, b) => sortText(a.name, b.name)),
+      entries: [...report.entries, local(entry)],
+      exports: [...report.exports, ...exports],
+    });
+  }
+  return [...reports.values()]
+    .sort((a, b) => sortText(a.key, b.key))
+    .map((report) => ({
+      ...report,
+      exports: report.exports.sort((a, b) => sortText(a.name, b.name)),
     }));
 }
 
@@ -914,26 +1035,132 @@ function readOutsideFiles(tree, roleOf, id) {
     }));
 }
 
+/** A shell command that runs a gate which prints Fallow's findings. */
+const GATE_COMMAND =
+  /\bpnpm\s+(?:run\s+)?(?:verify|fallow:audit)\b|\bfallow\s+(?:audit|dead-code)\b/;
+
+const contentBlocks = (event) =>
+  Array.isArray(event.message?.content) ? event.message.content : [];
+
+const resultText = (content) =>
+  typeof content === 'string'
+    ? content
+    : (Array.isArray(content) ? content : [])
+        .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+        .join('\n');
+
 /**
- * @param {{ id: string, root: string, passed: boolean, verified: boolean, tree: ResultTree, contract: Contract }} input
+ * The text of every tool result whose call was a Bash command that runs a gate,
+ * whether its content is a string or text blocks. Any other tool, or a command
+ * such as `printf`, can print text shaped like a finding.
+ */
+function gateResultTexts(streamText) {
+  const blocks = streamEvents(streamText).flatMap(contentBlocks);
+  const gateCalls = new Set(
+    blocks
+      .filter((block) => block?.type === 'tool_use' && block.name === 'Bash')
+      .filter((block) => GATE_COMMAND.test(String(block.input?.command ?? '')))
+      .map((block) => block.id),
+  );
+  return blocks
+    .filter((block) => block?.type === 'tool_result' && gateCalls.has(block.tool_use_id))
+    .map((block) => resultText(block.content));
+}
+
+/** An ANSI color code; built from ESC's code, since a control character in a regex literal reads as a mistake. */
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
+const UNUSED_SECTION = /^● Unused (type )?exports \(\d+\)$/;
+const FINDING = /^ {4}:\d+ (\S+) \(re-export\)$/;
+
+/** The section a `fallow audit` line opens: its export kind, null for any other section. */
+const sectionKind = (line) => {
+  const section = UNUSED_SECTION.exec(line);
+  return section ? (section[1] ? 'type' : 'value') : null;
+};
+
+/**
+ * Each unused re-export in one tool result, as `fallow audit` prints it: a
+ * `● Unused exports` or `● Unused type exports` section, a file line indented
+ * two spaces, a `:<line> <Name> (re-export)` line indented four.
+ *
+ * @returns {readonly { file: string, name: string, kind: 'value' | 'type' }[]}
+ */
+function auditReExports(text) {
+  const found = [];
+  let kind = null;
+  let file = null;
+  for (const line of text.replace(ANSI, '').split(/\r?\n/)) {
+    const name = FINDING.exec(line)?.[1];
+    if (/^\S/.test(line)) {
+      kind = sectionKind(line);
+      file = null;
+    } else if (/^ {2}\S+$/.test(line)) {
+      file = line.trim();
+    } else if (name && kind && file) {
+      found.push({ file, name, kind });
+    }
+  }
+  return found;
+}
+
+/**
+ * Every re-export a gate in the run's own stream reported unused. Only files
+ * under `root` count, so a run is judged by the findings on its own code.
+ *
+ * @param {string | null} streamText
+ * @param {string} root
+ * @returns {readonly GateFinding[]}
+ */
+export function readGateFindings(streamText, root) {
+  const found = new Map();
+  const findings = streamText === null ? [] : gateResultTexts(streamText).flatMap(auditReExports);
+  for (const { file, name, kind } of findings.filter((f) => f.file.startsWith(`${root}/`))) {
+    const local = file.slice(root.length + 1);
+    found.set(`${local} ${name} ${kind}`, { file: local, name, kind });
+  }
+  return [...found].sort(([a], [b]) => sortText(a, b)).map(([, finding]) => finding);
+}
+
+/**
+ * The findings that explain a dropped re-export: on the entry file an API
+ * report reads, for a name that report no longer exports. A finding on an
+ * internal file leaves the public API as it was.
+ *
+ * @param {readonly GateFinding[]} findings
+ * @param {readonly ApiReport[]} reports
+ * @returns {readonly FlaggedReExport[]}
+ */
+function flaggedDrops(findings, reports) {
+  return findings.flatMap(({ file, name, kind }) => {
+    const report = reports.find((candidate) => candidate.entries.includes(file));
+    const dropped = report && !report.exports.some((entry) => entry.name === name);
+    return dropped ? [{ key: report.key, name, kind }] : [];
+  });
+}
+
+/**
+ * @param {{ id: string, root: string, passed: boolean, verified: boolean, tree: ResultTree, contract: Contract, streamText?: string | null }} input
+ *   `streamText`: the run's committed stream, or null when it has none
  * @returns {ResultFacts}
  */
-export function readResultFacts({ id, root, passed, verified, tree, contract }) {
+export function readResultFacts({ id, root, passed, verified, tree, contract, streamText = null }) {
   const roleOf = (path) => contract.roleOf(`${root}/${path}`);
+  const apiReports = readApiReports(tree, root, roleOf);
   return {
     id,
     passed,
     verified,
     ...filesByRole(tree, roleOf, contract),
-    diagram: parseDiagram(tree.get('architecture.mmd')),
+    diagram: parseDiagram(tree.get('architecture.mmd'), readTypeOnlyPairs(tree, roleOf, contract)),
     manifests: {
       web: readManifest(tree.get('web/package.json'), id),
       api: readManifest(tree.get('api/package.json'), id),
     },
     ...readProcedures(tree),
-    apiReports: readApiReports(tree, root, roleOf),
+    apiReports,
     ...scanWeb(tree, roleOf),
     outsideFiles: readOutsideFiles(tree, roleOf, id),
     storage: scanStorage(tree, roleOf),
+    flaggedReExports: flaggedDrops(readGateFindings(streamText, root), apiReports),
   };
 }

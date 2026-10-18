@@ -50,7 +50,8 @@ commit every record, stream and patch, and run
 `node tooling/trial/compare.mjs` to write `docs/trials/comparison.md`: the
 full pass count, the shared baseline and each difference between the runs,
 classified against the spec freedoms of
-[ADR 0035](decisions/0035-trial-comparison.md).
+[ADR 0035](decisions/0035-trial-comparison.md) and
+[ADR 0037](decisions/0037-type-only-edges-and-flagged-re-exports.md).
 
 ## The golden rules
 

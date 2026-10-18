@@ -83,23 +83,30 @@ showcase/<id>/                           # a Todo trial result: the same shape, 
 
 [`.fallowrc.jsonc`](../../.fallowrc.jsonc) is the one rules file. Each role is
 a Fallow zone, and its patterns match every result through the brace glob
-`{apps,showcase/*}`. Fallow fails any import the table does not allow, and
-`coverage.requireAllFiles` fails any source file that sits in no role. Paths
-below are relative to a result root (`apps/` or `showcase/<id>/`).
+`{apps,showcase/*}`. Fallow fails any value import the table does not allow,
+and `coverage.requireAllFiles` fails any source file that sits in no role. A
+role may import types (`import type`, `export type … from`) from any other
+role ([ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)).
+Inline `type` specifiers count too, as in `import { type Greeting }`, when
+every specifier carries one. Fallow reads a plain `import { Greeting }` as a
+value import even when the file uses `Greeting` only as a type, so write
+`import type`.
+A slice of a role still imports nothing from a sibling slice. Paths below are
+relative to a result root (`apps/` or `showcase/<id>/`).
 
-| Role | Files | May import | Type-only import |
-| --- | --- | --- | --- |
-| `web-app` | `web/src/main.tsx`, `web/src/App.tsx`, `web/src/index.css` | `web-routes`, `web-api-client`, `ui` | |
-| `web-api-client` | `web/src/api-client/**` | no other role | `api-app` |
-| `web-routes` | `web/src/routes/<route>/**` | `web-features`, `web-api-client`, `ui` | |
-| `web-features` | `web/src/features/<feature>/**` | `web-api-client`, `ui` | |
-| `ui` | `packages/ui/src/**` | no other role | |
-| `api-app` | `api/src/server.ts`, `api/src/router.ts` | `api-trpc`, `api-procedures` | |
-| `api-trpc` | `api/src/trpc.ts` | no other role | |
-| `api-procedures` | `api/src/features/<name>/{index,procedures}.ts`, `features/<name>/procedures/**` | `api-trpc`, `api-application` | `api-domain` |
-| `api-application` | `api/src/features/<name>/application.ts`, `features/<name>/application/**` | `api-domain`, `api-integrations` | |
-| `api-domain` | `api/src/features/<name>/domain.ts`, `features/<name>/domain/**` | no other role | |
-| `api-integrations` | `api/src/features/<name>/integrations.ts`, `features/<name>/integrations/**` | `api-domain` | |
+| Role | Files | May import |
+| --- | --- | --- |
+| `web-app` | `web/src/main.tsx`, `web/src/App.tsx`, `web/src/index.css` | `web-routes`, `web-api-client`, `ui` |
+| `web-api-client` | `web/src/api-client/**` | no other role |
+| `web-routes` | `web/src/routes/<route>/**` | `web-features`, `web-api-client`, `ui` |
+| `web-features` | `web/src/features/<feature>/**` | `web-api-client`, `ui` |
+| `ui` | `packages/ui/src/**` | no other role |
+| `api-app` | `api/src/server.ts`, `api/src/router.ts` | `api-trpc`, `api-procedures` |
+| `api-trpc` | `api/src/trpc.ts` | no other role |
+| `api-procedures` | `api/src/features/<name>/{index,procedures}.ts`, `features/<name>/procedures/**` | `api-trpc`, `api-application` |
+| `api-application` | `api/src/features/<name>/application.ts`, `features/<name>/application/**` | `api-domain`, `api-integrations` |
+| `api-domain` | `api/src/features/<name>/domain.ts`, `features/<name>/domain/**` | no other role |
+| `api-integrations` | `api/src/features/<name>/integrations.ts`, `features/<name>/integrations/**` | `api-domain` |
 
 Tests (`*.test.ts(x)`), `web/e2e/**`, `web/index.html`, `web/vite.config.ts`
 and `etc/**` sit outside the roles. A file that grows too large becomes a
@@ -107,11 +114,15 @@ folder of the same name, such as `features/<name>/application/`, and keeps its
 role.
 
 The canonical diagram [`docs/architecture/roles.mmd`](../../docs/architecture/roles.mmd)
-shows every role and every direction the rules allow, dashed where only a
-type-only import is allowed. Each result has its own generated diagram,
+shows every role and every value direction the rules allow. Each result has
+its own generated diagram,
 [`apps/architecture.mmd`](../../apps/architecture.mmd) for the reference and
 `showcase/<id>/architecture.mmd` for a trial, with the role edges its imports
-resolve to. Both come from `pnpm arch:diagram`, with the same node names.
+resolve to. An edge is dashed where the contract allows its pair for types
+only. A type-only import along a direction that also allows values draws
+solid, because Fallow's graph records no import kind; the trial comparison
+reads the sources and counts that edge as type-only. Both come from
+`pnpm arch:diagram`, with the same node names.
 
 ## Result structure
 
@@ -145,7 +156,7 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
 | --- | --- | --- |
 | `procedures.ts` | The feature's tRPC router. Each procedure validates its input with `.input(Schema.toStandardSchemaV1(schema))`, with `Schema` from `effect`, and delegates to application. It maps application errors to `TRPCError`. | `greetingRouter = router({ greet: procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => greet(input)) })` |
 | `application.ts` | The use cases. It calls domain rules and integrations and knows no transport. | `greet(request)` returns `{ message: formatGreeting(request.name) }` |
-| `domain.ts` | Pure types and rules. It imports nothing: no tRPC, no Effect, no Node. | `Greeting`, `formatGreeting(name)` |
+| `domain.ts` | Pure types and rules. It imports nothing by value: no tRPC, no Effect, no Node. | `Greeting`, `formatGreeting(name)` |
 | `integrations.ts` | Storage, including in-memory storage, and every effect: `fetch`, Node IO, `Effect.runPromise`, `Effect.runSync`, `Effect.runFork`. Application calls it. | The greeting needs none, so the file is absent. |
 | `index.ts` | The public surface: the feature's router. | `export { greetingRouter } from './procedures.ts';` |
 
@@ -176,7 +187,9 @@ because Vite resolves it.
 A component calls its hooks and renders. It holds no state, effect, query,
 mutation or form of its own.
 
-The api client is the only web module that names the api. Everything else
+Any web role may name an api type with `import type` from `@repo/api`. The api
+client is the only web module that wires the tRPC client and imports its
+packages, `@trpc/client` and `@trpc/tanstack-react-query`. Everything else
 reaches the api through `useTrpc()` from `../../api-client`:
 
 ```ts
@@ -229,8 +242,8 @@ Each rule fails a check on a seeded violation in a committed test
 | Procedures delegate to application logic. | Transport stays thin; logic stays testable. | Fallow `api-procedures` value-imports only `api-trpc`, `api-application` | `pnpm arch:gate` |
 | The domain is pure, and application knows no tRPC. | Rules test as plain functions. | Fallow `api-domain`; `contract/domain-pure`, `contract/application-without-trpc`; `tsconfig.domain.json` (no Node types) | `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
 | Effects run only in integrations or the api composition root. | One place to swap storage or IO. | `contract/effects-in-integrations`, `contract/io-effects-in-integrations`, `contract/node-io-in-integrations` | `pnpm arch:gate`, `pnpm fallow:audit` |
-| The web reaches the api only through the api client and the router type. | The bundle carries no server code. | Fallow `allowTypeOnly`; the `types`-only export of `@repo/api`; `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` | `pnpm arch:gate`, `pnpm fallow:audit` |
-| UI primitives hold no business logic. | The kit stays reusable across results. | Fallow `ui` imports nothing; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
+| The web reaches the api only by type: `import type` of the router type. | The bundle carries no server code. | Fallow `allowTypeOnly` (a value import of `api-app` fails); the `types`-only export of `@repo/api`; `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` | `pnpm arch:gate`, `pnpm fallow:audit` |
+| UI primitives hold no business logic. | The kit stays reusable across results. | Fallow `ui` imports nothing by value; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | One React component per file. | One file, one reason to change. | ESLint `policy/one-component-per-file` | `pnpm lint:policy` |
 | State, server state and form state live in `use*` hooks. | Components render; hooks wire. | ESLint `policy/state-and-effects-in-hooks` | `pnpm lint:policy` |
 | Forms validate with Effect Schema. | One schema language across web and api. | ESLint `policy/form-uses-effect-schema` | `pnpm lint:policy` |
@@ -289,7 +302,10 @@ lands in `docs/trials/<id>.json`.
   conventions are compared with every other run, failed runs included, in
   `docs/trials/comparison.md`, which `node tooling/trial/compare.mjs`
   generates ([ADR 0035](../decisions/0035-trial-comparison.md)). Keep each
-  difference inside a spec freedom that ADR lists.
+  difference inside a spec freedom that ADR or
+  [ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)
+  lists: a type-only import between roles, and dropping a re-export a gate
+  flagged, are among them.
 
 ## What this template intentionally omits
 

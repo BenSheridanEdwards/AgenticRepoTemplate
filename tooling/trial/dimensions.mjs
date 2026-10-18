@@ -7,7 +7,7 @@
  * method skips; the exceptions are listed in the report's Method section.
  *
  * @typedef {import('./result-facts.mjs').ResultFacts} ResultFacts
- * @typedef {1 | 2 | 3 | 4 | 5 | 6 | 7} Freedom
+ * @typedef {1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9} Freedom
  * @typedef {'structure' | 'public-api' | 'dependencies' | 'component-boundaries' | 'conventions'} DimensionId
  * @typedef {{ readonly value: string, readonly freedom: Freedom, readonly why: string }} Within
  * @typedef {(
@@ -47,8 +47,12 @@
  */
 
 import { createHash } from 'node:crypto';
+import { sortText } from './result-facts.mjs';
 
-/** PLAN "Spec freedoms", word for word; ADR 0035 lists the same seven. */
+/**
+ * PLAN "Spec freedoms", word for word, which ADR 0035 lists too, then the two
+ * ADR 0037 adds.
+ */
 export const FREEDOMS = [
   'Identifier and file names inside a role, including component, hook, procedure and router key names.',
   'How a role splits into files, components, hooks and functions.',
@@ -57,6 +61,8 @@ export const FREEDOMS = [
   'Copy text and styling outside the UI contract names.',
   'Test names and the number of tests beyond what the gates require.',
   'Optional roles left empty, when all three agree.',
+  'A type-only import between roles, along any direction, which the comparison reads as a dashed edge.',
+  'Dropping a re-export that a gate flagged, such as an unused export Fallow reports.',
 ];
 
 /** Intrinsic control to the `@repo/ui` primitive that replaces it. */
@@ -180,14 +186,28 @@ function publicApiAspects(facts) {
       ),
     ),
     ...facts.apiReports.map((report) => {
-      const count = (kind) => report.exports.filter((entry) => entry.kind === kind).length;
-      const names = listed(report.exports.map((entry) => entry.name));
-      return SCAFFOLD_ROLES.includes(report.key.split(':')[1])
-        ? form(
-            `exports ${report.key}`,
-            listed(report.exports.map((entry) => `${entry.name} ${entry.kind}`)),
-          )
-        : form(`exports ${report.key}`, `value ${count('value')} · type ${count('type')}`, names);
+      const flagged = facts.flaggedReExports.filter((entry) => entry.key === report.key);
+      const scaffold = SCAFFOLD_ROLES.includes(report.key.split(':')[1]);
+      const render = scaffold
+        ? (exports) => listed(exports.map((entry) => `${entry.name} ${entry.kind}`))
+        : (exports) => {
+            const count = (kind) => exports.filter((entry) => entry.kind === kind).length;
+            return `value ${count('value')} · type ${count('type')}`;
+          };
+      const withFlagged = [...report.exports, ...flagged].sort((a, b) => sortText(a.name, b.name));
+      const value = render(report.exports);
+      return {
+        ...form(
+          `exports ${report.key}`,
+          value,
+          scaffold ? value : listed(report.exports.map((entry) => entry.name)),
+        ),
+        within: {
+          value: render(withFlagged),
+          freedom: /** @type {Freedom} */ (9),
+          why: "a re-export the run's own gate flagged and the run dropped",
+        },
+      };
     }),
   ];
 }
@@ -331,16 +351,29 @@ function conventionAspects(facts) {
   ];
 }
 
+/**
+ * An edge reads dashed when the result diagram dashes it, a pair outside
+ * `allow` and so type-only only where Fallow passed the tree, or when every
+ * import and re-export along it brings in types only (`readTypeOnlyPairs`).
+ */
+const DASHED_EDGE = /^edge \S+ -\.-> \S+$/;
+
 /** @type {readonly Dimension[]} */
 const DIMENSIONS = [
   {
     id: 'structure',
     title: 'Structure',
     normalizedForm:
-      'Roles and role edges from `architecture.mmd` without its header, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}`',
+      'Roles and role edges from `architecture.mmd` without its header, an edge dashed where its pair is allowed for types only or every import along it brings in types only, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}`',
     mustBeIdentical: 'Role set and role edges',
     aspects: structureAspects,
     freedoms: [
+      {
+        key: DASHED_EDGE,
+        freedom: 8,
+        why: "a type-only import between roles; every run's `verify` check exited `0`",
+        when: (results) => results.every((facts) => facts.verified),
+      },
       { key: featureRole('files'), freedom: 2, why: 'how a role splits into files' },
       {
         key: /^tests /,
@@ -350,6 +383,10 @@ const DIMENSIONS = [
       },
     ],
     fixed: [
+      {
+        key: DASHED_EDGE,
+        why: "freedom 8 reads a dashed edge as a type-only import only on trees that passed Fallow, which holds when every run's `verify` check exited `0`",
+      },
       { key: /^edge /, why: 'the spec freedoms leave role edges fixed' },
       { key: /^role /, why: 'the spec freedoms leave the role set fixed' },
       { key: scaffoldRole('files'), why: SCAFFOLD_FIXED },

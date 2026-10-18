@@ -11,7 +11,7 @@ import {
   renderComparison,
 } from './compare.mjs';
 import { compareResults, FREEDOMS, UI_PRIMITIVE_FOR } from './dimensions.mjs';
-import { readContract, readResultFacts, treeFromPatch } from './result-facts.mjs';
+import { readContract, readGateFindings, readResultFacts, treeFromPatch } from './result-facts.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const read = (path: string) => readFileSync(resolve(ROOT, path), 'utf8');
@@ -33,7 +33,7 @@ function variant(id: string, ...edits: Edit[]): Tree {
   return tree;
 }
 
-const facts = (id: string, ...edits: Edit[]) =>
+const factsWith = (id: string, streamText: string | null, ...edits: Edit[]) =>
   readResultFacts({
     id,
     root: `showcase/${id}`,
@@ -41,7 +41,10 @@ const facts = (id: string, ...edits: Edit[]) =>
     verified: true,
     tree: variant(id, ...edits),
     contract,
+    streamText,
   });
+
+const facts = (id: string, ...edits: Edit[]) => factsWith(id, null, ...edits);
 
 const edit =
   (path: string, change: (text: string) => string): Edit =>
@@ -78,14 +81,73 @@ const remove =
     tree.delete(path);
   };
 
+type ToolContent = string | { type: 'text'; text: string }[];
+interface ToolCall {
+  name: string;
+  input: Record<string, unknown>;
+}
+
+/** The Bash call that printed the real todo-02 finding. */
+const GATE_CALL: ToolCall = {
+  name: 'Bash',
+  input: { command: 'pnpm typecheck && pnpm verify 2>&1 | grep -v "^\\s*$" | tail -60' },
+};
+
+/** A stream with one assistant tool call and the user event of its result per content. */
+const streamFrom = (call: ToolCall, ...contents: ToolContent[]) =>
+  contents
+    .flatMap((content, index) => [
+      JSON.stringify({
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'tool_use', id: `t${index}`, ...call }] },
+      }),
+      JSON.stringify({
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: `t${index}`, content }],
+        },
+      }),
+    ])
+    .join('\n');
+
+const streamOf = (...contents: ToolContent[]) => streamFrom(GATE_CALL, ...contents);
+
+/** `fallow audit` output naming one unused re-export of `name` in `file`. */
+const auditOutput = (file: string, name: string, header = '● Unused type exports (1)') =>
+  [
+    '── Unused Code ─────────────',
+    header,
+    `  ${file}`,
+    `    :4 ${name} (re-export)`,
+    '  Type exports with no known consumers',
+    '  https://fallow.tools/docs/explanations/dead-code/#unused-types',
+    '── Duplication ─────────────',
+  ].join('\n');
+
+const API_CLIENT_INDEX = (id: string) => `showcase/${id}/web/src/api-client/index.ts`;
+const flagging = (id: string, name = 'RouterInputs') =>
+  streamOf(auditOutput(API_CLIENT_INDEX(id), name));
+const withoutRouterInputs = replaceIn(
+  'web/etc/api-client.api.md',
+  /\/\/ @public \(undocumented\)\r?\nexport type RouterInputs [^\n]*\n/,
+  '',
+);
+const API_CLIENT_EXPORTS = 'public-api · exports web:web-api-client';
+
 const API_REPORT = 'api/etc/api.api.md';
 const ROUTES = 'web/src/routes/todos';
 const EDGE = 'structure · edge api-procedures -.-> api-domain';
-const addEdge = replaceIn(
-  'architecture.mmd',
-  '  api_procedures --> api_trpc\n',
-  '  api_procedures --> api_trpc\n  api_procedures -.-> api_domain\n',
-);
+const SOLID_EDGE = 'structure · edge api-procedures --> api-domain';
+const SOLID_INTEGRATIONS_EDGE = 'structure · edge api-integrations --> api-domain';
+const edgeAdder = (arrow: string) =>
+  replaceIn(
+    'architecture.mmd',
+    '  api_procedures --> api_trpc\n',
+    `  api_procedures --> api_trpc\n  api_procedures ${arrow} api_domain\n`,
+  );
+const addEdge = edgeAdder('-.->');
+const addSolidEdge = edgeAdder('-->');
 
 type Comparison = ReturnType<typeof compareResults>;
 
@@ -308,18 +370,169 @@ describe('compareResults', () => {
     ]);
   });
 
-  it('marks an extra role edge outside the spec', () => {
+  it('marks an extra solid role edge outside the spec', () => {
+    const comparison = compareResults([facts('todo-01'), facts('todo-03', addSolidEdge)]);
+    expect(departures(comparison)).toEqual([[SOLID_EDGE, 'outside-spec', null]]);
+    expect(find(comparison, SOLID_EDGE).why).toMatch(/role edges/);
+  });
+
+  it('places an extra dashed role edge, a type-only import, under freedom 8', () => {
     const comparison = compareResults([facts('todo-01'), facts('todo-03', addEdge)]);
+    expect(departures(comparison)).toEqual([[EDGE, 'spec-freedom', 8]]);
+    expect(comparison.consistent).toBe(true);
+  });
+
+  it('keeps an extra dashed role edge outside the spec when a run failed its verify check', () => {
+    const unverified = { ...facts('todo-03', addEdge), verified: false };
+    const comparison = compareResults([facts('todo-01'), unverified]);
     expect(departures(comparison)).toEqual([[EDGE, 'outside-spec', null]]);
-    expect(find(comparison, EDGE).why).toMatch(/role edges/);
+  });
+
+  const INTEGRATIONS = 'api/src/features/todos/integrations.ts';
+  const TYPE_EDGE = 'structure · edge api-integrations -.-> api-domain';
+  const ownTodoType = [
+    replaceIn('architecture.mmd', '  api_integrations --> api_domain\n', ''),
+    replaceIn(INTEGRATIONS, /\bTodo\b/g, 'StoredTodo'),
+    replaceIn(
+      INTEGRATIONS,
+      "import type { StoredTodo } from './domain.ts';\n",
+      'interface StoredTodo { readonly id: string; readonly title: string; readonly completed: boolean }\n',
+    ),
+  ];
+
+  it.each([
+    ['`import type`', null],
+    [
+      'an inline `type` specifier',
+      replaceIn(INTEGRATIONS, 'import type { Todo }', 'import { type Todo }'),
+    ],
+    [
+      '`export type … from`',
+      replaceIn(
+        INTEGRATIONS,
+        "import type { Todo } from './domain.ts';",
+        "import type { Todo } from './domain.ts';\nexport type { Todo as StoredTodo } from './domain.ts';",
+      ),
+    ],
+  ])('places a solid edge on a value direction that only one run has, carrying only %s, under freedom 8', (_, change) => {
+    const typeOnly = change ? facts('todo-01', change) : facts('todo-01');
+    const comparison = compareResults([typeOnly, facts('todo-03', ...ownTodoType)]);
+    expect(departures(comparison)).toEqual([[TYPE_EDGE, 'spec-freedom', 8]]);
+    expect(comparison.consistent).toBe(true);
+  });
+
+  it.each([
+    [
+      'a value import beside it',
+      replaceIn(INTEGRATIONS, 'import type { Todo }', 'import { newTodo, type Todo }'),
+    ],
+    [
+      'a dynamic import beside it',
+      edit(
+        INTEGRATIONS,
+        (text) => `${text}\nexport const loadDomain = () => import('./domain.ts');\n`,
+      ),
+    ],
+    [
+      'an `export * from`',
+      replaceIn(
+        INTEGRATIONS,
+        "import type { Todo } from './domain.ts';",
+        "import type { Todo } from './domain.ts';\nexport * from './domain.ts';",
+      ),
+    ],
+  ])('keeps a solid edge that only one run has outside the spec with %s', (_, change) => {
+    const comparison = compareResults([facts('todo-01', change), facts('todo-03', ...ownTodoType)]);
+    expect(departures(comparison)).toEqual([[SOLID_INTEGRATIONS_EDGE, 'outside-spec', null]]);
+  });
+
+  it.each([
+    'seed.js',
+    'seed.mjs',
+    'seed.mts',
+    'seed.cts',
+    'seed.jsx',
+  ])('keeps a solid edge that only one run has outside the spec with a value import in an integrations/%s file beside it', (file) => {
+    const seed: Edit = (tree) => {
+      tree.set(
+        `api/src/features/todos/integrations/${file}`,
+        "import { newTodo } from '../domain.js';\nexport const seed = newTodo;\n",
+      );
+    };
+    const comparison = compareResults([facts('todo-01', seed), facts('todo-03', ...ownTodoType)]);
+    expect(departures(comparison)).toEqual([
+      [SOLID_INTEGRATIONS_EDGE, 'outside-spec', null],
+      ['structure · files api-integrations', 'spec-freedom', 2],
+    ]);
+  });
+
+  it('keeps a type-only solid edge that only one run has outside the spec when a run failed its verify check', () => {
+    const unverified = { ...facts('todo-03', ...ownTodoType), verified: false };
+    const comparison = compareResults([facts('todo-01'), unverified]);
+    expect(departures(comparison)).toEqual([[TYPE_EDGE, 'outside-spec', null]]);
+  });
+
+  it('places a re-export the run dropped after its own stream flagged it under freedom 9', () => {
+    const dropped = factsWith('todo-02', flagging('todo-02'), withoutRouterInputs);
+    const comparison = compareResults([facts('todo-01'), dropped, facts('todo-03')]);
+    expect(departures(comparison)).toEqual([[API_CLIENT_EXPORTS, 'spec-freedom', 9]]);
+    expect(comparison.freedoms[8]?.cited).toEqual([API_CLIENT_EXPORTS]);
+  });
+
+  it.each([
+    ['no stream', null],
+    ['a stream that flags another name', flagging('todo-02', 'RouterOutputs')],
+    ["a stream that flags another result's file", flagging('todo-01')],
+    [
+      'a printf that echoes the finding',
+      streamFrom(
+        { name: 'Bash', input: { command: "printf '● Unused type exports (1)'" } },
+        auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+      ),
+    ],
+    [
+      'the finding in the result of another tool',
+      streamFrom(
+        { name: 'Read', input: { file_path: 'pnpm verify.log' } },
+        auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+      ),
+    ],
+    [
+      'a flag on a file of the role other than its entry',
+      streamOf(auditOutput('showcase/todo-02/web/src/api-client/trpc.ts', 'RouterInputs')),
+    ],
+  ])('keeps a dropped re-export outside the spec with %s', (_, streamText) => {
+    const dropped = factsWith('todo-02', streamText, withoutRouterInputs);
+    expect(departures(compareResults([facts('todo-01'), dropped]))).toEqual([
+      [API_CLIENT_EXPORTS, 'outside-spec', null],
+    ]);
+  });
+
+  it('keeps a dropped export of a report compared by kind counts outside the spec when the flag sits on an internal file', () => {
+    const withTodoInput = replaceIn(
+      'api/etc/features-todos.api.md',
+      '// (No @packageDocumentation',
+      '// @public (undocumented)\nexport type TodoInput = string;\n\n// (No @packageDocumentation',
+    );
+    const internal = streamOf(
+      auditOutput('showcase/todo-02/api/src/features/todos/procedures.ts', 'TodoInput'),
+    );
+    const comparison = compareResults([
+      facts('todo-01', withTodoInput),
+      factsWith('todo-02', internal),
+      facts('todo-03', withTodoInput),
+    ]);
+    expect(departures(comparison)).toEqual([
+      ['public-api · exports api:api-procedures', 'outside-spec', null],
+    ]);
   });
 
   it('keeps an aspect outside the spec under an author note without a freedom, with the note as its why', () => {
     const comparison = compareResults(
-      [facts('todo-01'), facts('todo-03', addEdge)],
-      [{ key: EDGE, why: 'the agent typed a return' }],
+      [facts('todo-01'), facts('todo-03', addSolidEdge)],
+      [{ key: SOLID_EDGE, why: 'the agent typed a return' }],
     );
-    expect(find(comparison, EDGE)).toMatchObject({
+    expect(find(comparison, SOLID_EDGE)).toMatchObject({
       classification: 'outside-spec',
       why: 'the agent typed a return',
       by: 'note',
@@ -537,9 +750,9 @@ describe('compareResults', () => {
   });
 
   it.each([99, 0, 2.5])('throws on a ruling that names freedom %p, which the list lacks', (n) => {
-    const pair = [facts('todo-01'), facts('todo-03', addEdge)];
-    const ruling = { key: EDGE, freedom: n as 1, why: 'x' };
-    expect(() => compareResults(pair, [ruling])).toThrow(EDGE);
+    const pair = [facts('todo-01'), facts('todo-03', addSolidEdge)];
+    const ruling = { key: SOLID_EDGE, freedom: n as 1, why: 'x' };
+    expect(() => compareResults(pair, [ruling])).toThrow(SOLID_EDGE);
   });
 
   it('keeps an optional item field in the item shape, so the item shape breaks', () => {
@@ -697,6 +910,17 @@ describe('treeFromPatch', () => {
 });
 
 describe('readResultFacts', () => {
+  it('keeps only the flagged re-exports the entry of their report no longer exports', () => {
+    const index = API_CLIENT_INDEX('todo-02');
+    const stream = streamOf(
+      auditOutput(index, 'RouterInputs'),
+      auditOutput(index, 'RouterOutputs'),
+    );
+    expect(factsWith('todo-02', stream, withoutRouterInputs).flaggedReExports).toEqual([
+      { key: 'web:web-api-client', name: 'RouterInputs', kind: 'type' },
+    ]);
+  });
+
   const todo01 = facts('todo-01');
 
   it('reads the procedures and the item from the API report and the api sources', () => {
@@ -753,21 +977,79 @@ describe('readResultFacts', () => {
 
 const evidence = (id: string) => JSON.parse(read(`docs/trials/${id}.json`));
 
+describe('readGateFindings', () => {
+  const ESC = '\u001b';
+
+  it('reads the unused re-exports of both content shapes, with the kind of their section', () => {
+    const ansi = `${ESC}[1m● Unused exports (2)${ESC}[0m\n  ${ESC}[36mshowcase/todo-02/web/src/api-client/index.ts${ESC}[0m\n    :2 TestApiProvider (re-export)\n    :3 helper\n`;
+    const stream = streamOf(
+      [{ type: 'text', text: auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs') }],
+      ansi,
+      auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+    );
+    expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([
+      { file: 'web/src/api-client/index.ts', name: 'RouterInputs', kind: 'type' },
+      { file: 'web/src/api-client/index.ts', name: 'TestApiProvider', kind: 'value' },
+    ]);
+  });
+
+  it('reads output with CRLF line endings', () => {
+    const crlf = auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs').replaceAll('\n', '\r\n');
+    expect(readGateFindings(streamOf(crlf), 'showcase/todo-02')).toEqual([
+      { file: 'web/src/api-client/index.ts', name: 'RouterInputs', kind: 'type' },
+    ]);
+  });
+
+  it.each([
+    ['printf', { name: 'Bash', input: { command: "printf '%s' 'RouterInputs (re-export)'" } }],
+    ['a tool other than Bash', { name: 'Grep', input: { pattern: 'pnpm verify' } }],
+    ['a Bash call with no command', { name: 'Bash', input: {} }],
+  ])('reads nothing from the result of %s', (_, call) => {
+    const stream = streamFrom(call, auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'));
+    expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([]);
+  });
+
+  it.each([
+    'pnpm verify',
+    'pnpm run fallow:audit',
+    'npx fallow audit --format human',
+    'cd x && fallow dead-code',
+  ])('reads the result of the gate command %p', (command) => {
+    const stream = streamFrom(
+      { name: 'Bash', input: { command } },
+      auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+    );
+    expect(readGateFindings(stream, 'showcase/todo-02')).toHaveLength(1);
+  });
+
+  it("skips the files of another result's root and the findings of other sections", () => {
+    const stream = streamOf(
+      auditOutput(API_CLIENT_INDEX('todo-01'), 'RouterInputs'),
+      auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs', '● Unused files (1)'),
+    );
+    expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([]);
+    expect(readGateFindings(null, 'showcase/todo-02')).toEqual([]);
+  });
+});
+
 describe('renderComparison', () => {
-  const withoutRouterInputs = replaceIn(
-    'web/etc/api-client.api.md',
-    /\/\/ @public \(undocumented\)\r?\nexport type RouterInputs [^\n]*\n/,
-    '',
-  );
   const EDITS: Record<string, Edit[]> = { 'todo-02': [withoutRouterInputs], 'todo-03': [addEdge] };
-  const runs = (change: (records: ReturnType<typeof evidence>[]) => void = () => undefined) => {
+  const STREAMS: Record<string, string> = { 'todo-02': flagging('todo-02') };
+  const runs = (
+    change: (records: ReturnType<typeof evidence>[]) => void = () => undefined,
+    streams = STREAMS,
+  ) => {
     const records = ['todo-01', 'todo-02', 'todo-03'].map(evidence);
     change(records);
     return records.map((record) => ({
       evidence: record,
       source: record.result.patch ?? `showcase/${record.trial.id}`,
       facts: {
-        ...facts(record.trial.id, ...(EDITS[record.trial.id] ?? [])),
+        ...factsWith(
+          record.trial.id,
+          streams[record.trial.id] ?? null,
+          ...(EDITS[record.trial.id] ?? []),
+        ),
         passed: record.result.status === 'passed',
       },
     }));
@@ -803,14 +1085,28 @@ describe('renderComparison', () => {
     expect(report).toMatch(/\| Rendered prompt SHA-256 \|.*\| no \|/);
   });
 
-  it('shows the author notes as the Why of outside-spec aspects, with no rulings section', () => {
+  it('places a flagged re-export dropped and a dashed edge inside freedoms 9 and 8, so the runs are consistent', () => {
     const report = renderComparison(runs(), read);
+    expect(verdict(report)).toContain(
+      '- Consistency: `consistent`. 0 aspects sit outside the spec',
+    );
+    expect(report).not.toContain('## Outside the spec');
+    const inside = report.split('## Inside a spec freedom')[1]?.split('\n## ')[0] ?? '';
+    expect(inside).toMatch(
+      /\| `public-api · exports web:web-api-client` \|.*\| 9 \| script rule \|/,
+    );
+    expect(inside).toMatch(
+      /\| `structure · edge api-procedures -\.-> api-domain` \|.*\| 8 \| script rule \|/,
+    );
+  });
+
+  it('shows an author note as the Why of an outside-spec aspect, with no rulings section', () => {
+    const report = renderComparison(runs(undefined, {}), read, {
+      notes: [{ key: API_CLIENT_EXPORTS, why: 'the barrel lost a re-export' }],
+    });
     expect(report).not.toContain('## Rulings by the author');
     expect(report).toMatch(
-      /\| `public-api · exports web:web-api-client` \|.*flagged it as an unused type export.*\| author's note \|/,
-    );
-    expect(report).toMatch(
-      /\| `structure · edge api-procedures -\.-> api-domain` \|.*\| author's note \|/,
+      /\| `public-api · exports web:web-api-client` \|.*\| the barrel lost a re-export \| author's note \|/,
     );
   });
 
@@ -859,7 +1155,7 @@ describe('renderComparison', () => {
       'Runs',
       'Baseline',
       'Method',
-      'Outside the spec',
+      'Inside a spec freedom',
       'Diagrams',
     ]);
   });
@@ -919,14 +1215,23 @@ describe('the committed comparison', () => {
     expect(read(REPORT_PATH)).toBe(comparisonReport(ROOT));
   });
 
-  it('lists the same seven freedoms as ADR 0035', () => {
-    const adr = read('.agents/decisions/0035-trial-comparison.md');
-    const section = adr.split(/^## Spec freedoms\n/m)[1]?.split(/^## /m)[0] ?? '';
-    const items = [...section.matchAll(/^(\d+)\. (.+)$/gm)].map(([, number, text]) => [
+  const freedomsOf = (path: string) => {
+    const section =
+      read(path)
+        .split(/^## Spec freedoms\n/m)[1]
+        ?.split(/^## /m)[0] ?? '';
+    return [...section.matchAll(/^(\d+)\. (.+)$/gm)].map(([, number, text]) => [
       Number(number),
       text,
     ]);
-    expect(items).toEqual(FREEDOMS.map((text, index) => [index + 1, text]));
+  };
+  const numbered = FREEDOMS.map((text, index) => [index + 1, text]);
+
+  it('lists the seven freedoms of ADR 0035 and then the two of ADR 0037', () => {
+    expect(freedomsOf('.agents/decisions/0035-trial-comparison.md')).toEqual(numbered.slice(0, 7));
+    expect(freedomsOf('.agents/decisions/0037-type-only-edges-and-flagged-re-exports.md')).toEqual(
+      numbered.slice(7),
+    );
   });
 
   it('maps every function @repo/ui exports, and only those, as a primitive', () => {
