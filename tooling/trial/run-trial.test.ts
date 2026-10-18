@@ -23,6 +23,12 @@ const REPOSITORY_ROOT = resolve(import.meta.dirname, '../..');
 const CLI = join(REPOSITORY_ROOT, 'tooling/trial/run-trial.mjs');
 const BIOME = join(REPOSITORY_ROOT, 'node_modules/.bin/biome');
 const SIGN_OFF = 'Signed-off-by: Ben Sheridan-Edwards <bensheridanedwards@gmail.com>';
+/**
+ * A `runTrial` test spawns about 30 real processes (git, Biome, the fake
+ * agent), so its time grows with the box's load: the slowest, with two runs,
+ * took 16 s at a load average of 195 on 8 cores.
+ */
+const RUN_TIMEOUT_MS = 60_000;
 const TEMPLATE = '# Todo trial {{ID}}\n\nYou are running trial {{N}} of three.\n';
 const LOCKFILE = [
   "lockfileVersion: '9.0'",
@@ -54,6 +60,8 @@ const savedEnv = { ...process.env };
 
 let sandbox: string;
 let source: string;
+let caseDir: string;
+let checkout: string;
 let scaffold: string;
 let failingHookScaffold: string;
 let resultScaffold: string;
@@ -73,7 +81,7 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
  * itself, prints a stream-json session, then runs `body` in the clone.
  */
 function fakeAgent(name: string, body: string, exitCode = 0) {
-  const path = join(sandbox, `${name}.mjs`);
+  const path = join(caseDir, `${name}.mjs`);
   writeFileSync(
     path,
     `#!/usr/bin/env node
@@ -124,7 +132,7 @@ const freePort = () =>
 
 const passingChecks = ['install', 'verify', 'e2e', 'structure'].map((name) => ({
   name,
-  argv: ['node', '-e', 'process.exit(0)'],
+  argv: ['true'],
   timeoutMs: 30_000,
 }));
 
@@ -135,7 +143,7 @@ function plan(options: { agent: string; trial?: number; scaffoldRev?: string; re
     ...planTrial({
       trial: options.trial ?? 1,
       scaffoldRev: options.scaffoldRev ?? scaffold,
-      root: source,
+      root: checkout,
       trialsRoot,
       now: new Date('2026-10-17T12:00:00Z'),
       sessionId: '0b7f6c1e-3f7a-4d2b-9c51-2f0e8f6b2a10',
@@ -156,10 +164,10 @@ function plan(options: { agent: string; trial?: number; scaffoldRev?: string; re
 }
 
 const readEvidence = (id = 'todo-01') =>
-  JSON.parse(readFileSync(join(source, `docs/trials/${id}.json`), 'utf8'));
+  JSON.parse(readFileSync(join(checkout, `docs/trials/${id}.json`), 'utf8'));
 
 function clearEvidence() {
-  rmSync(join(source, 'docs/trials'), { recursive: true, force: true });
+  rmSync(join(checkout, 'docs/trials'), { recursive: true, force: true });
 }
 
 beforeAll(() => {
@@ -194,8 +202,6 @@ afterAll(() => {
   process.env = savedEnv;
   rmSync(sandbox, { recursive: true, force: true });
 });
-
-afterEach(clearEvidence);
 
 describe('planTrial', () => {
   it('names the workdir, clone, branch and evidence paths from the trial number', () => {
@@ -349,6 +355,16 @@ describe('renderPrompt', () => {
 });
 
 describe('runTrial', () => {
+  jest.setTimeout(RUN_TIMEOUT_MS);
+
+  // A run Jest gave up on keeps going, so each case gets its own evidence
+  // checkout and agents, where no later case looks.
+  beforeEach(() => {
+    caseDir = mkdtempSync(join(sandbox, 'case-'));
+    checkout = join(caseDir, 'checkout');
+    git(sandbox, 'clone', '-q', '--shared', source, checkout);
+  });
+
   it('runs the agent once in a fresh blobless clone at the scaffold, commits its result and writes passing evidence', async () => {
     const agent = fakeAgent('passing', WRITES_RESULT);
     const planned = plan({ agent });
@@ -414,14 +430,14 @@ describe('runTrial', () => {
       harness: { sha256: expect.stringMatching(/^[0-9a-f]{64}$/), matchesScaffold: false },
       checks: ['install', 'verify', 'e2e', 'structure'].map((name) => ({
         name,
-        command: 'node -e process.exit(0)',
+        command: 'true',
         exitCode: 0,
       })),
       failures: [],
     });
     expect(existsSync(join(planned.workdir, 'prompt.md'))).toBe(true);
     expect(readFileSync(planned.streamPath, 'utf8')).toContain('"subtype":"init"');
-    const keptStream = readFileSync(join(source, 'docs/trials/todo-01.stream.jsonl'), 'utf8');
+    const keptStream = readFileSync(join(checkout, 'docs/trials/todo-01.stream.jsonl'), 'utf8');
     expect(keptStream).toContain('"subtype":"init"');
     expect(evidence.stream).toEqual({
       path: 'docs/trials/todo-01.stream.jsonl',
@@ -447,7 +463,7 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
         }),
         quietDeps(),
       );
-      const kept = readFileSync(join(source, 'docs/trials/todo-01.stream.jsonl'), 'utf8');
+      const kept = readFileSync(join(checkout, 'docs/trials/todo-01.stream.jsonl'), 'utf8');
 
       expect(kept).not.toContain(token);
       expect(kept).toContain('token [redacted CLAUDE_CODE_OAUTH_TOKEN]');
@@ -464,7 +480,7 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
 
   it('writes the evidence file as Biome formats it', async () => {
     await runTrial(plan({ agent: fakeAgent('formatted', WRITES_RESULT) }), quietDeps());
-    const text = readFileSync(join(source, 'docs/trials/todo-01.json'), 'utf8');
+    const text = readFileSync(join(checkout, 'docs/trials/todo-01.json'), 'utf8');
 
     const formatted = spawnSync(BIOME, ['format', '--stdin-file-path=docs/trials/todo-01.json'], {
       cwd: REPOSITORY_ROOT,
@@ -511,7 +527,7 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     expect(evidence.result.status).toBe('failed');
     expect(evidence.result.outsideScope).toEqual(['apps/web/src/App.tsx']);
     expect(evidence.failures).toContain('changed outside showcase/todo-01/: apps/web/src/App.tsx');
-    expect(readFileSync(join(source, 'docs/trials/todo-01.patch'), 'utf8')).toContain(
+    expect(readFileSync(join(checkout, 'docs/trials/todo-01.patch'), 'utf8')).toContain(
       'export const App = 2;',
     );
   });
@@ -552,7 +568,7 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     write(sandbox, 'PLAN.md', '# plan\n');
     write(sandbox, 'NOTES.md', '# notes\n');
     write(sandbox, 'tmp/earlier-scratch/result.txt', 'an earlier result\n');
-    const planned = plan({ agent: join(sandbox, 'outside-read.mjs') });
+    const planned = plan({ agent: join(caseDir, 'outside-read.mjs') });
     const slug = planned.clone.replace(/[^a-zA-Z0-9]/g, '-');
     const claudeTmp = join(sandbox, 'tmp', `claude-${process.getuid?.()}`);
     const otherTasks = join(claudeTmp, '-workspace-mono-pr5/1111/tasks/b1.output');
@@ -566,7 +582,7 @@ const tool = (name, input) => ({ type: 'tool_use', name, input });
 emit({ type: 'assistant', message: { content: [
   tool('Read', { file_path: process.cwd() + '/apps/web/src/App.tsx' }),
   tool('Read', { file_path: '../prompt.md' }),
-  tool('Read', { file_path: ${JSON.stringify(join(source, 'apps/web/src/App.tsx'))} }),
+  tool('Read', { file_path: ${JSON.stringify(join(checkout, 'apps/web/src/App.tsx'))} }),
   tool('Read', { file_path: ${JSON.stringify(transcript)} }),
   tool('Read', { file_path: ${JSON.stringify(join(sandbox, 'PLAN.md'))} }),
   tool('Read', { file_path: ${JSON.stringify(join(sandbox, 'claude-config/settings.json'))} }),
@@ -579,7 +595,7 @@ emit({ type: 'assistant', message: { content: [
   tool('Bash', { command: '(cd showcase/todo-01/web && ls) && cat ../../../NOTES.md' }),
   tool('Bash', { command: 'grep -rn "/trpc" showcase 2>/dev/null; ls /usr/bin ${REPOSITORY_ROOT}' }),
   tool('Bash', { command: "cat <<'EOF'\\n<div>hi</div> // note\\nimport { x } from '../../domain.ts';\\nEOF" }),
-  tool('Bash', { command: 'ls ${source} ${source}/no-such-folder' }),
+  tool('Bash', { command: 'ls ${checkout} ${checkout}/no-such-folder' }),
   tool('Bash', { command: 'cd ../.. && ls; cat ../prompt.md' }),
 ] } });`,
     );
@@ -593,8 +609,8 @@ emit({ type: 'assistant', message: { content: [
         join(sandbox, 'PLAN.md'),
         join(sandbox, 'NOTES.md'),
         join(sandbox, 'tmp/earlier-scratch/result.txt'),
-        source,
-        join(source, 'apps/web/src/App.tsx'),
+        checkout,
+        join(checkout, 'apps/web/src/App.tsx'),
         transcript,
         otherTasks,
         otherSession,
@@ -609,7 +625,7 @@ emit({ type: 'assistant', message: { content: [
   it('passes a clean run whose agent reads its own session files, its scratch and caches, and cds about its clone', async () => {
     const tmp = join(sandbox, 'tmp');
     mkdirSync(tmp, { recursive: true });
-    const planned = plan({ agent: join(sandbox, 'clean-agent.mjs') });
+    const planned = plan({ agent: join(caseDir, 'clean-agent.mjs') });
     const slug = planned.clone.replace(/[^a-zA-Z0-9]/g, '-');
     const tasks = join(tmp, `claude-${process.getuid?.()}`, slug, planned.sessionId, 'tasks');
     const toolResults = join(
@@ -745,7 +761,7 @@ emit({ type: 'assistant', message: { content: [
       DISABLE_AUTOUPDATER: '1',
       LC_ALL: 'C.UTF-8',
       npm_lifecycle_event: 'trial',
-      INIT_CWD: source,
+      INIT_CWD: checkout,
     };
     Object.assign(process.env, parent);
     try {
@@ -811,21 +827,17 @@ emit({ type: 'assistant', message: { content: [
     '.npmrc',
     '.mcp.json',
   ])('moves the enforcement revision on a scaffold commit to %s', async (path) => {
-    write(source, path, `${JSON.stringify({ changed: path })}\n`);
-    try {
-      git(source, 'add', path);
-      git(source, 'commit', '-q', '-m', `change ${path}`);
-      const changed = git(source, 'rev-parse', 'HEAD');
+    write(checkout, path, `${JSON.stringify({ changed: path })}\n`);
+    git(checkout, 'add', path);
+    git(checkout, 'commit', '-q', '-m', `change ${path}`);
+    const changed = git(checkout, 'rev-parse', 'HEAD');
 
-      const evidence = await runTrial(
-        plan({ agent: fakeAgent('enforcement', WRITES_RESULT), scaffoldRev: changed }),
-        quietDeps(),
-      );
+    const evidence = await runTrial(
+      plan({ agent: fakeAgent('enforcement', WRITES_RESULT), scaffoldRev: changed }),
+      quietDeps(),
+    );
 
-      expect(evidence.scaffold.enforcementRev).toBe(changed);
-    } finally {
-      git(source, 'checkout', '-q', scaffold);
-    }
+    expect(evidence.scaffold.enforcementRev).toBe(changed);
   });
 
   it('runs the checks as CI does, on a clean clone of the result commit', async () => {
@@ -941,7 +953,7 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
 
   it('marks the trial as run before the agent starts, so a stopped harness leaves a final record', async () => {
     const copy = join(sandbox, 'provisional.json');
-    const evidencePath = join(source, 'docs/trials/todo-01.json');
+    const evidencePath = join(checkout, 'docs/trials/todo-01.json');
     const agent = fakeAgent(
       'provisional',
       `${WRITES_RESULT}\nwriteFileSync(${JSON.stringify(copy)}, readFileSync(${JSON.stringify(evidencePath)}));`,
@@ -975,23 +987,20 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
       'check verify needs verify, which the scaffold lacks',
     ],
   ])('fails before the agent starts on %s', async (_case, override, failure) => {
-    write(source, 'package.json', '{ "scripts": {} }\n');
+    write(checkout, 'package.json', '{ "scripts": {} }\n');
     const agent = fakeAgent('before-agent', WRITES_RESULT);
-    try {
-      git(source, 'add', 'package.json');
-      git(source, 'commit', '-q', '-m', 'a manifest');
-      const evidence = await runTrial(
-        { ...plan({ agent, scaffoldRev: git(source, 'rev-parse', 'HEAD') }), ...override },
-        quietDeps(),
-      );
+    git(checkout, 'add', 'package.json');
+    git(checkout, 'commit', '-q', '-m', 'a manifest');
 
-      expect(evidence.failures).toEqual([failure]);
-      expect(evidence.run.agentExitCode).toBeNull();
-      expect(evidence.stream).toEqual({ path: null, sha256: null, userTextEvents: null });
-      expect(existsSync(`${agent}.call.json`)).toBe(false);
-    } finally {
-      git(source, 'checkout', '-q', scaffold);
-    }
+    const evidence = await runTrial(
+      { ...plan({ agent, scaffoldRev: git(checkout, 'rev-parse', 'HEAD') }), ...override },
+      quietDeps(),
+    );
+
+    expect(evidence.failures).toEqual([failure]);
+    expect(evidence.run.agentExitCode).toBeNull();
+    expect(evidence.stream).toEqual({ path: null, sha256: null, userTextEvents: null });
+    expect(existsSync(`${agent}.call.json`)).toBe(false);
   });
 
   it('fails before the agent starts on a scaffold that already holds a showcase result', async () => {
@@ -1006,11 +1015,11 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
   });
 
   it('refuses to start when the evidence for the trial exists, and leaves it unchanged', async () => {
-    write(source, 'docs/trials/todo-01.json', '{ "kept": true }\n');
+    write(checkout, 'docs/trials/todo-01.json', '{ "kept": true }\n');
     const planned = plan({ agent: fakeAgent('refused', WRITES_RESULT) });
 
     await expect(runTrial(planned, quietDeps())).rejects.toThrow('docs/trials/todo-01.json exists');
-    expect(readFileSync(join(source, 'docs/trials/todo-01.json'), 'utf8')).toBe(
+    expect(readFileSync(join(checkout, 'docs/trials/todo-01.json'), 'utf8')).toBe(
       '{ "kept": true }\n',
     );
     expect(existsSync(planned.workdir)).toBe(false);
