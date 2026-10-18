@@ -86,6 +86,7 @@
         "Effect.runSyncExitWith",
         "Effect.runForkWith",
         "Effect.runCallbackWith",
+        "ManagedRuntime.make",
         "effect/Effect.runPromise",
         "effect/Effect.runPromiseExit",
         "effect/Effect.runSync",
@@ -97,7 +98,8 @@
         "effect/Effect.runSyncWith",
         "effect/Effect.runSyncExitWith",
         "effect/Effect.runForkWith",
-        "effect/Effect.runCallbackWith"
+        "effect/Effect.runCallbackWith",
+        "effect/ManagedRuntime.make"
       ],
       "message": "Run network calls and Effect programs only in the api's integrations module or composition root. Web code reaches the api through useTrpc() from the api client."
     },

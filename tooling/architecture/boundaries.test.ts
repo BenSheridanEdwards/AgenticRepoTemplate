@@ -281,6 +281,18 @@ describe('Fallow contract over the reference result', () => {
       ['policy contract/effects-in-integrations'],
     ],
     [
+      'application logic runs an Effect program through a ManagedRuntime',
+      `${GREETING}/application.ts`,
+      "import { Effect, Layer, ManagedRuntime } from 'effect';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => { void ManagedRuntime.make(Layer.empty).runPromise(Effect.succeed(name)); return { message: formatGreeting(name) }; };\n",
+      ['policy contract/effects-in-integrations'],
+    ],
+    [
+      'application logic makes a ManagedRuntime through a named import',
+      `${GREETING}/application.ts`,
+      "import { make } from 'effect/ManagedRuntime';\nimport { Layer } from 'effect';\nimport { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => ({ message: formatGreeting(name + String(make(Layer.empty))) });\n",
+      ['policy contract/effects-in-integrations'],
+    ],
+    [
       'application logic calls globalThis.fetch',
       `${GREETING}/application.ts`,
       "import { formatGreeting, type Greeting } from './domain.ts';\nexport const greet = (name: string): Greeting => { void globalThis.fetch('https://example.com'); return { message: formatGreeting(name) }; };\n",
