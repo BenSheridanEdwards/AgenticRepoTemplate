@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { globToRegExp, loadContract } from './contract.mjs';
+import { loadContract } from './contract.mjs';
 import { loadRepositoryContract } from './temporary-monorepo';
 
 /** `fallow config --format json -q` output, cut to the fields the contract reads. */
@@ -179,27 +179,15 @@ describe("the repository's contract, read through Fallow", () => {
   });
 });
 
-describe('globToRegExp', () => {
-  it('matches a brace-glob zone in the reference and in every showcase result', () => {
-    const routes = globToRegExp('{apps,showcase/*}/web/src/routes/**');
+describe('roleOf', () => {
+  it('reads a brace glob as its listed folders and file names only', () => {
     expect(
       [
-        'apps/web/src/routes/greeting/GreetingPage.tsx',
-        'showcase/todo-01/web/src/routes/todos/TodosPage.tsx',
         'showcase/todo-01/nested/web/src/routes/todos/TodosPage.tsx',
         'packages/web/src/routes/greeting/GreetingPage.tsx',
-      ].map((file) => routes.test(file)),
-    ).toEqual([true, true, false, false]);
-  });
-
-  it('matches a brace list of file names', () => {
-    const procedures = globToRegExp('{apps,showcase/*}/api/src/features/*/{index,procedures}.ts');
-    expect(
-      [
         'apps/api/src/features/greeting/index.ts',
         'apps/api/src/features/greeting/procedures.ts',
-        'apps/api/src/features/greeting/domain.ts',
-      ].map((file) => procedures.test(file)),
-    ).toEqual([true, true, false]);
+      ].map(contract.roleOf),
+    ).toEqual([undefined, undefined, 'api-procedures', 'api-procedures']);
   });
 });
