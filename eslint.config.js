@@ -142,4 +142,19 @@ export default [
       ...policyRules,
     },
   },
+  {
+    // Gate and tooling scripts ask the tool, or `matchesGlob`, which files a
+    // glob covers (ADR 0041). A copy of the matching rules drifts from the tool.
+    files: ['scripts/**/*.{js,mjs}', 'tooling/**/*.{js,mjs}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...['**', '**/'].map((wildcard) => ({
+          selector: `Literal[value='${wildcard}']`,
+          message:
+            "Match globs with `matchesGlob` from 'node:path', or ask the tool for its file list (`fallow config`, `jest --listTests`). A hand-written glob translator drifts from the tool (ADR 0041).",
+        })),
+      ],
+    },
+  },
 ];
