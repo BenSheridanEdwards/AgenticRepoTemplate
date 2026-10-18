@@ -63,6 +63,7 @@
  *   `file`: result-root-relative
  */
 
+import { posix } from 'node:path';
 import ts from 'typescript';
 import { listPublicEntries } from '../../scripts/api-report.mjs';
 import { loadContract } from '../architecture/contract.mjs';
@@ -205,8 +206,11 @@ function filesByRole(tree, roleOf, contract) {
   return { sourceFiles, testFiles };
 }
 
-/** Roles and edges of a result diagram; the header line drops out. `-.->` is a type-only edge. */
-function parseDiagram(text) {
+/**
+ * Roles and edges of a result diagram; the header line drops out. An edge is
+ * type-only when the diagram dashes it or `typeOnlyPairs` holds its pair.
+ */
+function parseDiagram(text, typeOnlyPairs) {
   const labels = new Map();
   const edges = [];
   for (const line of (text ?? '').split('\n')) {
@@ -225,12 +229,104 @@ function parseDiagram(text) {
       .join('\n')
       .trim(),
     roles: [...labels.values()],
-    edges: edges.map((edge) => ({
-      ...edge,
-      from: labels.get(edge.from) ?? edge.from,
-      to: labels.get(edge.to) ?? edge.to,
-    })),
+    edges: edges.map((edge) => {
+      const from = labels.get(edge.from) ?? edge.from;
+      const to = labels.get(edge.to) ?? edge.to;
+      return { from, to, typeOnly: edge.typeOnly || typeOnlyPairs.has(`${from} ${to}`) };
+    }),
   };
+}
+
+const allTypes = (elements) => elements.length > 0 && elements.every((e) => e.isTypeOnly);
+const namedTypesOnly = (bindings, isNamed) =>
+  bindings !== undefined && isNamed(bindings) && allTypes(bindings.elements);
+
+/** Whether an import or re-export brings in types only, the forms Fallow reads as type-only. */
+function bringsTypesOnly(statement) {
+  if (ts.isExportDeclaration(statement)) {
+    return statement.isTypeOnly || namedTypesOnly(statement.exportClause, ts.isNamedExports);
+  }
+  const clause = statement.importClause;
+  return (
+    clause !== undefined &&
+    (clause.isTypeOnly || (!clause.name && namedTypesOnly(clause.namedBindings, ts.isNamedImports)))
+  );
+}
+
+const MODULE_CALLS =
+  /^(?:import|require|(?:jest|vi)\.(?:mock|doMock|requireActual|unstable_mockModule))$/;
+
+/** Each way a node names a module, as `{ specifier, typeOnly }` or null. */
+const REFERENCE_READERS = [
+  (node) =>
+    (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier
+      ? { specifier: node.moduleSpecifier.getText().slice(1, -1), typeOnly: bringsTypesOnly(node) }
+      : null,
+  (node) =>
+    ts.isImportTypeNode(node) &&
+    ts.isLiteralTypeNode(node.argument) &&
+    ts.isStringLiteral(node.argument.literal)
+      ? { specifier: node.argument.literal.text, typeOnly: true }
+      : null,
+  (node) => {
+    const [first] = ts.isCallExpression(node) ? node.arguments : [];
+    return first && ts.isStringLiteralLike(first) && MODULE_CALLS.test(node.expression.getText())
+      ? { specifier: first.text, typeOnly: false }
+      : null;
+  },
+];
+
+/** Each module specifier of one file, with whether it brings in types only. */
+const moduleReferences = (path, text) =>
+  descendants(parse(path, text)).flatMap((node) =>
+    REFERENCE_READERS.map((read) => read(node)).filter(Boolean),
+  );
+
+/** The tree file a relative specifier from `path` names, the way TypeScript's bundler resolution finds it. */
+function resolveRelative(tree, path, specifier) {
+  const target = posix.join(posix.dirname(path), specifier);
+  const stem = target.replace(/\.[cm]?js$/, '');
+  return [target, ...['.ts', '.tsx', '/index.ts', '/index.tsx'].map((ext) => stem + ext)].find(
+    (candidate) => tree.has(candidate),
+  );
+}
+
+/**
+ * The role pairs `from to` whose every crossing, each import or re-export from
+ * a file of one role that may land on a file of the other, brings in types
+ * only. Fallow's graph records no import kind, so a result diagram draws such
+ * an edge solid where the contract also allows values (ADR 0037). A relative
+ * specifier that names no tree file may land anywhere; a specifier of the
+ * result's own package may land on any of its roles; any other package
+ * specifier on any role no tree file holds, such as `ui`.
+ */
+function readTypeOnlyPairs(tree, roleOf, contract) {
+  const sources = [...tree].filter(([path]) => /\.tsx?$/.test(path) && roleOf(path));
+  const rolesUnder = (prefix) =>
+    new Set(sources.filter(([path]) => path.startsWith(prefix)).map(([path]) => roleOf(path)));
+  const held = rolesUnder('');
+  const packages = ['web', 'api'].flatMap((dir) => {
+    const name = JSON.parse(tree.get(`${dir}/package.json`) ?? '{}').name;
+    return name ? [{ name, roles: rolesUnder(`${dir}/`) }] : [];
+  });
+  const landings = (path, specifier) => {
+    if (specifier.startsWith('.')) {
+      const target = resolveRelative(tree, path, specifier);
+      return target ? [roleOf(target)].filter(Boolean) : contract.roles;
+    }
+    const own = packages.find(({ name }) => specifier === name || specifier.startsWith(`${name}/`));
+    return [...(own?.roles ?? contract.roles.filter((role) => !held.has(role)))];
+  };
+  const pairs = new Map();
+  for (const [path, text] of sources) {
+    const from = roleOf(path);
+    for (const { specifier, typeOnly } of moduleReferences(path, text)) {
+      for (const to of landings(path, specifier).filter((role) => role !== from)) {
+        pairs.set(`${from} ${to}`, (pairs.get(`${from} ${to}`) ?? true) && typeOnly);
+      }
+    }
+  }
+  return new Set([...pairs].filter(([, typeOnly]) => typeOnly).map(([pair]) => pair));
 }
 
 function canonical(value) {
@@ -1044,7 +1140,7 @@ export function readResultFacts({ id, root, passed, verified, tree, contract, st
     passed,
     verified,
     ...filesByRole(tree, roleOf, contract),
-    diagram: parseDiagram(tree.get('architecture.mmd')),
+    diagram: parseDiagram(tree.get('architecture.mmd'), readTypeOnlyPairs(tree, roleOf, contract)),
     manifests: {
       web: readManifest(tree.get('web/package.json'), id),
       api: readManifest(tree.get('api/package.json'), id),

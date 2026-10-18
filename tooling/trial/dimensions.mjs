@@ -61,7 +61,7 @@ export const FREEDOMS = [
   'Copy text and styling outside the UI contract names.',
   'Test names and the number of tests beyond what the gates require.',
   'Optional roles left empty, when all three agree.',
-  'A type-only import between roles, which the diagrams draw as a dashed edge.',
+  'A type-only import between roles, along any direction, which the comparison reads as a dashed edge.',
   'Dropping a re-export that a gate flagged, such as an unused export Fallow reports.',
 ];
 
@@ -352,8 +352,9 @@ function conventionAspects(facts) {
 }
 
 /**
- * A result diagram dashes every role pair outside `allow`, so a dashed edge is a
- * type-only import only where Fallow passed the tree.
+ * An edge reads dashed when the result diagram dashes it, a pair outside
+ * `allow` and so type-only only where Fallow passed the tree, or when every
+ * import and re-export along it brings in types only (`readTypeOnlyPairs`).
  */
 const DASHED_EDGE = /^edge \S+ -\.-> \S+$/;
 
@@ -363,7 +364,7 @@ const DIMENSIONS = [
     id: 'structure',
     title: 'Structure',
     normalizedForm:
-      'Roles and role edges from `architecture.mmd` without its header, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}`',
+      'Roles and role edges from `architecture.mmd` without its header, an edge dashed where its pair is allowed for types only or every import along it brings in types only, source files per role, test files per role of the file they test, and the text of each other file outside every role with the own id as `{id}`',
     mustBeIdentical: 'Role set and role edges',
     aspects: structureAspects,
     freedoms: [

@@ -57,24 +57,33 @@ package are unchanged, so the web still reaches the api only by type.
 role and every value direction, and its header states that any role may
 import types from any other. Drawn as edges, the type-only directions would
 join every pair of roles. A result diagram still draws the role edges its
-imports resolve to, dashed (`-.->`) where the pair is allowed for types only,
-which is now exactly a type-only edge.
+imports resolve to, dashed (`-.->`) where the pair is allowed for types only.
+Fallow's file graph records no import kind, so a type-only import along a
+direction that also allows values draws solid, the same as a value import.
 
 **Structure validation.** `tooling/architecture/structure.mjs` holds no
 role-direction rule; Fallow owns directions
 ([0014](0014-fallow-owns-architecture-checks.md)). It needs no change.
 
 **Comparison.** The comparison of [0035](0035-trial-comparison.md) gains two
-freedoms. A dashed edge that only some runs have sits in freedom 8 by the
+freedoms. The comparison reads an edge as dashed when the result diagram
+dashes it, or when every import and re-export along it brings in types only.
+`tooling/trial/result-facts.mjs` parses the result's sources for that: an
+`import type`, an import whose every named specifier is `type`, an
+`export type … from`, or a re-export whose every named specifier is `type`.
+A side-effect import, `export *`, a dynamic `import()`, `require` or a module
+mock is a value crossing, and so is a relative specifier that names no file
+of the result. A dashed edge that only some runs have sits in freedom 8 by the
 script's rule when every compared run's `verify` check exited 0. A result
-diagram dashes every role pair outside `allow`, so a dashed edge proves a
+diagram dashes every role pair outside `allow`, so that dashed edge proves a
 type-only import only on a tree that passed Fallow; with any run unverified,
-the edge stays outside the spec, as a solid edge always does. For freedom 9,
+the edge stays outside the spec, as a value edge always does. For freedom 9,
 the script reads each run's committed stream for the gate findings Fallow
 prints as `Unused exports` or `Unused type exports` with a `(re-export)` entry.
 It reads a tool result only when its call is a Bash command that runs a gate
 (`pnpm verify`, `pnpm fallow:audit`, `fallow audit` or `fallow dead-code`), so
-text another tool or a `printf` prints counts for nothing. A finding counts
+text another tool prints counts for nothing, and so does a `printf` in a
+command that names no gate. A finding counts
 only when its file is the entry file an API report of that run reads, and only
 when that report no longer exports the flagged name. An API report's export
 list differs inside freedom 9 when, with each run's flagged re-exports added
@@ -85,7 +94,7 @@ aspect is outside the spec now.
 
 ## Spec freedoms
 
-8. A type-only import between roles, which the diagrams draw as a dashed edge.
+8. A type-only import between roles, along any direction, which the comparison reads as a dashed edge.
 9. Dropping a re-export that a gate flagged, such as an unused export Fallow reports.
 
 ## Consequences
@@ -96,10 +105,12 @@ aspect is outside the spec now.
   it stays as is, so the template hash the runs recorded still matches. The
   agent-facing rule lives in the role table of
   `.agents/project/ARCHITECTURE.md`.
-- A type-only import along a direction that also allows values draws as that
-  solid value edge, so a run whose only import of that kind is a type stays
-  outside the spec when the other runs lack the edge. The script reads Fallow's
-  file graph, which records no import kind.
+- A type-only import along a direction that also allows values draws solid
+  in the result diagram, and the comparison still reads it as dashed. All
+  three committed runs import their `Todo` type into `api-integrations` that
+  way, so the report shows `edge api-integrations -.-> api-domain`. A crossing
+  the source parse misses, such as an import through a path alias, leaves the
+  edge solid and outside the spec.
 - Freedom 8 needs every compared run verified, so a dashed edge in a set with
   a run whose `verify` check failed needs an author's ruling.
 - Freedom 9 reads Fallow's human output in the stream, from a Bash command that

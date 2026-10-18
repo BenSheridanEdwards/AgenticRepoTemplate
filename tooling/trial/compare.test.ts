@@ -139,6 +139,7 @@ const API_REPORT = 'api/etc/api.api.md';
 const ROUTES = 'web/src/routes/todos';
 const EDGE = 'structure · edge api-procedures -.-> api-domain';
 const SOLID_EDGE = 'structure · edge api-procedures --> api-domain';
+const SOLID_INTEGRATIONS_EDGE = 'structure · edge api-integrations --> api-domain';
 const edgeAdder = (arrow: string) =>
   replaceIn(
     'architecture.mmd',
@@ -385,6 +386,70 @@ describe('compareResults', () => {
     const unverified = { ...facts('todo-03', addEdge), verified: false };
     const comparison = compareResults([facts('todo-01'), unverified]);
     expect(departures(comparison)).toEqual([[EDGE, 'outside-spec', null]]);
+  });
+
+  const INTEGRATIONS = 'api/src/features/todos/integrations.ts';
+  const TYPE_EDGE = 'structure · edge api-integrations -.-> api-domain';
+  const ownTodoType = [
+    replaceIn('architecture.mmd', '  api_integrations --> api_domain\n', ''),
+    replaceIn(INTEGRATIONS, /\bTodo\b/g, 'StoredTodo'),
+    replaceIn(
+      INTEGRATIONS,
+      "import type { StoredTodo } from './domain.ts';\n",
+      'interface StoredTodo { readonly id: string; readonly title: string; readonly completed: boolean }\n',
+    ),
+  ];
+
+  it.each([
+    ['`import type`', null],
+    [
+      'an inline `type` specifier',
+      replaceIn(INTEGRATIONS, 'import type { Todo }', 'import { type Todo }'),
+    ],
+    [
+      '`export type … from`',
+      replaceIn(
+        INTEGRATIONS,
+        "import type { Todo } from './domain.ts';",
+        "import type { Todo } from './domain.ts';\nexport type { Todo as StoredTodo } from './domain.ts';",
+      ),
+    ],
+  ])('places a solid edge on a value direction that only one run has, carrying only %s, under freedom 8', (_, change) => {
+    const typeOnly = change ? facts('todo-01', change) : facts('todo-01');
+    const comparison = compareResults([typeOnly, facts('todo-03', ...ownTodoType)]);
+    expect(departures(comparison)).toEqual([[TYPE_EDGE, 'spec-freedom', 8]]);
+    expect(comparison.consistent).toBe(true);
+  });
+
+  it.each([
+    [
+      'a value import beside it',
+      replaceIn(INTEGRATIONS, 'import type { Todo }', 'import { newTodo, type Todo }'),
+    ],
+    [
+      'a dynamic import beside it',
+      edit(
+        INTEGRATIONS,
+        (text) => `${text}\nexport const loadDomain = () => import('./domain.ts');\n`,
+      ),
+    ],
+    [
+      'an `export * from`',
+      replaceIn(
+        INTEGRATIONS,
+        "import type { Todo } from './domain.ts';",
+        "import type { Todo } from './domain.ts';\nexport * from './domain.ts';",
+      ),
+    ],
+  ])('keeps a solid edge that only one run has outside the spec with %s', (_, change) => {
+    const comparison = compareResults([facts('todo-01', change), facts('todo-03', ...ownTodoType)]);
+    expect(departures(comparison)).toEqual([[SOLID_INTEGRATIONS_EDGE, 'outside-spec', null]]);
+  });
+
+  it('keeps a type-only solid edge that only one run has outside the spec when a run failed its verify check', () => {
+    const unverified = { ...facts('todo-03', ...ownTodoType), verified: false };
+    const comparison = compareResults([facts('todo-01'), unverified]);
+    expect(departures(comparison)).toEqual([[TYPE_EDGE, 'outside-spec', null]]);
   });
 
   it('places a re-export the run dropped after its own stream flagged it under freedom 9', () => {
