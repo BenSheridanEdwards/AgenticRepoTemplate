@@ -7,7 +7,7 @@
  * method skips; the exceptions are listed in the report's Method section.
  *
  * @typedef {import('./result-facts.mjs').ResultFacts} ResultFacts
- * @typedef {1 | 2 | 3 | 4 | 5 | 6 | 7} Freedom
+ * @typedef {1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9} Freedom
  * @typedef {'structure' | 'public-api' | 'dependencies' | 'component-boundaries' | 'conventions'} DimensionId
  * @typedef {{ readonly value: string, readonly freedom: Freedom, readonly why: string }} Within
  * @typedef {(
@@ -47,8 +47,12 @@
  */
 
 import { createHash } from 'node:crypto';
+import { sortText } from './result-facts.mjs';
 
-/** PLAN "Spec freedoms", word for word; ADR 0035 lists the same seven. */
+/**
+ * PLAN "Spec freedoms", word for word, which ADR 0035 lists too, then the two
+ * ADR 0037 adds.
+ */
 export const FREEDOMS = [
   'Identifier and file names inside a role, including component, hook, procedure and router key names.',
   'How a role splits into files, components, hooks and functions.',
@@ -57,6 +61,8 @@ export const FREEDOMS = [
   'Copy text and styling outside the UI contract names.',
   'Test names and the number of tests beyond what the gates require.',
   'Optional roles left empty, when all three agree.',
+  'A type-only import between roles, which the diagrams draw as a dashed edge.',
+  'Dropping a re-export that a gate flagged, such as an unused export Fallow reports.',
 ];
 
 /** Intrinsic control to the `@repo/ui` primitive that replaces it. */
@@ -180,14 +186,32 @@ function publicApiAspects(facts) {
       ),
     ),
     ...facts.apiReports.map((report) => {
-      const count = (kind) => report.exports.filter((entry) => entry.kind === kind).length;
-      const names = listed(report.exports.map((entry) => entry.name));
-      return SCAFFOLD_ROLES.includes(report.key.split(':')[1])
-        ? form(
-            `exports ${report.key}`,
-            listed(report.exports.map((entry) => `${entry.name} ${entry.kind}`)),
-          )
-        : form(`exports ${report.key}`, `value ${count('value')} · type ${count('type')}`, names);
+      const flagged = facts.flaggedReExports.filter((entry) => entry.key === report.key);
+      const kept = new Set(report.exports.map((entry) => `${entry.name} ${entry.kind}`));
+      const scaffold = SCAFFOLD_ROLES.includes(report.key.split(':')[1]);
+      const render = scaffold
+        ? (exports) => listed(exports.map((entry) => `${entry.name} ${entry.kind}`))
+        : (exports) => {
+            const count = (kind) => exports.filter((entry) => entry.kind === kind).length;
+            return `value ${count('value')} · type ${count('type')}`;
+          };
+      const withFlagged = [
+        ...report.exports,
+        ...flagged.filter((entry) => !kept.has(`${entry.name} ${entry.kind}`)),
+      ].sort((a, b) => sortText(a.name, b.name));
+      const value = render(report.exports);
+      return {
+        ...form(
+          `exports ${report.key}`,
+          value,
+          scaffold ? value : listed(report.exports.map((entry) => entry.name)),
+        ),
+        within: {
+          value: render(withFlagged),
+          freedom: /** @type {Freedom} */ (9),
+          why: "a re-export the run's own gate flagged and the run dropped",
+        },
+      };
     }),
   ];
 }
@@ -341,6 +365,7 @@ const DIMENSIONS = [
     mustBeIdentical: 'Role set and role edges',
     aspects: structureAspects,
     freedoms: [
+      { key: /^edge \S+ -\.-> \S+$/, freedom: 8, why: 'a type-only import between roles' },
       { key: featureRole('files'), freedom: 2, why: 'how a role splits into files' },
       {
         key: /^tests /,

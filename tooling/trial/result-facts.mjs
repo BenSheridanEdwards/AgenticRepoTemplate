@@ -52,12 +52,17 @@
  *   readonly hooks: readonly Hook[],
  *   readonly outsideFiles: readonly { readonly path: string, readonly text: string }[],
  *   readonly storage: { readonly roles: readonly string[], readonly idSource: string },
- * }} ResultFacts  `verified`: the run's `verify` check exited 0; `outsideFiles`: see `readOutsideFiles`
+ *   readonly flaggedReExports: readonly FlaggedReExport[],
+ * }} ResultFacts  `verified`: the run's `verify` check exited 0; `outsideFiles`: see `readOutsideFiles`;
+ *   `flaggedReExports`: see `readFlaggedReExports`
+ * @typedef {{ readonly key: string, readonly name: string, readonly kind: 'value' | 'type' }} FlaggedReExport
+ *   keyed like an ApiReport, by the package and role of the flagged file
  */
 
 import ts from 'typescript';
 import { listPublicEntries } from '../../scripts/api-report.mjs';
 import { loadContract } from '../architecture/contract.mjs';
+import { streamEvents } from './stream.mjs';
 
 const OUTSIDE = 'outside-roles';
 const HUNK = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/;
@@ -914,11 +919,82 @@ function readOutsideFiles(tree, roleOf, id) {
     }));
 }
 
+/** The text of every tool result in a stream, whether its content is a string or text blocks. */
+const toolResultTexts = (streamText) =>
+  streamEvents(streamText).flatMap((event) =>
+    (Array.isArray(event.message?.content) ? event.message.content : [])
+      .filter((block) => block?.type === 'tool_result')
+      .map((block) =>
+        typeof block.content === 'string'
+          ? block.content
+          : (Array.isArray(block.content) ? block.content : [])
+              .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+              .join('\n'),
+      ),
+  );
+
+/** An ANSI color code; built from ESC's code, since a control character in a regex literal reads as a mistake. */
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
+const UNUSED_SECTION = /^● Unused (type )?exports \(\d+\)$/;
+const FINDING = /^ {4}:\d+ (\S+) \(re-export\)$/;
+
+/** The section a `fallow audit` line opens: its export kind, null for any other section. */
+const sectionKind = (line) => {
+  const section = UNUSED_SECTION.exec(line);
+  return section ? (section[1] ? 'type' : 'value') : null;
+};
+
 /**
- * @param {{ id: string, root: string, passed: boolean, verified: boolean, tree: ResultTree, contract: Contract }} input
+ * Each unused re-export in one tool result, as `fallow audit` prints it: a
+ * `● Unused exports` or `● Unused type exports` section, a file line indented
+ * two spaces, a `:<line> <Name> (re-export)` line indented four.
+ *
+ * @returns {readonly { file: string, name: string, kind: 'value' | 'type' }[]}
+ */
+function auditReExports(text) {
+  const found = [];
+  let kind = null;
+  let file = null;
+  for (const line of text.replace(ANSI, '').split('\n')) {
+    const name = FINDING.exec(line)?.[1];
+    if (/^\S/.test(line)) {
+      kind = sectionKind(line);
+      file = null;
+    } else if (/^ {2}\S+$/.test(line)) {
+      file = line.trim();
+    } else if (name && kind && file) {
+      found.push({ file, name, kind });
+    }
+  }
+  return found;
+}
+
+/**
+ * Every re-export a gate in the run's own stream reported unused. Only files
+ * under `root` count, so a run is judged by the findings on its own code.
+ *
+ * @param {string | null} streamText
+ * @param {string} root
+ * @param {(path: string) => Role | undefined} roleOf  of a result-root-relative path
+ * @returns {readonly FlaggedReExport[]}
+ */
+export function readFlaggedReExports(streamText, root, roleOf) {
+  const found = new Map();
+  const findings = streamText === null ? [] : toolResultTexts(streamText).flatMap(auditReExports);
+  for (const { file, name, kind } of findings.filter((f) => f.file.startsWith(`${root}/`))) {
+    const local = file.slice(root.length + 1);
+    const key = `${local.split('/')[0]}:${roleOf(local) ?? OUTSIDE}`;
+    found.set(`${key} ${name} ${kind}`, { key, name, kind });
+  }
+  return [...found].sort(([a], [b]) => sortText(a, b)).map(([, flagged]) => flagged);
+}
+
+/**
+ * @param {{ id: string, root: string, passed: boolean, verified: boolean, tree: ResultTree, contract: Contract, streamText?: string | null }} input
+ *   `streamText`: the run's committed stream, or null when it has none
  * @returns {ResultFacts}
  */
-export function readResultFacts({ id, root, passed, verified, tree, contract }) {
+export function readResultFacts({ id, root, passed, verified, tree, contract, streamText = null }) {
   const roleOf = (path) => contract.roleOf(`${root}/${path}`);
   return {
     id,
@@ -935,5 +1011,6 @@ export function readResultFacts({ id, root, passed, verified, tree, contract }) 
     ...scanWeb(tree, roleOf),
     outsideFiles: readOutsideFiles(tree, roleOf, id),
     storage: scanStorage(tree, roleOf),
+    flaggedReExports: readFlaggedReExports(streamText, root, roleOf),
   };
 }
