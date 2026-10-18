@@ -46,8 +46,10 @@ workdir before the next trial; the harness refuses to start while one
 remains. Pass `--retry` only after a failure from before the agent started.
 
 Each trial's commands use a private temp and cache folder inside its
-workdir, and an agent that names the shared `/tmp` fails the run. No time
-limit applies. Stop a trial with Ctrl-C, and read how long it took from
+workdir, and bubblewrap (`bwrap`) mounts that temp folder over `/tmp`, so the
+agent sees only its own `/tmp` files. Install bubblewrap first: a trial fails
+before its agent starts when `bwrap` fails to run. No time limit
+applies. Stop a trial with Ctrl-C, and read how long it took from
 `run.durationMs` and `run.agentDurationMs` in its record
 ([ADR 0038](decisions/0038-trial-isolation-and-no-time-limit.md)).
 

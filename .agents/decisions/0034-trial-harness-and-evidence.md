@@ -116,7 +116,9 @@ the evidence:
 3. It writes the rendered prompt to `prompt.md` in the workdir, then a
    provisional record (`agentExitCode: -1`, failed), so a harness stopped
    mid-session still leaves a final record. It runs, in the clone, with the
-   prompt on stdin and a 90 minute limit:
+   prompt on stdin and a 90 minute limit (removed by
+   [0038](0038-trial-isolation-and-no-time-limit.md), which runs it with no
+   time limit and a private `/tmp`):
    `claude -p --model opus --permission-mode bypassPermissions --output-format stream-json --verbose --session-id <fresh uuid>`.
    The argv never carries `--resume`, `-r`, `--continue` or `-c`. The agent's
    environment comes from an allowlist: what the shell and the toolchain
@@ -150,7 +152,9 @@ the evidence:
    background command output), the tmp entries that appeared while the agent
    ran, `~/.cache` (Playwright browsers, corepack), the pnpm store and the
    system folders (`/dev`, `/proc`, `/sys`, `/usr`, `/bin`, `/sbin`, `/lib`,
-   `/lib64`, `/etc`). The trials root, the rest of `projects/`, which holds
+   `/lib64`, `/etc`). [0038](0038-trial-isolation-and-no-time-limit.md)
+   replaces the tmp and `~/.cache` entries with the trial's private `/tmp`
+   and two named caches. The trials root, the rest of `projects/`, which holds
    earlier session transcripts, and the rest of `claude-<uid>` are denied, and
    the closest root that holds a path decides, so a denied root inside an
    allowed one stays denied. A file or search tool's path argument always
@@ -256,7 +260,8 @@ own packages on its own ports, so a reviewer can drive a showcase result.
   detected, and after a `cd` to a folder built at run time (`cd "$DIR"`,
   `cd -`) relative words are left out until the next `cd` to a written path.
   A tmp entry another process creates while the agent runs is allowed with
-  the agent's own.
+  the agent's own. ([0038](0038-trial-isolation-and-no-time-limit.md) gives
+  each trial its own `/tmp`, so no other process's entry is in view.)
   The agent runs with `bypassPermissions`, so an earlier result in the
   evidence checkout is readable in principle. The pinned origin, the empty trials root and the
   per-trial workdir keep earlier results off every path the agent is pointed
