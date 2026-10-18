@@ -310,6 +310,82 @@ export function SettingsPage() {
     expect(result.ruleIds).toContain('policy/folder-names');
   });
 
+  it.each([
+    ['utils', 'apps/web/src/routes/greeting/utils/x.ts', 'src/routes/greeting/utils'],
+    ['helpers', 'apps/web/src/features/name-input/helpers/x.ts', 'src/features/name-input/helpers'],
+    ['lib', 'apps/api/src/features/greeting/lib/x.ts', 'src/features/greeting/lib'],
+    ['common', 'packages/ui/src/common/x.ts', 'src/common'],
+    ['shared', 'showcase/todo-02/web/src/shared/x.ts', 'src/shared'],
+    ['misc', 'apps/web/src/routes/greeting/parts/misc/x.ts', 'src/routes/greeting/parts/misc'],
+  ])('blocks %s in a catch-all folder (policy/role-named-folders)', (_label, filename, folder) => {
+    const result = lintPolicy('export const x = 1;\n', filename);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/role-named-folders']);
+    expect(result.output).toContain(folder);
+    expect(result.output).toContain('@repo/ui');
+  });
+
+  it.each([
+    ['a package named lib', 'packages/lib/src/x.ts'],
+    ['a role folder that contains a catch-all word', 'apps/web/src/features/shared-state/x.ts'],
+  ])('passes %s (policy/role-named-folders)', (_label, filename) => {
+    const result = lintPolicy('export const x = 1;\n', filename);
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it.each([
+    [
+      'a test with no subject',
+      'apps/web/src/routes/greeting/Foo.test.tsx',
+      'apps/web/src/routes/greeting/Foo',
+    ],
+    [
+      'an a11y test with no subject',
+      'apps/web/src/routes/greeting/Missing.a11y.test.tsx',
+      'apps/web/src/routes/greeting/Missing',
+    ],
+    [
+      'a test in a __tests__ folder',
+      'apps/web/src/routes/greeting/__tests__/GreetingPage.test.tsx',
+      'apps/web/src/routes/greeting/GreetingPage',
+    ],
+  ])('blocks %s (policy/test-beside-subject)', (_label, filename, subject) => {
+    const result = lintPolicy('export const value = 1;\n', filename);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/test-beside-subject']);
+    expect(result.output).toContain(subject);
+  });
+
+  it.each([
+    ['apps/api/src/features/greeting/domain.test.ts'],
+    ['packages/ui/src/Button.test.tsx'],
+    ['apps/web/src/routes/greeting/GreetingPage.a11y.test.tsx'],
+    ['showcase/todo-03/web/src/routes/todos/useTodos.test.tsx'],
+  ])('passes %s beside its subject (policy/test-beside-subject)', (filename) => {
+    const result = lintPolicy('export const value = 1;\n', filename);
+    expect(result.ruleIds).toEqual([]);
+  });
+
+  it('finds no catch-all folder or misplaced test in the tree', () => {
+    const run = spawnSync(ESLINT_BIN, ['--format=json', 'apps', 'packages', 'showcase'], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    const results = JSON.parse(run.stdout) as { filePath: string; messages: LintMessage[] }[];
+    const findings = results.flatMap(({ filePath, messages }) =>
+      messages
+        .filter(({ ruleId }) =>
+          ['policy/role-named-folders', 'policy/test-beside-subject'].includes(ruleId ?? ''),
+        )
+        .map(({ ruleId }) => `${filePath.slice(REPOSITORY_ROOT.length + 1)} ${ruleId}`),
+    );
+    const tests = results.filter(({ filePath }) => /\.test\.tsx?$/.test(filePath));
+
+    expect(findings).toEqual([]);
+    expect(tests.length).toBeGreaterThanOrEqual(29);
+  });
+
   it('blocks a class component (react-doctor/prefer-function-component)', () => {
     const result = lintPolicy(`
 import { Component } from 'react';
@@ -355,7 +431,7 @@ export function Harness() {
   return <button type="button" onClick={bump}>{value}</button>;
 }
 `,
-      'apps/web/src/features/policy/Fixture.test.tsx',
+      'apps/web/src/App.test.tsx',
     );
     expect(result.ruleIds).toEqual([]);
   });

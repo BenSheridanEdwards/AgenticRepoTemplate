@@ -1,6 +1,7 @@
 // Repository policy rules that no installed plugin expresses (ADR 0019). Each
 // message names the fix, so an agent can act on the error alone.
-import { basename, dirname, extname, posix, relative, sep } from 'node:path';
+import { existsSync } from 'node:fs';
+import { basename, dirname, extname, join, posix, relative, sep } from 'node:path';
 
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/;
 const HOOK_NAME = /^use[A-Z0-9]/;
@@ -13,6 +14,7 @@ const COMPONENT_WRAPPERS = new Set(['memo', 'forwardRef']);
 // `features/` under it hold one folder per slice.
 const PACKAGE_SOURCE = /^((?:(?!src\/)[^/]+\/)*)src\/(.*)$/;
 const SLICE_KINDS = new Set(['routes', 'features']);
+const CATCH_ALL_FOLDERS = new Set(['utils', 'helpers', 'lib', 'common', 'shared', 'misc']);
 /** The hooks that hold state or effects, by the module that exports them (ADR 0012). */
 const STATE_AND_EFFECT_HOOKS = new Map([
   [
@@ -431,6 +433,76 @@ const folderNames = {
   },
 };
 
+const roleNamedFolders = {
+  meta: {
+    type: 'problem',
+    messages: {
+      catchAll:
+        'Move the code out of `{{path}}/`: put it in the slice that uses it, or in `@repo/ui` ' +
+        'if it is a shared UI primitive. Name each folder for its role (for example ' +
+        '`name-input` or `api-client`), never a catch-all such as `{{folder}}`.',
+    },
+    schema: [],
+  },
+  create(context) {
+    const source = PACKAGE_SOURCE.exec(repositoryPath(context));
+    if (!source) {
+      return {};
+    }
+    const folders = posix.dirname(source[2]).split('/');
+    return {
+      Program(program) {
+        folders.forEach((folder, index) => {
+          if (CATCH_ALL_FOLDERS.has(folder)) {
+            const path = ['src', ...folders.slice(0, index + 1)].join('/');
+            context.report({ node: program, messageId: 'catchAll', data: { path, folder } });
+          }
+        });
+      },
+    };
+  },
+};
+
+const testBesideSubject = {
+  meta: {
+    type: 'problem',
+    messages: {
+      testsFolder:
+        'Move `{{test}}` out of `__tests__/` to sit beside its subject `{{subject}}.ts` or ' +
+        '`{{subject}}.tsx`. Each test sits beside its subject as `<Name>.test.ts(x)`.',
+      missingSubject:
+        'Move this test beside its subject, or rename it to match: no `{{subject}}.ts` or ' +
+        '`{{subject}}.tsx` exists. Each test sits beside its subject as `<Name>.test.ts(x)`.',
+    },
+    schema: [],
+  },
+  create(context) {
+    const path = repositoryPath(context);
+    if (!isTestFile(path)) {
+      return {};
+    }
+    const name = basename(path).split('.')[0];
+    const folders = posix.dirname(path).split('/');
+    const subjectFolders = folders.filter((folder) => folder !== '__tests__');
+    const subject = [...subjectFolders, name].join('/');
+    return {
+      Program(program) {
+        if (subjectFolders.length < folders.length) {
+          context.report({
+            node: program,
+            messageId: 'testsFolder',
+            data: { test: path, subject },
+          });
+        } else if (
+          !['.ts', '.tsx'].some((extension) => existsSync(join(context.cwd, subject + extension)))
+        ) {
+          context.report({ node: program, messageId: 'missingSubject', data: { subject } });
+        }
+      },
+    };
+  },
+};
+
 /** The slice a path under a package's `src/` sits in: `{ kind, slice, rest }`, or null. */
 function sliceOf(pathInSource) {
   const [kind, slice, ...rest] = pathInSource.split('/');
@@ -687,6 +759,8 @@ export default {
     'pages-in-routes': pagesInRoutes,
     'file-matches-export': fileMatchesExport,
     'folder-names': folderNames,
+    'role-named-folders': roleNamedFolders,
+    'test-beside-subject': testBesideSubject,
     'slice-isolation': sliceIsolation,
     'procedure-input-schema': procedureInputSchema,
     'form-uses-effect-schema': formUsesEffectSchema,
