@@ -739,6 +739,8 @@ describe('ESLint inline config', () => {
       `export const one = 1; // ${ESLINT}-disable-line`,
       `/* ${ESLINT} policy/one-component-per-file: off */`,
       '/* global document */',
+      `/* ${ESLINT}-env node */`,
+      '/* exported one */',
     ];
     const result = lintPolicy(`${forms.join('\n')}\n`, filename);
 
@@ -765,7 +767,7 @@ function Badge() {
   it('lints every tracked source file', () => {
     const tracked = spawnSync(
       'git',
-      ['ls-files', '*.ts', '*.tsx', '*.mts', '*.cts', '*.js', '*.mjs', '*.cjs'],
+      ['ls-files', '*.ts', '*.tsx', '*.mts', '*.cts', '*.js', '*.jsx', '*.mjs', '*.cjs'],
       { cwd: REPOSITORY_ROOT, encoding: 'utf8' },
     )
       .stdout.split('\n')

@@ -117,9 +117,10 @@ export default [
     linterOptions: { noInlineConfig: true },
   },
   {
-    // Parse every TypeScript file, so tests, e2e specs, tooling and scripts
-    // are linted for inline config too. ESLint lints JavaScript by default.
-    files: ['**/*.{ts,tsx,mts,cts}'],
+    // Parse every TypeScript and JSX file, so tests, e2e specs, tooling and
+    // scripts are linted for inline config too. ESLint lints the other
+    // JavaScript extensions by default.
+    files: ['**/*.{ts,tsx,mts,cts,jsx}'],
     languageOptions: { parser: tseslint.parser },
   },
   {

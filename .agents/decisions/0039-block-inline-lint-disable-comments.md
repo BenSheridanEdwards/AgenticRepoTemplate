@@ -26,7 +26,8 @@ comment in it.
 **ESLint ignores inline config.** `eslint.config.js` sets
 `linterOptions.noInlineConfig: true` for every linted file. ESLint then applies
 no `eslint-disable`, `eslint-disable-line`, `eslint-disable-next-line`,
-`eslint-enable`, `/* eslint <rule>: off */` or `/* global */` comment, and
+`eslint-enable`, `/* eslint <rule>: off */`, `/* eslint-env */`,
+`/* global */` or `/* exported */` comment, and
 reports each one as a warning. `pnpm lint:policy` runs `eslint
 --max-warnings=0 .`, and so do `pnpm verify`, `scripts/verify-gates.sh` and the
 CI `quality` job through it, so each comment fails the run. The rule finding
@@ -36,9 +37,9 @@ A local policy rule could report the same comments as errors. It would repeat
 what ESLint already reports, so the config uses ESLint's own option.
 
 **ESLint reads every source file.** A config entry gives
-`**/*.{ts,tsx,mts,cts}` the TypeScript parser and no rules. Every tracked
-`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs` and `.cjs` file outside `vendor/`
-is now linted for inline config. The policy, React hooks and React Doctor
+`**/*.{ts,tsx,mts,cts,jsx}` the TypeScript parser and no rules. Every
+tracked `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs` and `.cjs` file
+outside `vendor/` is now linted for inline config. The policy, React hooks and React Doctor
 rules still run on package `src/` only. This adds about 0.3 s to a warm
 `eslint .` on this box (2.4 s before, 2.7 s after, three interleaved runs).
 
@@ -72,6 +73,9 @@ This change is about ESLint comments only, so `biome-ignore` and
   config, and asserts ESLint fails on each line. It asserts that a named,
   reasoned disable leaves its finding reported, and that `eslint .` lints every
   tracked source file. Each of these tests fails on the previous config.
+- ESLint's ignore list (build output, `coverage/`, `graphify-out/`,
+  `.architect-audits/` and the rest) stays as it is. A source file committed
+  under one of them fails the tracked-files test in `pnpm test`.
 - The structure validator keeps its own ban on every suppression under a
   result root, including `biome-ignore` and `@ts-expect-error`.
 - An editor shows each inline config comment as a warning, and the gate fails
