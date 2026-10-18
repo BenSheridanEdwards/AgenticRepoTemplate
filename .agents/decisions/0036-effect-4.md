@@ -95,9 +95,10 @@ have no budget, as 0032 decided, and measure 100,255 bytes (`todo-02`) and
 **Showcase results.** `todo-02` and `todo-03` move mechanically: the same
 mapping, the same schema test rewrite and the new dev dependency, with no
 other change. The trial reruns replace both results. Until then the committed
-comparison report shows three differences that this move made rather than the
-agents. They are the `effect` range in web and api, and the form hook's calls
-against `todo-01`, whose committed patch stays on Effect 3. The comparison now
+comparison report shows four differences that this move made rather than the
+agents. They are the `effect` range in web and api, the form hook's calls, and
+the new `@standard-schema/spec` web dev dependency, all against `todo-01`, whose
+committed patch stays on Effect 3. The comparison now
 reads `toStandardSchemaV1` among a hook's calls. Its `one form` invariant
 holds for `standardSchemaResolver` over `toStandardSchemaV1`, matching the lint
 rule, or for `effectTsResolver` in a result from before Effect 4, so that run
