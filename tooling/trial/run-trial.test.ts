@@ -23,12 +23,6 @@ const REPOSITORY_ROOT = resolve(import.meta.dirname, '../..');
 const CLI = join(REPOSITORY_ROOT, 'tooling/trial/run-trial.mjs');
 const BIOME = join(REPOSITORY_ROOT, 'node_modules/.bin/biome');
 const SIGN_OFF = 'Signed-off-by: Ben Sheridan-Edwards <bensheridanedwards@gmail.com>';
-/**
- * A `runTrial` test spawns about 30 real processes (git, Biome, the fake
- * agent), so its time grows with the box's load: the slowest, with two runs,
- * took 16 s at a load average of 195 on 8 cores.
- */
-const RUN_TIMEOUT_MS = 60_000;
 const TEMPLATE = '# Todo trial {{ID}}\n\nYou are running trial {{N}} of three.\n';
 const LOCKFILE = [
   "lockfileVersion: '9.0'",
@@ -57,6 +51,11 @@ Object.assign(gitEnv, {
   GIT_COMMITTER_EMAIL: 'test@example.com',
 });
 const savedEnv = { ...process.env };
+
+// A `runTrial` test spawns about 30 real processes (git, Biome, the fake
+// agent), so its time grows with the box's load: the slowest, with two runs,
+// took 16 s at a load average of 195 on 8 cores. The budget covers the file.
+jest.setTimeout(60_000);
 
 let sandbox: string;
 let source: string;
@@ -132,7 +131,7 @@ const freePort = () =>
 
 const passingChecks = ['install', 'verify', 'e2e', 'structure'].map((name) => ({
   name,
-  argv: ['true'],
+  argv: ['true', name],
   timeoutMs: 30_000,
 }));
 
@@ -355,11 +354,10 @@ describe('renderPrompt', () => {
 });
 
 describe('runTrial', () => {
-  jest.setTimeout(RUN_TIMEOUT_MS);
-
   // A run Jest gave up on keeps going, so each case gets its own evidence
-  // checkout and agents, where no later case looks.
+  // checkout, agents and environment, where no later case looks.
   beforeEach(() => {
+    process.env = { ...savedEnv, ...gitEnv };
     caseDir = mkdtempSync(join(sandbox, 'case-'));
     checkout = join(caseDir, 'checkout');
     git(sandbox, 'clone', '-q', '--shared', source, checkout);
@@ -430,7 +428,7 @@ describe('runTrial', () => {
       harness: { sha256: expect.stringMatching(/^[0-9a-f]{64}$/), matchesScaffold: false },
       checks: ['install', 'verify', 'e2e', 'structure'].map((name) => ({
         name,
-        command: 'true',
+        command: `true ${name}`,
         exitCode: 0,
       })),
       failures: [],
