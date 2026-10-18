@@ -44,7 +44,10 @@ runtime runs only at integration boundaries. Only the API names change.
 | `Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, 65_535))` | `Schema.NumberFromString.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 65_535 }))` |
 | `Schema.decodeUnknownEither` with `Either` and `ParseResult.ArrayFormatter` in schema tests | `Schema.toStandardSchemaV1(schema)['~standard'].validate(...)`, the call the resolver makes |
 
-Forms and procedures now share one adapter, `Schema.toStandardSchemaV1`.
+Forms and procedures now share one adapter, `Schema.toStandardSchemaV1`. It
+adds the `~standard` property to the schema it receives and returns that
+schema, so the first call's options stay for every later call. No call here
+passes options.
 
 **`@effect/*` packages.** The workspace uses none, and adds none. Effect 4
 exports what were separate packages, such as `effect/cli`, `effect/ai` and
@@ -67,12 +70,14 @@ now blocks, so it is left visible rather than silenced.
 - `policy/form-uses-effect-schema` requires `standardSchemaResolver` with a
   `Schema.toStandardSchemaV1(...)` argument. This is stricter than before:
   `standardSchemaResolver` alone would accept any Standard Schema library, so
-  the rule also checks that the schema comes from Effect. It blocks
-  `effectTsResolver`. One helper in `tooling/eslint-plugin-policy.js`
+  the rule also checks that the schema comes from Effect. The schema must be
+  the only argument, because `{ raw: true }` would submit the undecoded input,
+  such as an untrimmed name. It blocks `effectTsResolver`. One helper in `tooling/eslint-plugin-policy.js`
   recognises the adapter for both rules.
 - `contract/effects-in-integrations` also bans the Effect 4 runners that take
   services: `runPromiseWith`, `runPromiseExitWith`, `runSyncWith`,
-  `runSyncExitWith`, `runForkWith` and `runCallbackWith`.
+  `runSyncExitWith`, `runForkWith` and `runCallbackWith`. It also bans
+  `ManagedRuntime.make`, whose runtime runs programs the same way.
 - Jest transforms `effect` with `@swc/jest`, because the package is ES modules
   only. In those files `import.meta` reads as `undefined`. The only use is
   Effect's optional read of `import.meta?.env`, which has no CommonJS form and
@@ -91,10 +96,12 @@ have no budget, as 0032 decided, and measure 100,255 bytes (`todo-02`) and
 mapping, the same schema test rewrite and the new dev dependency, with no
 other change. The trial reruns replace both results. Until then the committed
 comparison report shows three differences that this move made rather than the
-agents. They are the `effect` range in web and api, and the form resolver name
-against `todo-01`, whose committed patch stays on Effect 3. The comparison's
-`one form` invariant accepts the Effect Schema resolver of either major, so
-that run still reads correctly.
+agents. They are the `effect` range in web and api, and the form hook's calls
+against `todo-01`, whose committed patch stays on Effect 3. The comparison now
+reads `toStandardSchemaV1` among a hook's calls. Its `one form` invariant
+holds for `standardSchemaResolver` over `toStandardSchemaV1`, matching the lint
+rule, or for `effectTsResolver` in a result from before Effect 4, so that run
+still reads correctly.
 
 The fixed trial prompt keeps its wording. It names no Effect API: "the Effect
 Schema resolver" points to `CONVENTIONS.md`, which now names the Effect 4 form.
