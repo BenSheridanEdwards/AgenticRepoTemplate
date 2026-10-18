@@ -636,7 +636,8 @@ const formUsesEffectSchema = {
       resolver:
         'Pass `useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(<schema>)) })` ' +
         'with `standardSchemaResolver` from `@hookform/resolvers/standard-schema` and `Schema` ' +
-        'from `effect`, so the form validates with Effect Schema (ADR 0011). Write the options ' +
+        'from `effect`, so the form validates with Effect Schema (ADR 0011). Pass the schema ' +
+        'as the only argument, so the form submits the decoded value, and write the options ' +
         'inline, with no spread that could replace the resolver.',
     },
     schema: [],
@@ -651,6 +652,7 @@ const formUsesEffectSchema = {
       (property.key.name ?? property.key.value) === 'resolver' &&
       property.value.type === 'CallExpression' &&
       resolver.names(property.value.callee) &&
+      property.value.arguments.length === 1 &&
       standardSchema.wraps(property.value.arguments[0]);
     return {
       ImportDeclaration(node) {

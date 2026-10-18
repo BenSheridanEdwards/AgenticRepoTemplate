@@ -599,6 +599,10 @@ export const greet = procedure.input(Schema.toStandardSchemaV1(greetInputSchema)
       'a standard schema not built by Effect',
       'useForm({ resolver: standardSchemaResolver(schema) })',
     ],
+    [
+      'a resolver that submits the raw input',
+      'useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema), undefined, { raw: true }) })',
+    ],
     ['the Effect 3 resolver', 'useForm({ resolver: effectTsResolver(schema) })'],
   ])('blocks a form with %s (policy/form-uses-effect-schema)', (_label, call) => {
     const result = lintPolicy(
