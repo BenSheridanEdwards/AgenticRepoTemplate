@@ -88,7 +88,8 @@ the code-level rules and their checks.
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | A new dependency arrives with an ADR. | `pnpm check:adr` |
 | Secrets stay out of commits. | gitleaks in pre-commit and CI |
-| Every lint or type suppression names its rule and its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
+| An ESLint exception lives in `eslint.config.js` with its reason; an inline `eslint-disable*`, `/* eslint <rule>: off */` or `/* global */` comment fails lint in every source file. | `pnpm lint:policy` (`noInlineConfig`, [ADR 0039](decisions/0039-block-inline-lint-disable-comments.md)) |
+| Every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
 | Guidance docs state rules as the action to take. | `pnpm check:docs` |
 | A doc that ties sign-off to a file names only a file the enforcement gate guards. | `pnpm check:docs` ([ADR 0030](decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)) |

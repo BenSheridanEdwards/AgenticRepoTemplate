@@ -21,7 +21,7 @@ each owner runs locally and in CI.
 | Unit / component tests | **Jest + React Testing Library** | Three projects: `web` (jsdom), `api` (node), `tooling`. Behaviour through the accessibility tree. |
 | End-to-end tests | **Playwright** | The behaviour map: one Chromium project per result, running its api and web servers. |
 | Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
-| Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `{apps,packages}/*/src/` and `showcase/*/*/src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. |
+| Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `{apps,packages}/*/src/` and `showcase/*/*/src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. Every other source file is linted for inline config only (ADR 0039). |
 | React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks outside the ESLint plugin. |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence and architecture | **Fallow** | Dead code, cycles, complexity, the dependency graph, the architecture gate (`pnpm arch:gate`), the contract rule pack (`contract/<id>`), and the role diagram (`pnpm arch:diagram`). |

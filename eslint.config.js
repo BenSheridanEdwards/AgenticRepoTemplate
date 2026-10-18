@@ -107,10 +107,22 @@ export default [
       'test-results/**',
       'graphify-out/**',
       '.architect-audits/**',
+      '.cache/**',
     ],
   },
   {
-    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    // ESLint ignores every inline config comment (`eslint-disable*`,
+    // `/* eslint <rule>: off */`, `/* global */`) and warns on each one, which
+    // `--max-warnings=0` turns into a failure (ADR 0039). An exception goes in
+    // this file with its reason.
+    linterOptions: { noInlineConfig: true },
+  },
+  {
+    // Parse every TypeScript and JSX file, so tests, e2e specs, tooling and
+    // scripts are linted for inline config too. ESLint lints the other
+    // JavaScript extensions by default.
+    files: ['**/*.{ts,tsx,mts,cts,jsx}'],
+    languageOptions: { parser: tseslint.parser },
   },
   {
     // Every package source file of every result: apps/web, apps/api,
