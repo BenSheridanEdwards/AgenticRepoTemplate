@@ -446,6 +446,26 @@ describe('compareResults', () => {
     expect(departures(comparison)).toEqual([[SOLID_INTEGRATIONS_EDGE, 'outside-spec', null]]);
   });
 
+  it.each([
+    'seed.js',
+    'seed.mjs',
+    'seed.mts',
+    'seed.cts',
+    'seed.jsx',
+  ])('keeps a solid edge that only one run has outside the spec with a value import in an integrations/%s file beside it', (file) => {
+    const seed: Edit = (tree) => {
+      tree.set(
+        `api/src/features/todos/integrations/${file}`,
+        "import { newTodo } from '../domain.js';\nexport const seed = newTodo;\n",
+      );
+    };
+    const comparison = compareResults([facts('todo-01', seed), facts('todo-03', ...ownTodoType)]);
+    expect(departures(comparison)).toEqual([
+      [SOLID_INTEGRATIONS_EDGE, 'outside-spec', null],
+      ['structure · files api-integrations', 'spec-freedom', 2],
+    ]);
+  });
+
   it('keeps a type-only solid edge that only one run has outside the spec when a run failed its verify check', () => {
     const unverified = { ...facts('todo-03', ...ownTodoType), verified: false };
     const comparison = compareResults([facts('todo-01'), unverified]);

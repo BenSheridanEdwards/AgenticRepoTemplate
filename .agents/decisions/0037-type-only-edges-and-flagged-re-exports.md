@@ -108,9 +108,14 @@ aspect is outside the spec now.
 - A type-only import along a direction that also allows values draws solid
   in the result diagram, and the comparison still reads it as dashed. All
   three committed runs import their `Todo` type into `api-integrations` that
-  way, so the report shows `edge api-integrations -.-> api-domain`. A crossing
-  the source parse misses, such as an import through a path alias, leaves the
-  edge solid and outside the spec.
+  way, so the report shows `edge api-integrations -.-> api-domain`. The parse
+  reads every role source ending in `.ts`, `.tsx`, `.mts`, `.cts`, `.js`,
+  `.jsx`, `.mjs` or `.cjs`, and resolves a relative specifier to those forms
+  the way TypeScript's bundler resolution does. A relative specifier that names
+  no tree file counts as a value crossing to every role, so the edge stays
+  solid and outside the spec. An import through a path alias fails typecheck,
+  since results ship no `paths` config, so freedom 8's verified gate keeps it
+  outside the spec too.
 - Freedom 8 needs every compared run verified, so a dashed edge in a set with
   a run whose `verify` check failed needs an author's ruling.
 - Freedom 9 reads Fallow's human output in the stream, from a Bash command that

@@ -180,8 +180,10 @@ const oneLine = (node) => node.getText().replace(/\s+/g, ' ').trim();
 /** Code-unit order, the same on every locale. */
 export const sortText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
+const SCRIPT_KINDS = { tsx: ts.ScriptKind.TSX, jsx: ts.ScriptKind.JSX, js: ts.ScriptKind.JS };
+
 function parse(path, text) {
-  const kind = path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const kind = SCRIPT_KINDS[/\.[cm]?([jt]sx?)$/.exec(path)?.[1]] ?? ts.ScriptKind.TS;
   return ts.createSourceFile(path, text, ts.ScriptTarget.ES2022, true, kind);
 }
 
@@ -282,12 +284,21 @@ const moduleReferences = (path, text) =>
     REFERENCE_READERS.map((read) => read(node)).filter(Boolean),
   );
 
+/** The source forms TypeScript's bundler resolution tries for each specifier extension. */
+const RESOLVED_FORMS = {
+  '.js': ['.ts', '.tsx', '.js', '.jsx'],
+  '.jsx': ['.tsx', '.jsx'],
+  '.mjs': ['.mts', '.mjs'],
+  '.cjs': ['.cts', '.cjs'],
+  '': ['.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx', '/index.js', '/index.jsx'],
+};
+
 /** The tree file a relative specifier from `path` names, the way TypeScript's bundler resolution finds it. */
 function resolveRelative(tree, path, specifier) {
   const target = posix.join(posix.dirname(path), specifier);
-  const stem = target.replace(/\.[cm]?js$/, '');
-  return [target, ...['.ts', '.tsx', '/index.ts', '/index.tsx'].map((ext) => stem + ext)].find(
-    (candidate) => tree.has(candidate),
+  const [, stem, ext = ''] = /^(.*?)(\.[cm]?jsx?)?$/.exec(target);
+  return [target, ...RESOLVED_FORMS[ext].map((form) => stem + form)].find((candidate) =>
+    tree.has(candidate),
   );
 }
 
@@ -301,7 +312,7 @@ function resolveRelative(tree, path, specifier) {
  * specifier on any role no tree file holds, such as `ui`.
  */
 function readTypeOnlyPairs(tree, roleOf, contract) {
-  const sources = [...tree].filter(([path]) => /\.tsx?$/.test(path) && roleOf(path));
+  const sources = [...tree].filter(([path]) => /\.[cm]?[jt]sx?$/.test(path) && roleOf(path));
   const rolesUnder = (prefix) =>
     new Set(sources.filter(([path]) => path.startsWith(prefix)).map(([path]) => roleOf(path)));
   const held = rolesUnder('');
