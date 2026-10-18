@@ -29,11 +29,11 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { listResults } from '../results.mjs';
-import { compareResults, SCAFFOLD_ROLES } from './dimensions.mjs';
+import { andList, compareResults, SCAFFOLD_ROLES } from './dimensions.mjs';
 import { validateEvidence } from './evidence.mjs';
-import { readContract, readResultFacts, treeFromPatch } from './result-facts.mjs';
+import { readContract, readResultFacts, sortText, treeFromPatch } from './result-facts.mjs';
 import { renderPrompt } from './run-trial.mjs';
-import { streamEvents } from './stream.mjs';
+import { streamEvents, toolInputs } from './stream.mjs';
 
 export const REPORT_PATH = 'docs/trials/comparison.md';
 const TRIALS = 'docs/trials';
@@ -156,8 +156,6 @@ function code(value) {
 const row = (cells) => `| ${cells.join(' | ')} |`;
 const table = (head, rows) => [row(head), row(head.map(() => '---')), ...rows.map(row)].join('\n');
 const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const andList = (items) =>
-  items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 
 function duration(ms) {
   if (ms === null) {
@@ -168,20 +166,14 @@ function duration(ms) {
 }
 
 /** Every tool call input in a stream: a command as written, any other input as JSON. */
-const toolInputs = (streamText) =>
-  streamEvents(streamText).flatMap((event) =>
-    (Array.isArray(event.message?.content) ? event.message.content : [])
-      .filter(
-        (block) => block?.type === 'tool_use' && block.input && typeof block.input === 'object',
-      )
-      .map((block) =>
-        typeof block.input.command === 'string' ? block.input.command : JSON.stringify(block.input),
-      ),
+const toolCalls = (streamText) =>
+  toolInputs(streamEvents(streamText)).map((input) =>
+    typeof input.command === 'string' ? input.command : JSON.stringify(input),
   );
 
 /** The first tool call input in a stream that names `path`, on one line, cut at 160 characters. */
 function firstCallNaming(streamText, path) {
-  const found = toolInputs(streamText)
+  const found = toolCalls(streamText)
     .find((input) => input.includes(path))
     ?.replace(/\s+/g, ' ')
     .trim();
@@ -216,7 +208,7 @@ const TMP_PATH = /\/tmp\/[^\s"'`<>|;&)\\]+/g;
 function tmpPathsOf(evidence, readText) {
   const stream = evidence.stream.path;
   const named = stream
-    ? toolInputs(readText(stream)).flatMap((input) => input.match(TMP_PATH) ?? [])
+    ? toolCalls(readText(stream)).flatMap((input) => input.match(TMP_PATH) ?? [])
     : [];
   return {
     id: evidence.trial.id,
@@ -626,8 +618,6 @@ function readRunTree(root, evidence, readText) {
   const tree = treeFromPatch(readText(evidence.result.patch), resultRoot);
   return { evidence, source: evidence.result.patch, resultRoot, tree };
 }
-
-const sortText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
  * Throws unless the result folders under `showcase/` are the passed runs,

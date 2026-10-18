@@ -167,7 +167,8 @@ export function treeFromPatch(patch, root) {
 const isTest = (path) => /\.test\.tsx?$/.test(path) || path.startsWith('web/e2e/');
 const isSource = (path) => /^(?:web|api)\/src\/.+\.tsx?$/.test(path) && !isTest(path);
 const oneLine = (node) => node.getText().replace(/\s+/g, ' ').trim();
-const sortText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+/** Code-unit order, the same on every locale. */
+export const sortText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 function parse(path, text) {
   const kind = path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;

@@ -433,7 +433,8 @@ const cellOf = (aspect) => {
   return { value, written: aspect.written };
 };
 
-const andList = (items) =>
+/** `a`, `a and b`, `a, b and c`. */
+export const andList = (items) =>
   items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 
 /** Which runs hold another value than the most common one (the earliest on a tie), for a Why cell. */

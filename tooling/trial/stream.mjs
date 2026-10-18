@@ -73,7 +73,12 @@ export function redactSecrets(text, env) {
     .reduce((redacted, [name, value]) => redacted.replaceAll(value, `[redacted ${name}]`), text);
 }
 
-const toolInputs = (events) =>
+/**
+ * The input object of every tool call in `events`.
+ *
+ * @param {unknown[]} events
+ */
+export const toolInputs = (events) =>
   events.flatMap((event) =>
     (Array.isArray(event.message?.content) ? event.message.content : [])
       .filter(
