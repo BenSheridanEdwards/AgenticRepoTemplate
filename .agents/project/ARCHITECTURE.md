@@ -149,7 +149,7 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
 | --- | --- | --- |
 | `procedures.ts` | The feature's tRPC router. Each procedure validates its input with `.input(Schema.toStandardSchemaV1(schema))`, with `Schema` from `effect`, and delegates to application. It maps application errors to `TRPCError`. | `greetingRouter = router({ greet: procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => greet(input)) })` |
 | `application.ts` | The use cases. It calls domain rules and integrations and knows no transport. | `greet(request)` returns `{ message: formatGreeting(request.name) }` |
-| `domain.ts` | Pure types and rules. It imports nothing: no tRPC, no Effect, no Node. | `Greeting`, `formatGreeting(name)` |
+| `domain.ts` | Pure types and rules. It imports nothing by value: no tRPC, no Effect, no Node. | `Greeting`, `formatGreeting(name)` |
 | `integrations.ts` | Storage, including in-memory storage, and every effect: `fetch`, Node IO, `Effect.runPromise`, `Effect.runSync`, `Effect.runFork`. Application calls it. | The greeting needs none, so the file is absent. |
 | `index.ts` | The public surface: the feature's router. | `export { greetingRouter } from './procedures.ts';` |
 
@@ -180,7 +180,9 @@ because Vite resolves it.
 A component calls its hooks and renders. It holds no state, effect, query,
 mutation or form of its own.
 
-The api client is the only web module that names the api. Everything else
+Any web role may name an api type with `import type` from `@repo/api`. The api
+client is the only web module that wires the tRPC client and imports its
+packages, `@trpc/client` and `@trpc/tanstack-react-query`. Everything else
 reaches the api through `useTrpc()` from `../../api-client`:
 
 ```ts
@@ -234,7 +236,7 @@ Each rule fails a check on a seeded violation in a committed test
 | The domain is pure, and application knows no tRPC. | Rules test as plain functions. | Fallow `api-domain`; `contract/domain-pure`, `contract/application-without-trpc`; `tsconfig.domain.json` (no Node types) | `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
 | Effects run only in integrations or the api composition root. | One place to swap storage or IO. | `contract/effects-in-integrations`, `contract/io-effects-in-integrations`, `contract/node-io-in-integrations` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | The web reaches the api only by type: `import type` of the router type. | The bundle carries no server code. | Fallow `allowTypeOnly` (a value import of `api-app` fails); the `types`-only export of `@repo/api`; `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` | `pnpm arch:gate`, `pnpm fallow:audit` |
-| UI primitives hold no business logic. | The kit stays reusable across results. | Fallow `ui` imports nothing; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
+| UI primitives hold no business logic. | The kit stays reusable across results. | Fallow `ui` imports nothing by value; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | One React component per file. | One file, one reason to change. | ESLint `policy/one-component-per-file` | `pnpm lint:policy` |
 | State, server state and form state live in `use*` hooks. | Components render; hooks wire. | ESLint `policy/state-and-effects-in-hooks` | `pnpm lint:policy` |
 | Forms validate with Effect Schema. | One schema language across web and api. | ESLint `policy/form-uses-effect-schema` | `pnpm lint:policy` |

@@ -67,7 +67,7 @@ const OUTSIDE_PATH_CAUSES = {
  */
 const TRUNK_DRIFT = {
   since: '3d35bf1c35f3b3ce16a3bfb2b4df8f3424441cc1',
-  text: 'After the trials ran, trunk merged `1321f04` (#93), which changes only `scripts/enforcement-approval.mjs` and its test, the gate that asks for approval of gate changes. It then merged #94, which adds this comparison under `tooling/trial`, and ADR 0037, which admits a type-only import between any two roles in `.fallowrc.jsonc` and keeps every value direction. Every gate that judged the showcase code still judges it, and the boundary rules only admit more type-only imports.',
+  text: 'After the trials ran, trunk merged `1321f04` (#93), which changes only `scripts/enforcement-approval.mjs` and its test, the gate that asks for approval of gate changes. It then merged #94, which adds this comparison under `tooling/trial`. This change adds ADR 0037, which admits a type-only import between any two roles in `.fallowrc.jsonc` and keeps every value direction. Every gate that judged the showcase code still judges it, and the boundary rules only admit more type-only imports.',
 };
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');

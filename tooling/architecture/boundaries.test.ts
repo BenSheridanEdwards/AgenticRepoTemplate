@@ -154,6 +154,18 @@ describe('Fallow contract over the reference result', () => {
       'boundary web-api-client -> api-app',
     ],
     [
+      'a route value-imports the router',
+      `${WEB}/routes/greeting/index.ts`,
+      "import { appRouter } from '@repo/api';\nimport { ApiProvider } from '../../api-client';\nimport { nameInput } from '../../features/name-input';\nimport { Button } from '@repo/ui';\nexport const greeting = [appRouter, ApiProvider, nameInput, Button];\n",
+      'boundary web-routes/greeting -> api-app',
+    ],
+    [
+      'the api root value re-exports domain code',
+      `${API}/router.ts`,
+      "import { greetingRouter } from './features/greeting/index.ts';\nimport { router } from './trpc.ts';\nexport { formatGreeting } from './features/greeting/domain.ts';\nexport const appRouter = router(greetingRouter);\nexport type AppRouter = typeof appRouter;\n",
+      'boundary api-app -> api-domain',
+    ],
+    [
       'a route type-imports a sibling route',
       `${WEB}/routes/greeting/index.ts`,
       "import type { settings } from '../settings';\nexport type Settings = typeof settings;\nexport const greeting = 1;\n",

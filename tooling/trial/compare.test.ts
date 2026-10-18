@@ -11,12 +11,7 @@ import {
   renderComparison,
 } from './compare.mjs';
 import { compareResults, FREEDOMS, UI_PRIMITIVE_FOR } from './dimensions.mjs';
-import {
-  readContract,
-  readFlaggedReExports,
-  readResultFacts,
-  treeFromPatch,
-} from './result-facts.mjs';
+import { readContract, readGateFindings, readResultFacts, treeFromPatch } from './result-facts.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const read = (path: string) => readFileSync(resolve(ROOT, path), 'utf8');
@@ -87,17 +82,36 @@ const remove =
   };
 
 type ToolContent = string | { type: 'text'; text: string }[];
+interface ToolCall {
+  name: string;
+  input: Record<string, unknown>;
+}
 
-/** A stream with one user event per tool result. */
-const streamOf = (...contents: ToolContent[]) =>
+/** The Bash call that printed the real todo-02 finding. */
+const GATE_CALL: ToolCall = {
+  name: 'Bash',
+  input: { command: 'pnpm typecheck && pnpm verify 2>&1 | grep -v "^\\s*$" | tail -60' },
+};
+
+/** A stream with one assistant tool call and the user event of its result per content. */
+const streamFrom = (call: ToolCall, ...contents: ToolContent[]) =>
   contents
-    .map((content) =>
+    .flatMap((content, index) => [
+      JSON.stringify({
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'tool_use', id: `t${index}`, ...call }] },
+      }),
       JSON.stringify({
         type: 'user',
-        message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content }] },
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: `t${index}`, content }],
+        },
       }),
-    )
+    ])
     .join('\n');
+
+const streamOf = (...contents: ToolContent[]) => streamFrom(GATE_CALL, ...contents);
 
 /** `fallow audit` output naming one unused re-export of `name` in `file`. */
 const auditOutput = (file: string, name: string, header = '● Unused type exports (1)') =>
@@ -367,6 +381,12 @@ describe('compareResults', () => {
     expect(comparison.consistent).toBe(true);
   });
 
+  it('keeps an extra dashed role edge outside the spec when a run failed its verify check', () => {
+    const unverified = { ...facts('todo-03', addEdge), verified: false };
+    const comparison = compareResults([facts('todo-01'), unverified]);
+    expect(departures(comparison)).toEqual([[EDGE, 'outside-spec', null]]);
+  });
+
   it('places a re-export the run dropped after its own stream flagged it under freedom 9', () => {
     const dropped = factsWith('todo-02', flagging('todo-02'), withoutRouterInputs);
     const comparison = compareResults([facts('todo-01'), dropped, facts('todo-03')]);
@@ -378,10 +398,47 @@ describe('compareResults', () => {
     ['no stream', null],
     ['a stream that flags another name', flagging('todo-02', 'RouterOutputs')],
     ["a stream that flags another result's file", flagging('todo-01')],
+    [
+      'a printf that echoes the finding',
+      streamFrom(
+        { name: 'Bash', input: { command: "printf '● Unused type exports (1)'" } },
+        auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+      ),
+    ],
+    [
+      'the finding in the result of another tool',
+      streamFrom(
+        { name: 'Read', input: { file_path: 'pnpm verify.log' } },
+        auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+      ),
+    ],
+    [
+      'a flag on a file of the role other than its entry',
+      streamOf(auditOutput('showcase/todo-02/web/src/api-client/trpc.ts', 'RouterInputs')),
+    ],
   ])('keeps a dropped re-export outside the spec with %s', (_, streamText) => {
     const dropped = factsWith('todo-02', streamText, withoutRouterInputs);
     expect(departures(compareResults([facts('todo-01'), dropped]))).toEqual([
       [API_CLIENT_EXPORTS, 'outside-spec', null],
+    ]);
+  });
+
+  it('keeps a dropped export of a report compared by kind counts outside the spec when the flag sits on an internal file', () => {
+    const withTodoInput = replaceIn(
+      'api/etc/features-todos.api.md',
+      '// (No @packageDocumentation',
+      '// @public (undocumented)\nexport type TodoInput = string;\n\n// (No @packageDocumentation',
+    );
+    const internal = streamOf(
+      auditOutput('showcase/todo-02/api/src/features/todos/procedures.ts', 'TodoInput'),
+    );
+    const comparison = compareResults([
+      facts('todo-01', withTodoInput),
+      factsWith('todo-02', internal),
+      facts('todo-03', withTodoInput),
+    ]);
+    expect(departures(comparison)).toEqual([
+      ['public-api · exports api:api-procedures', 'outside-spec', null],
     ]);
   });
 
@@ -768,6 +825,17 @@ describe('treeFromPatch', () => {
 });
 
 describe('readResultFacts', () => {
+  it('keeps only the flagged re-exports the entry of their report no longer exports', () => {
+    const index = API_CLIENT_INDEX('todo-02');
+    const stream = streamOf(
+      auditOutput(index, 'RouterInputs'),
+      auditOutput(index, 'RouterOutputs'),
+    );
+    expect(factsWith('todo-02', stream, withoutRouterInputs).flaggedReExports).toEqual([
+      { key: 'web:web-api-client', name: 'RouterInputs', kind: 'type' },
+    ]);
+  });
+
   const todo01 = facts('todo-01');
 
   it('reads the procedures and the item from the API report and the api sources', () => {
@@ -824,8 +892,7 @@ describe('readResultFacts', () => {
 
 const evidence = (id: string) => JSON.parse(read(`docs/trials/${id}.json`));
 
-describe('readFlaggedReExports', () => {
-  const roleOf = (path: string) => contract.roleOf(`showcase/todo-02/${path}`);
+describe('readGateFindings', () => {
   const ESC = '\u001b';
 
   it('reads the unused re-exports of both content shapes, with the kind of their section', () => {
@@ -835,10 +902,39 @@ describe('readFlaggedReExports', () => {
       ansi,
       auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
     );
-    expect(readFlaggedReExports(stream, 'showcase/todo-02', roleOf)).toEqual([
-      { key: 'web:web-api-client', name: 'RouterInputs', kind: 'type' },
-      { key: 'web:web-api-client', name: 'TestApiProvider', kind: 'value' },
+    expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([
+      { file: 'web/src/api-client/index.ts', name: 'RouterInputs', kind: 'type' },
+      { file: 'web/src/api-client/index.ts', name: 'TestApiProvider', kind: 'value' },
     ]);
+  });
+
+  it('reads output with CRLF line endings', () => {
+    const crlf = auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs').replaceAll('\n', '\r\n');
+    expect(readGateFindings(streamOf(crlf), 'showcase/todo-02')).toEqual([
+      { file: 'web/src/api-client/index.ts', name: 'RouterInputs', kind: 'type' },
+    ]);
+  });
+
+  it.each([
+    ['printf', { name: 'Bash', input: { command: "printf '%s' 'RouterInputs (re-export)'" } }],
+    ['a tool other than Bash', { name: 'Grep', input: { pattern: 'pnpm verify' } }],
+    ['a Bash call with no command', { name: 'Bash', input: {} }],
+  ])('reads nothing from the result of %s', (_, call) => {
+    const stream = streamFrom(call, auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'));
+    expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([]);
+  });
+
+  it.each([
+    'pnpm verify',
+    'pnpm run fallow:audit',
+    'npx fallow audit --format human',
+    'cd x && fallow dead-code',
+  ])('reads the result of the gate command %p', (command) => {
+    const stream = streamFrom(
+      { name: 'Bash', input: { command } },
+      auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+    );
+    expect(readGateFindings(stream, 'showcase/todo-02')).toHaveLength(1);
   });
 
   it("skips the files of another result's root and the findings of other sections", () => {
@@ -846,8 +942,8 @@ describe('readFlaggedReExports', () => {
       auditOutput(API_CLIENT_INDEX('todo-01'), 'RouterInputs'),
       auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs', '● Unused files (1)'),
     );
-    expect(readFlaggedReExports(stream, 'showcase/todo-02', roleOf)).toEqual([]);
-    expect(readFlaggedReExports(null, 'showcase/todo-02', roleOf)).toEqual([]);
+    expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([]);
+    expect(readGateFindings(null, 'showcase/todo-02')).toEqual([]);
   });
 });
 

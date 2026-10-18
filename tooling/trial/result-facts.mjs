@@ -25,8 +25,10 @@
  *   written or `(unknown)`; an input or output the member lacks reads `(unknown)`
  * @typedef {{
  *   readonly key: string,
+ *   readonly entries: readonly string[],
  *   readonly exports: readonly { readonly name: string, readonly kind: 'value' | 'type' }[],
- * }} ApiReport  keyed `<package>:<role of its entry>`, so a slice name drops out
+ * }} ApiReport  keyed `<package>:<role of its entry>`, so a slice name drops out;
+ *   `entries`: the result-root-relative entry files its reports read
  * @typedef {{
  *   readonly name: string, readonly role: Role | 'outside-roles', readonly file: string,
  *   readonly props: readonly string[], readonly uiPrimitives: readonly string[],
@@ -54,9 +56,11 @@
  *   readonly storage: { readonly roles: readonly string[], readonly idSource: string },
  *   readonly flaggedReExports: readonly FlaggedReExport[],
  * }} ResultFacts  `verified`: the run's `verify` check exited 0; `outsideFiles`: see `readOutsideFiles`;
- *   `flaggedReExports`: see `readFlaggedReExports`
+ *   `flaggedReExports`: see `flaggedDrops`
  * @typedef {{ readonly key: string, readonly name: string, readonly kind: 'value' | 'type' }} FlaggedReExport
- *   keyed like an ApiReport, by the package and role of the flagged file
+ *   a re-export a gate flagged in the entry of the ApiReport `key`, which that report no longer lists
+ * @typedef {{ readonly file: string, readonly name: string, readonly kind: 'value' | 'type' }} GateFinding
+ *   `file`: result-root-relative
  */
 
 import ts from 'typescript';
@@ -298,13 +302,18 @@ function readApiReports(tree, root, roleOf) {
     const key = `${packageRoot.split('/').pop()}:${roleOf(local(entry)) ?? OUTSIDE}`;
     const text = tree.get(`${local(packageRoot)}/etc/${name}.api.md`);
     const exports = text === undefined ? [] : parseReportExports(parseReport(text));
-    reports.set(key, [...(reports.get(key) ?? []), ...exports]);
-  }
-  return [...reports]
-    .sort(([a], [b]) => sortText(a, b))
-    .map(([key, exports]) => ({
+    const report = reports.get(key) ?? { key, entries: [], exports: [] };
+    reports.set(key, {
       key,
-      exports: exports.sort((a, b) => sortText(a.name, b.name)),
+      entries: [...report.entries, local(entry)],
+      exports: [...report.exports, ...exports],
+    });
+  }
+  return [...reports.values()]
+    .sort((a, b) => sortText(a.key, b.key))
+    .map((report) => ({
+      ...report,
+      exports: report.exports.sort((a, b) => sortText(a.name, b.name)),
     }));
 }
 
@@ -919,19 +928,37 @@ function readOutsideFiles(tree, roleOf, id) {
     }));
 }
 
-/** The text of every tool result in a stream, whether its content is a string or text blocks. */
-const toolResultTexts = (streamText) =>
-  streamEvents(streamText).flatMap((event) =>
-    (Array.isArray(event.message?.content) ? event.message.content : [])
-      .filter((block) => block?.type === 'tool_result')
-      .map((block) =>
-        typeof block.content === 'string'
-          ? block.content
-          : (Array.isArray(block.content) ? block.content : [])
-              .map((part) => (typeof part?.text === 'string' ? part.text : ''))
-              .join('\n'),
-      ),
+/** A shell command that runs a gate which prints Fallow's findings. */
+const GATE_COMMAND =
+  /\bpnpm\s+(?:run\s+)?(?:verify|fallow:audit)\b|\bfallow\s+(?:audit|dead-code)\b/;
+
+const contentBlocks = (event) =>
+  Array.isArray(event.message?.content) ? event.message.content : [];
+
+const resultText = (content) =>
+  typeof content === 'string'
+    ? content
+    : (Array.isArray(content) ? content : [])
+        .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+        .join('\n');
+
+/**
+ * The text of every tool result whose call was a Bash command that runs a gate,
+ * whether its content is a string or text blocks. Any other tool, or a command
+ * such as `printf`, can print text shaped like a finding.
+ */
+function gateResultTexts(streamText) {
+  const blocks = streamEvents(streamText).flatMap(contentBlocks);
+  const gateCalls = new Set(
+    blocks
+      .filter((block) => block?.type === 'tool_use' && block.name === 'Bash')
+      .filter((block) => GATE_COMMAND.test(String(block.input?.command ?? '')))
+      .map((block) => block.id),
   );
+  return blocks
+    .filter((block) => block?.type === 'tool_result' && gateCalls.has(block.tool_use_id))
+    .map((block) => resultText(block.content));
+}
 
 /** An ANSI color code; built from ESC's code, since a control character in a regex literal reads as a mistake. */
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
@@ -955,7 +982,7 @@ function auditReExports(text) {
   const found = [];
   let kind = null;
   let file = null;
-  for (const line of text.replace(ANSI, '').split('\n')) {
+  for (const line of text.replace(ANSI, '').split(/\r?\n/)) {
     const name = FINDING.exec(line)?.[1];
     if (/^\S/.test(line)) {
       kind = sectionKind(line);
@@ -975,18 +1002,33 @@ function auditReExports(text) {
  *
  * @param {string | null} streamText
  * @param {string} root
- * @param {(path: string) => Role | undefined} roleOf  of a result-root-relative path
- * @returns {readonly FlaggedReExport[]}
+ * @returns {readonly GateFinding[]}
  */
-export function readFlaggedReExports(streamText, root, roleOf) {
+export function readGateFindings(streamText, root) {
   const found = new Map();
-  const findings = streamText === null ? [] : toolResultTexts(streamText).flatMap(auditReExports);
+  const findings = streamText === null ? [] : gateResultTexts(streamText).flatMap(auditReExports);
   for (const { file, name, kind } of findings.filter((f) => f.file.startsWith(`${root}/`))) {
     const local = file.slice(root.length + 1);
-    const key = `${local.split('/')[0]}:${roleOf(local) ?? OUTSIDE}`;
-    found.set(`${key} ${name} ${kind}`, { key, name, kind });
+    found.set(`${local} ${name} ${kind}`, { file: local, name, kind });
   }
-  return [...found].sort(([a], [b]) => sortText(a, b)).map(([, flagged]) => flagged);
+  return [...found].sort(([a], [b]) => sortText(a, b)).map(([, finding]) => finding);
+}
+
+/**
+ * The findings that explain a dropped re-export: on the entry file an API
+ * report reads, for a name that report no longer exports. A finding on an
+ * internal file leaves the public API as it was.
+ *
+ * @param {readonly GateFinding[]} findings
+ * @param {readonly ApiReport[]} reports
+ * @returns {readonly FlaggedReExport[]}
+ */
+function flaggedDrops(findings, reports) {
+  return findings.flatMap(({ file, name, kind }) => {
+    const report = reports.find((candidate) => candidate.entries.includes(file));
+    const dropped = report && !report.exports.some((entry) => entry.name === name);
+    return dropped ? [{ key: report.key, name, kind }] : [];
+  });
 }
 
 /**
@@ -996,6 +1038,7 @@ export function readFlaggedReExports(streamText, root, roleOf) {
  */
 export function readResultFacts({ id, root, passed, verified, tree, contract, streamText = null }) {
   const roleOf = (path) => contract.roleOf(`${root}/${path}`);
+  const apiReports = readApiReports(tree, root, roleOf);
   return {
     id,
     passed,
@@ -1007,10 +1050,10 @@ export function readResultFacts({ id, root, passed, verified, tree, contract, st
       api: readManifest(tree.get('api/package.json'), id),
     },
     ...readProcedures(tree),
-    apiReports: readApiReports(tree, root, roleOf),
+    apiReports,
     ...scanWeb(tree, roleOf),
     outsideFiles: readOutsideFiles(tree, roleOf, id),
     storage: scanStorage(tree, roleOf),
-    flaggedReExports: readFlaggedReExports(streamText, root, roleOf),
+    flaggedReExports: flaggedDrops(readGateFindings(streamText, root), apiReports),
   };
 }

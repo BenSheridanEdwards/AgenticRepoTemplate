@@ -66,13 +66,21 @@ role-direction rule; Fallow owns directions
 
 **Comparison.** The comparison of [0035](0035-trial-comparison.md) gains two
 freedoms. A dashed edge that only some runs have sits in freedom 8 by the
-script's rule; a solid edge stays outside the spec. For freedom 9, the script
-reads each run's committed stream for the gate findings Fallow prints as
-`Unused exports` or `Unused type exports` with a `(re-export)` entry in a file
-of that run's result. An API report's export list differs inside freedom 9
-when, with each run's flagged re-exports added back, every run's list is the
-same. A run that drops an export its own stream holds no finding for stays
-outside the spec. The two author notes on these aspects go, since neither
+script's rule when every compared run's `verify` check exited 0. A result
+diagram dashes every role pair outside `allow`, so a dashed edge proves a
+type-only import only on a tree that passed Fallow; with any run unverified,
+the edge stays outside the spec, as a solid edge always does. For freedom 9,
+the script reads each run's committed stream for the gate findings Fallow
+prints as `Unused exports` or `Unused type exports` with a `(re-export)` entry.
+It reads a tool result only when its call is a Bash command that runs a gate
+(`pnpm verify`, `pnpm fallow:audit`, `fallow audit` or `fallow dead-code`), so
+text another tool or a `printf` prints counts for nothing. A finding counts
+only when its file is the entry file an API report of that run reads, and only
+when that report no longer exports the flagged name. An API report's export
+list differs inside freedom 9 when, with each run's flagged re-exports added
+back, every run's list is the same. A run that drops an export its own stream
+holds no such finding for stays outside the spec. The two author notes on
+these aspects go, since neither
 aspect is outside the spec now.
 
 ## Spec freedoms
@@ -92,8 +100,13 @@ aspect is outside the spec now.
   solid value edge, so a run whose only import of that kind is a type stays
   outside the spec when the other runs lack the edge. The script reads Fallow's
   file graph, which records no import kind.
-- Freedom 9 reads Fallow's human output in the stream. A finding the agent read
-  in another format, or a gate other than Fallow, needs an author's ruling.
+- Freedom 8 needs every compared run verified, so a dashed edge in a set with
+  a run whose `verify` check failed needs an author's ruling.
+- Freedom 9 reads Fallow's human output in the stream, from a Bash command that
+  runs a gate, on an API report's entry file, for a name the report dropped. A
+  finding the agent read in another format, a gate other than Fallow, or a finding
+  on an internal file needs an author's ruling. A command matches by its text,
+  so a `printf` that also names a gate command still counts.
 - `boundaries.test.ts` replaces its seeded failure for a route that
   type-imports `@repo/api` with a passing case; the value import of
   `appRouter` still fails.

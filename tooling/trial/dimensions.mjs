@@ -187,7 +187,6 @@ function publicApiAspects(facts) {
     ),
     ...facts.apiReports.map((report) => {
       const flagged = facts.flaggedReExports.filter((entry) => entry.key === report.key);
-      const kept = new Set(report.exports.map((entry) => `${entry.name} ${entry.kind}`));
       const scaffold = SCAFFOLD_ROLES.includes(report.key.split(':')[1]);
       const render = scaffold
         ? (exports) => listed(exports.map((entry) => `${entry.name} ${entry.kind}`))
@@ -195,10 +194,7 @@ function publicApiAspects(facts) {
             const count = (kind) => exports.filter((entry) => entry.kind === kind).length;
             return `value ${count('value')} · type ${count('type')}`;
           };
-      const withFlagged = [
-        ...report.exports,
-        ...flagged.filter((entry) => !kept.has(`${entry.name} ${entry.kind}`)),
-      ].sort((a, b) => sortText(a.name, b.name));
+      const withFlagged = [...report.exports, ...flagged].sort((a, b) => sortText(a.name, b.name));
       const value = render(report.exports);
       return {
         ...form(
@@ -355,6 +351,12 @@ function conventionAspects(facts) {
   ];
 }
 
+/**
+ * A result diagram dashes every role pair outside `allow`, so a dashed edge is a
+ * type-only import only where Fallow passed the tree.
+ */
+const DASHED_EDGE = /^edge \S+ -\.-> \S+$/;
+
 /** @type {readonly Dimension[]} */
 const DIMENSIONS = [
   {
@@ -365,7 +367,12 @@ const DIMENSIONS = [
     mustBeIdentical: 'Role set and role edges',
     aspects: structureAspects,
     freedoms: [
-      { key: /^edge \S+ -\.-> \S+$/, freedom: 8, why: 'a type-only import between roles' },
+      {
+        key: DASHED_EDGE,
+        freedom: 8,
+        why: "a type-only import between roles; every run's `verify` check exited `0`",
+        when: (results) => results.every((facts) => facts.verified),
+      },
       { key: featureRole('files'), freedom: 2, why: 'how a role splits into files' },
       {
         key: /^tests /,
@@ -375,6 +382,10 @@ const DIMENSIONS = [
       },
     ],
     fixed: [
+      {
+        key: DASHED_EDGE,
+        why: "freedom 8 reads a dashed edge as a type-only import only on trees that passed Fallow, which holds when every run's `verify` check exited `0`",
+      },
       { key: /^edge /, why: 'the spec freedoms leave role edges fixed' },
       { key: /^role /, why: 'the spec freedoms leave the role set fixed' },
       { key: scaffoldRole('files'), why: SCAFFOLD_FIXED },
