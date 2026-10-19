@@ -15,6 +15,7 @@ each owner runs locally and in CI.
 | Build / dev server | **Vite** | The runnable carrier; the scaffolding is stack-agnostic. Its dev and preview servers proxy `/trpc` to `API_ORIGIN` (default `http://127.0.0.1:3001`). |
 | Api runtime | **Node ≥ 22.18 native type stripping** | `node src/server.ts` runs the api source as is, with no runner, build step or bundler. Api code uses erasable syntax and `.ts` import extensions. |
 | Api transport | **tRPC v11** (`@trpc/server`, `@trpc/client`, `@trpc/tanstack-react-query`) | `@trpc/server` in the api; the client packages only in each result's `web/src/api-client/`. The web imports the api as the `AppRouter` type only. |
+| Web-to-api contract | **The shared `AppRouter` type** (`pnpm typecheck`) | Each result's `api/src/router.ts` exports it, and the web imports it type-only, so a changed procedure input or output fails typecheck in every web caller. Route and hook tests answer calls through `TestApiProvider`, whose `TestApiHandlers` (`web/src/api-client/testApiHandlers.ts`) take their types from the router. The Playwright behaviour map (`playwright.config.ts`) runs each result's web app against its real api. |
 | Server state | **TanStack Query** (`@tanstack/react-query`) | Through `useTrpc()` with `queryOptions` and `mutationOptions`, inside `use*` hooks. |
 | Forms | **React Hook Form** + **`@hookform/resolvers`** | `useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema)) })` with `standardSchemaResolver` from `@hookform/resolvers/standard-schema`. |
 | Validation and schemas | **Effect 4 Schema** (`effect`, pinned `^4.0.5`) | Procedure inputs (`Schema.toStandardSchemaV1`), form schemas, and environment parsing. |
@@ -54,6 +55,12 @@ each owner runs locally and in CI.
   where the api fails to start; `nvm install` gets the newest Node 22.
 - **The Vite proxy.** The browser calls `/trpc` on its own origin, so the web
   app needs no CORS setup and no api URL in its bundle.
+- **Keep the web-to-api contract in the shared router type.** Pact and other
+  consumer-driven contract tools are out of scope. The web and the api share
+  one workspace, one release and one `AppRouter` type, so the compiler checks
+  each call's input and output against the provider, and the behaviour map
+  runs them over real HTTP. Bring in Pact, through an ADR, when a consumer or
+  a provider ships from another repository.
 
 ## Boundaries to respect
 
