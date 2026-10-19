@@ -6,6 +6,8 @@
  * `fallow list --boundaries` is not the input: it drops `allowTypeOnly`.
  */
 
+import { matchesGlob } from 'node:path';
+
 /**
  * @typedef {'web-app' | 'web-api-client' | 'web-routes' | 'web-features' | 'ui'
  *   | 'api-app' | 'api-trpc' | 'api-procedures' | 'api-application' | 'api-domain'
@@ -26,32 +28,6 @@ const REQUIRED_ROLES = {
   web: ['web-app', 'web-api-client', 'web-routes'],
   api: ['api-app', 'api-trpc', 'api-procedures', 'api-application', 'api-domain'],
 };
-
-/** Translate a Fallow zone glob (`**`, `*`, `{a,b}`, literal paths) into an anchored RegExp. */
-export function globToRegExp(pattern) {
-  let body = '';
-  let braceDepth = 0;
-  for (let index = 0; index < pattern.length; index += 1) {
-    const character = pattern[index];
-    if (pattern.startsWith('**', index)) {
-      body += '.*';
-      index += 1;
-    } else if (character === '*') {
-      body += '[^/]*';
-    } else if (character === '{') {
-      braceDepth += 1;
-      body += '(?:';
-    } else if (character === '}' && braceDepth > 0) {
-      braceDepth -= 1;
-      body += ')';
-    } else if (character === ',' && braceDepth > 0) {
-      body += '|';
-    } else {
-      body += character.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-    }
-  }
-  return new RegExp(`^${body}$`);
-}
 
 /** @param {string} role @returns {Kind} */
 function kindOf(role) {
@@ -88,13 +64,13 @@ export function loadContract(configJson) {
     ...(rule.allowTypeOnly ?? []).map((to) => ({ from: rule.from, to, typeOnly: true })),
   ]);
   const matchers = boundaries.zones.flatMap((zone) =>
-    zone.patterns.map((pattern) => ({ regExp: globToRegExp(pattern), role: zone.name })),
+    zone.patterns.map((pattern) => ({ pattern, role: zone.name })),
   );
   return {
     roles,
     directions,
     requiredRoles: REQUIRED_ROLES,
     kindOf,
-    roleOf: (file) => matchers.find((matcher) => matcher.regExp.test(file))?.role,
+    roleOf: (file) => matchers.find((matcher) => matchesGlob(file, matcher.pattern))?.role,
   };
 }
