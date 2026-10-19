@@ -172,7 +172,7 @@ with acceptance criteria lives in [`TODO.md`](TODO.md).
 | State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
 | Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) | Installed |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
-| Role-named folders | `lib/` and `utils/` folders fail a check | Target |
+| Role-named folders | `lib/`, `utils/` and the other catch-all folders fail a check | Installed, ESLint `policy/role-named-folders` |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, `AGENTS.md` and `CONVENTIONS.md` |
 | `REVIEW.md` | Human-written rules for automated PR review, read after lint | Target |
 | Cloud agents | Agents triggered from tickets, alerts, or schedules | Last, once the repository is factory-shaped |

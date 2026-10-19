@@ -13,6 +13,8 @@ The ESLint rules and the Biome naming override run on every package source:
 | Convention | Enforced by |
 | --- | --- |
 | Folders under a package `src/` are kebab-case (`name-input`). | ESLint `policy/folder-names` |
+| Each folder under a package `src/` is named for its role (`name-input`, `api-client`). Code in a catch-all folder (`utils`, `helpers`, `lib`, `common`, `shared`, `misc`) moves into the slice that uses it, or into `@repo/ui` when it is a shared UI primitive. | ESLint `policy/role-named-folders` |
+| Each test sits beside its subject as `<Name>.test.ts(x)` or `<Name>.<kind>.test.ts(x)` (`GreetingPage.a11y.test.tsx` beside `GreetingPage.tsx`), outside any `__tests__/` folder. A source file with no test is fine; coverage thresholds decide what is tested. | ESLint `policy/test-beside-subject` |
 | Identifiers: `camelCase` functions and variables, `PascalCase` types and components, `SCREAMING_SNAKE_CASE` for true configuration constants. | Biome `style/useNamingConvention` |
 | File names are camelCase, PascalCase, or the name of their export. | Biome `style/useFilenamingConvention` |
 | A component or hook lives in the file of the same name (`GreetingForm.tsx`, `useGreeting.ts`). | ESLint `policy/file-matches-export` |
@@ -100,7 +102,6 @@ greeting reference.
   data before trusting its type, as `server.ts` decodes `PORT` with Effect
   Schema. A type assertion is a claim, and validation is proof.
 - **Fail loudly at boundaries.** `main.tsx` throws when `#root` is missing.
-- **Co-locate tests.** Each test sits beside its subject as `<Name>.test.ts(x)`.
 
 ## Enforced commit and branch conventions
 
