@@ -41,8 +41,8 @@ specified here first.
    `apps/web/e2e/greeting.spec.ts` does.
 6. **Keep the PRD in step.** When the feature has a PRD in `docs/prd/`, add or
    update the behaviour and its `- Proved by [<test title>](<path to the spec>)`
-   link in the same change. A renamed test fails `pnpm check:docs` until the
-   PRD names it ([ADR 0045](../../../.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)).
+   link in the same change. A renamed, skipped or commented-out test fails
+   `pnpm check:docs` until the PRD names a test that runs ([ADR 0045](../../../.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)).
 
 ## Commands
 

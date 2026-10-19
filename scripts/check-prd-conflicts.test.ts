@@ -1,4 +1,7 @@
-import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createNodeFilesystem, findPrdConflicts } from './check-prd-conflicts.mjs';
 
@@ -11,6 +14,7 @@ const SPEC_TEXT = [
   '  test("says so when the api fails", async ({ page }) => {});',
   "  test('keeps the visitor\\'s name', async ({ page }) => {});",
   "  test.skip('greets twice', async ({ page }) => {});",
+  "  test.fixme('greets in French', async ({ page }) => {});",
   '});',
 ].join('\n');
 
@@ -136,5 +140,185 @@ describe('findPrdConflicts', () => {
     expect(
       conflictsOf(prd('- **Greets.** Hi.', proof('greets a name through the api')), files),
     ).toEqual([]);
+  });
+  it('fails, naming the line, when the linked test is marked fixme', () => {
+    const text = prd('- **Greets in French.** Bonjour.', proof('greets in French'));
+    expect(conflictsOf(text)).toEqual([
+      expect.stringMatching(/^docs\/prd\/greeting\.md:10 .*"greets in French"/),
+    ]);
+  });
+
+  it.each([
+    ['a line comment', "// test('greets later', async () => {});"],
+    ['a block comment', "/* test('greets later', async () => {}); */"],
+    ['a block comment over several lines', "/*\n  test('greets later', async () => {});\n*/"],
+    [
+      'a describe.skip group',
+      "test.describe.skip('Later', () => { test('greets later', async () => {}); });",
+    ],
+    [
+      'a describe.fixme group',
+      "test.describe.fixme('Later', () => { test('greets later', async () => {}); });",
+    ],
+    ['a test that skips itself', "test('greets later', async () => { test.skip(); });"],
+    [
+      'a test that skips itself on a condition',
+      "test('greets later', async ({ browserName }) => { test.skip(browserName === 'webkit', 'flaky'); });",
+    ],
+    [
+      'a group whose hook skips it',
+      "test.describe('Later', () => { test.beforeEach(() => { test.fixme(); }); test('greets later', async () => {}); });",
+    ],
+    [
+      'a file that skips every test',
+      "test.skip(true, 'not yet');\ntest('greets later', async () => {});",
+    ],
+    ['a regular expression test call', "/greets/.test('greets later');"],
+    ['a describe title', "test.describe('greets later', () => {});"],
+  ])('fails when the linked title appears only in %s', (_, source) => {
+    const text = prd('- **Greets later.** The page greets later.', proof('greets later'));
+    expect(conflictsOf(text, { [SPEC]: source })).toEqual([
+      expect.stringContaining('has no test with that title'),
+    ]);
+  });
+
+  it('fails when the linked title is a template literal with a substitution', () => {
+    const title = `greets \${name}`;
+    const text = prd('- **Greets later.** The page greets later.', proof(title));
+    expect(conflictsOf(text, { [SPEC]: `test(\`${title}\`, async () => {});` })).toEqual([
+      expect.stringContaining('has no test with that title'),
+    ]);
+  });
+
+  it('counts a test beside a skipped one, a focused test and a template literal title', () => {
+    const source = [
+      "test.describe('Greeting', () => {",
+      "  test('greets later', async () => { test.skip(); });",
+      "  test('greets now', async () => {});",
+      "  test.only('greets first', async () => {});",
+      `  test(\`greets \${'in'} time\`, async () => {});`,
+      '  test(`greets plainly`, async () => {});',
+      '});',
+    ].join('\n');
+    const text = prd(
+      '- **Greets.** The page greets.',
+      proof('greets now'),
+      proof('greets first'),
+      proof('greets plainly'),
+    );
+    expect(conflictsOf(text, { [SPEC]: source })).toEqual([]);
+  });
+
+  it.each([
+    ['a numbered behaviour', '1. **Greets twice.** Again.'],
+    ['a plus-marked behaviour', '+ **Greets twice.** Again.'],
+    [
+      'a proof link with a title',
+      '  - Proved by [greets twice](../../apps/web/e2e/greeting.spec.ts "title")',
+    ],
+    [
+      'a proof link in angle brackets',
+      '  - Proved by [greets twice](<../../apps/web/e2e/greeting.spec.ts>)',
+    ],
+    [
+      'a proof with no list marker',
+      '  Proved by [greets twice](../../apps/web/e2e/greeting.spec.ts)',
+    ],
+  ])('fails, naming the line, on %s the check cannot read', (_, line) => {
+    const text = prd(
+      '- **Greets the visitor.** The page shows the greeting.',
+      proof('greets a name through the api'),
+      line,
+    );
+    expect(conflictsOf(text)).toEqual([
+      expect.stringMatching(/^docs\/prd\/greeting\.md:11 .*cannot read/),
+    ]);
+  });
+
+  it('names the unread lines of a PRD whose behaviours it cannot read at all', () => {
+    const text = prd('1. **Greets.** Hi.', proof('greets a name through the api'));
+    expect(conflictsOf(text)).toEqual([
+      expect.stringContaining('lists no behaviours'),
+      expect.stringMatching(/^docs\/prd\/greeting\.md:9 .*cannot read/),
+      expect.stringMatching(/^docs\/prd\/greeting\.md:10 .*cannot read/),
+    ]);
+  });
+
+  it('fails on a proof that comes before any behaviour', () => {
+    const text = prd(
+      proof('greets a name through the api'),
+      '- **Greets the visitor.** The page shows the greeting.',
+      proof('greets a name through the api'),
+    );
+    expect(conflictsOf(text)).toEqual([
+      expect.stringMatching(/^docs\/prd\/greeting\.md:9 .*cannot read/),
+    ]);
+  });
+
+  it('fails when a PRD has a second Behaviours section', () => {
+    const text = prd(
+      '- **Greets the visitor.** The page shows the greeting.',
+      proof('greets a name through the api'),
+      '',
+      '## Behaviours',
+      '',
+      '- **Greets twice.** Again.',
+    );
+    expect(conflictsOf(text)).toEqual([
+      expect.stringMatching(/^docs\/prd\/greeting\.md:12 .*second `## Behaviours`/),
+    ]);
+  });
+
+  it('checks every PRD and reports the one that conflicts', () => {
+    const second = prd('- **Greets twice.** Again.', proof('greets twice'));
+    expect(
+      conflictsOf(prd('- **Greets.** Hi.', proof('greets a name through the api')), {
+        'docs/prd/repeat.md': second,
+      }),
+    ).toEqual([expect.stringMatching(/^docs\/prd\/repeat\.md:10 .*"greets twice"/)]);
+  });
+
+  it('treats every Markdown file in docs/prd/ as a PRD, a README included', () => {
+    const conflicts = conflictsOf(
+      prd('- **Greets.** Hi.', proof('greets a name through the api')),
+      {
+        'docs/prd/README.md': '# PRDs\n\n- [Greeting](greeting.md)\n',
+      },
+    );
+    expect(conflicts).toEqual([
+      expect.stringMatching(/^docs\/prd\/README\.md lists no behaviours/),
+    ]);
+  });
+});
+
+describe('createNodeFilesystem', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'prd-check-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function track(files: Record<string, string>) {
+    for (const [path, content] of Object.entries(files)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), content);
+    }
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    execFileSync('git', ['add', '.'], { cwd: root });
+  }
+
+  it('reports a tracked spec deleted from the working tree as missing, not a crash', () => {
+    track({
+      'docs/prd/greeting.md': prd('- **Greets.** Hi.', proof('greets a name through the api')),
+      [SPEC]: SPEC_TEXT,
+    });
+    rmSync(join(root, SPEC));
+    expect(findPrdConflicts(createNodeFilesystem(root))).toEqual([
+      expect.stringContaining('is not a tracked E2E spec'),
+    ]);
   });
 });

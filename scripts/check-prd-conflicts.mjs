@@ -3,42 +3,70 @@
  * Each PRD in `docs/prd/` states a feature's intent, and each behaviour it
  * lists names the E2E test that proves it (ADR 0045). The specs stay the
  * contract (ADR 0003), so this check fails on a conflict between the two: a PRD
- * with no behaviours, a behaviour that names no test, or a `Proved by` link to
- * a spec file or test title that does not exist.
+ * with no behaviours, a behaviour that names no test, a line under
+ * `## Behaviours` it cannot read, or a `Proved by` link to a spec file or test
+ * title that does not exist.
  *
- * A behaviour is a top-level list item under `## Behaviours`. Its proofs are
+ * A behaviour is a top-level `- ` item under `## Behaviours`. Its proofs are
  * nested items of the form `- Proved by [<test title>](<path to the spec>)`,
  * with the path relative to the PRD. A test counts when its spec is a tracked
  * `web/e2e/**\/*.spec.ts` file and a `test('<title>', ...)` call in it has that
- * exact title; `test.skip` and `test.fixme` prove nothing, so they do not count.
+ * exact literal title and runs: the spec is parsed, so a test in a comment, a
+ * `test.skip` or `test.fixme`, a test inside `test.describe.skip` or
+ * `test.describe.fixme`, and a test in a test, group or file that calls
+ * `test.skip(...)` or `test.fixme(...)` with no title prove nothing.
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { matchesGlob, posix, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import ts from 'typescript';
 
 const PRD_GLOB = 'docs/prd/*.md';
 const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
 const BEHAVIOURS_HEADING = /^## Behaviours\s*$/;
 const BEHAVIOUR = /^[-*] (.*)$/;
-const PROOF = /^\s+[-*] Proved by \[(.+)\]\(([^)\s]+)\)\s*$/;
-const TEST_TITLE = /\btest\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+const PROOF = /^\s+[-*] Proved by \[(.+)\]\(([^)\s<>]+)\)\s*$/;
+const UNREAD_LINE = /^(?:\+|\d+[.)])\s|^\s+(?:(?:[-*+]|\d+[.)])\s+)?Proved by\b/;
 
-/** The filesystem port: tracked files and file text, by repository-relative path. */
+/**
+ * What each Playwright call declares. A `test` is a test that runs (`.only`
+ * runs too; CI's `forbidOnly` owns the focus rule). A `skip` with a title
+ * declares a test that never runs; without one, it skips the test, group or
+ * file it sits in.
+ */
+const CALL_ROLES = new Map([
+  ['test', 'test'],
+  ['test.only', 'test'],
+  ['test.skip', 'skip'],
+  ['test.fixme', 'skip'],
+  ['test.describe', 'group'],
+  ['test.describe.only', 'group'],
+  ['test.describe.serial', 'group'],
+  ['test.describe.serial.only', 'group'],
+  ['test.describe.parallel', 'group'],
+  ['test.describe.parallel.only', 'group'],
+  ['test.describe.skip', 'skipped group'],
+  ['test.describe.fixme', 'skipped group'],
+]);
+
+/**
+ * The filesystem port: the tracked files present in the working tree, and file
+ * text, by repository-relative path.
+ */
 export function createNodeFilesystem(rootDirectory) {
   return {
     listTrackedFiles: () =>
       execFileSync('git', ['ls-files', '-z'], { cwd: rootDirectory, encoding: 'utf8' })
         .split('\0')
-        .filter(Boolean),
+        .filter((path) => path && existsSync(resolve(rootDirectory, path))),
     readText: (path) => readFileSync(resolve(rootDirectory, path), 'utf8'),
   };
 }
 
-/** The numbered lines of the `## Behaviours` section, up to the next heading. */
-function behavioursSection(text) {
-  const lines = text.split(/\r?\n/).map((line, index) => ({ line, number: index + 1 }));
+/** The numbered lines of the first `## Behaviours` section, up to the next heading. */
+function behavioursSection(lines) {
   const start = lines.findIndex(({ line }) => BEHAVIOURS_HEADING.test(line));
   if (start === -1) {
     return [];
@@ -48,10 +76,12 @@ function behavioursSection(text) {
   return end === -1 ? rest : rest.slice(0, end);
 }
 
-/** The behaviours a PRD lists, each with its line, summary and proofs. */
+/** The behaviours a PRD lists, with their proofs, and the lines it cannot read. */
 function parseBehaviours(prdPath, text) {
+  const lines = text.split(/\r?\n/).map((line, index) => ({ line, number: index + 1 }));
   const behaviours = [];
-  for (const { line, number } of behavioursSection(text)) {
+  const unread = lines.filter(({ line }) => BEHAVIOURS_HEADING.test(line)).slice(1);
+  for (const { line, number } of behavioursSection(lines)) {
     const item = BEHAVIOUR.exec(line);
     const proof = PROOF.exec(line);
     if (item) {
@@ -60,15 +90,60 @@ function parseBehaviours(prdPath, text) {
     } else if (proof && behaviours.length > 0) {
       const spec = posix.join(posix.dirname(prdPath), proof[2]);
       behaviours.at(-1).proofs.push({ line: number, title: proof[1], spec });
+    } else if (UNREAD_LINE.test(line)) {
+      unread.push({ line, number });
     }
   }
-  return behaviours;
+  return { behaviours, unread };
 }
 
-/** The titles of the `test(...)` calls in a spec's source. */
-function testTitles(specText) {
+/** `test.describe.skip` for a callee written that way, or undefined for any other. */
+function calleeName(expression) {
+  if (ts.isIdentifier(expression)) {
+    return expression.text;
+  }
+  if (ts.isPropertyAccessExpression(expression)) {
+    const object = calleeName(expression.expression);
+    return object && `${object}.${expression.name.text}`;
+  }
+  return undefined;
+}
+
+/** The literal title a call passes first, or undefined for a computed one. */
+function literalTitle(call) {
+  const [first] = call.arguments;
+  return first && ts.isStringLiteralLike(first) ? first.text : undefined;
+}
+
+/**
+ * The titles of the tests in a spec that run. Each test, group and the file
+ * is a scope, and a test runs when no scope around it is skipped.
+ */
+function runningTestTitles(specPath, specText) {
+  const file = ts.createSourceFile(specPath, specText, ts.ScriptTarget.Latest, true);
+  const tests = [];
+  const skipped = new Set();
+  const visit = (node, scopes) => {
+    const role = ts.isCallExpression(node)
+      ? CALL_ROLES.get(calleeName(node.expression))
+      : undefined;
+    const declares = role !== undefined && (role !== 'skip' || literalTitle(node) !== undefined);
+    const inner = declares ? [...scopes, node] : scopes;
+    if (role === 'skip' || role === 'skipped group') {
+      skipped.add(inner.at(-1));
+    }
+    if (role === 'test') {
+      tests.push({ title: literalTitle(node), scopes: inner });
+    }
+    ts.forEachChild(node, (child) => visit(child, inner));
+  };
+  visit(file, [file]);
   return new Set(
-    [...specText.matchAll(TEST_TITLE)].map((match) => match[2].replace(/\\(.)/g, '$1')),
+    tests
+      .filter(
+        ({ title, scopes }) => title !== undefined && !scopes.some((scope) => skipped.has(scope)),
+      )
+      .map(({ title }) => title),
   );
 }
 
@@ -80,7 +155,7 @@ function proofConflicts(prdPath, { line, title, spec }, specs, readText) {
         `(\`${SPEC_GLOB}\`). Point the link at the spec that proves the behaviour.`,
     ];
   }
-  if (!testTitles(readText(spec)).has(title)) {
+  if (!runningTestTitles(spec, readText(spec)).has(title)) {
     return [
       `${prdPath}:${line} names "${title}", but \`${spec}\` has no test with that title. ` +
         'Match the title exactly, or update the PRD to the test that proves the behaviour now.',
@@ -89,27 +164,37 @@ function proofConflicts(prdPath, { line, title, spec }, specs, readText) {
   return [];
 }
 
-/** The conflicts in one PRD: no behaviours, a behaviour with no proof, or a broken proof. */
+/** The conflicts in one PRD: no behaviours, an unread line, a behaviour with no proof, or a broken proof. */
 function prdConflicts(prdPath, filesystem, specs) {
-  const behaviours = parseBehaviours(prdPath, filesystem.readText(prdPath));
+  const { behaviours, unread } = parseBehaviours(prdPath, filesystem.readText(prdPath));
+  const unreadConflicts = unread.map(({ line, number }) =>
+    BEHAVIOURS_HEADING.test(line)
+      ? `${prdPath}:${number} starts a second \`## Behaviours\` section. Merge it into the first.`
+      : `${prdPath}:${number} is a line under \`## Behaviours\` the check cannot read. Write each ` +
+        'behaviour as a top-level `- ` item and each proof as a nested ' +
+        '`- Proved by [<test title>](<path to the spec>)` item under it.',
+  );
   if (behaviours.length === 0) {
     return [
       `${prdPath} lists no behaviours. Add a \`## Behaviours\` section with one list item ` +
         'per behaviour the feature promises.',
+      ...unreadConflicts,
     ];
   }
-  return behaviours.flatMap(({ line, summary, proofs }) => [
-    ...(proofs.length === 0
-      ? [
-          `${prdPath}:${line} "${summary}" names no E2E test. Add a nested ` +
-            '`- Proved by [<test title>](<path to the spec>)` item, writing the test first if it is missing.',
-        ]
-      : []),
-    ...proofs.flatMap((proof) => proofConflicts(prdPath, proof, specs, filesystem.readText)),
-  ]);
+  return unreadConflicts.concat(
+    behaviours.flatMap(({ line, summary, proofs }) => [
+      ...(proofs.length === 0
+        ? [
+            `${prdPath}:${line} "${summary}" names no E2E test. Add a nested ` +
+              '`- Proved by [<test title>](<path to the spec>)` item, writing the test first if it is missing.',
+          ]
+        : []),
+      ...proofs.flatMap((proof) => proofConflicts(prdPath, proof, specs, filesystem.readText)),
+    ]),
+  );
 }
 
-/** Every conflict between the PRDs and the specs they link, as one message each. Pure. */
+/** Every conflict between the PRDs and the specs they link, as one message each. */
 export function findPrdConflicts(filesystem) {
   const tracked = filesystem.listTrackedFiles();
   const specs = new Set(tracked.filter((path) => matchesGlob(path, SPEC_GLOB)));
