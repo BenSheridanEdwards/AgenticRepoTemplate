@@ -15,6 +15,7 @@ domain term appears, add it here in the same change.
 | **Contract** | The architecture rules every result follows, and the checks that enforce them: the Fallow role zones and `contract/<id>` rule pack, the ESLint policy rules, and the TypeScript programs. Listed in `ARCHITECTURE.md`. |
 | **Public surface** | The exports in a slice's `index.ts` (or a package's `exports`), the only things other modules may import. Each has a committed API report in `etc/`. |
 | **Behaviour map** | The end-to-end specs in each result's `web/e2e/*.spec.ts`, such as `apps/web/e2e/greeting.spec.ts`, that define what the product does. The product contract. |
+| **PRD** | A feature's product requirements doc, `docs/prd/<feature>.md`, such as `docs/prd/greeting.md`. It states the feature's intent and links each behaviour to the E2E test that proves it. The behaviour map stays the contract. |
 | **Quality gate** | An automated check that can block a commit, a push, or a merge. Gates are code, not guidelines. |
 | **Health check** | Running the ArchitectPlaybook audits against this repo to grade its architecture and agentic setup (showcase #1). |
 | **Definition of Done** | The checklist in `DEFINITION_OF_DONE.md`; "done" means the gates that enforce it are green. |

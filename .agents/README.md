@@ -69,7 +69,8 @@ classified against the spec freedoms of
    [`templates/`](templates/). Consistency is the deliverable.
 3. **Behaviour is defined by the E2E map**, each result's `web/e2e/*.spec.ts`
    (for example `apps/web/e2e/greeting.spec.ts`), not by the implementation.
-   Add behaviour there first.
+   Add behaviour there first. A feature's PRD in `docs/prd/` states its intent
+   and links each behaviour to the test that proves it.
 4. **When a gate fails, fix the cause.** Keep every gate and its config as it
    is; the checks below enforce this.
 5. **Done means the gates are green.** Report a task complete once
@@ -103,6 +104,7 @@ the code-level rules and their checks.
 | Gate and tooling scripts match a glob with `matchesGlob` from `node:path` or the tool's own file list. | `pnpm lint:policy` ([ADR 0041](decisions/0041-scripts-ask-the-tool-which-files-a-glob-covers.md)) |
 | A test's child process starts from the allowlisted environment in `scripts/jest-global-setup.mjs`; a test passes any other variable it needs in `env`. | Jest `globalSetup` and `scripts/jest-env.test.ts` ([ADR 0042](decisions/0042-test-child-processes-get-an-allowlisted-environment.md)) |
 | Guidance docs state rules as the action to take. | `pnpm check:docs` |
+| Each PRD in `docs/prd/` links every behaviour it lists to the E2E test that proves it. | `pnpm check:docs` ([ADR 0045](decisions/0045-prds-state-intent-and-link-their-specs.md)) |
 | A doc that ties sign-off to a file names only a file the enforcement gate guards. | `pnpm check:docs` ([ADR 0030](decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)) |
 
 ## Simplicity Mode
@@ -124,7 +126,7 @@ stdlib or native platform features before adding abstractions or dependencies.
 | [`project/TECH_STACK.md`](project/TECH_STACK.md) | …to know which tool owns which concern (and what *not* to add). |
 | [`project/GLOSSARY.md`](project/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
 | [`decisions/`](decisions/) | …to understand *why* a constraint exists before you challenge it. ADRs. |
-| [`templates/`](templates/) | …when creating a new component, test, or E2E flow. Copy from here. |
+| [`templates/`](templates/) | …when creating a new component, test, E2E flow, or PRD. Copy from here. |
 | [`NORTH_STAR.md`](NORTH_STAR.md) | …to see where the repo is heading and why. |
 | [`PROGRESS.md`](PROGRESS.md) | …when picking up multi-step work, or to checkpoint a task longer than three steps. |
 | [`TODO.md`](TODO.md) | …to find handed-off work and its acceptance criteria. |

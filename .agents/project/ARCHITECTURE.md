@@ -255,7 +255,10 @@ Each rule fails a check on a seeded violation in a committed test
 which Fallow loads as a rule pack and reports as an error. The behaviour map
 is each result's `web/e2e/*.spec.ts`, for example
 [`apps/web/e2e/greeting.spec.ts`](../../apps/web/e2e/greeting.spec.ts); see
-[ADR 0003](../decisions/0003-behaviour-mapped-with-e2e.md).
+[ADR 0003](../decisions/0003-behaviour-mapped-with-e2e.md). Each feature's PRD
+in `docs/prd/`, such as [`docs/prd/greeting.md`](../../docs/prd/greeting.md),
+states its intent and links each behaviour to the test that proves it
+([ADR 0045](../decisions/0045-prds-state-intent-and-link-their-specs.md)).
 
 ## Architecture checks
 
