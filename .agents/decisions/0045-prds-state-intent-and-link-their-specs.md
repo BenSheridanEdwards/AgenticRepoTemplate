@@ -19,9 +19,10 @@ Nothing fails, so nobody notices.
 ## Decision
 
 - Each feature has one PRD at `docs/prd/<feature>.md`, copied from
-  `.agents/templates/prd.md.template`. Every Markdown file directly in
-  `docs/prd/` is a PRD, a `README.md` included, so no file there escapes the
-  check. The folder listing is the index. The first is
+  `.agents/templates/prd.md.template`. Every tracked Markdown file directly
+  in `docs/prd/` is a PRD, a `README.md` included. The check reads no
+  subfolder and no file that git does not track. The folder listing is the
+  index. The first is
   [`docs/prd/greeting.md`](../../docs/prd/greeting.md), for the greeting in
   the reference result.
 - A PRD has an `## Intent` section and one `## Behaviours` section. Each
@@ -37,19 +38,21 @@ Nothing fails, so nobody notices.
   - a PRD that lists no behaviours;
   - a second `## Behaviours` section;
   - a line under `## Behaviours` it cannot read: a top-level item with a
-    `+` or number marker, a `Proved by` line in any other form, or a proof
-    before the first behaviour;
+    `+` or number marker, an item indented by one space, a `Proved by` line
+    in any other form, or a proof before the first behaviour;
   - a behaviour with no `Proved by` link;
   - a link to a file that is not a tracked `**/web/e2e/**/*.spec.ts` spec
     present in the working tree;
   - a link to a title that no running `test('<title>', ...)` call in that
     spec has.
 - The check parses each linked spec with the TypeScript compiler API, so a
-  test in a comment does not count. A test runs unless it is a `test.skip` or
-  `test.fixme`, sits inside a `test.describe.skip` or `test.describe.fixme`, or
-  sits in a test, group or file that calls `test.skip(...)` or
-  `test.fixme(...)` without a title, even behind a condition. A `test.only`
-  runs, so it counts; Playwright's `forbidOnly` fails it in CI.
+  test in a comment does not count. A test counts unless it is a
+  `test.skip`, `test.fixme` or `test.fail`, sits inside a
+  `test.describe.skip` or `test.describe.fixme`, or sits in a test, group or
+  file that calls `test.skip(...)`, `test.fixme(...)` or `test.fail(...)`
+  without a test body, even behind a condition. A `test.fail` test passes
+  only while its assertions fail, which is when the behaviour is broken. A
+  `test.only` runs, so it counts; Playwright's `forbidOnly` fails it in CI.
 - The check runs in `pnpm check:docs`, beside the doc phrasing and sign-off
   docs checks. `pnpm verify`, the pre-push hook and the CI `quality` job
   already run `pnpm check:docs`, so neither the workflows nor the
@@ -80,9 +83,9 @@ Nothing fails, so nobody notices.
 - The check reads titles as string literals, a backtick string with no
   `${...}` included. A title built from a template expression or a variable
   does not match, so a linked test uses a literal title.
-- A conditional skip, such as `test.skip(browserName === 'webkit')`, stops
-  the test from counting, since the check cannot tell when it runs. A PRD
-  links a test that runs everywhere.
+- A conditional skip or fail, such as `test.skip(browserName === 'webkit')`,
+  stops the test from counting, since the check cannot tell when it runs. A
+  PRD links a test that runs everywhere.
 - A `- ` line inside a code fence under `## Behaviours` reads as a
   behaviour, so a PRD keeps code examples out of that section.
 - The check sees whether each behaviour has a test, and leaves whether the

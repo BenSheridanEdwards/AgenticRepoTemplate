@@ -141,6 +141,7 @@ describe('findPrdConflicts', () => {
       conflictsOf(prd('- **Greets.** Hi.', proof('greets a name through the api')), files),
     ).toEqual([]);
   });
+
   it('fails, naming the line, when the linked test is marked fixme', () => {
     const text = prd('- **Greets in French.** Bonjour.', proof('greets in French'));
     expect(conflictsOf(text)).toEqual([
@@ -173,6 +174,16 @@ describe('findPrdConflicts', () => {
       'a file that skips every test',
       "test.skip(true, 'not yet');\ntest('greets later', async () => {});",
     ],
+    [
+      'a file that skips every test on a callback condition',
+      "test.skip(({ browserName }) => browserName === 'webkit', 'flaky');\ntest('greets later', async () => {});",
+    ],
+    ['a test marked to fail', "test('greets later', async () => { test.fail(); });"],
+    [
+      'a group marked to fail on a condition',
+      "test.describe('Later', () => { test.fail(true, 'known bug'); test('greets later', async () => {}); });",
+    ],
+    ['a test.fail test', "test.fail('greets later', async () => {});"],
     ['a regular expression test call', "/greets/.test('greets later');"],
     ['a describe title', "test.describe('greets later', () => {});"],
   ])('fails when the linked title appears only in %s', (_, source) => {
@@ -209,9 +220,25 @@ describe('findPrdConflicts', () => {
     expect(conflictsOf(text, { [SPEC]: source })).toEqual([]);
   });
 
+  it('counts a test beside a skipped test whose title is computed', () => {
+    const source = [
+      "const name = 'greets slowly';",
+      `test.skip(\`greets \${'in'} time\`, async () => {});`,
+      "test.fixme(name, { tag: '@slow' }, async () => {});",
+      "test('greets later', async () => {});",
+    ].join('\n');
+    const text = prd('- **Greets later.** The page greets later.', proof('greets later'));
+    expect(conflictsOf(text, { [SPEC]: source })).toEqual([]);
+  });
+
   it.each([
     ['a numbered behaviour', '1. **Greets twice.** Again.'],
     ['a plus-marked behaviour', '+ **Greets twice.** Again.'],
+    ['a behaviour indented by one space', ' - **Greets twice.** Again.'],
+    [
+      'a proof indented by one space',
+      ' - Proved by [greets twice](../../apps/web/e2e/greeting.spec.ts)',
+    ],
     [
       'a proof link with a title',
       '  - Proved by [greets twice](../../apps/web/e2e/greeting.spec.ts "title")',
@@ -278,7 +305,7 @@ describe('findPrdConflicts', () => {
     ).toEqual([expect.stringMatching(/^docs\/prd\/repeat\.md:10 .*"greets twice"/)]);
   });
 
-  it('treats every Markdown file in docs/prd/ as a PRD, a README included', () => {
+  it('treats every tracked Markdown file directly in docs/prd/ as a PRD, a README included', () => {
     const conflicts = conflictsOf(
       prd('- **Greets.** Hi.', proof('greets a name through the api')),
       {

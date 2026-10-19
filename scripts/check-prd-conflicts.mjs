@@ -12,9 +12,10 @@
  * with the path relative to the PRD. A test counts when its spec is a tracked
  * `web/e2e/**\/*.spec.ts` file and a `test('<title>', ...)` call in it has that
  * exact literal title and runs: the spec is parsed, so a test in a comment, a
- * `test.skip` or `test.fixme`, a test inside `test.describe.skip` or
- * `test.describe.fixme`, and a test in a test, group or file that calls
- * `test.skip(...)` or `test.fixme(...)` with no title prove nothing.
+ * `test.skip`, `test.fixme` or `test.fail`, a test inside `test.describe.skip`
+ * or `test.describe.fixme`, and a test in a test, group or file that calls
+ * `test.skip(...)`, `test.fixme(...)` or `test.fail(...)` without a test body
+ * prove nothing. A `test.fail` test passes only while its assertions fail.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -27,20 +28,21 @@ const PRD_GLOB = 'docs/prd/*.md';
 const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
 const BEHAVIOURS_HEADING = /^## Behaviours\s*$/;
 const BEHAVIOUR = /^[-*] (.*)$/;
-const PROOF = /^\s+[-*] Proved by \[(.+)\]\(([^)\s<>]+)\)\s*$/;
-const UNREAD_LINE = /^(?:\+|\d+[.)])\s|^\s+(?:(?:[-*+]|\d+[.)])\s+)?Proved by\b/;
+const PROOF = /^(?:\t| {2})\s*[-*] Proved by \[(.+)\]\(([^)\s<>]+)\)\s*$/;
+const UNREAD_LINE = /^ ?(?:[-*+]|\d+[.)])\s|^\s+(?:(?:[-*+]|\d+[.)])\s+)?Proved by\b/;
 
 /**
  * What each Playwright call declares. A `test` is a test that runs (`.only`
- * runs too; CI's `forbidOnly` owns the focus rule). A `skip` with a title
- * declares a test that never runs; without one, it skips the test, group or
- * file it sits in.
+ * runs too; CI's `forbidOnly` owns the focus rule). A `skip` with a test body
+ * declares a test that proves nothing, whatever its title; without one, no test
+ * in the test, group or file it sits in proves anything.
  */
 const CALL_ROLES = new Map([
   ['test', 'test'],
   ['test.only', 'test'],
   ['test.skip', 'skip'],
   ['test.fixme', 'skip'],
+  ['test.fail', 'skip'],
   ['test.describe', 'group'],
   ['test.describe.only', 'group'],
   ['test.describe.serial', 'group'],
@@ -109,6 +111,11 @@ function calleeName(expression) {
   return undefined;
 }
 
+/** Whether a call ends in a test body after a title, as in `test.skip(title, body)`. */
+function hasTestBody(call) {
+  return call.arguments.length >= 2 && ts.isFunctionLike(call.arguments.at(-1));
+}
+
 /** The literal title a call passes first, or undefined for a computed one. */
 function literalTitle(call) {
   const [first] = call.arguments;
@@ -127,7 +134,7 @@ function runningTestTitles(specPath, specText) {
     const role = ts.isCallExpression(node)
       ? CALL_ROLES.get(calleeName(node.expression))
       : undefined;
-    const declares = role !== undefined && (role !== 'skip' || literalTitle(node) !== undefined);
+    const declares = role !== undefined && (role !== 'skip' || hasTestBody(node));
     const inner = declares ? [...scopes, node] : scopes;
     if (role === 'skip' || role === 'skipped group') {
       skipped.add(inner.at(-1));
