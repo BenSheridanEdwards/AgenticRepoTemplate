@@ -1,0 +1,15 @@
+# __Feature__
+
+- **Result:** __the result that ships it, such as the reference result, `apps/`__
+- **Decision:** [ADR 0045](../../.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)
+
+## Intent
+
+__Who the feature is for, what it lets them do, and why it exists. Copy this
+file to docs/prd/<feature>.md. `pnpm check:docs` checks every PRD there.__
+
+## Behaviours
+
+- **__One promise, as the user sees it.__** __What the user does and what they
+  see. Write the E2E test first, then link it by its exact title.__
+  - Proved by [__exact test title__](../../apps/web/e2e/__feature__.spec.ts)

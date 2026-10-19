@@ -39,6 +39,10 @@ specified here first.
    directly with the `request` fixture to prove server validation, and use
    `page.route('**/trpc/**', ...)` to prove the error state, as
    `apps/web/e2e/greeting.spec.ts` does.
+6. **Keep the PRD in step.** When the feature has a PRD in `docs/prd/`, add or
+   update the behaviour and its `- Proved by [<test title>](<path to the spec>)`
+   link in the same change. A renamed test fails `pnpm check:docs` until the
+   PRD names it ([ADR 0045](../../../.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)).
 
 ## Commands
 
