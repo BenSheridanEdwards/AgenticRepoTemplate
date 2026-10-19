@@ -184,6 +184,22 @@ describe('findPrdConflicts', () => {
       "test.describe('Later', () => { test.fail(true, 'known bug'); test('greets later', async () => {}); });",
     ],
     ['a test.fail test', "test.fail('greets later', async () => {});"],
+    [
+      'a test that testInfo skips',
+      "test('greets later', async ({}, testInfo) => { testInfo.skip(); });",
+    ],
+    [
+      'a test that testInfo marks to fail',
+      "test('greets later', async ({}, testInfo) => { testInfo.fail(); });",
+    ],
+    [
+      'a test that a renamed testInfo marks fixme on a condition',
+      "test('greets later', async ({}, info) => { info.fixme(true, 'not yet'); });",
+    ],
+    [
+      'a group that describe.skip skips through an alias',
+      "const { describe } = test;\ndescribe.skip('Later', () => { test('greets later', async () => {}); });",
+    ],
     ['a regular expression test call', "/greets/.test('greets later');"],
     ['a describe title', "test.describe('greets later', () => {});"],
   ])('fails when the linked title appears only in %s', (_, source) => {
@@ -229,6 +245,26 @@ describe('findPrdConflicts', () => {
     ].join('\n');
     const text = prd('- **Greets later.** The page greets later.', proof('greets later'));
     expect(conflictsOf(text, { [SPEC]: source })).toEqual([]);
+  });
+
+  it.each([
+    ['a tab', '\t'],
+    ['four spaces', '    '],
+    ['three spaces', '   '],
+  ])('reads a proof indented by %s', (_, indent) => {
+    const text = prd(
+      '- **Greets the visitor.** The page shows the greeting.',
+      `${indent}- Proved by [greets a name through the api](../../apps/web/e2e/greeting.spec.ts)`,
+    );
+    expect(conflictsOf(text)).toEqual([]);
+  });
+
+  it('reads a proof whose spec link has a line anchor', () => {
+    const text = prd(
+      '- **Greets the visitor.** The page shows the greeting.',
+      proof('greets a name through the api', '../../apps/web/e2e/greeting.spec.ts#L12'),
+    );
+    expect(conflictsOf(text)).toEqual([]);
   });
 
   it.each([

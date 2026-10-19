@@ -29,7 +29,7 @@ Nothing fails, so nobody notices.
   top-level `- ` item under `## Behaviours` is one behaviour. Each behaviour
   has one or more nested items of the form
   `- Proved by [<test title>](<path to the spec>)`, with the path relative to
-  the PRD.
+  the PRD. The check ignores a `#` anchor on the path, such as `#L12`.
 - The specs stay the contract. The PRD states intent and points at the tests;
   it repeats no assertion. When a behaviour changes, its E2E test changes
   first, and the PRD follows.
@@ -50,9 +50,13 @@ Nothing fails, so nobody notices.
   `test.skip`, `test.fixme` or `test.fail`, sits inside a
   `test.describe.skip` or `test.describe.fixme`, or sits in a test, group or
   file that calls `test.skip(...)`, `test.fixme(...)` or `test.fail(...)`
-  without a test body, even behind a condition. A `test.fail` test passes
-  only while its assertions fail, which is when the behaviour is broken. A
-  `test.only` runs, so it counts; Playwright's `forbidOnly` fails it in CI.
+  without a test body, even behind a condition. `testInfo.skip(...)`,
+  `testInfo.fixme(...)` and `testInfo.fail(...)` act the same way, whatever
+  the parameter is called, so the check reads every other `.skip`, `.fixme`
+  or `.fail` method call like the `test` call of that name. A `test.fail`
+  test passes only while its assertions fail, which is when the behaviour is
+  broken. A `test.only` runs, so it counts; Playwright's `forbidOnly` fails it
+  in CI.
 - The check runs in `pnpm check:docs`, beside the doc phrasing and sign-off
   docs checks. `pnpm verify`, the pre-push hook and the CI `quality` job
   already run `pnpm check:docs`, so neither the workflows nor the
@@ -86,6 +90,12 @@ Nothing fails, so nobody notices.
 - A conditional skip or fail, such as `test.skip(browserName === 'webkit')`,
   stops the test from counting, since the check cannot tell when it runs. A
   PRD links a test that runs everywhere.
+- A linked spec writes its test bodies inline and gives each group a title.
+  A `test.skip(title, body)` whose body is a function reference, or a
+  `test.describe.skip(body)` with no title, reads as a skip without a test
+  body, so its sibling tests stop counting. A test inside `test.fail.only` is
+  not read as a test. Each fails the check as a false conflict, never a
+  silent pass.
 - A `- ` line inside a code fence under `## Behaviours` reads as a
   behaviour, so a PRD keeps code examples out of that section.
 - The check sees whether each behaviour has a test, and leaves whether the

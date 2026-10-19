@@ -9,13 +9,15 @@
  *
  * A behaviour is a top-level `- ` item under `## Behaviours`. Its proofs are
  * nested items of the form `- Proved by [<test title>](<path to the spec>)`,
- * with the path relative to the PRD. A test counts when its spec is a tracked
- * `web/e2e/**\/*.spec.ts` file and a `test('<title>', ...)` call in it has that
- * exact literal title and runs: the spec is parsed, so a test in a comment, a
- * `test.skip`, `test.fixme` or `test.fail`, a test inside `test.describe.skip`
- * or `test.describe.fixme`, and a test in a test, group or file that calls
- * `test.skip(...)`, `test.fixme(...)` or `test.fail(...)` without a test body
- * prove nothing. A `test.fail` test passes only while its assertions fail.
+ * with the path relative to the PRD and any `#` anchor ignored. A test counts
+ * when its spec is a tracked `web/e2e/**\/*.spec.ts` file and a
+ * `test('<title>', ...)` call in it has that exact literal title and runs: the
+ * spec is parsed, so a test in a comment, a `test.skip`, `test.fixme` or
+ * `test.fail`, a test inside `test.describe.skip` or `test.describe.fixme`, and
+ * a test in a test, group or file that calls `test.skip(...)`, `test.fixme(...)`
+ * or `test.fail(...)` without a test body, or `testInfo.skip(...)`,
+ * `testInfo.fixme(...)` or `testInfo.fail(...)`, prove nothing. A `test.fail`
+ * test passes only while its assertions fail.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -32,25 +34,33 @@ const PROOF = /^(?:\t| {2})\s*[-*] Proved by \[(.+)\]\(([^)\s<>]+)\)\s*$/;
 const UNREAD_LINE = /^ ?(?:[-*+]|\d+[.)])\s|^\s+(?:(?:[-*+]|\d+[.)])\s+)?Proved by\b/;
 
 /**
- * What each Playwright call declares. A `test` is a test that runs (`.only`
- * runs too; CI's `forbidOnly` owns the focus rule). A `skip` with a test body
- * declares a test that proves nothing, whatever its title; without one, no test
- * in the test, group or file it sits in proves anything.
+ * What each Playwright call declares, by its whole callee. A `test` is a test
+ * that runs (`.only` runs too; CI's `forbidOnly` owns the focus rule), and a
+ * `group` holds tests.
  */
 const CALL_ROLES = new Map([
   ['test', 'test'],
   ['test.only', 'test'],
-  ['test.skip', 'skip'],
-  ['test.fixme', 'skip'],
-  ['test.fail', 'skip'],
   ['test.describe', 'group'],
   ['test.describe.only', 'group'],
   ['test.describe.serial', 'group'],
   ['test.describe.serial.only', 'group'],
   ['test.describe.parallel', 'group'],
   ['test.describe.parallel.only', 'group'],
-  ['test.describe.skip', 'skipped group'],
-  ['test.describe.fixme', 'skipped group'],
+]);
+
+/**
+ * What any other method call declares, by its name alone. A `skip` with a
+ * test body declares a test or group that proves nothing, whatever its title,
+ * as `test.fail(title, body)` or `test.describe.skip` does. Without one, as in
+ * `test.skip()` or `testInfo.fail()` whatever the parameter is called, no test
+ * in the test, group or file it sits in proves anything. A matching call on
+ * another object errs towards a false conflict, never a silent pass.
+ */
+const METHOD_ROLES = new Map([
+  ['skip', 'skip'],
+  ['fixme', 'skip'],
+  ['fail', 'skip'],
 ]);
 
 /**
@@ -90,7 +100,7 @@ function parseBehaviours(prdPath, text) {
       const summary = /^\*\*(.+?)\*\*/.exec(item[1])?.[1] ?? item[1];
       behaviours.push({ line: number, summary, proofs: [] });
     } else if (proof && behaviours.length > 0) {
-      const spec = posix.join(posix.dirname(prdPath), proof[2]);
+      const spec = posix.join(posix.dirname(prdPath), proof[2].replace(/#.*$/, ''));
       behaviours.at(-1).proofs.push({ line: number, title: proof[1], spec });
     } else if (UNREAD_LINE.test(line)) {
       unread.push({ line, number });
@@ -109,6 +119,12 @@ function calleeName(expression) {
     return object && `${object}.${expression.name.text}`;
   }
   return undefined;
+}
+
+/** The role of a call: by its whole callee, or else by its method name. */
+function callRole({ expression }) {
+  const method = ts.isPropertyAccessExpression(expression) ? expression.name.text : undefined;
+  return CALL_ROLES.get(calleeName(expression)) ?? METHOD_ROLES.get(method);
 }
 
 /** Whether a call ends in a test body after a title, as in `test.skip(title, body)`. */
@@ -131,12 +147,10 @@ function runningTestTitles(specPath, specText) {
   const tests = [];
   const skipped = new Set();
   const visit = (node, scopes) => {
-    const role = ts.isCallExpression(node)
-      ? CALL_ROLES.get(calleeName(node.expression))
-      : undefined;
+    const role = ts.isCallExpression(node) ? callRole(node) : undefined;
     const declares = role !== undefined && (role !== 'skip' || hasTestBody(node));
     const inner = declares ? [...scopes, node] : scopes;
-    if (role === 'skip' || role === 'skipped group') {
+    if (role === 'skip') {
       skipped.add(inner.at(-1));
     }
     if (role === 'test') {

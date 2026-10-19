@@ -6,8 +6,8 @@
 ## Intent
 
 __Who the feature is for, what it lets them do, and why it exists. Copy this
-file to docs/prd/<feature>.md. Every Markdown file in docs/prd/ is a PRD, and
-`pnpm check:docs` checks each one.__
+file to docs/prd/<feature>.md. Every tracked Markdown file directly in
+docs/prd/ is a PRD, and `pnpm check:docs` checks each one.__
 
 ## Behaviours
 
