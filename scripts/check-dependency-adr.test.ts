@@ -245,18 +245,7 @@ describe('workspaceManifestPaths', () => {
 describe('check-dependency-adr CLI', () => {
   let directory: string;
 
-  // Hooks export GIT_DIR, GIT_INDEX_FILE, and friends; they must not leak into
-  // the scratch repository when this suite runs from a hook.
-  const localEnvVars = execFileSync('git', ['rev-parse', '--local-env-vars'], {
-    encoding: 'utf8',
-  })
-    .split('\n')
-    .filter(Boolean);
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !localEnvVars.includes(key)),
-  );
-  delete env.GITHUB_BASE_REF;
-  Object.assign(env, { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' });
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
 
   function git(...args: string[]) {
     execFileSync(

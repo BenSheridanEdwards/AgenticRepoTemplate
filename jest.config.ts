@@ -39,6 +39,8 @@ const shared = {
 } satisfies Config;
 
 const config: Config = {
+  // Clears the hook's and CI's variables before any worker starts (ADR 0042).
+  globalSetup: '<rootDir>/scripts/jest-global-setup.mjs',
   projects: [
     {
       ...shared,
