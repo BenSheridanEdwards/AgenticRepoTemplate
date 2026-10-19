@@ -149,18 +149,12 @@ describe('findUnguardedSignOffPaths passes', () => {
   });
 });
 
-// A git hook exports GIT_DIR, which would point a child git at the hook's repository
-// instead of its `cwd`, so every child process here runs without the GIT_* variables.
-const env = Object.fromEntries(
-  Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_')),
-);
-
 describe('check-sign-off-docs CLI', () => {
   it.each([
     REPOSITORY_ROOT,
     join(REPOSITORY_ROOT, 'scripts'),
   ])('passes on the repository docs when run from %s', (cwd) => {
-    const result = spawnSync('node', [CLI], { cwd, encoding: 'utf8', env });
+    const result = spawnSync('node', [CLI], { cwd, encoding: 'utf8' });
     expect(result.stderr).toBe('');
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/OK: [1-9]\d* guidance docs/);
@@ -184,8 +178,8 @@ describe('check-sign-off-docs CLI', () => {
         join(directory, 'README.md'),
         '# Repo\n\nChanges to `tsconfig.json` need sign-off.\n',
       );
-      spawnSync('git', ['init', '-q'], { cwd: directory, env });
-      spawnSync('git', ['add', '-A'], { cwd: directory, env });
+      spawnSync('git', ['init', '-q'], { cwd: directory });
+      spawnSync('git', ['add', '-A'], { cwd: directory });
     });
 
     afterEach(() => {
@@ -196,7 +190,6 @@ describe('check-sign-off-docs CLI', () => {
       const result = spawnSync('node', [join(directory, 'scripts/check-sign-off-docs.mjs')], {
         cwd: directory,
         encoding: 'utf8',
-        env,
       });
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('README.md:3 `tsconfig.json`');

@@ -40,17 +40,15 @@ const LOCKFILE = [
   '',
 ].join('\n');
 
-const gitEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
-);
-Object.assign(gitEnv, {
+const gitEnv = {
+  ...process.env,
   GIT_CONFIG_GLOBAL: '/dev/null',
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_AUTHOR_NAME: 'Test',
   GIT_AUTHOR_EMAIL: 'test@example.com',
   GIT_COMMITTER_NAME: 'Test',
   GIT_COMMITTER_EMAIL: 'test@example.com',
-});
+};
 const savedEnv = { ...process.env };
 
 // A `runTrial` test spawns about 30 real processes (git, Biome, the fake

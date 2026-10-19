@@ -9,19 +9,15 @@ import { join } from 'node:path';
 const SCRIPT = join(process.cwd(), 'scripts/require-up-to-date-main.sh');
 const REMEDY = 'git fetch origin && git merge origin/main';
 
-// Hooks export GIT_DIR/GIT_INDEX_FILE etc.; they must not leak into the scratch
-// repos when this suite runs from pre-push.
-const env = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
-);
-Object.assign(env, {
+const env = {
+  ...process.env,
   GIT_CONFIG_GLOBAL: '/dev/null',
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_AUTHOR_NAME: 'Test',
   GIT_AUTHOR_EMAIL: 'test@example.com',
   GIT_COMMITTER_NAME: 'Test',
   GIT_COMMITTER_EMAIL: 'test@example.com',
-});
+};
 
 let root: string;
 let work: string;
