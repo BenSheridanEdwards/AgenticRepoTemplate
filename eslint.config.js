@@ -145,15 +145,23 @@ export default [
   {
     // Gate and tooling scripts ask the tool, or `matchesGlob`, which files a
     // glob covers (ADR 0041). A copy of the matching rules drifts from the tool.
-    files: ['scripts/**/*.{js,mjs}', 'tooling/**/*.{js,mjs}'],
+    // Tests hold tool config such as Biome's `'**'` as data. A template counts
+    // only with no substitutions, so Markdown bold (`**${text}**`) passes.
+    files: ['scripts/**/*.{js,mjs,cjs,ts,mts}', 'tooling/**/*.{js,mjs,cjs,ts,mts}'],
+    ignores: ['**/*.test.ts', '**/*.spec.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
-        ...['**', '**/'].map((wildcard) => ({
-          selector: `Literal[value='${wildcard}']`,
-          message:
-            "Match globs with `matchesGlob` from 'node:path', or ask the tool for its file list (`fallow config`, `jest --listTests`). A hand-written glob translator drifts from the tool (ADR 0041).",
-        })),
+        ...['**', '**/'].flatMap((wildcard) =>
+          [
+            `Literal[value='${wildcard}']`,
+            `TemplateLiteral[expressions.length=0] > TemplateElement[value.cooked='${wildcard}']`,
+          ].map((selector) => ({
+            selector,
+            message:
+              "Match globs with `matchesGlob` from 'node:path', or ask the tool for its file list (`fallow config`, `jest --listTests`). A hand-written glob translator drifts from the tool (ADR 0041).",
+          })),
+        ),
       ],
     },
   },
