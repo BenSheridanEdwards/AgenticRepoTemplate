@@ -153,6 +153,16 @@ describe('findPrdConflicts', () => {
     ['a line comment', "// test('greets later', async () => {});"],
     ['a block comment', "/* test('greets later', async () => {}); */"],
     ['a block comment over several lines', "/*\n  test('greets later', async () => {});\n*/"],
+    ['a regular expression test call', "/greets/.test('greets later');"],
+    ['a describe title', "test.describe('greets later', () => {});"],
+  ])('fails when the linked title appears only in %s', (_, source) => {
+    const text = prd('- **Greets later.** The page greets later.', proof('greets later'));
+    expect(conflictsOf(text, { [SPEC]: source })).toEqual([
+      expect.stringContaining('has no test with that title'),
+    ]);
+  });
+
+  it.each([
     [
       'a describe.skip group',
       "test.describe.skip('Later', () => { test('greets later', async () => {}); });",
@@ -200,12 +210,49 @@ describe('findPrdConflicts', () => {
       'a group that describe.skip skips through an alias',
       "const { describe } = test;\ndescribe.skip('Later', () => { test('greets later', async () => {}); });",
     ],
-    ['a regular expression test call', "/greets/.test('greets later');"],
-    ['a describe title', "test.describe('greets later', () => {});"],
-  ])('fails when the linked title appears only in %s', (_, source) => {
+    [
+      'a test whose annotation skips it',
+      "test('greets later', { annotation: { type: 'skip' } }, async () => {});",
+    ],
+    [
+      'a test whose annotation list marks it fixme',
+      "test('greets later', { annotation: [{ type: 'issue' }, { type: 'fixme' }] }, async () => {});",
+    ],
+    [
+      'a test whose annotation marks it to fail',
+      "test('greets later', { annotation: { type: 'fail' } }, async () => {});",
+    ],
+    [
+      'a group whose annotation skips it',
+      "test.describe('Later', { annotation: { type: 'skip' } }, () => { test('greets later', async () => {}); });",
+    ],
+    [
+      'a test whose annotation the check cannot read',
+      "test('greets later', { annotation: annotations }, async () => {});",
+    ],
+    [
+      'a test whose details the check cannot read',
+      "test('greets later', details, async () => {});",
+    ],
+    [
+      'a test whose annotation type the check cannot read',
+      "test('greets later', { annotation: { type: kind } }, async () => {});",
+    ],
+  ])('fails, saying the test does not run, when the linked title appears only in %s', (_, source) => {
     const text = prd('- **Greets later.** The page greets later.', proof('greets later'));
     expect(conflictsOf(text, { [SPEC]: source })).toEqual([
-      expect.stringContaining('has no test with that title'),
+      expect.stringContaining('has a test with that title, but it does not run'),
+    ]);
+  });
+
+  it('says why when the linked test exists but does not run', () => {
+    const text = prd('- **Greets later.** The page greets later.', proof('greets later'));
+    const source = "test('greets later', async () => { assert.fail('no'); });";
+    expect(conflictsOf(text, { [SPEC]: source })).toEqual([
+      'docs/prd/greeting.md:10 names "greets later". `apps/web/e2e/greeting.spec.ts` has a ' +
+        'test with that title, but it does not run: it is a skip, fixme or fail test, or a ' +
+        '`skip`, `fixme` or `fail` annotation or a `.skip`, `.fixme` or `.fail` call in its ' +
+        'test, group or file stops it (ADR 0045). Make the test run, or link one that does.',
     ]);
   });
 
@@ -233,6 +280,25 @@ describe('findPrdConflicts', () => {
       proof('greets first'),
       proof('greets plainly'),
     );
+    expect(conflictsOf(text, { [SPEC]: source })).toEqual([]);
+  });
+
+  it('counts a test with an issue annotation and a test with a skipped step', () => {
+    const source = [
+      "test('greets now', { annotation: { type: 'issue', description: '#68' } }, async () => {});",
+      "test('greets later', async () => { await test.step.skip('x', async () => {}, { box: true }); });",
+    ].join('\n');
+    const text = prd('- **Greets.** The page greets.', proof('greets now'), proof('greets later'));
+    expect(conflictsOf(text, { [SPEC]: source })).toEqual([]);
+  });
+
+  it('counts a test that runs beside a skipped test with the same title', () => {
+    const source = [
+      "test.skip('greets later', async () => {});",
+      "test('greets later', async () => {});",
+      "test.fixme('greets later', async () => {});",
+    ].join('\n');
+    const text = prd('- **Greets later.** The page greets later.', proof('greets later'));
     expect(conflictsOf(text, { [SPEC]: source })).toEqual([]);
   });
 

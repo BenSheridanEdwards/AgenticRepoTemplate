@@ -13,11 +13,12 @@
  * when its spec is a tracked `web/e2e/**\/*.spec.ts` file and a
  * `test('<title>', ...)` call in it has that exact literal title and runs: the
  * spec is parsed, so a test in a comment, a `test.skip`, `test.fixme` or
- * `test.fail`, a test inside `test.describe.skip` or `test.describe.fixme`, and
- * a test in a test, group or file that calls `test.skip(...)`, `test.fixme(...)`
- * or `test.fail(...)` without a test body, or `testInfo.skip(...)`,
- * `testInfo.fixme(...)` or `testInfo.fail(...)`, prove nothing. A `test.fail`
- * test passes only while its assertions fail.
+ * `test.fail`, a test inside `test.describe.skip` or `test.describe.fixme`, a
+ * test or group whose `annotation` details have the type `skip`, `fixme` or
+ * `fail`, and a test in a test, group or file that calls `test.skip(...)`,
+ * `test.fixme(...)` or `test.fail(...)` without a test body, or
+ * `testInfo.skip(...)`, `testInfo.fixme(...)` or `testInfo.fail(...)`, prove
+ * nothing. A `test.fail` test passes only while its assertions fail.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -50,18 +51,15 @@ const CALL_ROLES = new Map([
 ]);
 
 /**
- * What any other method call declares, by its name alone. A `skip` with a
- * test body declares a test or group that proves nothing, whatever its title,
- * as `test.fail(title, body)` or `test.describe.skip` does. Without one, as in
- * `test.skip()` or `testInfo.fail()` whatever the parameter is called, no test
- * in the test, group or file it sits in proves anything. A matching call on
- * another object errs towards a false conflict, never a silent pass.
+ * The method names and annotation types that stop a test proving anything. A
+ * `skip` method with a test body declares a test or group that proves nothing,
+ * whatever its title, as `test.fail(title, body)` or `test.describe.skip` does.
+ * Without one, as in `test.skip()` or `testInfo.fail()` whatever the parameter
+ * is called, no test in the test, group or file it sits in proves anything. A
+ * matching call on another object errs towards a false conflict, never a
+ * silent pass.
  */
-const METHOD_ROLES = new Map([
-  ['skip', 'skip'],
-  ['fixme', 'skip'],
-  ['fail', 'skip'],
-]);
+const SKIP_KINDS = new Set(['skip', 'fixme', 'fail']);
 
 /**
  * The filesystem port: the tracked files present in the working tree, and file
@@ -124,12 +122,55 @@ function calleeName(expression) {
 /** The role of a call: by its whole callee, or else by its method name. */
 function callRole({ expression }) {
   const method = ts.isPropertyAccessExpression(expression) ? expression.name.text : undefined;
-  return CALL_ROLES.get(calleeName(expression)) ?? METHOD_ROLES.get(method);
+  return CALL_ROLES.get(calleeName(expression)) ?? (SKIP_KINDS.has(method) ? 'skip' : undefined);
 }
 
-/** Whether a call ends in a test body after a title, as in `test.skip(title, body)`. */
+/** Whether a call passes a test body after a title, as in `test.skip(title, body)`. */
 function hasTestBody(call) {
-  return call.arguments.length >= 2 && ts.isFunctionLike(call.arguments.at(-1));
+  return call.arguments.slice(1).some(ts.isFunctionLike);
+}
+
+/**
+ * The value of each property an object literal names, or undefined when a
+ * spread or a computed key hides one.
+ */
+function namedProperties(object) {
+  const properties = new Map();
+  for (const property of object.properties) {
+    const { name } = property;
+    if (!name || !(ts.isIdentifier(name) || ts.isStringLiteralLike(name))) {
+      return undefined;
+    }
+    properties.set(name.text, ts.isPropertyAssignment(property) ? property.initializer : property);
+  }
+  return properties;
+}
+
+/** Whether an annotation, or a list of them, stops a test, or cannot be read. */
+function annotationStops(annotation) {
+  if (ts.isArrayLiteralExpression(annotation)) {
+    return annotation.elements.some(annotationStops);
+  }
+  const type = ts.isObjectLiteralExpression(annotation)
+    ? namedProperties(annotation)?.get('type')
+    : undefined;
+  return !type || !ts.isStringLiteralLike(type) || SKIP_KINDS.has(type.text);
+}
+
+/**
+ * Whether the details of `test(title, details, body)` or
+ * `test.describe(title, details, body)` stop it through their `annotation`, or
+ * cannot be read, which errs towards a false conflict.
+ */
+function detailsStop(call) {
+  if (call.arguments.length < 3) {
+    return false;
+  }
+  const details = call.arguments[1];
+  const properties = ts.isObjectLiteralExpression(details) ? namedProperties(details) : undefined;
+  return (
+    !properties || (properties.has('annotation') && annotationStops(properties.get('annotation')))
+  );
 }
 
 /** The literal title a call passes first, or undefined for a computed one. */
@@ -139,36 +180,50 @@ function literalTitle(call) {
 }
 
 /**
- * The titles of the tests in a spec that run. Each test, group and the file
- * is a scope, and a test runs when no scope around it is skipped.
+ * What a node declares: whether it opens a test or group scope, whether that
+ * scope is a test, and whether it stops the scope it opens or sits in.
  */
-function runningTestTitles(specPath, specText) {
+function declaration(node) {
+  const role = ts.isCallExpression(node) ? callRole(node) : undefined;
+  const scope = role !== undefined && (role !== 'skip' || hasTestBody(node));
+  return {
+    scope,
+    test: scope && !calleeName(node.expression)?.includes('describe'),
+    stops: role === 'skip' || (scope && detailsStop(node)),
+  };
+}
+
+/**
+ * Whether a test with each literal title in a spec runs. Each test, group and
+ * the file is a scope, and a test runs when no scope around it is skipped.
+ */
+function testTitlesRun(specPath, specText) {
   const file = ts.createSourceFile(specPath, specText, ts.ScriptTarget.Latest, true);
   const tests = [];
   const skipped = new Set();
   const visit = (node, scopes) => {
-    const role = ts.isCallExpression(node) ? callRole(node) : undefined;
-    const declares = role !== undefined && (role !== 'skip' || hasTestBody(node));
-    const inner = declares ? [...scopes, node] : scopes;
-    if (role === 'skip') {
+    const { scope, test, stops } = declaration(node);
+    const inner = scope ? [...scopes, node] : scopes;
+    if (stops) {
       skipped.add(inner.at(-1));
     }
-    if (role === 'test') {
+    if (test) {
       tests.push({ title: literalTitle(node), scopes: inner });
     }
     ts.forEachChild(node, (child) => visit(child, inner));
   };
   visit(file, [file]);
-  return new Set(
-    tests
-      .filter(
-        ({ title, scopes }) => title !== undefined && !scopes.some((scope) => skipped.has(scope)),
-      )
-      .map(({ title }) => title),
-  );
+  const runs = new Map();
+  for (const { title, scopes } of tests.filter(({ title }) => title !== undefined)) {
+    runs.set(title, runs.get(title) || !scopes.some((scope) => skipped.has(scope)));
+  }
+  return runs;
 }
 
-/** The conflicts a `Proved by` link makes: a spec that is missing, or a title it lacks. */
+/**
+ * The conflicts a `Proved by` link makes: a spec that is missing, a title it
+ * lacks, or a test with that title that does not run.
+ */
 function proofConflicts(prdPath, { line, title, spec }, specs, readText) {
   if (!specs.has(spec)) {
     return [
@@ -176,10 +231,19 @@ function proofConflicts(prdPath, { line, title, spec }, specs, readText) {
         `(\`${SPEC_GLOB}\`). Point the link at the spec that proves the behaviour.`,
     ];
   }
-  if (!runningTestTitles(spec, readText(spec)).has(title)) {
+  const runs = testTitlesRun(spec, readText(spec)).get(title);
+  if (runs === undefined) {
     return [
       `${prdPath}:${line} names "${title}", but \`${spec}\` has no test with that title. ` +
         'Match the title exactly, or update the PRD to the test that proves the behaviour now.',
+    ];
+  }
+  if (!runs) {
+    return [
+      `${prdPath}:${line} names "${title}". \`${spec}\` has a test with that title, but it ` +
+        'does not run: it is a skip, fixme or fail test, or a `skip`, `fixme` or `fail` ' +
+        'annotation or a `.skip`, `.fixme` or `.fail` call in its test, group or file stops it ' +
+        '(ADR 0045). Make the test run, or link one that does.',
     ];
   }
   return [];

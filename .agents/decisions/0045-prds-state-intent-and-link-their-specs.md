@@ -43,14 +43,18 @@ Nothing fails, so nobody notices.
   - a behaviour with no `Proved by` link;
   - a link to a file that is not a tracked `**/web/e2e/**/*.spec.ts` spec
     present in the working tree;
-  - a link to a title that no running `test('<title>', ...)` call in that
-    spec has.
+  - a link to a title that no `test('<title>', ...)` call in that spec
+    has;
+  - a link to a title whose tests in that spec do not run.
 - The check parses each linked spec with the TypeScript compiler API, so a
   test in a comment does not count. A test counts unless it is a
   `test.skip`, `test.fixme` or `test.fail`, sits inside a
-  `test.describe.skip` or `test.describe.fixme`, or sits in a test, group or
-  file that calls `test.skip(...)`, `test.fixme(...)` or `test.fail(...)`
-  without a test body, even behind a condition. `testInfo.skip(...)`,
+  `test.describe.skip` or `test.describe.fixme`, has an `annotation` detail
+  of type `skip`, `fixme` or `fail` (one object or a list) or sits in a group
+  that has one, or sits in a test, group or file that calls `test.skip(...)`,
+  `test.fixme(...)` or `test.fail(...)` without a test body, even behind a
+  condition. Playwright skips a test by those annotations as it does by the
+  methods. `testInfo.skip(...)`,
   `testInfo.fixme(...)` and `testInfo.fail(...)` act the same way, whatever
   the parameter is called, so the check reads every other `.skip`, `.fixme`
   or `.fail` method call like the `test` call of that name. A `test.fail`
@@ -90,6 +94,20 @@ Nothing fails, so nobody notices.
 - A conditional skip or fail, such as `test.skip(browserName === 'webkit')`,
   stops the test from counting, since the check cannot tell when it runs. A
   PRD links a test that runs everywhere.
+- The check reads `.skip`, `.fixme` and `.fail` written as a property
+  access, and `test(...)` calls wherever they sit in the file. A
+  `const skip = test.skip` alias, a `test['skip']` call, a destructured
+  `skip`, and a `test(...)` in a function that never runs or behind
+  `if (false)` still count as a test that runs, so a linked spec calls
+  Playwright directly.
+- Any `.skip`, `.fixme` or `.fail` method call reads as a skip, such as
+  Node's `assert.fail` or a `.fail()` callback inside `page.evaluate`, so it
+  stops the test, group or file it sits in from counting. A linked spec
+  throws or uses `expect` instead. When a linked test exists but does not
+  run, the check says so and names these causes.
+- A linked spec writes its annotations and test details inline. Details
+  passed as a variable, a spread or a computed key, or an annotation type
+  that is not a string literal, read as a skip.
 - A linked spec writes its test bodies inline and gives each group a title.
   A `test.skip(title, body)` whose body is a function reference, or a
   `test.describe.skip(body)` with no title, reads as a skip without a test
