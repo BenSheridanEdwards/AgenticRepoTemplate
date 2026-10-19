@@ -25,11 +25,12 @@ export const INHERITED_ENV = new Set([
   'HTTP_PROXY',
   'HTTPS_PROXY',
   'NO_PROXY',
+  'ALL_PROXY',
   'http_proxy',
   'https_proxy',
   'no_proxy',
+  'all_proxy',
   'PNPM_HOME',
-  'COREPACK_HOME',
   'XDG_CONFIG_HOME',
   'XDG_DATA_HOME',
   'XDG_STATE_HOME',
@@ -38,8 +39,12 @@ export const INHERITED_ENV = new Set([
   'PLAYWRIGHT_BROWSERS_PATH',
 ]);
 
+/** Locale and Corepack settings come as families, so a prefix lets the whole family through. */
+const INHERITED_PREFIXES = ['LC_', 'COREPACK_'];
+
 /** @param {string} name */
-export const isInherited = (name) => INHERITED_ENV.has(name) || name.startsWith('LC_');
+export const isInherited = (name) =>
+  INHERITED_ENV.has(name) || INHERITED_PREFIXES.some((prefix) => name.startsWith(prefix));
 
 /**
  * Runs once in the Jest parent before any worker starts. Every worker, every

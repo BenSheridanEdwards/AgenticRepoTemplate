@@ -22,11 +22,6 @@ export function loadRepositoryContract() {
   );
 }
 
-/** Hooks export GIT_DIR, GIT_INDEX_FILE and the like; they must not reach the temporary repo. */
-const GIT_FREE_ENV = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
-);
-
 const COPIED_CONFIGS = [
   '.fallowrc.jsonc',
   'pnpm-workspace.yaml',
@@ -108,7 +103,7 @@ export function createMonorepo(files: Record<string, string | null>) {
       writeFileSync(join(directory, path), text);
     }
   }
-  spawnSync('git', ['init', '-q'], { cwd: directory, env: GIT_FREE_ENV });
+  spawnSync('git', ['init', '-q'], { cwd: directory });
   return { directory, cleanup: () => rmSync(directory, { recursive: true, force: true }) };
 }
 
@@ -117,7 +112,7 @@ export function runTool(script: string, directory: string, ...args: string[]) {
   const run = spawnSync(
     process.execPath,
     [join(REPOSITORY_ROOT, 'tooling/architecture', script), '--root', directory, ...args],
-    { encoding: 'utf8', env: GIT_FREE_ENV },
+    { encoding: 'utf8' },
   );
   return { status: run.status, output: `${run.stdout}${run.stderr}` };
 }

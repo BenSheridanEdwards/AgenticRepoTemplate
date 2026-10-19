@@ -24,9 +24,9 @@ fix filtered one more name out in that one test file:
   `check-dependency-adr`, and CI run 39072988181 failed. The fix added
   `GITHUB_*` to that file's list.
 
-Five test files held their own filter, each with a different list. An agent
-copies the nearest example, so the next test either copies one of those lists
-or passes no `env` at all.
+Five test files and one test helper held their own filter, each with a
+different list. An agent copies the nearest example, so the next test either
+copies one of those lists or passes no `env` at all.
 
 ## Decision
 
@@ -39,13 +39,15 @@ or passes no `env` at all.
   `process.env` and every child process start from that environment.
 - A test that needs another variable passes it in `env`, as the tests that set
   a git identity already do.
-- The five per-file filters go. `inclusion.test.ts` deletes `JEST_WORKER_ID`
+- The six per-file filters go. `inclusion.test.ts` deletes `JEST_WORKER_ID`
   alone, because jest-worker sets it on each worker after the global setup,
   and Playwright refuses to run under it.
 - `scripts/jest-env.test.ts` starts a child process and fails on any variable
   outside the list. GitHub Actions sets `GITHUB_*` and `CI` for every job, so
   in CI the test fails whenever the setup is missing. The same holds under a
-  hook or an agent session.
+  hook or an agent session. The same file runs the setup on a fixture
+  environment and names the variables it must drop and keep, so a name added
+  to the list by mistake also fails.
 
 ### Proof on the real mistakes
 
@@ -77,6 +79,9 @@ With the setup replaced by a no-op, which is how main behaves:
 - A new tool that needs a variable to start goes into `INHERITED_ENV`. The
   setup drops a missing name without a message, so the first sign is that
   tool's own error in the test that runs it.
+- Jest builds its reporters after the global setup, so a reporter that reads
+  its settings from the environment, such as jest-junit's `JEST_JUNIT_*`,
+  loses them without a message.
 - The names match as Linux and macOS spell them, which covers CI's
   `ubuntu-latest` runners.
 - `.husky/pre-push` still clears git's per-repo variables before `pnpm verify`,
