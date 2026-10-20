@@ -1,0 +1,19 @@
+{
+  "name": "@todo-codex-02/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/router.ts"
+    }
+  },
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts"
+  },
+  "dependencies": {
+    "@trpc/server": "^11.19.0",
+    "effect": "^4.0.5"
+  }
+}
