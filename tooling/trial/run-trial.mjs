@@ -152,7 +152,7 @@ const USER_CONFIG_ENTRIES = [
  */
 export function planTrial(options) {
   const { trial, scaffoldRev, root, trialsRoot, now, sessionId, agentCommand } = options;
-  if (trial !== 1 && trial !== 2 && trial !== 3) {
+  if (![1, 2, 3].includes(trial)) {
     throw new Error(`--trial must be 1, 2 or 3, got ${trial}`);
   }
   if (!/^[0-9a-f]{40}$/.test(scaffoldRev)) {
@@ -167,6 +167,7 @@ export function planTrial(options) {
     .replace(/\.\d{3}Z$/, 'Z')
     .replace(/[-:]/g, '');
   const workdir = join(trialsRoot, `${id}-${stamp}`);
+  const evidenceDir = task.evidenceDir ?? join(root, 'docs/trials');
   return {
     ...taskContext(task, options),
     agentName,
@@ -180,15 +181,22 @@ export function planTrial(options) {
     clone: join(workdir, 'repo'),
     checkClone: join(workdir, 'check'),
     branch: `trial/${id}`,
-    evidencePath: join(task.evidenceDir ?? join(root, 'docs/trials'), `${id}.json`),
-    patchPath: join(task.evidenceDir ?? join(root, 'docs/trials'), `${id}.patch`),
-    keptStreamPath: join(task.evidenceDir ?? join(root, 'docs/trials'), `${id}.stream.jsonl`),
+    evidencePath: join(evidenceDir, `${id}.json`),
+    patchPath: join(evidenceDir, `${id}.patch`),
+    keptStreamPath: join(evidenceDir, `${id}.stream.jsonl`),
     promptPath: join(workdir, 'prompt.md'),
     streamPath: join(workdir, 'agent.stream.jsonl'),
     sessionId,
     agentArgv: agentArguments(agentName, agentCommand, workdir, sessionId),
     fake: agentCommand !== undefined,
     retry: options.retry,
+    ...runtimePlan(options, workdir),
+    ...taskCommands(task, options.taskDir ?? HARNESS_ROOT, id),
+  };
+}
+
+function runtimePlan(options, workdir) {
+  return {
     claudeConfigDir: options.claudeConfigDir,
     claudeStateFile:
       options.claudeStateFile ?? join(dirname(options.claudeConfigDir), '.claude.json'),
@@ -200,12 +208,17 @@ export function planTrial(options) {
       ...(options.pnpmStore ? [options.pnpmStore] : []),
     ],
     sharedTmp: options.sharedTmp ?? '/tmp',
+  };
+}
+
+function taskCommands(task, taskDir, id) {
+  return {
     ports: task.ports ?? [],
     setup: task.setup,
     checks: [...task.checks, ...(task.acceptance ?? [])].map((command) => ({
       ...command,
       argv: command.argv.map((arg) =>
-        arg.replaceAll('{{TASK_DIR}}', options.taskDir ?? HARNESS_ROOT).replaceAll('{{ID}}', id),
+        arg.replaceAll('{{TASK_DIR}}', taskDir).replaceAll('{{ID}}', id),
       ),
     })),
   };
@@ -355,7 +368,9 @@ async function scaffoldInputs(plan, deps) {
   const template = plan.promptFile
     ? readFileSync(plan.promptFile, 'utf8')
     : await atScaffold(plan, deps, plan.task.prompt);
-  const lockfile = (await atScaffold(plan, deps, LOCKFILE)) ?? (plan.task.target ? '' : null);
+  const lockfile =
+    (await atScaffold(plan, deps, LOCKFILE)) ??
+    (plan.task.name !== 'todo' || plan.task.target ? '' : null);
   for (const [path, text] of [
     [TEMPLATE_PATH, template],
     [LOCKFILE, lockfile],
@@ -1102,27 +1117,8 @@ function toEvidence(state, finishedAt) {
  */
 export async function runTrial(plan, deps) {
   const retries = await checkPreconditions(plan, deps);
-  let scaffold;
-  let preparationFailure = null;
-  if (plan.task.target) {
-    const template = readFileSync(plan.promptFile, 'utf8');
-    mkdirSync(plan.workdir, { recursive: true });
-    try {
-      await prepareOrigin(plan, deps);
-      scaffold = await readScaffold(plan, deps);
-    } catch (error) {
-      preparationFailure = `harness: ${error instanceof Error ? error.message : String(error)}`;
-      scaffold = {
-        template,
-        prompt: renderPrompt(template, plan),
-        lockfile: '',
-        enforcementRev: plan.scaffoldRev,
-        harness: await readHarness(plan, deps),
-      };
-    }
-  } else {
-    scaffold = await readScaffold(plan, deps);
-  }
+  const startedAt = deps.now();
+  const { scaffold, preparationFailure } = await prepareScaffold(plan, deps);
   for (const name of Object.keys(PRIVATE_ENV)) {
     mkdirSync(plan.privateEnv[name], { recursive: true, mode: 0o700 });
   }
@@ -1131,7 +1127,7 @@ export async function runTrial(plan, deps) {
     plan,
     deps,
     scaffold,
-    startedAt: deps.now(),
+    startedAt,
     retries,
     failures: preparationFailure ? [preparationFailure] : [],
     checks: [],
@@ -1157,6 +1153,31 @@ export async function runTrial(plan, deps) {
   const evidence = toEvidence(state, deps.now());
   await writeEvidence(plan, evidence, deps);
   return validateEvidence(evidence);
+}
+
+async function prepareScaffold(plan, deps) {
+  let scaffold;
+  let preparationFailure = null;
+  if (plan.task.target) {
+    const template = readFileSync(plan.promptFile, 'utf8');
+    mkdirSync(plan.workdir, { recursive: true });
+    try {
+      await prepareOrigin(plan, deps);
+      scaffold = await readScaffold(plan, deps);
+    } catch (error) {
+      preparationFailure = `harness: ${error instanceof Error ? error.message : String(error)}`;
+      scaffold = {
+        template,
+        prompt: renderPrompt(template, plan),
+        lockfile: '',
+        enforcementRev: plan.scaffoldRev,
+        harness: await readHarness(plan, deps),
+      };
+    }
+  } else {
+    scaffold = await readScaffold(plan, deps);
+  }
+  return { scaffold, preparationFailure };
 }
 
 export { systemDeps };

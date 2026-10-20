@@ -528,6 +528,49 @@ describe('runTrial', () => {
     expect(validateEvidence(evidence)).toEqual(evidence);
   });
 
+  it('runs a custom task in the invoking checkout without a pnpm lockfile', async () => {
+    const repository = join(caseDir, 'current-target');
+    mkdirSync(repository);
+    git(repository, 'init', '-q', '-b', 'main');
+    write(repository, 'src/start.txt', 'start');
+    git(repository, 'add', '-A');
+    git(repository, 'commit', '-q', '-m', 'target');
+    const rev = git(repository, 'rev-parse', 'HEAD');
+    const taskDir = join(caseDir, 'current-task');
+    write(taskDir, 'prompt.md', 'Solve {{ID}}');
+    write(
+      taskDir,
+      'task.json',
+      JSON.stringify({
+        name: 'current',
+        prompt: 'prompt.md',
+        allowedPaths: ['src/'],
+        setup: [],
+        checks: [{ name: 'unit', argv: ['true'] }],
+        land: 'patch',
+        evidenceDir: join(caseDir, 'current-evidence'),
+      }),
+    );
+    const agent = fakeAgent('current', "put('src/result.txt', 'done');");
+    const base = plan({ agent });
+    const planned = planTrial({
+      ...base,
+      ...loadTask(join(taskDir, 'task.json')),
+      root: repository,
+      scaffoldRev: rev,
+      agentCommand: agent,
+      now: new Date(),
+      corepackHome: base.privateEnv.COREPACK_HOME,
+      browsersPath: base.privateEnv.PLAYWRIGHT_BROWSERS_PATH,
+    });
+    const evidence = await runTrial(planned, quietDeps());
+    expect(evidence.failures).toEqual([]);
+    expect(evidence.result.status).toBe('passed');
+    expect(evidence.trial.id).toBe('current-01');
+    expect(evidence.task?.target).toBeNull();
+    expect(readFileSync(planned.patchPath, 'utf8')).toContain('src/result.txt');
+  });
+
   it('uses the Codex id rule for Todo and retains the Claude id rule', () => {
     const base = plan({ agent: '/fake' });
     const codex = planTrial({

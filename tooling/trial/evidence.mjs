@@ -245,6 +245,15 @@ const CONSISTENCY = [
     rule: `"passed" needs a commit, a kept stream, empty scope and read lists, the checks ${REQUIRED_CHECKS.join(', ')}, every check at exit 0 and no failure`,
   },
   {
+    path: 'evidence.result.patch',
+    holds: (evidence) =>
+      evidence.schema !== 2 ||
+      evidence.task.land !== 'patch' ||
+      evidence.result.status !== 'passed' ||
+      evidence.result.patch !== null,
+    rule: 'patch landing requires a kept patch',
+  },
+  {
     path: 'evidence.failures',
     holds: ({ result, failures }) => result.status !== 'failed' || failures.length > 0,
     rule: 'a failed run names at least one failure',
@@ -265,16 +274,6 @@ export function validateEvidence(value) {
     if (!holds(evidence)) {
       throw new Error(`${path}: ${rule}`);
     }
-  }
-  if (
-    evidence.schema === 2 &&
-    evidence.task.land === 'patch' &&
-    evidence.run.agentExitCode !== null &&
-    evidence.run.agentExitCode !== -1 &&
-    evidence.result.status === 'passed' &&
-    evidence.result.patch === null
-  ) {
-    throw new Error('evidence.result.patch: patch landing requires a kept patch');
   }
   return evidence;
 }
