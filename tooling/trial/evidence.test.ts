@@ -83,6 +83,47 @@ function without(path: string[]) {
 }
 
 describe('validateEvidence', () => {
+  it('requires every task check, including private acceptance, for schema 2', () => {
+    const value = {
+      ...passed(),
+      schema: 2,
+      task: {
+        name: 'todo',
+        definitionSha256: SHA256,
+        target: null,
+        checks: ['unit', 'private-acceptance'],
+        land: 'patch',
+      },
+    };
+    Object.assign(value.agent, { name: 'codex', modelSource: 'pinned', reasoningEffort: null });
+    Object.assign(value.trial, { id: 'todo-codex-02', branch: 'trial/todo-codex-02' });
+    Object.assign(value.run, {
+      tokenUsage: { input_tokens: 1, cached_input_tokens: 0, output_tokens: 2 },
+    });
+    value.result.patch = '/private/todo-codex-02.patch' as never;
+    value.checks = ['unit', 'private-acceptance'].map((name) => ({
+      name,
+      command: name,
+      exitCode: 0,
+      durationMs: 1,
+      outputTail: '',
+    }));
+    expect(validateEvidence(value)).toEqual(value);
+    value.checks.pop();
+    expect(() => validateEvidence(value)).toThrow('evidence.result.status');
+    value.checks.push({
+      name: 'private-acceptance',
+      command: 'accept',
+      exitCode: 1,
+      durationMs: 1,
+      outputTail: '',
+    });
+    expect(() => validateEvidence(value)).toThrow('evidence.result.status');
+    value.checks[1].exitCode = 0;
+    value.result.patch = null;
+    expect(() => validateEvidence(value)).toThrow('evidence.result.patch');
+  });
+
   it('returns a complete evidence record unchanged', () => {
     expect(validateEvidence(passed())).toEqual(passed());
   });
@@ -115,7 +156,7 @@ describe('validateEvidence', () => {
   });
 
   it.each([
-    ['schema', ['schema'], 2],
+    ['schema', ['schema'], 3],
     ['a trial number outside 1..3', ['trial', 'number'], 4],
     ['an id that does not match the number', ['trial', 'id'], 'todo-03'],
     ['an absolute workdir', ['trial', 'workdir'], '/workspace/mono/scratch/trials/todo-02-x'],

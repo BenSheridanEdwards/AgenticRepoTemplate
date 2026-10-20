@@ -5,13 +5,14 @@
  *
  * @typedef {{ name: string, command: string, exitCode: number, durationMs: number, outputTail: string }} CheckRecord
  * @typedef {{
- *   schema: 1,
+ *   schema: 1 | 2,
+ *   task?: { name: string, definitionSha256: string, target: { repo: string, rev: string } | null, checks: string[], land: 'showcase' | 'patch' },
  *   trial: { number: 1 | 2 | 3, id: string, branch: string, workdir: string },
- *   prompt: { path: 'tooling/trial/todo-prompt.md', templateSha256: string, sha256: string, text: string },
+ *   prompt: { path: string, templateSha256: string, sha256: string, text: string },
  *   scaffold: { rev: string, enforcementRev: string, lockfileSha256: string },
  *   harness: { sha256: string, matchesScaffold: boolean },
- *   agent: { cli: string, version: string, argv: string[], sessionId: string, resolvedModel: string | null, userConfigSha256: string, fake: boolean },
- *   run: { startedAt: string, finishedAt: string, durationMs: number, agentExitCode: number | null, agentDurationMs: number | null, turns: number | null, costUsd: number | null },
+ *   agent: { cli: string, version: string, argv: string[], sessionId: string | null, name?: 'claude' | 'codex', modelSource?: 'stream' | 'transcript' | 'pinned' | null, reasoningEffort?: string | null, resolvedModel: string | null, userConfigSha256: string, fake: boolean },
+ *   run: { startedAt: string, finishedAt: string, durationMs: number, agentExitCode: number | null, agentDurationMs: number | null, turns: number | null, costUsd: number | null, tokenUsage?: { input_tokens: number, cached_input_tokens: number, output_tokens: number } | null },
  *   result: { status: 'passed' | 'failed', commit: string | null, changedPaths: string[], outsideScope: string[], outsideReads: string[], stoppedServers: number[], patch: string | null },
  *   stream: { path: string | null, sha256: string | null, userTextEvents: number | null },
  *   checks: CheckRecord[],
@@ -78,16 +79,17 @@ const list = (check) => (value, path) => {
 
 /** @returns {Check} */
 const shape = (fields) => (value, path) => {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+  if (Object.prototype.toString.call(value) !== '[object Object]') {
     reject(path, 'an object', value);
   }
   for (const key of Object.keys(value)) {
-    if (!(key in fields)) {
+    if (!Object.hasOwn(fields, key)) {
       throw new Error(`${path}.${key}: not a field of the evidence schema`);
     }
   }
   for (const [key, check] of Object.entries(fields)) {
-    if (!(key in value)) {
+    if (!Object.hasOwn(value, key) && check.optional) continue;
+    if (!Object.hasOwn(value, key)) {
       throw new Error(`${path}.${key}: missing`);
     }
     check(value[key], `${path}.${key}`);
@@ -100,7 +102,7 @@ const UUID = text(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 const TIME = text(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/, 'an ISO time');
 const BASENAME = text(/^[^/]+$/, 'a folder name, not a path');
 
-const SCHEMA = shape({
+const FIELDS = {
   schema: oneOf(1),
   trial: shape({
     number: oneOf(1, 2, 3),
@@ -159,18 +161,56 @@ const SCHEMA = shape({
   ),
   failures: list(text()),
   retries: list(shape({ startedAt: TIME, failures: list(text()) })),
+};
+const SCHEMA = shape(FIELDS);
+const SCHEMA2 = shape({
+  ...FIELDS,
+  schema: oneOf(2),
+  task: shape({
+    name: text(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    definitionSha256: SHA256,
+    target: nullable(shape({ repo: text(), rev: REV })),
+    checks: list(text()),
+    land: oneOf('showcase', 'patch'),
+  }),
+  trial: shape({ number: oneOf(1, 2, 3), id: text(), branch: text(), workdir: BASENAME }),
+  prompt: shape({ path: text(), templateSha256: SHA256, sha256: SHA256, text: text() }),
+  agent: shape({
+    cli: text(),
+    version: text(),
+    argv: list(text()),
+    sessionId: nullable(text()),
+    resolvedModel: nullable(text()),
+    userConfigSha256: SHA256,
+    fake: oneOf(true, false),
+    name: oneOf('claude', 'codex'),
+    modelSource: nullable(oneOf('stream', 'transcript', 'pinned')),
+    reasoningEffort: nullable(text()),
+  }),
+  run: shape({
+    startedAt: TIME,
+    finishedAt: TIME,
+    durationMs: count(),
+    agentExitCode: nullable(count()),
+    agentDurationMs: nullable(count()),
+    turns: nullable(count()),
+    costUsd: nullable(count()),
+    tokenUsage: nullable(
+      shape({ input_tokens: count(), cached_input_tokens: count(), output_tokens: count() }),
+    ),
+  }),
 });
 
 /** The checks a passed run has run, each at exit 0. */
-export const REQUIRED_CHECKS = ['install', 'verify', 'e2e', 'structure'];
+const REQUIRED_CHECKS = ['install', 'verify', 'e2e', 'structure'];
 
 /** @param {TrialEvidence} evidence */
-const passes = ({ result, stream, checks, failures }) =>
+const passes = ({ result, stream, checks, failures, task }) =>
   result.commit !== null &&
   stream.path !== null &&
   result.outsideScope.length === 0 &&
   result.outsideReads.length === 0 &&
-  REQUIRED_CHECKS.every((name) => checks.some((check) => check.name === name)) &&
+  (task?.checks ?? REQUIRED_CHECKS).every((name) => checks.some((check) => check.name === name)) &&
   checks.every((check) => check.exitCode === 0) &&
   failures.length === 0;
 
@@ -178,7 +218,9 @@ const passes = ({ result, stream, checks, failures }) =>
 const CONSISTENCY = [
   {
     path: 'evidence.trial.id',
-    holds: ({ trial }) => trial.id === `todo-0${trial.number}`,
+    holds: ({ trial, task, agent }) =>
+      trial.id ===
+      `${task?.name ?? 'todo'}${agent.name && agent.name !== 'claude' ? `-${agent.name}` : ''}-0${trial.number}`,
     rule: 'the id is todo-0 followed by the trial number',
   },
   {
@@ -217,12 +259,25 @@ const CONSISTENCY = [
  * @returns {TrialEvidence}
  */
 export function validateEvidence(value) {
-  SCHEMA(value, 'evidence');
+  (value?.schema === 2 ? SCHEMA2 : SCHEMA)(value, 'evidence');
   const evidence = /** @type {TrialEvidence} */ (value);
   for (const { path, holds, rule } of CONSISTENCY) {
     if (!holds(evidence)) {
       throw new Error(`${path}: ${rule}`);
     }
   }
+  if (
+    evidence.schema === 2 &&
+    evidence.task.land === 'patch' &&
+    evidence.run.agentExitCode !== null &&
+    evidence.run.agentExitCode !== -1 &&
+    evidence.result.status === 'passed' &&
+    evidence.result.patch === null
+  ) {
+    throw new Error('evidence.result.patch: patch landing requires a kept patch');
+  }
   return evidence;
 }
+
+/** Boundary validators shared by evidence and task files. */
+export const validators = { shape, text, list, oneOf, nullable };

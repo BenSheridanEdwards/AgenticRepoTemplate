@@ -3,7 +3,8 @@
  * Runs one Todo trial end to end and records its evidence (ADR 0034).
  *
  *   node tooling/trial/run-trial.mjs --trial <1|2|3> --scaffold <rev>
- *     [--trials-root <dir>] [--dry-run] [--retry] [--agent-command <path>]
+ *     [--agent claude|codex] [--task <file>] [--trials-root <dir>]
+ *     [--dry-run] [--retry] [--agent-command <path>]
  *
  * It clones the invoking checkout at the scaffold revision into a fresh
  * workdir, runs one fresh Claude session on the fixed prompt, commits the
@@ -34,9 +35,10 @@ import {
 import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { REQUIRED_CHECKS, validateEvidence } from './evidence.mjs';
+import { validateEvidence } from './evidence.mjs';
 import { findOutsideReads, redactSecrets, streamEvents, summarizeStream } from './stream.mjs';
 import { agentEnv, checkEnv, stopAll, systemDeps, trialEnv } from './system.mjs';
+import { loadTask, TODO_TASK, validateTask, withinPaths } from './task.mjs';
 
 const HARNESS_ROOT = resolve(import.meta.dirname, '../..');
 const TEMPLATE_PATH = 'tooling/trial/todo-prompt.md';
@@ -44,10 +46,15 @@ const LOCKFILE = 'pnpm-lock.yaml';
 const SIGN_OFF = 'Signed-off-by: Ben Sheridan-Edwards <bensheridanedwards@gmail.com>';
 const MIN_FREE_DISK_BYTES = 5e9;
 const OUTPUT_TAIL_LINES = 200;
-/** The reference result's ports and the ports `listResults` gives the one showcase result in a trial clone. */
-const TRIAL_PORTS = [5173, 3001, 5183, 3011];
 /** The files that make up the harness, hashed into `harness.sha256`. */
-const HARNESS_FILES = ['run-trial.mjs', 'evidence.mjs', 'stream.mjs', 'system.mjs'];
+const HARNESS_FILES = [
+  'run-trial.mjs',
+  'evidence.mjs',
+  'stream.mjs',
+  'system.mjs',
+  'task.mjs',
+  'tasks/todo.json',
+];
 
 /** The brief's command, plus the flags that make the session recordable. Never `--resume` or `--continue`. */
 const AGENT_FLAGS = [
@@ -81,31 +88,15 @@ const PRIVATE_ENV = {
   npm_config_cache: 'cache/npm',
 };
 
-/** A trial's `enforcementRev` is the last scaffold commit that touched one of these. */
-const ENFORCEMENT_PATHS = [
-  '.husky',
-  '.github/workflows',
-  '.claude',
-  '.codex',
-  '.fallowrc.jsonc',
-  '.mcp.json',
-  '.npmrc',
-  '.size-limit.json',
-  'biome.json',
-  'commitlint.config.ts',
-  'eslint.config.js',
-  'jest.config.ts',
-  'jest.setup.ts',
-  'lighthouserc.json',
-  'package.json',
-  'playwright.config.ts',
-  'pnpm-workspace.yaml',
-  'scripts',
-  'tooling',
-  ':(glob)tsconfig*.json',
-];
-
 /** What the agent loads from its user-level config folder, hashed into `userConfigSha256`. */
+const CODEX_CONFIG_ENTRIES = [
+  'config.toml',
+  'AGENTS.md',
+  'hooks.json',
+  'rules',
+  'skills',
+  'plugins',
+];
 const USER_CONFIG_ENTRIES = [
   'settings.json',
   'CLAUDE.md',
@@ -121,10 +112,11 @@ const USER_CONFIG_ENTRIES = [
 /**
  * @typedef {{ name: string, argv: readonly string[] }} Command
  * @typedef {{
+ *   task: object, taskDir: string, promptFile?: string, agentName: 'claude' | 'codex', codexHome: string, targetRepo: string, sessionTranscript?: string,
  *   trial: 1 | 2 | 3, id: string, scaffoldRev: string, root: string, trialsRoot: string,
  *   workdir: string, origin: string, clone: string, checkClone: string, branch: string,
  *   evidencePath: string, patchPath: string, keptStreamPath: string, promptPath: string, streamPath: string,
- *   sessionId: string, agentArgv: readonly string[], fake: boolean, retry: boolean,
+ *   sessionId: string | null, agentArgv: readonly string[], fake: boolean, retry: boolean,
  *   claudeConfigDir: string, claudeStateFile: string,
  *   privateEnv: Readonly<Record<string, string>>, checkPrivateEnv: Readonly<Record<string, string>>,
  *   sharedCaches: readonly string[], sharedTmp: string,
@@ -144,19 +136,9 @@ const USER_CONFIG_ENTRIES = [
  * @typedef {import('./evidence.mjs').TrialEvidence} TrialEvidence
  */
 
-/** Before the agent: install the clone's dependencies, which also installs its git hooks. */
-const SETUP = [{ name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'] }];
-
-/** After the commit, on a clean clone of it: every gate, as a pull request runs them. */
-const CHECKS = [
-  { name: 'install', argv: ['pnpm', 'install', '--frozen-lockfile'] },
-  { name: 'verify', argv: ['pnpm', 'verify'] },
-  { name: 'e2e', argv: ['pnpm', 'e2e'] },
-  { name: 'structure', argv: ['node', 'tooling/architecture/structure.mjs'] },
-];
-
 /**
  * @param {{
+ *   agent?: 'claude' | 'codex', task?: object, taskDir?: string, promptFile?: string, codexHome?: string,
  *   trial: number, scaffoldRev: string, root: string, trialsRoot: string, now: Date,
  *   sessionId: string, agentCommand?: string, claudeConfigDir: string, claudeStateFile?: string,
  *   corepackHome: string, browsersPath: string, pnpmStore?: string | null,
@@ -176,13 +158,18 @@ export function planTrial(options) {
   if (!/^[0-9a-f]{40}$/.test(scaffoldRev)) {
     throw new Error(`--scaffold must name a full 40-hex commit, got ${scaffoldRev}`);
   }
-  const id = `todo-0${trial}`;
+  const agentName = options.agent ?? 'claude';
+  if (!['claude', 'codex'].includes(agentName)) throw new Error('--agent must be claude or codex');
+  const task = validateTask(options.task ?? TODO_TASK);
+  const id = `${task.name}${agentName === 'claude' ? '' : `-${agentName}`}-0${trial}`;
   const stamp = now
     .toISOString()
     .replace(/\.\d{3}Z$/, 'Z')
     .replace(/[-:]/g, '');
   const workdir = join(trialsRoot, `${id}-${stamp}`);
   return {
+    ...taskContext(task, options),
+    agentName,
     trial,
     id,
     scaffoldRev,
@@ -193,13 +180,13 @@ export function planTrial(options) {
     clone: join(workdir, 'repo'),
     checkClone: join(workdir, 'check'),
     branch: `trial/${id}`,
-    evidencePath: join(root, 'docs/trials', `${id}.json`),
-    patchPath: join(root, 'docs/trials', `${id}.patch`),
-    keptStreamPath: join(root, 'docs/trials', `${id}.stream.jsonl`),
+    evidencePath: join(task.evidenceDir ?? join(root, 'docs/trials'), `${id}.json`),
+    patchPath: join(task.evidenceDir ?? join(root, 'docs/trials'), `${id}.patch`),
+    keptStreamPath: join(task.evidenceDir ?? join(root, 'docs/trials'), `${id}.stream.jsonl`),
     promptPath: join(workdir, 'prompt.md'),
     streamPath: join(workdir, 'agent.stream.jsonl'),
     sessionId,
-    agentArgv: [agentCommand ?? 'claude', ...AGENT_FLAGS, sessionId],
+    agentArgv: agentArguments(agentName, agentCommand, workdir, sessionId),
     fake: agentCommand !== undefined,
     retry: options.retry,
     claudeConfigDir: options.claudeConfigDir,
@@ -213,10 +200,44 @@ export function planTrial(options) {
       ...(options.pnpmStore ? [options.pnpmStore] : []),
     ],
     sharedTmp: options.sharedTmp ?? '/tmp',
-    ports: TRIAL_PORTS,
-    setup: SETUP,
-    checks: CHECKS,
+    ports: task.ports ?? [],
+    setup: task.setup,
+    checks: [...task.checks, ...(task.acceptance ?? [])].map((command) => ({
+      ...command,
+      argv: command.argv.map((arg) =>
+        arg.replaceAll('{{TASK_DIR}}', options.taskDir ?? HARNESS_ROOT).replaceAll('{{ID}}', id),
+      ),
+    })),
   };
+}
+
+function taskContext(task, options) {
+  return {
+    task,
+    taskDir: options.taskDir ?? HARNESS_ROOT,
+    promptFile: options.promptFile,
+    codexHome: options.codexHome ?? process.env.CODEX_HOME ?? join(homedir(), '.codex'),
+    targetRepo: task.target?.repo ?? options.root,
+  };
+}
+
+function agentArguments(agentName, agentCommand, workdir, sessionId) {
+  return agentName === 'claude'
+    ? [agentCommand ?? 'claude', ...AGENT_FLAGS, sessionId]
+    : [
+        agentCommand ?? 'codex',
+        'exec',
+        '--json',
+        '--dangerously-bypass-approvals-and-sandbox',
+        '--dangerously-bypass-hook-trust',
+        '-m',
+        'gpt-6.1-sol',
+        '-c',
+        `projects.${JSON.stringify(join(workdir, 'repo'))}.trust_level="trusted"`,
+        '-C',
+        join(workdir, 'repo'),
+        '-',
+      ];
 }
 
 /**
@@ -287,7 +308,9 @@ async function git(deps, cwd, ...args) {
 
 /** A file's bytes at the scaffold, or null when the scaffold lacks it. */
 async function atScaffold(plan, deps, path) {
-  const shown = await deps.exec(['git', 'show', `${plan.scaffoldRev}:${path}`], { cwd: plan.root });
+  const shown = await deps.exec(['git', 'show', `${plan.scaffoldRev}:${path}`], {
+    cwd: plan.task.target ? plan.origin : plan.root,
+  });
   return shown.code === 0 ? shown.stdout : null;
 }
 
@@ -317,8 +340,22 @@ async function readHarness(plan, deps) {
  * @param {Deps} deps
  */
 async function readScaffold(plan, deps) {
-  const template = await atScaffold(plan, deps, TEMPLATE_PATH);
-  const lockfile = await atScaffold(plan, deps, LOCKFILE);
+  const { template, lockfile } = await scaffoldInputs(plan, deps);
+  const enforcementRev = await enforcementRevision(plan, deps);
+  return {
+    template,
+    prompt: renderPrompt(template, plan),
+    lockfile,
+    enforcementRev: enforcementRev || plan.scaffoldRev,
+    harness: await readHarness(plan, deps),
+  };
+}
+
+async function scaffoldInputs(plan, deps) {
+  const template = plan.promptFile
+    ? readFileSync(plan.promptFile, 'utf8')
+    : await atScaffold(plan, deps, plan.task.prompt);
+  const lockfile = (await atScaffold(plan, deps, LOCKFILE)) ?? (plan.task.target ? '' : null);
   for (const [path, text] of [
     [TEMPLATE_PATH, template],
     [LOCKFILE, lockfile],
@@ -327,23 +364,24 @@ async function readScaffold(plan, deps) {
       throw new Error(`The scaffold ${plan.scaffoldRev} has no ${path}.`);
     }
   }
-  const enforcementRev = await git(
-    deps,
-    plan.root,
-    'log',
-    '-1',
-    '--format=%H',
-    plan.scaffoldRev,
-    '--',
-    ...ENFORCEMENT_PATHS,
-  );
-  return {
-    template,
-    prompt: renderPrompt(template, plan),
-    lockfile,
-    enforcementRev: enforcementRev || plan.scaffoldRev,
-    harness: await readHarness(plan, deps),
-  };
+  return { template, lockfile };
+}
+
+async function enforcementRevision(plan, deps) {
+  const enforcementRev =
+    (plan.task.enforcementPaths?.length ?? 0) === 0
+      ? plan.scaffoldRev
+      : await git(
+          deps,
+          plan.task.target ? plan.origin : plan.root,
+          'log',
+          '-1',
+          '--format=%H',
+          plan.scaffoldRev,
+          '--',
+          ...(plan.task.enforcementPaths ?? []),
+        );
+  return enforcementRev || plan.scaffoldRev;
 }
 
 /**
@@ -397,7 +435,7 @@ async function checkPreconditions(plan, deps) {
  * @param {TrialPlan} plan
  * @param {Deps} deps
  */
-async function prepareClone(plan, deps) {
+async function prepareOrigin(plan, deps) {
   await git(deps, plan.workdir, 'init', '-q', '--bare', '--initial-branch=main', plan.origin);
   await git(
     deps,
@@ -407,12 +445,16 @@ async function prepareClone(plan, deps) {
     '--no-tags',
     '--upload-pack',
     'git -c uploadpack.allowAnySHA1InWant=true upload-pack',
-    plan.root,
+    plan.targetRepo,
     `${plan.scaffoldRev}:refs/heads/main`,
   );
   // FETCH_HEAD would name the evidence checkout inside the agent's workdir.
   rmSync(join(plan.origin, 'FETCH_HEAD'), { force: true });
   await git(deps, plan.origin, 'config', 'uploadpack.allowFilter', 'true');
+}
+
+async function prepareClone(plan, deps) {
+  if (!plan.task.target) await prepareOrigin(plan, deps);
   await git(
     deps,
     plan.workdir,
@@ -431,7 +473,7 @@ async function prepareClone(plan, deps) {
   }
   const showcase = join(plan.clone, 'showcase');
   const results = existsSync(showcase) ? readdirSync(showcase) : [];
-  if (results.length > 0) {
+  if (plan.task.land === 'showcase' && results.length > 0) {
     throw new Error(`the scaffold already holds showcase results: ${results.join(', ')}`);
   }
 }
@@ -481,7 +523,14 @@ function missingCheckEntries(plan) {
 }
 
 /** Every file under `path`, or `path` itself, as `<relative path>\0<sha256>` lines. */
-function fingerprint(root, path) {
+function fingerprint(root, path, excludeCredentials = false) {
+  if (
+    excludeCredentials &&
+    /(?:^|[/.])(?:auth|credentials?|secrets?|tokens?)(?:[/.]|$)|(?:^|\/)\.(?:env|npmrc|netrc|git-credentials|pypirc)(?:\.|$)|\.(?:pem|key|p12|pfx)$/i.test(
+      path,
+    )
+  )
+    return [];
   const full = join(root, path);
   if (!existsSync(full)) {
     return [];
@@ -489,13 +538,18 @@ function fingerprint(root, path) {
   if (statSync(full).isDirectory()) {
     return readdirSync(full)
       .sort()
-      .flatMap((entry) => fingerprint(root, join(path, entry)));
+      .flatMap((entry) => fingerprint(root, join(path, entry), excludeCredentials));
   }
   return [`${path}\0${sha256(readFileSync(full))}`];
 }
 
 /** @param {TrialPlan} plan */
 function userConfigSha256(plan) {
+  if (plan.agentName === 'codex') {
+    return sha256(
+      CODEX_CONFIG_ENTRIES.flatMap((entry) => fingerprint(plan.codexHome, entry, true)).join('\n'),
+    );
+  }
   const files = USER_CONFIG_ENTRIES.flatMap((entry) => fingerprint(plan.claudeConfigDir, entry));
   const state = existsSync(plan.claudeStateFile)
     ? JSON.parse(readFileSync(plan.claudeStateFile, 'utf8'))
@@ -545,7 +599,12 @@ async function inspectChanges(plan, scaffoldLockfile, deps) {
     withoutOwnImporters(readFileSync(lockfilePath, 'utf8'), plan.id) ===
       withoutOwnImporters(scaffoldLockfile, plan.id);
   const outsideScope = changedPaths.filter((path) =>
-    path === LOCKFILE ? !lockfileInScope : !path.startsWith(`showcase/${plan.id}/`),
+    plan.task.name === 'todo' && !plan.task.target && path === LOCKFILE
+      ? !lockfileInScope
+      : !withinPaths(
+          path,
+          plan.task.allowedPaths.map((prefix) => renderPrompt(prefix, plan)),
+        ),
   );
   return { changedPaths, outsideScope };
 }
@@ -572,23 +631,42 @@ async function rewindToScaffold(plan, deps) {
  * @param {Deps} deps
  */
 async function commitResult(plan, deps) {
-  const paths = [`showcase/${plan.id}`, LOCKFILE].filter((path) =>
-    existsSync(join(plan.clone, path)),
+  const changed = (await inspectChanges(plan, '', deps)).changedPaths;
+  const prefixes = (plan.task.resultPaths ?? plan.task.allowedPaths).map((prefix) =>
+    renderPrompt(prefix, plan),
+  );
+  const paths = changed.filter(
+    (path) =>
+      (withinPaths(path, prefixes) &&
+        withinPaths(
+          path,
+          plan.task.allowedPaths.map((prefix) => renderPrompt(prefix, plan)),
+        )) ||
+      (plan.task.name === 'todo' && !plan.task.target && path === LOCKFILE),
   );
   if (paths.length > 0) {
     await git(deps, plan.clone, 'add', '-A', '--', ...paths);
   }
   const staged = await git(deps, plan.clone, 'diff', '--cached', '--name-only');
   if (staged === '') {
-    return { commit: null, failure: `the agent left no change under showcase/${plan.id}/` };
+    return {
+      commit: null,
+      failure: plan.task.target
+        ? 'the agent left no change inside resultPaths and allowedPaths'
+        : `the agent left no change under showcase/${plan.id}/`,
+    };
   }
   const commit = await deps.exec(
     [
       'git',
+      '-c',
+      'user.name=Ben Sheridan-Edwards',
+      '-c',
+      'user.email=bensheridanedwards@gmail.com',
       'commit',
       '-q',
       '-m',
-      `feat(showcase): add ${plan.id} trial result`,
+      renderPrompt(plan.task.commitMessage ?? 'feat(showcase): add {{ID}} trial result', plan),
       '-m',
       `Trial ${plan.trial} of the Todo trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
     ],
@@ -611,6 +689,11 @@ async function commitResult(plan, deps) {
  * @param {Deps} deps
  */
 async function writePatch(plan, deps) {
+  if (!existsSync(join(plan.clone, '.git')) && plan.task.land === 'patch') {
+    mkdirSync(dirname(plan.patchPath), { recursive: true });
+    writeFileSync(plan.patchPath, '');
+    return plan.task.evidenceDir ? plan.patchPath : relative(plan.root, plan.patchPath);
+  }
   await git(deps, plan.clone, 'add', '-A');
   const committed = await git(
     deps,
@@ -621,12 +704,12 @@ async function writePatch(plan, deps) {
   );
   const uncommitted = await git(deps, plan.clone, 'diff', '--cached', '--binary', 'HEAD');
   const patch = [committed, uncommitted].filter(Boolean).join('\n');
-  if (patch === '') {
+  if (patch === '' && plan.task.land !== 'patch') {
     return null;
   }
   mkdirSync(dirname(plan.patchPath), { recursive: true });
   writeFileSync(plan.patchPath, `${patch}\n`);
-  return relative(plan.root, plan.patchPath);
+  return plan.task.evidenceDir ? plan.patchPath : relative(plan.root, plan.patchPath);
 }
 
 /**
@@ -685,7 +768,7 @@ async function setupStage({ plan, deps, failures, agent }) {
       failures.push(`setup ${setup.name} exited ${setup.exitCode}`);
     }
   }
-  failures.push(...missingCheckEntries(plan));
+  if (!plan.task.target) failures.push(...missingCheckEntries(plan));
   const version = await deps.exec([plan.agentArgv[0], '--version'], {
     cwd: plan.clone,
     ...confined(plan, agentEnv(plan.privateEnv), plan.privateEnv),
@@ -709,6 +792,18 @@ async function setupStage({ plan, deps, failures, agent }) {
  * @param {TrialPlan} plan
  */
 function readScope(plan) {
+  if (plan.agentName === 'codex')
+    return {
+      clone: plan.clone,
+      allowedRoots: [
+        plan.workdir,
+        plan.sharedTmp,
+        ...plan.sharedCaches,
+        ...CODEX_CONFIG_ENTRIES.map((entry) => join(plan.codexHome, entry)),
+        ...(plan.sessionTranscript ? [plan.sessionTranscript] : []),
+      ],
+      deniedRoots: [plan.trialsRoot, join(plan.codexHome, 'sessions'), plan.taskDir],
+    };
   const slug = plan.clone.replace(/[^a-zA-Z0-9]/g, '-');
   const projects = join(plan.claudeConfigDir, 'projects');
   return {
@@ -721,7 +816,7 @@ function readScope(plan) {
       join(projects, slug, plan.sessionId),
       ...plan.sharedCaches,
     ],
-    deniedRoots: [plan.trialsRoot, projects],
+    deniedRoots: [plan.trialsRoot, projects, plan.taskDir],
   };
 }
 
@@ -733,7 +828,7 @@ function readScope(plan) {
  * @param {RunState} state
  */
 async function agentStage(state) {
-  const { plan, deps, scaffold, failures, agent, run, result } = state;
+  const { plan, deps, scaffold, failures, run, result } = state;
   writeFileSync(plan.promptPath, scaffold.prompt);
   run.agentExitCode = -1;
   await writeEvidence(
@@ -754,14 +849,12 @@ async function agentStage(state) {
   }
   const streamText = readFileSync(plan.streamPath, 'utf8');
   const events = streamEvents(streamText);
-  const { resolvedModel, turns, costUsd, userTextEvents } = summarizeStream(events);
-  Object.assign(agent, { resolvedModel });
-  Object.assign(run, { turns, costUsd });
+  const { userTextEvents } = recordSessionSummary(state, events);
   const kept = redactSecrets(streamText, process.env);
   mkdirSync(dirname(plan.keptStreamPath), { recursive: true });
   writeFileSync(plan.keptStreamPath, kept);
   state.stream = {
-    path: relative(plan.root, plan.keptStreamPath),
+    path: plan.task.evidenceDir ? plan.keptStreamPath : relative(plan.root, plan.keptStreamPath),
     sha256: sha256(kept),
     userTextEvents,
   };
@@ -769,6 +862,27 @@ async function agentStage(state) {
   if (result.outsideReads.length > 0) {
     failures.push(`named paths outside the clone: ${result.outsideReads.join(', ')}`);
   }
+}
+
+function recordSessionSummary({ plan, agent, run, failures }, events) {
+  const summary = summarizeStream(events, plan.agentName, { codexHome: plan.codexHome });
+  const { resolvedModel, turns, costUsd, userTextEvents } = summary;
+  if (
+    plan.agentName === 'codex' &&
+    (events.some((event) => event.type === 'turn.failed') || summary.sessionId === null)
+  )
+    failures.push('Codex did not finish a valid thread');
+  if (plan.agentName === 'codex') {
+    plan.sessionId = summary.sessionId;
+    plan.sessionTranscript = summary.transcriptPath;
+  }
+  Object.assign(agent, {
+    resolvedModel,
+    modelSource: summary.modelSource ?? 'stream',
+    reasoningEffort: summary.reasoningEffort ?? null,
+  });
+  Object.assign(run, { turns, costUsd, tokenUsage: summary.tokenUsage ?? null });
+  return { userTextEvents };
 }
 
 /**
@@ -800,7 +914,9 @@ async function strayServerStage({ plan, deps, failures, result }) {
 async function resultStage({ plan, deps, scaffold, failures, result }) {
   Object.assign(result, await inspectChanges(plan, scaffold.lockfile, deps));
   if (result.outsideScope.length > 0) {
-    failures.push(`changed outside showcase/${plan.id}/: ${result.outsideScope.join(', ')}`);
+    failures.push(
+      `changed outside ${plan.task.target ? 'allowedPaths' : `showcase/${plan.id}/`}: ${result.outsideScope.join(', ')}`,
+    );
   }
   await rewindToScaffold(plan, deps);
   const committed = await commitResult(plan, deps);
@@ -847,18 +963,22 @@ async function checksStage(state) {
     plan.clone,
     plan.checkClone,
   );
-  state.checks = await runCommands(
-    plan.checks,
-    plan.checkClone,
-    deps,
-    confined(plan, checkEnv(plan.checkPrivateEnv), plan.checkPrivateEnv),
-  );
+  state.checks = await runCommands(plan.checks, plan.checkClone, deps, {
+    ...confined(plan, checkEnv(plan.checkPrivateEnv), plan.checkPrivateEnv),
+    privateTmp: {
+      ...confined(plan, checkEnv(plan.checkPrivateEnv), plan.checkPrivateEnv).privateTmp,
+      keep: [
+        ...confined(plan, checkEnv(plan.checkPrivateEnv), plan.checkPrivateEnv).privateTmp.keep,
+        ...(plan.task.acceptance?.length ? [plan.taskDir] : []),
+      ],
+    },
+  });
   for (const check of state.checks.filter(({ exitCode }) => exitCode !== 0)) {
     failures.push(`check ${check.name} exited ${check.exitCode}`);
   }
-  for (const name of REQUIRED_CHECKS.filter((required) =>
-    state.checks.every((check) => check.name !== required),
-  )) {
+  for (const name of plan.checks
+    .map(({ name }) => name)
+    .filter((required) => state.checks.every((check) => check.name !== required))) {
     failures.push(`check ${name} did not run`);
   }
 }
@@ -919,7 +1039,14 @@ function toEvidence(state, finishedAt) {
   const { plan, scaffold, startedAt, retries, failures, checks, agent, run, result, stream } =
     state;
   return {
-    schema: 1,
+    schema: 2,
+    task: {
+      name: plan.task.name,
+      definitionSha256: sha256(JSON.stringify(plan.task)),
+      target: plan.task.target ?? null,
+      checks: plan.checks.map(({ name }) => name),
+      land: plan.task.land,
+    },
     trial: {
       number: plan.trial,
       id: plan.id,
@@ -927,7 +1054,7 @@ function toEvidence(state, finishedAt) {
       workdir: basename(plan.workdir),
     },
     prompt: {
-      path: TEMPLATE_PATH,
+      path: plan.task.prompt,
       templateSha256: sha256(scaffold.template),
       sha256: sha256(scaffold.prompt),
       text: scaffold.prompt,
@@ -939,6 +1066,9 @@ function toEvidence(state, finishedAt) {
     },
     harness: scaffold.harness,
     agent: {
+      name: plan.agentName,
+      modelSource: agent.modelSource ?? null,
+      reasoningEffort: agent.reasoningEffort ?? null,
       cli: plan.agentArgv[0],
       version: agent.version,
       argv: [...plan.agentArgv],
@@ -952,6 +1082,7 @@ function toEvidence(state, finishedAt) {
       finishedAt: finishedAt.toISOString(),
       durationMs: finishedAt.getTime() - startedAt.getTime(),
       ...run,
+      tokenUsage: run.tokenUsage ?? null,
     },
     result: { status: failures.length === 0 ? 'passed' : 'failed', ...result },
     stream,
@@ -970,8 +1101,28 @@ function toEvidence(state, finishedAt) {
  * @returns {Promise<TrialEvidence>}
  */
 export async function runTrial(plan, deps) {
-  const scaffold = await readScaffold(plan, deps);
   const retries = await checkPreconditions(plan, deps);
+  let scaffold;
+  let preparationFailure = null;
+  if (plan.task.target) {
+    const template = readFileSync(plan.promptFile, 'utf8');
+    mkdirSync(plan.workdir, { recursive: true });
+    try {
+      await prepareOrigin(plan, deps);
+      scaffold = await readScaffold(plan, deps);
+    } catch (error) {
+      preparationFailure = `harness: ${error instanceof Error ? error.message : String(error)}`;
+      scaffold = {
+        template,
+        prompt: renderPrompt(template, plan),
+        lockfile: '',
+        enforcementRev: plan.scaffoldRev,
+        harness: await readHarness(plan, deps),
+      };
+    }
+  } else {
+    scaffold = await readScaffold(plan, deps);
+  }
   for (const name of Object.keys(PRIVATE_ENV)) {
     mkdirSync(plan.privateEnv[name], { recursive: true, mode: 0o700 });
   }
@@ -982,7 +1133,7 @@ export async function runTrial(plan, deps) {
     scaffold,
     startedAt: deps.now(),
     retries,
-    failures: [],
+    failures: preparationFailure ? [preparationFailure] : [],
     checks: [],
     agent: { version: '', userConfigSha256: sha256(''), resolvedModel: null },
     run: { agentExitCode: null, agentDurationMs: null, turns: null, costUsd: null },
@@ -996,8 +1147,11 @@ export async function runTrial(plan, deps) {
     },
     stream: { path: null, sha256: null, userTextEvents: null },
   };
-  await runStages(state);
-  if (state.failures.length > 0 && state.run.agentExitCode !== null) {
+  if (!preparationFailure) await runStages(state);
+  if (
+    (state.failures.length > 0 && state.run.agentExitCode !== null) ||
+    plan.task.land === 'patch'
+  ) {
     state.result.patch = await writePatch(plan, deps);
   }
   const evidence = toEvidence(state, deps.now());
@@ -1014,6 +1168,8 @@ function parseArguments(argv) {
     '--scaffold': 'scaffold',
     '--trials-root': 'trialsRoot',
     '--agent-command': 'agentCommand',
+    '--agent': 'agent',
+    '--task': 'task',
   };
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
@@ -1030,7 +1186,10 @@ function parseArguments(argv) {
       );
     }
   }
-  if (options.trial === undefined || options.scaffold === undefined) {
+  if (
+    options.trial === undefined ||
+    (options.scaffold === undefined && options.task === undefined)
+  ) {
     throw new Error('Pass --trial <1|2|3> and --scaffold <rev>.');
   }
   return options;
@@ -1074,11 +1233,14 @@ function sharedCache(name, path) {
 }
 
 function planFromArguments(options) {
-  const { root, scaffoldRev } = resolveCheckout(options.scaffold);
+  const loaded = options.task ? loadTask(options.task) : { task: TODO_TASK };
+  const { root, scaffoldRev } = checkoutForTask(options, loaded.task);
   const configDirFromEnv = process.env.CLAUDE_CONFIG_DIR;
   const claudeConfigDir = configDirFromEnv ?? join(homedir(), '.claude');
   const userCache = process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache');
   return planTrial({
+    ...loaded,
+    agent: options.agent,
     trial: Number(options.trial),
     scaffoldRev,
     root,
@@ -1088,6 +1250,24 @@ function planFromArguments(options) {
     agentCommand: options.agentCommand && resolve(options.agentCommand),
     claudeConfigDir,
     claudeStateFile: configDirFromEnv && join(configDirFromEnv, '.claude.json'),
+    ...sharedCacheOptions(userCache),
+    pnpmStore: output(['pnpm', 'store', 'path'], root),
+    retry: options.retry,
+  });
+}
+
+function checkoutForTask(options, task) {
+  const { root, scaffoldRev: checkoutRev } = resolveCheckout(
+    task.target ? 'HEAD' : options.scaffold,
+  );
+  const scaffoldRev = task.target?.rev ?? checkoutRev;
+  if (task.target && options.scaffold && options.scaffold !== scaffoldRev)
+    throw new Error('--scaffold must equal task.target.rev');
+  return { root, scaffoldRev };
+}
+
+function sharedCacheOptions(userCache) {
+  return {
     corepackHome: sharedCache(
       'COREPACK_HOME',
       process.env.COREPACK_HOME ?? join(userCache, 'node/corepack'),
@@ -1096,9 +1276,7 @@ function planFromArguments(options) {
       'PLAYWRIGHT_BROWSERS_PATH',
       process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(userCache, 'ms-playwright'),
     ),
-    pnpmStore: output(['pnpm', 'store', 'path'], root),
-    retry: options.retry,
-  });
+  };
 }
 
 /** The plan fields a dry run prints. */
@@ -1118,7 +1296,12 @@ const DRY_RUN_FIELDS = /** @type {const} */ ([
 
 /** @param {TrialPlan} plan */
 async function printDryRun(plan, deps) {
-  const { prompt, harness } = await readScaffold(plan, deps);
+  const { prompt, harness } = plan.task.target
+    ? {
+        prompt: renderPrompt(readFileSync(plan.promptFile, 'utf8'), plan),
+        harness: { sha256: null, matchesScaffold: false },
+      }
+    : await readScaffold(plan, deps);
   const printed = Object.fromEntries(DRY_RUN_FIELDS.map((field) => [field, plan[field]]));
   console.log(JSON.stringify({ ...printed, promptSha256: sha256(prompt), harness }, null, 2));
 }

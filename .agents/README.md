@@ -39,6 +39,14 @@ pnpm trial --trial 1 --scaffold <rev> --trials-root <dir>             # clone, r
 git fetch <dir>/todo-01-<stamp>/repo trial/todo-01:trial/todo-01         # keep the result branch
 ```
 
+Pass `--agent codex` for a fresh Codex exec session (default: `claude`).
+Pass `--task /absolute/path/task.json` for a task file; a task with a target
+repository pins its own revision and needs no `--scaffold`. Task-local prompts
+and acceptance commands stay outside the clone. External tasks use `land: patch`
+and can set an absolute `evidenceDir` to keep private evidence outside this repo.
+See [ADR 0048](decisions/0048-trial-tasks-and-codex.md). Todo Codex ids are
+`todo-codex-01..03`; compare keeps Todo runs and proves baselines per agent.
+
 The run writes `docs/trials/todo-01.json`, the agent's stream as
 `todo-01.stream.jsonl` with secrets redacted (and `todo-01.patch` when it
 fails), and prints its workdir. Fetch the result branch, then remove the

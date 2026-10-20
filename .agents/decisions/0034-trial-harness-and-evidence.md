@@ -1,7 +1,8 @@
 # 34. Run Todo trials with one harness and record their evidence
 
 - **Status:** Proposed (Ben accepts it by approving the PR), amended by
-  [0038](0038-trial-isolation-and-no-time-limit.md)
+  [0038](0038-trial-isolation-and-no-time-limit.md),
+  [0048](0048-trial-tasks-and-codex.md)
 - **Date:** 2026-10-17
 - **Implements:** [0008](0008-convert-template-into-the-monorepo.md),
   [0032](0032-api-ui-greeting-and-contract.md)

@@ -5,7 +5,7 @@
  * reader here tolerates a missing field and reports null instead.
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -44,7 +44,8 @@ const isUserText = (event) => {
  * The resolved model, turns and cost, or null for a field the stream does not
  * carry, and how many user events carry text.
  */
-export function summarizeStream(events) {
+export function summarizeStream(events, agent = 'claude', options = {}) {
+  if (agent === 'codex') return summarizeCodex(events, options);
   const init = events.find((event) => event.type === 'system' && event.subtype === 'init');
   const result = events.findLast((event) => event.type === 'result');
   const numberOrNull = (value) => (typeof value === 'number' ? value : null);
@@ -79,13 +80,87 @@ export function redactSecrets(text, env) {
  * @param {unknown[]} events
  */
 export const toolInputs = (events) =>
-  events.flatMap((event) =>
-    (Array.isArray(event.message?.content) ? event.message.content : [])
-      .filter(
-        (block) => block?.type === 'tool_use' && block.input && typeof block.input === 'object',
+  events.flatMap((event) => {
+    const item = event.item;
+    const codex =
+      item?.type === 'command_execution' && typeof item.command === 'string'
+        ? [{ command: unwrapCommand(item.command) }]
+        : item?.type === 'file_change'
+          ? (item.changes ?? []).map(({ path }) => ({ file_path: path }))
+          : [];
+    return [
+      ...codex,
+      ...(Array.isArray(event.message?.content) ? event.message.content : [])
+        .filter(
+          (block) => block?.type === 'tool_use' && block.input && typeof block.input === 'object',
+        )
+        .map((block) => block.input),
+    ];
+  });
+
+/** Undo the shell's single-quoted argv representation, leaving the actual script. */
+export function unwrapCommand(command) {
+  const wrapped = command.match(/^\/bin\/(?:ba)?sh -lc '([\s\S]*)'$/);
+  return wrapped ? wrapped[1].replaceAll("'\\''", "'") : command;
+}
+
+/** Find only this thread's transcript; credentials never enter the reader. */
+function codexTranscript(home, threadId) {
+  if (!threadId || !/^[a-zA-Z0-9-]+$/.test(threadId)) return null;
+  const walk = (folder, depth) => {
+    if (!existsSync(folder)) return [];
+    return readdirSync(folder, { withFileTypes: true }).flatMap((entry) =>
+      entry.isDirectory() && depth > 0
+        ? walk(join(folder, entry.name), depth - 1)
+        : entry.isFile() && entry.name.endsWith(`-${threadId}.jsonl`)
+          ? [join(folder, entry.name)]
+          : [],
+    );
+  };
+  return walk(join(home, 'sessions'), 3).sort().at(-1) ?? null;
+}
+
+function tokenUsageOf(completed) {
+  const tokenUsage = completed.length
+    ? completed.reduce(
+        (total, event) => {
+          for (const key of Object.keys(total)) total[key] += event.usage?.[key] ?? 0;
+          return total;
+        },
+        { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 },
       )
-      .map((block) => block.input),
-  );
+    : null;
+  return tokenUsage;
+}
+
+function codexModel(transcriptPath) {
+  const contexts = transcriptPath
+    ? streamEvents(readFileSync(transcriptPath, 'utf8'))
+        .filter((event) => event.type === 'turn_context')
+        .map((event) => event.payload)
+    : [];
+  const context = contexts.findLast((entry) => typeof entry?.model === 'string');
+  return {
+    resolvedModel: context?.model ?? 'gpt-6.1-sol',
+    modelSource: context ? 'transcript' : 'pinned',
+    reasoningEffort: context?.effort ?? context?.reasoning_effort ?? null,
+  };
+}
+
+function summarizeCodex(events, { codexHome = join(homedir(), '.codex') }) {
+  const sessionId = events.find((event) => event.type === 'thread.started')?.thread_id ?? null;
+  const transcriptPath = codexTranscript(codexHome, sessionId);
+  const completed = events.filter((event) => event.type === 'turn.completed');
+  return {
+    sessionId,
+    transcriptPath,
+    ...codexModel(transcriptPath),
+    turns: completed.length,
+    costUsd: null,
+    tokenUsage: tokenUsageOf(completed),
+    userTextEvents: events.filter((event) => event.item?.type === 'user_message').length,
+  };
+}
 
 const expandHome = (path) => (path.startsWith('~/') ? join(homedir(), path.slice(2)) : path);
 

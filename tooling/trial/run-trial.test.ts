@@ -19,6 +19,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
 import { planTrial, renderPrompt, runTrial, systemDeps } from './run-trial.mjs';
+import { loadTask, TODO_TASK } from './task.mjs';
 
 const REPOSITORY_ROOT = resolve(import.meta.dirname, '../..');
 const CLI = join(REPOSITORY_ROOT, 'tooling/trial/run-trial.mjs');
@@ -408,6 +409,15 @@ describe('renderPrompt', () => {
   });
 });
 
+function externalOutcome(outside: boolean, allowLock: boolean, failAcceptance: boolean) {
+  const outsideScope = outside && !allowLock ? ['pnpm-lock.yaml'] : [];
+  return {
+    status: outsideScope.length || failAcceptance ? 'failed' : 'passed',
+    outsideScope,
+    acceptanceExit: failAcceptance ? 2 : 0,
+  };
+}
+
 describe('runTrial', () => {
   // A run Jest gave up on keeps going, so each case gets its own evidence
   // checkout, agents and environment, where no later case looks.
@@ -416,6 +426,134 @@ describe('runTrial', () => {
     caseDir = mkdtempSync(join(sandbox, 'case-'));
     checkout = join(caseDir, 'checkout');
     git(sandbox, 'clone', '-q', '--shared', source, checkout);
+  });
+
+  it.each([
+    [false, false, false],
+    [true, false, false],
+    [true, true, false],
+    [false, false, true],
+  ])('runs an external Codex task with lock change %s, allowed lock %s, failed acceptance %s', async (outside, allowLock, failAcceptance) => {
+    const taskDir = join(caseDir, 'private-task');
+    const expected = externalOutcome(outside, allowLock, failAcceptance);
+    const lockPaths = allowLock ? ['pnpm-lock.yaml'] : [];
+    const evidenceDir = join(caseDir, 'private-evidence');
+    write(taskDir, 'prompt.md', 'Solve issue {{ID}}.\n');
+    write(
+      taskDir,
+      'accept.mjs',
+      "import { readFileSync } from 'node:fs'; if (readFileSync('src/result.txt', 'utf8') !== 'done') process.exit(1);\n",
+    );
+    const target = join(caseDir, 'target');
+    mkdirSync(target);
+    git(target, 'init', '-q', '-b', 'main');
+    write(target, 'src/start.txt', 'start');
+    git(target, 'add', '-A');
+    git(target, 'commit', '-q', '-m', 'target');
+    const rev = git(target, 'rev-parse', 'HEAD');
+    write(
+      taskDir,
+      'task.json',
+      JSON.stringify({
+        name: 'issue-2227',
+        prompt: 'prompt.md',
+        target: { repo: target, rev },
+        allowedPaths: ['src/', ...lockPaths],
+        resultPaths: ['src/result.txt', ...lockPaths],
+        setup: [],
+        checks: [{ name: 'unit', argv: ['true'] }],
+        acceptance: [{ name: 'private-acceptance', argv: ['node', '{{TASK_DIR}}/accept.mjs'] }],
+        evidenceDir,
+        land: 'patch',
+      }),
+    );
+    const loaded = loadTask(join(taskDir, 'task.json'));
+    const agent = fakeAgent(
+      'codex',
+      `
+      emit({ type: 'thread.started', thread_id: 'test-thread' });
+      put('src/result.txt', 'done');
+      put('src/ignored.txt', 'not committed');
+      ${outside ? "put('pnpm-lock.yaml', 'not allowed');" : ''}
+      emit({ type: 'item.completed', item: { type: 'command_execution', command: "/bin/bash -lc 'git status'", aggregated_output: '', exit_code: 0 } });
+      emit({ type: 'turn.completed', usage: { input_tokens: 12, cached_input_tokens: 3, output_tokens: 8 } });
+    `,
+    );
+    const planned = planTrial({
+      ...plan({ agent }),
+      ...loaded,
+      corepackHome: join(homedir(), '.cache/node/corepack'),
+      browsersPath: join(homedir(), '.cache/ms-playwright'),
+      scaffoldRev: rev,
+      agent: 'codex',
+      agentCommand: agent,
+      now: new Date(),
+      codexHome: join(caseDir, 'codex-home'),
+    });
+    if (failAcceptance) writeFileSync(join(taskDir, 'accept.mjs'), 'process.exit(2);');
+    const evidence = await runTrial(planned, quietDeps());
+    expect(evidence.schema).toBe(2);
+    expect(evidence.trial.id).toBe('issue-2227-codex-01');
+    expect(evidence.agent).toMatchObject({
+      name: 'codex',
+      sessionId: 'test-thread',
+      resolvedModel: 'gpt-6.1-sol',
+      modelSource: 'pinned',
+    });
+    expect(evidence.run).toMatchObject({
+      turns: 1,
+      costUsd: null,
+      tokenUsage: { input_tokens: 12, cached_input_tokens: 3, output_tokens: 8 },
+    });
+    expect(
+      evidence.failures.filter(
+        (failure) =>
+          !failure.startsWith('changed outside') && !failure.startsWith('check private-acceptance'),
+      ),
+    ).toEqual([]);
+    expect(evidence.result.status).toBe(expected.status);
+    expect(evidence.result.outsideScope).toEqual(expected.outsideScope);
+    expect(evidence.checks.map(({ name, exitCode }) => [name, exitCode])).toEqual([
+      ['unit', 0],
+      ['private-acceptance', expected.acceptanceExit],
+    ]);
+    expect(readFileSync(planned.patchPath, 'utf8')).toContain('src/result.txt');
+    expect(existsSync(join(planned.checkClone, 'src/ignored.txt'))).toBe(false);
+    expect(readFileSync(planned.patchPath, 'utf8')).toContain('src/ignored.txt');
+    expect(existsSync(join(checkout, 'docs/trials'))).toBe(false);
+    expect(git(planned.clone, 'rev-parse', 'HEAD~1')).toBe(rev);
+    expect(existsSync(join(planned.origin, 'FETCH_HEAD'))).toBe(false);
+    expect(lastCall(agent).argv).toEqual(planned.agentArgv.slice(1));
+    expect(lastCall(agent).stdin).toBe('Solve issue issue-2227-codex-01.\n');
+    expect(validateEvidence(evidence)).toEqual(evidence);
+  });
+
+  it('uses the Codex id rule for Todo and retains the Claude id rule', () => {
+    const base = plan({ agent: '/fake' });
+    const codex = planTrial({
+      ...base,
+      task: TODO_TASK,
+      agent: 'codex',
+      now: new Date(),
+      corepackHome: join(homedir(), '.cache/node/corepack'),
+      browsersPath: join(homedir(), '.cache/ms-playwright'),
+    });
+    expect(codex.id).toBe('todo-codex-01');
+    expect(base.id).toBe('todo-01');
+    expect(codex.agentArgv).toEqual([
+      'codex',
+      'exec',
+      '--json',
+      '--dangerously-bypass-approvals-and-sandbox',
+      '--dangerously-bypass-hook-trust',
+      '-m',
+      'gpt-6.1-sol',
+      '-c',
+      `projects.${JSON.stringify(codex.clone)}.trust_level="trusted"`,
+      '-C',
+      codex.clone,
+      '-',
+    ]);
   });
 
   it('runs the agent once in a fresh blobless clone at the scaffold, commits its result and writes passing evidence', async () => {
@@ -809,7 +947,13 @@ emit({ type: 'assistant', message: { content: [
     expect(
       calls
         .filter(({ privateTmp }) => privateTmp)
-        .map(({ argv, privateTmp }) => [argv.slice(0, 2).join(' '), privateTmp]),
+        .map(({ argv, privateTmp }) => [
+          (argv[0] === 'git' && argv.includes('commit')
+            ? ['git', 'commit']
+            : argv.slice(0, 2)
+          ).join(' '),
+          privateTmp,
+        ]),
     ).toEqual([
       ['true', over(planned.privateEnv.TMPDIR)],
       ['git config', over(planned.privateEnv.TMPDIR)],
@@ -1231,7 +1375,7 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
       {
         ...deps,
         exec: async (argv, options) => {
-          committed ||= argv[0] === 'git' && argv[1] === 'commit';
+          committed ||= argv[0] === 'git' && argv.includes('commit');
           return deps.exec(argv, options);
         },
       },
@@ -1432,6 +1576,51 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
 });
 
 describe('the run-trial CLI', () => {
+  it('accepts an absolute task path and Codex fake-agent flags without a scaffold argument', () => {
+    const folder = mkdtempSync(join(sandbox, 'cli-task-'));
+    const target = join(folder, 'target.json');
+    write(folder, 'prompt.md', 'Solve {{ID}}');
+    writeFileSync(
+      target,
+      JSON.stringify({
+        name: 'issue',
+        prompt: 'prompt.md',
+        target: { repo: source, rev: scaffold },
+        allowedPaths: ['src/'],
+        setup: [],
+        checks: [],
+        land: 'patch',
+        evidenceDir: join(folder, 'evidence'),
+      }),
+    );
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        '--trial',
+        '2',
+        '--task',
+        target,
+        '--agent',
+        'codex',
+        '--agent-command',
+        '/fake/codex',
+        '--trials-root',
+        join(folder, 'trials'),
+        '--dry-run',
+      ],
+      { cwd: source, env: gitEnv, encoding: 'utf8' },
+    );
+    expect(run.status).toBe(0);
+    const printed = JSON.parse(run.stdout);
+    expect(printed.id).toBe('issue-codex-02');
+    expect(printed.scaffoldRev).toBe(scaffold);
+    expect(printed.agentArgv[0]).toBe('/fake/codex');
+    expect(printed.agentArgv).toContain('--dangerously-bypass-hook-trust');
+    expect(printed.evidencePath).toBe(join(folder, 'evidence/issue-codex-02.json'));
+    expect(existsSync(join(folder, 'trials'))).toBe(false);
+  });
+
   it('prints the plan for a dry run and starts nothing', () => {
     const trialsRoot = join(sandbox, 'dry-run-trials');
     mkdirSync(trialsRoot);
