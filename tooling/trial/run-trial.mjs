@@ -161,6 +161,7 @@ export function planTrial(options) {
   const agentName = options.agent ?? 'claude';
   if (!['claude', 'codex'].includes(agentName)) throw new Error('--agent must be claude or codex');
   const task = validateTask(options.task ?? TODO_TASK);
+  validateEvidenceDirectory(task, root);
   const id = `${task.name}${agentName === 'claude' ? '' : `-${agentName}`}-0${trial}`;
   const stamp = now
     .toISOString()
@@ -193,6 +194,17 @@ export function planTrial(options) {
     ...runtimePlan(options, workdir),
     ...taskCommands(task, options.taskDir ?? HARNESS_ROOT, id),
   };
+}
+
+/** External evidence stays outside the invoking checkout, including through symlinks. */
+function validateEvidenceDirectory(task, root) {
+  if (!task.target) return;
+  let ancestor = resolve(task.evidenceDir);
+  while (!existsSync(ancestor)) ancestor = dirname(ancestor);
+  const evidenceRoot = resolve(realpathSync(ancestor), relative(ancestor, task.evidenceDir));
+  const checkoutRoot = realpathSync(root);
+  if (evidenceRoot === checkoutRoot || withinPaths(evidenceRoot, [checkoutRoot]))
+    throw new Error('task.evidenceDir: expected a directory outside the invoking checkout');
 }
 
 function runtimePlan(options, workdir) {
@@ -526,15 +538,17 @@ function missingCheckEntries(plan) {
   const scripts = existsSync(manifest)
     ? (JSON.parse(readFileSync(manifest, 'utf8')).scripts ?? {})
     : {};
-  return plan.checks.flatMap(({ name, argv: [tool, entry] }) => {
-    const missing =
-      (tool === 'node' &&
-        entry &&
-        !entry.startsWith('-') &&
-        !existsSync(join(plan.clone, entry))) ||
-      (tool === 'pnpm' && entry && entry !== 'install' && !(entry in scripts));
-    return missing ? [`check ${name} needs ${entry}, which the scaffold lacks`] : [];
-  });
+  return plan.checks
+    .filter(({ name }) => plan.task.checks.some((check) => check.name === name))
+    .flatMap(({ name, argv: [tool, entry] }) => {
+      const missing =
+        (tool === 'node' &&
+          entry &&
+          !entry.startsWith('-') &&
+          !existsSync(join(plan.clone, entry))) ||
+        (tool === 'pnpm' && entry && entry !== 'install' && !(entry in scripts));
+      return missing ? [`check ${name} needs ${entry}, which the scaffold lacks`] : [];
+    });
 }
 
 /** Every file under `path`, or `path` itself, as `<relative path>\0<sha256>` lines. */
@@ -683,7 +697,7 @@ async function commitResult(plan, deps) {
       '-m',
       renderPrompt(plan.task.commitMessage ?? 'feat(showcase): add {{ID}} trial result', plan),
       '-m',
-      `Trial ${plan.trial} of the Todo trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
+      `Trial ${plan.trial} of the ${plan.task.name === 'todo' ? 'Todo' : plan.task.name} trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
     ],
     { cwd: plan.clone, ...confined(plan, trialEnv(plan.privateEnv), plan.privateEnv) },
   );

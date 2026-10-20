@@ -455,7 +455,7 @@ describe('runTrial', () => {
       taskDir,
       'task.json',
       JSON.stringify({
-        name: 'issue-2227',
+        name: 'issue-9001',
         prompt: 'prompt.md',
         target: { repo: target, rev },
         allowedPaths: ['src/', ...lockPaths],
@@ -492,8 +492,11 @@ describe('runTrial', () => {
     });
     if (failAcceptance) writeFileSync(join(taskDir, 'accept.mjs'), 'process.exit(2);');
     const evidence = await runTrial(planned, quietDeps());
+    expect(git(planned.clone, 'log', '-1', '--format=%B')).toContain(
+      `Trial 1 of the issue-9001 trials at scaffold ${rev}.`,
+    );
     expect(evidence.schema).toBe(2);
-    expect(evidence.trial.id).toBe('issue-2227-codex-01');
+    expect(evidence.trial.id).toBe('issue-9001-codex-01');
     expect(evidence.agent).toMatchObject({
       name: 'codex',
       sessionId: 'test-thread',
@@ -524,7 +527,7 @@ describe('runTrial', () => {
     expect(git(planned.clone, 'rev-parse', 'HEAD~1')).toBe(rev);
     expect(existsSync(join(planned.origin, 'FETCH_HEAD'))).toBe(false);
     expect(lastCall(agent).argv).toEqual(planned.agentArgv.slice(1));
-    expect(lastCall(agent).stdin).toBe('Solve issue issue-2227-codex-01.\n');
+    expect(lastCall(agent).stdin).toBe('Solve issue issue-9001-codex-01.\n');
     expect(validateEvidence(evidence)).toEqual(evidence);
   });
 
@@ -623,6 +626,7 @@ describe('runTrial', () => {
     expect(git(clone, 'rev-parse', 'origin/main')).toBe(scaffold);
     expect(existsSync(join(planned.origin, 'FETCH_HEAD'))).toBe(false);
     const message = git(clone, 'log', '-1', '--format=%B');
+    expect(message).toContain(`Trial 1 of the Todo trials at scaffold ${scaffold}.\n\n${SIGN_OFF}`);
     expect(message.split('\n')[0]).toBe('feat(showcase): add todo-01 trial result');
     expect(message.split('\n').at(-1)).toBe(SIGN_OFF);
     expect(git(clone, 'status', '--porcelain')).toBe('');
@@ -1510,6 +1514,60 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
     );
 
     expect(seen[0]).toEqual(['the harness stopped while it looked for servers the agent left']);
+  });
+
+  it('runs acceptance entries outside the scaffold after the agent starts', async () => {
+    const agent = fakeAgent('local-acceptance', WRITES_RESULT);
+    write(caseDir, 'accept.mjs', 'process.exit(0);');
+    const base = plan({ agent });
+    const evidence = await runTrial(
+      {
+        ...base,
+        task: {
+          ...base.task,
+          acceptance: [{ name: 'acceptance', argv: ['node', join(caseDir, 'accept.mjs')] }],
+        },
+        checks: [
+          ...base.checks,
+          { name: 'acceptance', argv: ['node', join(caseDir, 'accept.mjs')] },
+        ],
+      },
+      quietDeps(),
+    );
+    expect(evidence.result.status).toBe('passed');
+    expect(evidence.checks.find(({ name }) => name === 'acceptance')?.exitCode).toBe(0);
+  });
+
+  it.each([
+    'missing',
+    'relative',
+    'checkout',
+    'nested',
+    'symlink',
+  ])('rejects %s external evidenceDir before creating a workdir', (kind) => {
+    const base = plan({ agent: '/fake' });
+    const link = join(caseDir, 'checkout-link');
+    symlinkSync(checkout, link);
+    const paths: Record<string, string | undefined> = {
+      missing: undefined,
+      relative: 'relative',
+      checkout,
+      nested: join(checkout, 'docs/new-evidence'),
+      symlink: join(link, 'new-evidence'),
+    };
+    expect(() =>
+      planTrial({
+        ...base,
+        task: {
+          ...base.task,
+          target: { repo: source, rev: scaffold },
+          land: 'patch',
+          evidenceDir: paths[kind],
+        },
+        now: new Date(),
+      }),
+    ).toThrow('task.evidenceDir');
+    expect(readdirSync(base.trialsRoot)).toEqual([]);
   });
 
   it.each([

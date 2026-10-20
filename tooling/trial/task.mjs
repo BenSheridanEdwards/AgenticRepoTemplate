@@ -53,6 +53,8 @@ export function validateTask(value) {
     throw new Error('task.checks: expected unique check and acceptance names');
   if (value.target && value.land !== 'patch')
     throw new Error('task.land: expected patch for an external target');
+  if (value.target && !value.evidenceDir)
+    throw new Error('task.evidenceDir: required for an external target');
   return value;
 }
 
