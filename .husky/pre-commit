@@ -12,7 +12,7 @@ echo "› typecheck"
 pnpm typecheck
 
 echo "› biome (lint + format + imports, staged only)"
-pnpm exec biome check --staged --no-errors-on-unmatched .
+pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .
 
 echo "› fallow (code intelligence: dead code, cycles, complexity)"
 pnpm fallow:audit
