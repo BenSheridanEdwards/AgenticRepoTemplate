@@ -19,8 +19,8 @@ The boundary validator rejects unknown or missing fields with their field names.
 Every task names a slug, prompt, allowed path prefixes, setup commands, named
 checks and landing mode. Optional fields select result paths, acceptance
 commands, ports, enforcement paths, commit message and an absolute evidence
-directory. Commands are argv arrays, with no implicit shell. Acceptance commands
-may expand `{{TASK_DIR}}` and `{{ID}}`; prompts and path prefixes expand `{{ID}}`
+directory. Commands are argv arrays, with no implicit shell. Check and acceptance
+commands may expand `{{TASK_DIR}}` and `{{ID}}`; prompts and path prefixes expand `{{ID}}`
 and `{{N}}`. Check and acceptance names are unique.
 
 Without a target, the invoking checkout supplies `--scaffold` and Todo's prompt
@@ -28,8 +28,9 @@ is read at that commit. A target names a local repository or URL and a full
 40-hex revision; its prompt is read from disk relative to the task file or by
 absolute path. The bare origin fetches only that revision as main, removes
 FETCH_HEAD, and supplies the blobless clone on `trial/<id>`. External targets
-use patch landing. The agent receives neither the task file nor acceptance
-commands in its prompt. Outside-read auditing denies the task folder; the
+use patch landing and require an absolute `evidenceDir` outside the invoking
+checkout. The agent receives neither the task file nor acceptance commands in
+its prompt. Outside-read auditing denies the task folder; the
 check clone runs acceptance commands from that folder after the named checks.
 As in 0038, the filesystem outside the private /tmp remains host-visible;
 read auditing detects named outside paths and is not a complete sandbox.
