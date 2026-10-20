@@ -9,6 +9,7 @@ import {
   checkRunEvidence,
   comparisonReport,
   hasTrialEvidence,
+  proveBaseline,
   REPORT_PATH,
   renderComparison,
 } from './compare.mjs';
@@ -1000,6 +1001,75 @@ describe('readResultFacts', () => {
 
 const evidence = (id: string) => JSON.parse(read(`docs/trials/${id}.json`));
 
+describe('agent and task comparison baselines', () => {
+  const records = () =>
+    ['todo-01', 'todo-02', 'todo-03'].map((id, index) => {
+      const record = evidence(id);
+      record.schema = 2;
+      record.agent.name = index === 2 ? 'codex' : 'claude';
+      record.agent.cli = record.agent.name;
+      record.agent.argv = [record.agent.name, '--session-id', record.agent.sessionId];
+      record.task = {
+        name: 'todo',
+        definitionSha256: 'b'.repeat(64),
+        target: null,
+        checks: ['install', 'verify', 'e2e', 'structure'],
+        land: 'showcase',
+      };
+      if (index === 2)
+        Object.assign(record.agent, {
+          version: 'codex 0.163',
+          resolvedModel: 'gpt-6.1-sol',
+          userConfigSha256: 'c'.repeat(64),
+        });
+      return record;
+    });
+  it('allows agent fields to differ across agents while proving equality within each agent', () => {
+    const checks = proveBaseline(records(), read);
+    expect(
+      checks
+        .filter(({ label }) =>
+          [
+            'CLI version',
+            'Resolved model',
+            'User config SHA-256',
+            'Agent CLI',
+            'Agent argv',
+          ].includes(label),
+        )
+        .every(({ holds }) => holds),
+    ).toBe(true);
+  });
+  it('rejects a model difference within one agent and a scaffold difference across agents', () => {
+    const changed = records();
+    changed[1].agent.resolvedModel = 'different';
+    changed[2].scaffold.rev = 'f'.repeat(40);
+    const checks = proveBaseline(changed, read);
+    expect(checks.find(({ label }) => label === 'Resolved model')?.holds).toBe(false);
+    expect(checks.find(({ label }) => label === 'Scaffold rev')?.holds).toBe(false);
+  });
+  it('rejects a changed task definition across agents', () => {
+    const changed = records();
+    changed[2].task.definitionSha256 = 'f'.repeat(64);
+    expect(
+      proveBaseline(changed, read).find(({ label }) => label === 'Task target and checks')?.holds,
+    ).toBe(false);
+  });
+  it('leaves external tasks out of the Todo evidence state', () => {
+    const root = mkdtempSync(join(tmpdir(), 'compare-task-'));
+    try {
+      mkdirSync(join(root, 'docs/trials'), { recursive: true });
+      writeFileSync(
+        join(root, 'docs/trials/other-01.json'),
+        JSON.stringify({ schema: 2, task: { name: 'other' } }),
+      );
+      expect(hasTrialEvidence(root)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('readGateFindings', () => {
   const ESC = '\u001b';
 
@@ -1013,6 +1083,21 @@ describe('readGateFindings', () => {
     expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([
       { file: 'web/src/api-client/index.ts', name: 'RouterInputs', kind: 'type' },
       { file: 'web/src/api-client/index.ts', name: 'TestApiProvider', kind: 'value' },
+    ]);
+  });
+
+  it('reads gate findings from completed Codex command output', () => {
+    const stream = JSON.stringify({
+      type: 'item.completed',
+      item: {
+        type: 'command_execution',
+        command: "/bin/bash -lc 'pnpm verify'",
+        aggregated_output: auditOutput(API_CLIENT_INDEX('todo-02'), 'RouterInputs'),
+        exit_code: 0,
+      },
+    });
+    expect(readGateFindings(stream, 'showcase/todo-02')).toEqual([
+      { file: 'web/src/api-client/index.ts', name: 'RouterInputs', kind: 'type' },
     ]);
   });
 
@@ -1078,6 +1163,38 @@ describe('renderComparison', () => {
     }));
   };
   const verdict = (report: string) => report.split('## Verdict\n\n')[1]?.split('\n\n')[0] ?? '';
+
+  it('shows modern runs side by side and excludes foreign tasks from the report', () => {
+    const modern = runs((records) =>
+      records.forEach((record, index) => {
+        record.schema = 2;
+        record.task = {
+          name: 'todo',
+          definitionSha256: 'b'.repeat(64),
+          target: null,
+          checks: ['install', 'verify', 'e2e', 'structure'],
+          land: 'showcase',
+        };
+        record.agent.name = index === 2 ? 'codex' : 'claude';
+        if (index === 2) record.agent.resolvedModel = 'gpt-6.1-sol';
+      }),
+    );
+    const foreign = {
+      ...modern[0],
+      evidence: {
+        ...modern[0].evidence,
+        task: { ...modern[0].evidence.task, name: 'foreign-task' },
+        trial: { ...modern[0].evidence.trial, id: 'foreign-task-01' },
+      },
+    };
+    const report = renderComparison([...modern, foreign], read);
+    expect(report).toContain(
+      '| Run | Agent | Model | Status | Agent time | Run time | Checks (exit code) |',
+    );
+    expect(report).toContain('`codex` | `gpt-6.1-sol`');
+    expect(report).toContain('Agent is the variable under test');
+    expect(report).not.toContain('foreign-task-01');
+  });
 
   it('opens the verdict with the full pass count and shows the failed run with its checks', () => {
     const report = renderComparison(runs(), read);

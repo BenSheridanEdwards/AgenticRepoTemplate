@@ -67,7 +67,7 @@ import { posix } from 'node:path';
 import ts from 'typescript';
 import { listPublicEntries } from '../../scripts/api-report.mjs';
 import { loadContract } from '../architecture/contract.mjs';
-import { streamEvents } from './stream.mjs';
+import { streamEvents, unwrapCommand } from './stream.mjs';
 
 const OUTSIDE = 'outside-roles';
 const HUNK = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/;
@@ -1055,16 +1055,27 @@ const resultText = (content) =>
  * such as `printf`, can print text shaped like a finding.
  */
 function gateResultTexts(streamText) {
-  const blocks = streamEvents(streamText).flatMap(contentBlocks);
+  const events = streamEvents(streamText);
+  const blocks = events.flatMap(contentBlocks);
   const gateCalls = new Set(
     blocks
       .filter((block) => block?.type === 'tool_use' && block.name === 'Bash')
       .filter((block) => GATE_COMMAND.test(String(block.input?.command ?? '')))
       .map((block) => block.id),
   );
-  return blocks
-    .filter((block) => block?.type === 'tool_result' && gateCalls.has(block.tool_use_id))
-    .map((block) => resultText(block.content));
+  return [
+    ...blocks
+      .filter((block) => block?.type === 'tool_result' && gateCalls.has(block.tool_use_id))
+      .map((block) => resultText(block.content)),
+    ...events
+      .filter(
+        (event) =>
+          event.type === 'item.completed' &&
+          event.item?.type === 'command_execution' &&
+          GATE_COMMAND.test(unwrapCommand(event.item.command ?? '')),
+      )
+      .map((event) => event.item.aggregated_output ?? ''),
+  ];
 }
 
 /** An ANSI color code; built from ESC's code, since a control character in a regex literal reads as a mistake. */
