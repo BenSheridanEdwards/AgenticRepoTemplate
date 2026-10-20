@@ -86,6 +86,7 @@ const ENFORCEMENT_PATHS = [
   '.husky',
   '.github/workflows',
   '.claude',
+  '.codex',
   '.fallowrc.jsonc',
   '.mcp.json',
   '.npmrc',

@@ -135,6 +135,60 @@ describe.each(['sh', 'bash'])('block-gate-bypass hook under %s', (shell) => {
   });
 });
 
+/**
+ * Run the `.codex/hooks.json` PreToolUse command as Codex does: its `command`
+ * string through a shell, from `cwd`, with Codex's PreToolUse JSON on stdin.
+ * The command resolves the script from the repository root (`git rev-parse
+ * --show-toplevel`), so it finds it from a subfolder too.
+ */
+function runCodexHook(command: string, cwd: string) {
+  const hooks = JSON.parse(readFileSync(resolve(ROOT, '.codex/hooks.json'), 'utf8'));
+  const [entry] = hooks.hooks.PreToolUse;
+  const payload = {
+    session_id: 'test-session',
+    turn_id: 'test-turn',
+    transcript_path: '/tmp/rollout.jsonl',
+    cwd,
+    hook_event_name: 'PreToolUse',
+    model: 'gpt-6.1-sol',
+    permission_mode: 'bypassPermissions',
+    tool_name: 'Bash',
+    tool_input: { command },
+    tool_use_id: 'exec-1',
+  };
+  const result = spawnSync('sh', ['-c', entry.hooks[0].command], {
+    cwd,
+    input: JSON.stringify(payload),
+    encoding: 'utf8',
+  });
+  return { status: result.status, stderr: result.stderr };
+}
+
+describe('.codex/hooks.json', () => {
+  it('runs the same script for ^Bash$ through git rev-parse', () => {
+    const hooks = JSON.parse(readFileSync(resolve(ROOT, '.codex/hooks.json'), 'utf8'));
+    const pre = hooks.hooks.PreToolUse;
+
+    expect(pre).toHaveLength(1);
+    expect(pre[0].matcher).toBe('^Bash$');
+    expect(pre[0].hooks).toHaveLength(1);
+    expect(pre[0].hooks[0].type).toBe('command');
+    expect(pre[0].hooks[0].command).toContain('git rev-parse --show-toplevel');
+    expect(pre[0].hooks[0].command).toContain('.claude/hooks/block-gate-bypass.sh');
+  });
+
+  it.each([
+    ROOT,
+    resolve(ROOT, 'tooling/trial'),
+  ])('blocks git commit --no-verify and allows git status, run from %s', (cwd) => {
+    const blocked = runCodexHook('git commit --no-verify --allow-empty -m probe', cwd);
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toContain('Fix what the gate reports instead');
+
+    expect(runCodexHook('git status', cwd)).toEqual({ status: 0, stderr: '' });
+  });
+});
+
 describe('.claude/settings.json', () => {
   it('spawns the hook for git, env, sh, and bash commands', () => {
     const settings = JSON.parse(readFileSync(resolve(ROOT, '.claude/settings.json'), 'utf8'));
