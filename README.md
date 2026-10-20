@@ -286,12 +286,17 @@ AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.m
 .claude/
   settings.json             Permission allowlist and PreToolUse hook.
   hooks/block-gate-bypass.sh  Refuses common hook bypasses. CI is the backstop.
-  skills/                   This repo's own packaged processes.
-    install-agentic-infrastructure/  Install repo guidance, hooks, CI, and PR proof.
-    build-quality-gates/    Build pre-commit, pre-push, and CI gates.
-    build-agent-guidance/   Build truthful AGENTS.md, CLAUDE.md, and .agents context.
-    pr-quality-contract/    PR proof, CI status, risk, and handoff workflow.
-    pr-inline-screenshot-proof/  Embed committed proof inline in the PR body.
+  skills/                   This repo's own packaged processes (some vendored).
+    build-agent-guidance/           Create or update AGENTS.md, CLAUDE.md, and .agents guidance.
+    build-quality-gates/            Create or update Husky, CI, and the lint/type/test gate matrix.
+    gitnexus/                       GitNexus impact analysis and change detection over the code graph.
+    install-agentic-infrastructure/ Install or upgrade the guidance, gate, and PR-proof layers.
+    pr-inline-screenshot-proof/     Render screenshots, video, and proof inline in the PR body.
+    pr-quality-contract/            Turn the Definition of Done into a proof-backed PR body.
+    run-e2e-tests/                  Map a behaviour to a Playwright E2E test and run it against the app.
+    show-me/                        Explain the current topic with diagrams and focused HTML artifacts.
+    verify-agentic-template/        Drive the app in real Chromium and capture PR proof.
+    write-unit-tests/               Write Jest + RTL tests that assert through the accessibility tree.
 .husky/                     pre-commit, commit-msg, pre-push gates.
 .github/
   pull_request_template.md  Proof-backed PR handoff template.
@@ -313,6 +318,7 @@ playwright.config.ts        Browser harness for the E2E behaviour map: one proje
 lighthouserc.json           Lighthouse budget (accessibility floor and performance).
 .fallowrc.jsonc             Fallow config: the role zones and rules, the contract rule pack, plus runtime-loaded plugins.
 pnpm-workspace.yaml         Workspace packages (apps/*, packages/*, showcase/*/web, showcase/*/api), trusted builds, and security overrides.
+vendor/                     Vendored dependency patches (braces, extract-zip), wired via pnpm overrides until upstream ships fixes.
 tsconfig.base.json          strict, with extra strictness; the first gate.
 tsconfig.json               The browser program: web packages and packages/ui.
 tsconfig.node.json          The Node program for root configs, Vite configs and e2e specs.
@@ -325,6 +331,7 @@ tooling/
   architecture/graph.mjs    Reads Fallow's import graph, the files and the results.
   architecture/diagram.mjs  Writes docs/architecture/roles.mmd and each result's architecture.mmd.
   architecture/structure.mjs  Validates every result's structure against the contract.
+  trial/                    The Todo trial harness: runs a trial, checks acceptance, records evidence, and compares results.
 scripts/
   setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus, Ponytail.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
@@ -339,6 +346,8 @@ scripts/
 docs/architecture/roles.mmd  Generated canonical role diagram (pnpm arch:diagram).
 docs/required-gates.md      Generated required-check inventory (pnpm gates:inventory).
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
+docs/prd/                   Committed PRDs: each states a feature's intent and links every behaviour to its E2E test (ADR 0045).
+docs/trials/                Committed Todo-trial records, redacted agent streams, patches, and the comparison report.
 apps/                       The reference result. Root configs own every gate.
   architecture.mmd          The reference result's generated diagram (pnpm arch:diagram).
   web/                      @repo/web: the Vite + React app.
@@ -358,9 +367,9 @@ apps/                       The reference result. Root configs own every gate.
     src/features/greeting/  index, procedures, application and domain for greeting.greet.
     etc/                    Generated API Extractor reports.
 packages/ui/                @repo/ui: Button, TextField, and styles.css, with no business logic.
-showcase/<id>/              Where each generated trial result goes, with the same web/ and api/ shape (none yet).
+showcase/<id>/              Where each generated trial result goes, with the same web/ and api/ shape (`todo-02`, `todo-03`).
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
-graphify-out/GRAPH_REPORT.md  Knowledge-graph report (god nodes, communities). Rebuild with graphify.
+graphify-out/               Generated knowledge-graph output (god nodes, communities). Ignored; rebuild with graphify or /pre-audit-setup.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.
 ```
 

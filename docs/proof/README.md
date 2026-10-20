@@ -2,7 +2,7 @@
 
 Screenshots, videos, and other rendered evidence for a pull request live here,
 under a `docs/proof/<short-scope>/` directory named for the change (for example
-`docs/proof/threshold-counter-error-state/`).
+`docs/proof/greeting-error-state/`).
 
 ## Rules
 
