@@ -51,6 +51,10 @@ exact bytes; `evidence.test.ts` reads the three records from the fixtures. The
 fixtures are plain data: Biome formats the `.json` copies (already formatted),
 and the `.jsonl`, `.patch` and `.mmd` copies are unknown extensions it skips.
 
+The ESLint policy tests create their own showcase subject and compare linted tests
+with the files on disk, linting only populated roots so rerun scaffolds and trial
+clones keep the same placement and tree coverage checks.
+
 **The no-evidence state.** `compare.mjs` gains `hasTrialEvidence(root)`: true
 when `docs/trials/` holds a `*.json` record, false when the folder is empty or
 gone. With no record there is no report to keep current, so the generator writes
