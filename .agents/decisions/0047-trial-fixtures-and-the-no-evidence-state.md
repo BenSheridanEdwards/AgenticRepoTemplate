@@ -80,4 +80,10 @@ it. The prompt, the acceptance spec and every guarded gate file are unchanged.
 - When the rerun lands its new records and regenerates `comparison.md`, the
   drift test takes its strict branch again automatically, with no further
   change.
+- The no-evidence state cannot tell a trial clone from a branch that deletes
+  every record and `comparison.md` while `showcase/` still holds results: both
+  pass the drift test, and `checkLandedRuns` does not run. A change that deletes
+  trial evidence therefore needs a reviewer to check it against the rerun plan
+  of [0034](0034-trial-harness-and-evidence.md); only the rerun's removal commit
+  should do it.
 - No dependency is added.
