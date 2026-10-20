@@ -121,11 +121,23 @@ const hostDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => ({
   ...overrides,
 });
 
-/** `hostDeps` without bubblewrap, which CI lacks, so each command runs on the shared `/tmp`. */
+/** `hostDeps` without bubblewrap, which CI lacks; translate mount paths back to private folders. */
 const quietDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => {
   const { exec } = systemDeps();
   return hostDeps({
-    exec: (argv, options) => exec(argv, { ...options, privateTmp: undefined }),
+    exec: (argv, options) =>
+      exec(argv, {
+        ...options,
+        env: Object.fromEntries(
+          Object.entries(options.env ?? {}).map(([name, value]) => [
+            name,
+            options.privateTmp && value === options.privateTmp.over
+              ? options.privateTmp.folder
+              : value,
+          ]),
+        ),
+        privateTmp: undefined,
+      }),
     ...overrides,
   });
 };
@@ -150,9 +162,11 @@ function plan(options: {
   scaffoldRev?: string;
   retry?: boolean;
   sharedTmp?: string;
+  trialsRoot?: string;
 }) {
-  const trialsRoot = join(sandbox, `trials-${Math.random().toString(16).slice(2)}`);
-  mkdirSync(trialsRoot);
+  const trialsRoot =
+    options.trialsRoot ?? join(sandbox, `trials-${Math.random().toString(16).slice(2)}`);
+  mkdirSync(trialsRoot, { recursive: true });
   return {
     ...planTrial({
       trial: options.trial ?? 1,
@@ -976,13 +990,25 @@ emit({ type: 'assistant', message: { content: [
 
   it('runs the setup, the agent, the commit hooks and the checks each with its own folder over the shared /tmp', async () => {
     const agent = fakeAgent('confined', WRITES_RESULT);
-    const planned = plan({ agent });
+    const planned = plan({
+      agent,
+      sharedTmp: '/tmp',
+      trialsRoot: join(caseDir, 'a-long-trials-root'.repeat(8)),
+    });
     const calls: { argv: readonly string[]; privateTmp: unknown }[] = [];
     const deps = quietDeps();
 
     const evidence = await runTrial(planned, {
       ...deps,
       exec: (argv, options) => {
+        if (options.privateTmp) {
+          for (const name of ['TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CODE_TMPDIR', 'XDG_RUNTIME_DIR']) {
+            expect(options.env?.[name]).toBe('/tmp');
+            expect(
+              Buffer.byteLength(join(options.env?.[name] ?? '', 's'.repeat(64))),
+            ).toBeLessThanOrEqual(107);
+          }
+        }
         calls.push({ argv, privateTmp: options.privateTmp });
         return deps.exec(argv, options);
       },
@@ -1043,7 +1069,8 @@ emit({ type: 'assistant', message: { content: [
     const decoyFolder = mkdtempSync('/tmp/run-trial-decoy-');
     writeFileSync(join(decoyFolder, 'verify.log'), "another job's log\n");
     const log = `verify-${Math.random().toString(16).slice(2)}.log`;
-    const look = (who: string) => `ls -A /tmp > ../${who}.tmp-view`;
+    const look = (who: string) =>
+      `test "$TMPDIR" = /tmp && test "$XDG_RUNTIME_DIR" = /tmp && ls -A /tmp > ../${who}.tmp-view`;
     const agent = fakeAgent(
       'host-confined',
       `${WRITES_RESULT}
@@ -1757,6 +1784,8 @@ describe('the run-trial CLI', () => {
     });
     expect(printed.workdir.startsWith(`${trialsRoot}/todo-02-`)).toBe(true);
     expect(printed.privateEnv.TMPDIR).toBe(join(printed.workdir, 'tmp'));
+    expect(printed.confinedEnv.TMPDIR).toBe('/tmp');
+    expect(printed.checkConfinedEnv.XDG_RUNTIME_DIR).toBe('/tmp');
     expect(printed.agentArgv.slice(0, -1)).toEqual([
       'claude',
       '-p',

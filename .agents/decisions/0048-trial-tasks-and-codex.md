@@ -90,6 +90,16 @@ without it resolved `/usr/bin/node`, while `/bin/bash -c` with it preserved the
 harness PATH and resolved the supplied Node 22. No user profile is edited and
 outside-read auditing is unchanged.
 
+An external task's fleet checks aborted Chromium with `Socket path too long`:
+its private `check-tmp` made Chromium's SingletonSocket path 108 bytes, beyond
+the 107-byte Unix socket path limit. Confined commands now receive `/tmp` for
+`TMPDIR`, `TMP`, `TEMP`, `CLAUDE_CODE_TMPDIR` and `XDG_RUNTIME_DIR`; bubblewrap
+already mounts their separate private backing folders there. Cache paths and
+mounts are unchanged, and the existing `/tmp` read allowance still refers only
+to the trial's private mount. Dry runs show both backing and confined environments.
+This supersedes 0038's advice to keep trials roots short for sockets under these
+variables; socket names themselves must still fit the platform limit.
+
 ## Consequences
 
 - Private tasks and their code can stay entirely outside this repository.

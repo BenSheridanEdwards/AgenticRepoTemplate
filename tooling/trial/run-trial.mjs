@@ -286,8 +286,9 @@ function privateEnvIn(workdir, prefix, { corepackHome, browsersPath }) {
 }
 
 /**
- * The exec options of a command that runs the trial's code: `env`, and the
- * `TMPDIR` folder of `privateEnv` mounted over the shared `/tmp`, keeping the
+ * The exec options of a command that runs the trial's code: temp and runtime
+ * variables name the short mount path to leave room for Unix socket names.
+ * The backing `TMPDIR` folder of `privateEnv` is mounted over `/tmp`, keeping the
  * workdir and an agent named by path in view.
  *
  * @param {TrialPlan} plan
@@ -296,7 +297,14 @@ function privateEnvIn(workdir, prefix, { corepackHome, browsersPath }) {
  */
 function confined(plan, env, privateEnv) {
   return {
-    env,
+    env: {
+      ...env,
+      ...Object.fromEntries(
+        Object.entries(PRIVATE_ENV)
+          .filter(([, folder]) => folder === 'tmp')
+          .map(([name]) => [name, plan.sharedTmp]),
+      ),
+    },
     privateTmp: {
       folder: privateEnv.TMPDIR,
       over: plan.sharedTmp,
@@ -1340,7 +1348,19 @@ async function printDryRun(plan, deps) {
       }
     : await readScaffold(plan, deps);
   const printed = Object.fromEntries(DRY_RUN_FIELDS.map((field) => [field, plan[field]]));
-  console.log(JSON.stringify({ ...printed, promptSha256: sha256(prompt), harness }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        ...printed,
+        confinedEnv: confined(plan, plan.privateEnv, plan.privateEnv).env,
+        checkConfinedEnv: confined(plan, plan.checkPrivateEnv, plan.checkPrivateEnv).env,
+        promptSha256: sha256(prompt),
+        harness,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 /**
