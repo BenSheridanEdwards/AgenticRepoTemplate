@@ -130,22 +130,16 @@ describe('Fallow contract over the reference result', () => {
       'boundary web-routes/greeting -> web-routes/settings',
     ],
     [
-      'a feature imports another feature',
-      `${WEB}/features/name-input/index.ts`,
-      "import { status } from '../status';\nexport const nameInput = status;\n",
-      'boundary web-features/name-input -> web-features/status',
-    ],
-    [
       'a feature imports a route',
       `${WEB}/features/status/index.ts`,
       "import { settings } from '../../routes/settings';\nexport const status = settings;\n",
-      'boundary web-features/status -> web-routes/settings',
+      'boundary web-features -> web-routes/settings',
     ],
     [
       'the app imports a feature',
       `${WEB}/App.tsx`,
       "import { greeting } from './routes/greeting';\nimport { status } from './features/status';\nexport const App = [greeting, status];\n",
-      'boundary web-app -> web-features/status',
+      'boundary web-app -> web-features',
     ],
     [
       'the api client value-imports the router',

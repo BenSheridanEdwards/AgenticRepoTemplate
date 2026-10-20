@@ -125,7 +125,7 @@ describe('TypeScript programs', () => {
     'showcase/x/api/src/features/todo/domain/format.ts',
   ])('passes pure domain code in %s', (path) => {
     const result = typeCheckAtRepoPaths('tsconfig.domain.json', {
-      [path]: 'export const formatGreeting = (name: string) => `Hello, ${name}!`;\n',
+      [path]: `export const formatGreeting = (name: string) => \`Hello, \${name}!\`;\n`,
     });
     expect(result).toEqual({ status: 0, errors: [] });
   });

@@ -30,10 +30,12 @@
   // .agents/project/ARCHITECTURE.md (ADR 0032). Each role is a zone whose
   // patterns match every result by brace glob: the reference in `apps/` and
   // each `showcase/<id>/`. The reference web app also keeps one child zone per
-  // route and per feature folder (autoDiscover), so a route that imports
-  // another route, or a feature that imports another feature, fails here as
-  // well as in ESLint `policy/slice-isolation`, which owns sibling isolation
-  // for every result. The routes and features patterns name only files inside
+  // route folder (autoDiscover), so a route that imports another route fails
+  // here as well as in ESLint `policy/slice-isolation`, which owns sibling
+  // isolation for every result; that rule also keeps one feature from importing
+  // another. Web features are a single zone — a web feature, unlike a route,
+  // is optional, so the zone has one member only when a result adds one.
+  // The routes and features patterns name only files inside
   // a slice folder, so a loose file directly under `routes/` or `features/`
   // sits in no zone and `coverage.requireAllFiles` fails it. The patterns also
   // keep the config valid on a tree where those folders are missing, such as
@@ -59,7 +61,6 @@
       },
       {
         "name": "web-features",
-        "autoDiscover": ["apps/web/src/features"],
         "patterns": ["{apps,showcase/*}/web/src/features/*/**"]
       },
       { "name": "ui", "patterns": ["packages/ui/src/**"] },

@@ -4,6 +4,7 @@ flowchart LR
     web_app["web-app"]
     web_api_client["web-api-client"]
     web_routes["web-routes"]
+    web_features["web-features"]
   end
   subgraph kind_api["api"]
     api_app["api-app"]
@@ -26,3 +27,4 @@ flowchart LR
   web_app --> web_routes
   web_routes --> ui
   web_routes --> web_api_client
+  web_routes --> web_features

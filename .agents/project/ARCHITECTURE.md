@@ -234,7 +234,7 @@ Each rule fails a check on a seeded violation in a committed test
 | Rule | Why | Enforced by | Proved by |
 | --- | --- | --- | --- |
 | Routes own page composition. | One place per page keeps navigation readable. | ESLint `policy/pages-in-routes`, Fallow `web-routes` | `pnpm lint:policy`, `pnpm arch:gate` |
-| Sibling slices stand alone: a route imports no other route, a feature no other feature. | Each slice changes without breaking its siblings. | ESLint `policy/slice-isolation` for every result; Fallow child zones for `apps/web` | `pnpm lint:policy`, `pnpm arch:gate` |
+| Sibling slices stand alone: a route imports no other route, a feature no other feature. | Each slice changes without breaking its siblings. | ESLint `policy/slice-isolation` for every result; Fallow child zones for the `apps/web` routes | `pnpm lint:policy`, `pnpm arch:gate` |
 | Every file belongs to one role and one slice. | Extra layers and loose files hide structure. | Fallow `coverage.requireAllFiles`; `policy/slice-isolation` for a loose file under `src/routes/` or `src/features/` | `pnpm arch:gate`, `pnpm lint:policy` |
 | A package reaches another only by its package name. | Public exports are the only contract. | `policy/slice-isolation` (relative import out of the package) | `pnpm lint:policy` |
 | A module is imported through its `index.ts`. | The public surface is a deliberate, reviewed list. | ESLint `no-restricted-imports`; API reports | `pnpm lint:policy`, `pnpm api:check` |
