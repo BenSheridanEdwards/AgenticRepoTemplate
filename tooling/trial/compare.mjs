@@ -25,7 +25,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { listResults } from '../results.mjs';
@@ -553,14 +553,39 @@ export function renderComparison(runs, readText, options = {}) {
 }
 
 /**
+ * The `<id>.json` evidence record names in `docs/trials`, or none when the
+ * folder is absent. A rerun scaffold removes the old records (ADR 0047), so the
+ * folder may be gone or empty before the rerun lands its first record.
+ *
+ * @param {string} root
+ * @returns {readonly string[]}
+ */
+function trialRecordFiles(root) {
+  const dir = join(root, TRIALS);
+  return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.json')) : [];
+}
+
+/**
+ * Whether the repository holds any trial evidence. With none there is no report
+ * to keep current, and a showcase result without a record is a trial clone
+ * mid-run, so `comparisonReport` is not run and `docs/trials/comparison.md`
+ * stays absent (ADR 0047).
+ *
+ * @param {string} root
+ * @returns {boolean}
+ */
+export function hasTrialEvidence(root) {
+  return trialRecordFiles(root).length > 0;
+}
+
+/**
  * Every `docs/trials/<id>.json`, validated and sorted by trial number, with its
  * result tree (a passed run's tracked files under `showcase/<id>`, a failed
  * run's patch) and its stream text, null when it has none. Throws when the
  * landed results differ from the passed runs.
  */
 function readRuns(root, readText) {
-  const evidences = readdirSync(join(root, TRIALS))
-    .filter((name) => name.endsWith('.json'))
+  const evidences = trialRecordFiles(root)
     .map((name) => {
       const evidence = validateEvidence(JSON.parse(readText(`${TRIALS}/${name}`)));
       if (name !== `${evidence.trial.id}.json`) {
@@ -685,6 +710,10 @@ export function comparisonReport(root) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = resolve(import.meta.dirname, '../..');
-  writeFileSync(join(root, REPORT_PATH), comparisonReport(root));
-  console.log(`Wrote ${REPORT_PATH}`);
+  if (hasTrialEvidence(root)) {
+    writeFileSync(join(root, REPORT_PATH), comparisonReport(root));
+    console.log(`Wrote ${REPORT_PATH}`);
+  } else {
+    console.log(`No trial records in ${TRIALS}; nothing to compare.`);
+  }
 }

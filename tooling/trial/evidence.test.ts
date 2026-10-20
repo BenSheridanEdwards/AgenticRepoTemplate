@@ -5,7 +5,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
 
-const TRIALS = resolve(import.meta.dirname, '../../docs/trials');
+// Byte-for-byte copies of the committed records, kept so this test passes in a
+// rerun scaffold that has removed `docs/trials/` (ADR 0047).
+const FIXTURES = resolve(import.meta.dirname, 'fixtures');
 
 const REV = 'a'.repeat(40);
 const SHA256 = 'b'.repeat(64);
@@ -227,9 +229,9 @@ describe('validateEvidence', () => {
   });
 
   it.each(
-    readdirSync(TRIALS).filter((name) => /^todo-0[1-3]\.json$/.test(name)),
+    readdirSync(FIXTURES).filter((name) => /^todo-0[1-3]\.json$/.test(name)),
   )('still accepts the committed record %s', (name) => {
-    const record = JSON.parse(readFileSync(join(TRIALS, name), 'utf8'));
+    const record = JSON.parse(readFileSync(join(FIXTURES, name), 'utf8'));
 
     expect(validateEvidence(record)).toEqual(record);
   });
