@@ -82,6 +82,14 @@ session, by PID, keep git identity out of configuration and leave pushing to the
 orchestrator. Its template hash changes. This and the harness/enforcement changes
 start a new baseline; the orchestrator reruns all three trials per agent.
 
+Codex 0.163 login shells reset the harness PATH through `/etc/profile`.
+In `todo-codex-02` and `todo-codex-03`, searching outside the clone for the
+missing toolchain caused outside-path failures. The harness now passes
+`-c allow_login_shell=false`. Two small real CLI probes confirmed `/bin/bash -lc`
+without it resolved `/usr/bin/node`, while `/bin/bash -c` with it preserved the
+harness PATH and resolved the supplied Node 22. No user profile is edited and
+outside-read auditing is unchanged.
+
 ## Consequences
 
 - Private tasks and their code can stay entirely outside this repository.

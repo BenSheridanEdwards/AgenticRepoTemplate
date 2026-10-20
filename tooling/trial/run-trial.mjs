@@ -258,6 +258,8 @@ function agentArguments(agentName, agentCommand, workdir, sessionId) {
         '-m',
         'gpt-6.1-sol',
         '-c',
+        'allow_login_shell=false',
+        '-c',
         `projects.${JSON.stringify(join(workdir, 'repo'))}.trust_level="trusted"`,
         '-C',
         join(workdir, 'repo'),

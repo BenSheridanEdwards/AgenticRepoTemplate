@@ -595,6 +595,8 @@ describe('runTrial', () => {
       '-m',
       'gpt-6.1-sol',
       '-c',
+      'allow_login_shell=false',
+      '-c',
       `projects.${JSON.stringify(codex.clone)}.trust_level="trusted"`,
       '-C',
       codex.clone,
