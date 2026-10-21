@@ -149,29 +149,41 @@ approval with an audit trail) stay in the plan.
 
 ## Where the template stands
 
-**Installed today.** The single app keeps feature slices with co-located tests
-and shared modules with public entry points. PR0 maps them onto the role table.
-Fallow 3.x boundary zones in `.fallowrc.jsonc` fail on cross-feature imports,
-and Fallow 3.x also checks dead code, cycles, and complexity. The repo runs
-`strict` TypeScript, Biome with its recommended preset for lint and format,
-Jest, Playwright, and axe. Husky hooks run the CI checks that work locally. A
-script validates PR bodies, and a hook refuses `--no-verify` and the other
-common hook bypasses.
+**Installed today.** The repo is a pnpm workspace:
+`apps/web` holds the Vite + React app, `apps/api` the tRPC api, and
+`packages/ui` the shared components, each file mapped onto the one role table
+(#89, #90; [ADR 0031](decisions/0031-workspace-conversion.md),
+[ADR 0032](decisions/0032-api-ui-greeting-and-contract.md)). Effect Schema
+defines every boundary, forms and tRPC inputs alike, inside the bundle budget
+(#90, #96; [ADR 0011](decisions/0011-effect-schema-everywhere.md),
+[ADR 0036](decisions/0036-effect-4.md)). ESLint owns the policy, hook, and
+compiler rules beside Biome, which formats and runs general lint (#61;
+[ADR 0010](decisions/0010-lint-engine-ownership.md),
+[ADR 0015](decisions/0015-eslint-policy-stack-wiring.md)). Fallow 3.x owns the
+architecture graph, gate, and diagram from `.fallowrc.jsonc` and checks dead
+code, cycles, and complexity, with a committed role diagram and an API
+Extractor report per package (#62, #91;
+[ADR 0014](decisions/0014-fallow-owns-architecture-checks.md),
+[ADR 0033](decisions/0033-result-diagrams-and-structure-validation.md)). The
+repo runs `strict` TypeScript, Jest, Playwright, and axe; Husky hooks mirror
+the CI gates; a script validates PR bodies; and a hook refuses `--no-verify`
+and the other common hook bypasses.
 
-**The plan.** PR0 moves the app into `apps/web`. Plan PRs 1 to 9 follow in
-order, with the Effect PR ahead of PR 4. Each PR that changes a tool also
-updates `TECH_STACK.md` and `QUALITY_GATES.md` to match. Ticketed forward work
-with acceptance criteria lives in [`TODO.md`](TODO.md).
+**The plan.** PR0 landed as #89, and every row in the table below is installed
+except `REVIEW.md`, which the table marks as a target, and cloud agents, which
+it marks as last. Each PR that changes a tool also updates `TECH_STACK.md` and
+`QUALITY_GATES.md` to match. Ticketed forward work with acceptance criteria
+lives in [`TODO.md`](TODO.md).
 
 | Target | What it adds | Status |
 | --- | --- | --- |
-| Monorepo | The app in `apps/web`, then `apps/api` and `packages/ui` | Decided, PR0 |
-| Lint ownership | ESLint for policy, hooks, and compiler rules beside Biome | Decided, PR 2 |
-| React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Decided, PR 2 |
-| Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Decided, before PR 4 |
+| Monorepo | The app in `apps/web`, then `apps/api` and `packages/ui` | Installed (#89, #90; ADR 0031, 0032) |
+| Lint ownership | ESLint for policy, hooks, and compiler rules beside Biome | Installed (#61; ADR 0010, 0015) |
+| React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Installed (#61; ADR 0010) |
+| Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Installed (#90, #96; ADR 0011, 0036) |
 | State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
 | Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) | Installed |
-| Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Decided |
+| Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Installed (#62, #91; ADR 0014, 0033) |
 | Role-named folders | `lib/`, `utils/` and the other catch-all folders fail a check | Installed, ESLint `policy/role-named-folders` |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, `AGENTS.md` and `CONVENTIONS.md` |
 | `REVIEW.md` | Human-written rules for automated PR review, read after lint | Target |
