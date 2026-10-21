@@ -51,6 +51,10 @@ const REQUIRED_HOUSE_SKILLS = [
   '.claude/skills/pr-inline-screenshot-proof/SKILL.md',
 ];
 
+/** The human-written review rules and the Cursor Bugbot pointer to them. */
+const REVIEW_RULES = 'REVIEW.md';
+const BUGBOT_POINTER = '.cursor/BUGBOT.md';
+
 /**
  * A minimal filesystem port so the pure checker can be unit-tested against an
  * in-memory tree. All methods take repository-relative paths.
@@ -368,6 +372,40 @@ function checkDecisionNumbers(filesystem, errors) {
   }
 }
 
+/**
+ * Assert the human-written review rules exist and both reviewer entry points
+ * discover them: the root `AGENTS.md` references the file for Codex and Claude,
+ * and `.cursor/BUGBOT.md` references it for Cursor Bugbot. Keeping the wiring in
+ * one check means the rules a bot reviewer reads after lint cannot silently drop
+ * off any reviewer.
+ */
+function checkReviewRules(filesystem, errors) {
+  if (!assertRegularFile(filesystem, REVIEW_RULES, errors)) {
+    return;
+  }
+
+  try {
+    if (!filesystem.readText('AGENTS.md').includes(REVIEW_RULES)) {
+      errors.push(
+        `\`AGENTS.md\` must reference \`${REVIEW_RULES}\` so Codex and Claude read the ` +
+          'review rules on every PR.',
+      );
+    }
+  } catch {
+    // A missing or unreadable `AGENTS.md` is already reported by checkAgentsPointer.
+  }
+
+  if (!assertRegularFile(filesystem, BUGBOT_POINTER, errors)) {
+    return;
+  }
+  if (!filesystem.readText(BUGBOT_POINTER).includes(REVIEW_RULES)) {
+    errors.push(
+      `\`${BUGBOT_POINTER}\` must reference \`${REVIEW_RULES}\` so Cursor Bugbot reads the ` +
+        'same review rules as Codex and Claude.',
+    );
+  }
+}
+
 /** Run every context-layer invariant. Returns `{ ok, errors }`; pure. */
 export function checkContextLayer(filesystem) {
   const errors = [];
@@ -408,6 +446,8 @@ export function checkContextLayer(filesystem) {
       errors.push(`\`${skillPath}\` frontmatter is missing a \`description:\` field.`);
     }
   }
+
+  checkReviewRules(filesystem, errors);
 
   checkDuplicateSections(filesystem, errors);
   checkDecisionNumbers(filesystem, errors);

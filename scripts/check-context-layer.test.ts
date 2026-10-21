@@ -66,8 +66,10 @@ function buildPassingTree() {
   ].join('\n');
 
   return {
-    'AGENTS.md': '# AGENTS.md\n\nStart here: `.agents/README.md`.\n',
+    'AGENTS.md': '# AGENTS.md\n\nStart here: `.agents/README.md`. Review rules: `REVIEW.md`.\n',
     'CLAUDE.md': '# CLAUDE.md\n\nRead `AGENTS.md` first.\n',
+    'REVIEW.md': 'review rules for the bot reviewer',
+    '.cursor/BUGBOT.md': 'See `REVIEW.md` at the repository root.',
     '.agents/openai.yaml': 'interface: {}\n',
     '.agents/project/ARCHITECTURE.md': 'architecture',
     '.agents/project/CONVENTIONS.md': 'conventions',
@@ -152,6 +154,38 @@ describe('checkContextLayer', () => {
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('byte-identical');
+  });
+
+  it('fails, listing the file, when the review-rules file is missing', () => {
+    const files = buildPassingTree();
+    delete files['REVIEW.md'];
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('Missing required file: `REVIEW.md`');
+  });
+
+  it('fails when AGENTS.md stops referencing the review-rules file', () => {
+    const files = buildPassingTree();
+    files['AGENTS.md'] = '# AGENTS.md\n\nStart here: `.agents/README.md`.\n';
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('`AGENTS.md` must reference `REVIEW.md`');
+  });
+
+  it('fails, listing the file, when the Cursor Bugbot pointer is missing', () => {
+    const files = buildPassingTree();
+    delete files['.cursor/BUGBOT.md'];
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('Missing required file: `.cursor/BUGBOT.md`');
+  });
+
+  it('fails when the Cursor Bugbot pointer stops referencing the review-rules file', () => {
+    const files = buildPassingTree();
+    files['.cursor/BUGBOT.md'] = '# Cursor Bugbot\n\nReview carefully.\n';
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('`.cursor/BUGBOT.md` must reference `REVIEW.md`');
   });
 
   it('fails when a house skill is missing its frontmatter description', () => {

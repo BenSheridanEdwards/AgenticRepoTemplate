@@ -131,6 +131,7 @@ stdlib or native platform features before adding abstractions or dependencies.
 | [`project/DEFINITION_OF_DONE.md`](project/DEFINITION_OF_DONE.md) | …before you claim a task is finished. The gates enforce this list. |
 | [`project/QUALITY_GATES.md`](project/QUALITY_GATES.md) | …before changing hooks, scripts, CI, or tool ownership. |
 | [`project/PR_QUALITY.md`](project/PR_QUALITY.md) | …before opening, updating, or marking a pull request ready. |
+| [`REVIEW.md`](../REVIEW.md) | …before reviewing a pull request: the human-written rules every automated reviewer (Cursor Bugbot, Codex, Claude) applies after lint. |
 | [`project/TECH_STACK.md`](project/TECH_STACK.md) | …to know which tool owns which concern (and what *not* to add). |
 | [`project/GLOSSARY.md`](project/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
 | [`decisions/`](decisions/) | …to understand *why* a constraint exists before you challenge it. ADRs. |
