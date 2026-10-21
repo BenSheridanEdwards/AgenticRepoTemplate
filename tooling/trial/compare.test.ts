@@ -1,12 +1,14 @@
 /**
  * @jest-environment node
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   checkLandedRuns,
   checkRunEvidence,
   comparisonReport,
+  hasTrialEvidence,
   REPORT_PATH,
   renderComparison,
 } from './compare.mjs';
@@ -14,7 +16,28 @@ import { compareResults, FREEDOMS, UI_PRIMITIVE_FOR } from './dimensions.mjs';
 import { readContract, readGateFindings, readResultFacts, treeFromPatch } from './result-facts.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const read = (path: string) => readFileSync(resolve(ROOT, path), 'utf8');
+const FIXTURES = resolve(import.meta.dirname, 'fixtures');
+
+/**
+ * The trial records, streams, patch and the one showcase diagram the suite uses
+ * as test data, kept as byte-for-byte copies under `tooling/trial/fixtures/`, so
+ * these tests pass in a rerun scaffold that has removed `docs/trials/` and the
+ * old `showcase/` results (ADR 0047). Every other path reads the repository.
+ */
+const FIXTURE_FOR: Record<string, string> = {
+  'docs/trials/todo-01.patch': 'todo-01.patch',
+  'docs/trials/todo-01.json': 'todo-01.json',
+  'docs/trials/todo-02.json': 'todo-02.json',
+  'docs/trials/todo-03.json': 'todo-03.json',
+  'docs/trials/todo-01.stream.jsonl': 'todo-01.stream.jsonl',
+  'docs/trials/todo-02.stream.jsonl': 'todo-02.stream.jsonl',
+  'docs/trials/todo-03.stream.jsonl': 'todo-03.stream.jsonl',
+  'showcase/todo-02/architecture.mmd': 'todo-02.architecture.mmd',
+};
+const read = (path: string) => {
+  const fixture = FIXTURE_FOR[path];
+  return readFileSync(fixture ? join(FIXTURES, fixture) : resolve(ROOT, path), 'utf8');
+};
 const contract = readContract(read('.fallowrc.jsonc'));
 const PATCH = 'docs/trials/todo-01.patch';
 const BASE: ReadonlyMap<string, string> = treeFromPatch(read(PATCH), 'showcase/todo-01');
@@ -1210,9 +1233,58 @@ describe('checkLandedRuns', () => {
   });
 });
 
+describe('hasTrialEvidence', () => {
+  const withRoot = (build: (root: string) => void, assert: (root: string) => void) => {
+    const root = mkdtempSync(join(tmpdir(), 'compare-'));
+    try {
+      build(root);
+      assert(root);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  it('is true when docs/trials holds a record', () => {
+    withRoot(
+      (root) => {
+        mkdirSync(join(root, 'docs/trials'), { recursive: true });
+        writeFileSync(join(root, 'docs/trials/todo-01.json'), '{}\n');
+      },
+      (root) => expect(hasTrialEvidence(root)).toBe(true),
+    );
+  });
+
+  it('is false for a rerun scaffold or a trial clone: a showcase result, no record', () => {
+    withRoot(
+      (root) => {
+        mkdirSync(join(root, 'docs/trials'), { recursive: true });
+        for (const pkg of ['web', 'api']) {
+          mkdirSync(join(root, `showcase/todo-01/${pkg}`), { recursive: true });
+          writeFileSync(join(root, `showcase/todo-01/${pkg}/package.json`), '{}\n');
+        }
+      },
+      (root) => expect(hasTrialEvidence(root)).toBe(false),
+    );
+  });
+
+  it('is false when docs/trials is gone', () => {
+    withRoot(
+      () => undefined,
+      (root) => expect(hasTrialEvidence(root)).toBe(false),
+    );
+  });
+});
+
 describe('the committed comparison', () => {
-  it('keeps docs/trials/comparison.md equal to what the committed results give', () => {
-    expect(read(REPORT_PATH)).toBe(comparisonReport(ROOT));
+  it('keeps docs/trials/comparison.md current, or absent before the first trial record', () => {
+    // A rerun scaffold removes the old records (ADR 0047), so until the rerun
+    // lands its first record there is no report to keep current; a showcase
+    // result with no record is a trial clone mid-run.
+    if (hasTrialEvidence(ROOT)) {
+      expect(read(REPORT_PATH)).toBe(comparisonReport(ROOT));
+    } else {
+      expect(existsSync(resolve(ROOT, REPORT_PATH))).toBe(false);
+    }
   });
 
   const freedomsOf = (path: string) => {

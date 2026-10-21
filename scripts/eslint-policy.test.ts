@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { globSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -363,10 +363,30 @@ export function SettingsPage() {
     ['apps/api/src/features/greeting/domain.test.ts'],
     ['packages/ui/src/Button.test.tsx'],
     ['apps/web/src/routes/greeting/GreetingPage.a11y.test.tsx'],
-    ['showcase/todo-03/web/src/routes/todos/useTodos.test.tsx'],
   ])('passes %s beside its subject (policy/test-beside-subject)', (filename) => {
     const result = lintPolicy('export const value = 1;\n', filename);
     expect(result.ruleIds).toEqual([]);
+  });
+
+  it('passes a showcase test beside its subject (policy/test-beside-subject)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'policy-showcase-'));
+    const folder = join(root, 'showcase/todo-01/web/src/routes/todos');
+    try {
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, 'useTodos.ts'), 'export const useTodos = () => [];\n');
+      const messages = new Linter({ cwd: root }).verify(
+        'export const value = 1;\n',
+        {
+          files: ['**/*.tsx'],
+          plugins: { policy },
+          rules: { 'policy/test-beside-subject': 'error' },
+        },
+        join(folder, 'useTodos.test.tsx'),
+      );
+      expect(messages).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('passes a test beside a dotted subject such as todo.schema.ts (policy/test-beside-subject)', () => {
@@ -395,11 +415,19 @@ export function SettingsPage() {
   });
 
   it('finds no catch-all folder or misplaced test in the tree', () => {
-    const run = spawnSync(ESLINT_BIN, ['--format=json', 'apps', 'packages', 'showcase'], {
+    const files = globSync('{apps,packages,showcase}/**/*.{ts,tsx}', {
+      cwd: REPOSITORY_ROOT,
+      exclude: ['**/node_modules/**', '**/dist/**'],
+    });
+    const roots = ['apps', 'packages', 'showcase'].filter((root) =>
+      files.some((file) => file.startsWith(`${root}/`)),
+    );
+    const run = spawnSync(ESLINT_BIN, ['--format=json', ...roots], {
       cwd: REPOSITORY_ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
     });
+    expect({ status: run.status, stderr: run.stderr }).toEqual({ status: 0, stderr: '' });
     const results = JSON.parse(run.stdout) as { filePath: string; messages: LintMessage[] }[];
     const findings = results.flatMap(({ filePath, messages }) =>
       messages
@@ -411,7 +439,12 @@ export function SettingsPage() {
     const tests = results.filter(({ filePath }) => /\.test\.tsx?$/.test(filePath));
 
     expect(findings).toEqual([]);
-    expect(tests.length).toBeGreaterThanOrEqual(29);
+    expect(tests.map(({ filePath }) => filePath).sort()).toEqual(
+      files
+        .filter((file) => /\.test\.tsx?$/.test(file))
+        .map((file) => join(REPOSITORY_ROOT, file))
+        .sort(),
+    );
   });
 
   it('blocks a class component (react-doctor/prefer-function-component)', () => {

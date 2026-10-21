@@ -1,6 +1,7 @@
 # 35. Compare the three Todo results within the spec freedoms
 
-- **Status:** Proposed (Ben accepts it by approving the PR), amended by [0036](0036-effect-4.md)
+- **Status:** Proposed (Ben accepts it by approving the PR), amended by
+  [0036](0036-effect-4.md), [0047](0047-trial-fixtures-and-the-no-evidence-state.md)
 - **Date:** 2026-10-18
 - **Implements:** [0034](0034-trial-harness-and-evidence.md)
 - **Adds to:** [0014](0014-fallow-owns-architecture-checks.md), superseding none of it
