@@ -170,8 +170,7 @@ the CI gates; a script validates PR bodies; and a hook refuses `--no-verify`
 and the other common hook bypasses.
 
 **The plan.** PR0 landed as #89, and every row in the table below is installed
-except `REVIEW.md`, which the table marks as a target, and cloud agents, which
-it marks as last. Each PR that changes a tool also updates `TECH_STACK.md` and
+except cloud agents, which the table marks as last. Each PR that changes a tool also updates `TECH_STACK.md` and
 `QUALITY_GATES.md` to match. Ticketed forward work with acceptance criteria
 lives in [`TODO.md`](TODO.md).
 
@@ -186,7 +185,7 @@ lives in [`TODO.md`](TODO.md).
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Installed (#62, #91; ADR 0014, 0033) |
 | Role-named folders | `lib/`, `utils/` and the other catch-all folders fail a check | Installed, ESLint `policy/role-named-folders` |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, `AGENTS.md` and `CONVENTIONS.md` |
-| `REVIEW.md` | Human-written rules for automated PR review, read after lint | Target |
+| `REVIEW.md` | Human-written rules for automated PR review, read after lint by Cursor Bugbot, Codex, and Claude | Installed (#112; [ADR 0049](decisions/0049-review-rules-for-bot-reviewers.md)); `pnpm check:context` holds the wiring |
 | Cloud agents | Agents triggered from tickets, alerts, or schedules | Last, once the repository is factory-shaped |
 
 ## Done criteria for a new rule
