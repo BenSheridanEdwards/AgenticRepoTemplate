@@ -84,6 +84,20 @@ const EQUAL = [
   ['User config SHA-256', (e) => e.agent.userConfigSha256],
 ];
 
+/** Session ids and clone directories vary between fresh runs of the same agent. */
+function normalizedAgentArgv(evidence) {
+  const { argv, sessionId } = evidence.agent;
+  const cloneIndex = argv.indexOf('-C');
+  const clone = cloneIndex === -1 ? null : argv[cloneIndex + 1];
+  return JSON.stringify(
+    argv.map((arg) => {
+      let normalized = sessionId ? arg.replaceAll(sessionId, '{session}') : arg;
+      if (clone) normalized = normalized.replaceAll(clone, '{clone}');
+      return normalized;
+    }),
+  );
+}
+
 /**
  * One row per baseline field: equal across runs, one fixed value in each run,
  * re-derived from committed text, or distinct per run.
@@ -92,16 +106,80 @@ const EQUAL = [
  * @param {(path: string) => string} readText
  * @returns {readonly BaselineCheck[]}
  */
-function proveBaseline(evidences, readText) {
+export function proveBaseline(evidences, readText) {
   const each = (label, proof, read, holds) => {
     const values = evidences.map(read);
     return { label, proof, values, holds: evidences.every((e, i) => holds(e, values[i])) };
   };
-  const template = (e) => readText(e.prompt.path);
+  const template = (e) => {
+    const current = readText(e.prompt.path);
+    // Schema 1's scaffold template predates ADR 0048's appended safety section.
+    const legacy = current.split('\n## Shared machine\n')[0];
+    return e.schema === 1 && sha256(legacy) === e.prompt.templateSha256 ? legacy : current;
+  };
   return [
     ...EQUAL.map(([label, read]) =>
-      each(label, 'equal across runs', read, (_, value) => value === read(evidences[0])),
+      each(
+        label,
+        ['CLI version', 'Resolved model', 'User config SHA-256'].includes(label) &&
+          evidences.some((e) => e.schema === 2)
+          ? 'equal within each agent; agent is the variable under test'
+          : 'equal across runs',
+        read,
+        (e, value) =>
+          evidences
+            .filter(
+              (other) =>
+                !['CLI version', 'Resolved model', 'User config SHA-256'].includes(label) ||
+                (other.agent.name ?? 'claude') === (e.agent.name ?? 'claude'),
+            )
+            .every((other) => value === read(other)),
+      ),
     ),
+    ...(evidences.some((e) => e.schema === 2)
+      ? [
+          ...[
+            ['Agent CLI', (e) => e.agent.cli],
+            ['Agent argv', normalizedAgentArgv],
+            ['Reasoning effort', (e) => e.agent.reasoningEffort ?? '(none)'],
+          ].map(([label, read]) =>
+            each(
+              label,
+              'equal within each agent; argv excludes clone paths and session ids',
+              read,
+              (e, value) =>
+                evidences
+                  .filter((other) => (other.agent.name ?? 'claude') === (e.agent.name ?? 'claude'))
+                  .every((other) => read(other) === value),
+            ),
+          ),
+          each(
+            'Task target and checks',
+            'equal across runs',
+            (e) =>
+              JSON.stringify(
+                e.task ?? {
+                  name: 'todo',
+                  target: null,
+                  checks: ['install', 'verify', 'e2e', 'structure'],
+                  land: 'showcase',
+                },
+              ),
+            (_, value) =>
+              evidences.every(
+                (other) =>
+                  JSON.stringify(
+                    other.task ?? {
+                      name: 'todo',
+                      target: null,
+                      checks: ['install', 'verify', 'e2e', 'structure'],
+                      land: 'showcase',
+                    },
+                  ) === value,
+              ),
+          ),
+        ]
+      : []),
     each(
       'Harness equals the scaffold copy',
       '`true` in each run',
@@ -305,6 +383,25 @@ function renderRuns(runs, readText, tmpNote) {
   const withTmp = first === undefined ? [tmpNote] : [[first, tmpNote].join(' ').trim(), ...rest];
   return [
     '## Runs',
+    ...(runs.some(({ evidence }) => evidence.schema === 2)
+      ? [
+          table(
+            ['Run', 'Agent', 'Model', 'Status', 'Agent time', 'Run time', 'Checks (exit code)'],
+            runs.map(({ evidence: e }) => [
+              code(e.trial.id),
+              code(e.agent.name ?? 'claude'),
+              code(e.agent.resolvedModel ?? '(none)'),
+              code(e.result.status),
+              duration(e.run.agentDurationMs),
+              duration(e.run.durationMs),
+              andList(
+                e.checks.map((check) => `${code(check.name)} ${code(String(check.exitCode))}`),
+              ),
+            ]),
+          ),
+          'Agent is the variable under test. Agent CLI, version, argv, model and user config must match within each agent; session ids stay distinct. Every non-agent baseline field must match across agents.',
+        ]
+      : []),
     table(
       ['Run', 'Status', 'Read from', 'Commit', 'Agent time', 'Checks (exit code)', 'Failure'],
       rows,
@@ -521,7 +618,13 @@ function renderVerdict(runs, comparison, checks, tmp) {
  *   drift starts at another enforcement rev than the runs recorded
  */
 export function renderComparison(runs, readText, options = {}) {
-  const { causes = OUTSIDE_PATH_CAUSES, drift = TRUNK_DRIFT, notes = AUTHOR_NOTES } = options;
+  runs = runs.filter(({ evidence }) => evidence.schema === 1 || evidence.task.name === 'todo');
+  const modern = runs.some(({ evidence }) => evidence.schema === 2);
+  const {
+    causes = modern ? {} : OUTSIDE_PATH_CAUSES,
+    drift = modern ? null : TRUNK_DRIFT,
+    notes = AUTHOR_NOTES,
+  } = options;
   const evidences = runs.map((run) => run.evidence);
   checkCauses(causes, evidences);
   const ids = evidences.map((evidence) => evidence.trial.id);
@@ -544,7 +647,13 @@ export function renderComparison(runs, readText, options = {}) {
       ),
     ),
     ...renderRuns(runs, readText, explainTmpPaths(tmp, causes)),
-    ...renderBaseline(checks, ids, driftLine(evidences, drift)),
+    ...renderBaseline(
+      checks,
+      ids,
+      drift
+        ? driftLine(evidences, drift)
+        : 'New baseline; compare the recorded enforcement revisions above.',
+    ),
     ...renderMethod(comparison),
     ...renderDepartures(comparison.differences, ids),
     ...renderDiagrams(runs),
@@ -575,7 +684,10 @@ function trialRecordFiles(root) {
  * @returns {boolean}
  */
 export function hasTrialEvidence(root) {
-  return trialRecordFiles(root).length > 0;
+  return trialRecordFiles(root).some((name) => {
+    const e = JSON.parse(readFileSync(join(root, TRIALS, name), 'utf8'));
+    return e.schema !== 2 || e.task?.name === 'todo';
+  });
 }
 
 /**
@@ -591,6 +703,7 @@ function readRuns(root, readText) {
       if (name !== `${evidence.trial.id}.json`) {
         throw new Error(`compare: ${TRIALS}/${name} records ${evidence.trial.id}.`);
       }
+      if (evidence.schema === 2 && evidence.task.name !== 'todo') return null;
       if (evidence.agent.fake) {
         throw new Error(
           `compare: ${evidence.trial.id} ran a fake agent; a trial runs the real one.`,
@@ -598,12 +711,15 @@ function readRuns(root, readText) {
       }
       return evidence;
     })
+    .filter(Boolean)
     .sort((a, b) => a.trial.number - b.trial.number);
   checkLandedRuns(
     listResults(root)
       .filter((result) => result.root.startsWith('showcase/'))
       .map((result) => result.id),
-    evidences.filter((e) => e.result.status === 'passed').map((e) => e.trial.id),
+    evidences
+      .filter((e) => e.result.status === 'passed' && e.task?.land !== 'patch')
+      .map((e) => e.trial.id),
   );
   return evidences.map((evidence) => {
     const run = readRunTree(root, evidence, readText);
@@ -621,7 +737,7 @@ function readRuns(root, readText) {
 function readRunTree(root, evidence, readText) {
   const id = evidence.trial.id;
   const resultRoot = `showcase/${id}`;
-  if (evidence.result.status === 'passed') {
+  if (evidence.result.status === 'passed' && evidence.task?.land !== 'patch') {
     const files = execFileSync('git', ['ls-files', '-z', resultRoot], {
       cwd: root,
       encoding: 'utf8',

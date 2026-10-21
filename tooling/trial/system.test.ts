@@ -70,3 +70,31 @@ describe('listeners', () => {
     expect(listenersWith(join(dir, 'empty'), 5183, unreadableProc())).toEqual([]);
   });
 });
+
+describe('agent environment', () => {
+  it('allows only the five Codex configuration and authentication variables', () => {
+    const codex = {
+      CODEX_HOME: '/codex-home',
+      OPENAI_API_KEY: 'test-key',
+      OPENAI_BASE_URL: 'https://example.test',
+      OPENAI_ORG_ID: 'test-org',
+      OPENAI_PROJECT: 'test-project',
+    };
+    const printed = execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import { agentEnv } from ${JSON.stringify(SYSTEM)}; console.log(JSON.stringify(agentEnv({})));`,
+      ],
+      {
+        env: { ...process.env, ...codex, OPENAI_MODEL: 'unrecorded', CODEX_THREAD_ID: 'previous' },
+        encoding: 'utf8',
+      },
+    );
+    const actual = JSON.parse(printed);
+    expect(actual).toMatchObject(codex);
+    expect(actual.OPENAI_MODEL).toBeUndefined();
+    expect(actual.CODEX_THREAD_ID).toBeUndefined();
+  });
+});

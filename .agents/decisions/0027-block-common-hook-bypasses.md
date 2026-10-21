@@ -78,6 +78,10 @@ table of blocked and allowed commands into the script under both `sh` and
 
 ## Consequences
 
+- `.codex/hooks.json` runs the same guard for Bash calls in Codex sessions
+  that trust the project and enable hook trust; the trial harness passes both.
+  Codex silently skips untrusted project hooks otherwise. CI stays the backstop.
+
 - The bypasses seen in use, and the common variants of them, are refused before
   they run.
 - Where the guard has to choose, it blocks. Accepted false positives:

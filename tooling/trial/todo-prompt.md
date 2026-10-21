@@ -40,3 +40,9 @@ The fixed acceptance test `tooling/trial/acceptance/todo.spec.ts` drives your pa
 ## Done
 
 Done means `pnpm verify` and `pnpm e2e` pass with every gate as it is, per `.agents/project/DEFINITION_OF_DONE.md`. Run them, fix what they report, and run them again until they pass. Leave your work uncommitted. The harness commits it when you finish.
+
+## Shared machine
+
+Never use `pkill -f`, `killall` or any kill-by-pattern: this machine is shared.
+Stop only processes you started, by PID. Never set git `user.name` or
+`user.email` in any git config. Do not push.

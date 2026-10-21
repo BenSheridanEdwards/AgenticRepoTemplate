@@ -1,6 +1,7 @@
 # 38. Give each trial a private temp folder and no time limit
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Proposed (Ben accepts it by approving the PR), amended by
+  [0048](0048-trial-tasks-and-codex.md)
 - **Date:** 2026-10-18
 - **Amends:** [0034](0034-trial-harness-and-evidence.md)
 

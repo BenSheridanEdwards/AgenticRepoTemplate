@@ -39,6 +39,14 @@ pnpm trial --trial 1 --scaffold <rev> --trials-root <dir>             # clone, r
 git fetch <dir>/todo-01-<stamp>/repo trial/todo-01:trial/todo-01         # keep the result branch
 ```
 
+Pass `--agent codex` for a fresh Codex exec session (default: `claude`).
+Pass `--task /absolute/path/task.json` for a task file; a task with a target
+repository pins its own revision and needs no `--scaffold`. Task-local prompts
+and acceptance commands stay outside the clone. External tasks use `land: patch`
+and can set an absolute `evidenceDir` to keep private evidence outside this repo.
+See [ADR 0048](decisions/0048-trial-tasks-and-codex.md). Todo Codex ids are
+`todo-codex-01..03`; compare keeps Todo runs and proves baselines per agent.
+
 The run writes `docs/trials/todo-01.json`, the agent's stream as
 `todo-01.stream.jsonl` with secrets redacted (and `todo-01.patch` when it
 fails), and prints its workdir. Fetch the result branch, then remove the
@@ -92,7 +100,7 @@ the code-level rules and their checks.
 | --- | --- |
 | Every file has one architecture role, and imports follow the role table and the contract in [`project/ARCHITECTURE.md`](project/ARCHITECTURE.md). | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
-| Every hook runs; `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides are refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code, [ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI re-runs every gate |
+| Every hook runs; `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides are refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code and trusted Codex sessions with hook trust, [ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI re-runs every gate |
 | A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `eslint.config.js`, `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`, `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`) waits for BenSheridanEdwards to tick the sign-off for its head commit. A tick counts when it is made as BenSheridanEdwards. | `enforcement-approval` status ([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
