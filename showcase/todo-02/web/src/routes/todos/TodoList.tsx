@@ -1,31 +1,18 @@
 import { TodoItem } from './TodoItem';
-import type { Todo, TodosState } from './useTodos';
+import type { Todo } from './useTodos';
 
 export interface TodoListProps {
-  readonly todos: TodosState;
-  readonly onToggle: (id: Todo['id']) => void;
-  readonly onDelete: (id: Todo['id']) => void;
+  readonly todos: readonly Todo[];
+  readonly onToggle: (id: string) => void;
+  readonly onDelete: (id: string) => void;
 }
 
 export function TodoList({ todos, onToggle, onDelete }: TodoListProps) {
-  if (todos.status === 'loading') {
-    return <output className="todo-status">Loading…</output>;
-  }
-  if (todos.status === 'error') {
-    return (
-      <p role="alert" className="todo-error">
-        Could not load the todos
-      </p>
-    );
-  }
   return (
-    <>
-      <ul className="todo-list" aria-label="Todos">
-        {todos.todos.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} onToggle={onToggle} onDelete={onDelete} />
-        ))}
-      </ul>
-      {todos.todos.length === 0 ? <p className="todo-status">Nothing to do yet.</p> : null}
-    </>
+    <ul className="todo-list" aria-label="Todos">
+      {todos.map((todo) => (
+        <TodoItem key={todo.id} todo={todo} onToggle={onToggle} onDelete={onDelete} />
+      ))}
+    </ul>
   );
 }

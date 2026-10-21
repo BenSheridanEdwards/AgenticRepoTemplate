@@ -1,38 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type RouterOutputs, useTrpc } from '../../api-client';
+import { type RouterInputs, type RouterOutputs, useTrpc } from '../../api-client';
 
-export type Todo = RouterOutputs['todos']['list'][number];
+export type Todo = RouterOutputs['todo']['list'][number];
+type Title = RouterInputs['todo']['create']['title'];
+type TodoId = RouterInputs['todo']['toggle']['id'];
 
-export type TodosState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'error' }
-  | { readonly status: 'success'; readonly todos: readonly Todo[] };
-
-/** The todos from the api, and the changes that refresh them once the api saves them. */
+/** The todos the api holds, with the actions that create, toggle and delete them. */
 export function useTodos() {
   const trpc = useTrpc();
   const queryClient = useQueryClient();
-  const query = useQuery(trpc.todos.list.queryOptions());
-  const refreshTodos = () =>
-    queryClient.invalidateQueries({ queryKey: trpc.todos.list.queryKey() });
-  const create = useMutation(trpc.todos.create.mutationOptions({ onSuccess: refreshTodos }));
-  const toggle = useMutation(trpc.todos.toggle.mutationOptions({ onSuccess: refreshTodos }));
-  const remove = useMutation(trpc.todos.delete.mutationOptions({ onSuccess: refreshTodos }));
+  const query = useQuery(trpc.todo.list.queryOptions());
 
-  let todos: TodosState;
-  if (query.isError) {
-    todos = { status: 'error' };
-  } else if (query.data) {
-    todos = { status: 'success', todos: query.data };
-  } else {
-    todos = { status: 'loading' };
+  const refreshTodos = () => queryClient.invalidateQueries({ queryKey: trpc.todo.list.queryKey() });
+
+  const createMutation = useMutation(trpc.todo.create.mutationOptions({ onSuccess: refreshTodos }));
+  const toggleMutation = useMutation(trpc.todo.toggle.mutationOptions({ onSuccess: refreshTodos }));
+  const removeMutation = useMutation(trpc.todo.remove.mutationOptions({ onSuccess: refreshTodos }));
+
+  function createTodo(title: Title) {
+    createMutation.mutate({ title });
   }
 
-  return {
-    todos,
-    saveFailed: create.isError || toggle.isError || remove.isError,
-    addTodo: (title: Todo['title']) => create.mutate({ title }),
-    toggleTodo: (id: Todo['id']) => toggle.mutate({ id }),
-    deleteTodo: (id: Todo['id']) => remove.mutate({ id }),
-  };
+  function toggleTodo(id: TodoId) {
+    toggleMutation.mutate({ id });
+  }
+
+  function removeTodo(id: TodoId) {
+    removeMutation.mutate({ id });
+  }
+
+  return { todos: query.data ?? [], createTodo, toggleTodo, removeTodo };
 }

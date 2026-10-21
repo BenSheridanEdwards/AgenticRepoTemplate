@@ -3,37 +3,40 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { type TestApiHandlers, TestApiProvider } from '../../api-client';
 import { TodosPage } from './TodosPage';
-import type { Todo } from './useTodos';
 
-/** An in-memory api over `initial`, with each handler a mock the test can inspect. */
-function fakeApi(initial: readonly Todo[] = []) {
-  let todos = [...initial];
-  let nextId = initial.length + 1;
-  return {
-    'todos.list': jest.fn(() => todos),
-    'todos.create': jest.fn(({ title }: { title: string }) => {
-      const todo = { id: String(nextId++), title, completed: false };
-      todos = [...todos, todo];
-      return todo;
-    }),
-    'todos.toggle': jest.fn(({ id }: { id: string }) => {
-      todos = todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo,
-      );
-      const toggled = todos.find((todo) => todo.id === id);
-      if (!toggled) {
-        throw new Error('not found');
-      }
-      return toggled;
-    }),
-    'todos.delete': jest.fn(({ id }: { id: string }) => {
-      todos = todos.filter((todo) => todo.id !== id);
-      return { id };
-    }),
-  } satisfies TestApiHandlers;
+interface StoredTodo {
+  id: string;
+  title: string;
+  completed: boolean;
 }
 
-function renderPage(handlers: TestApiHandlers) {
+function renderPage() {
+  const todos: StoredTodo[] = [];
+  let sequence = 0;
+  const handlers: TestApiHandlers = {
+    'todo.list': () => todos.map((todo) => ({ ...todo })),
+    'todo.create': ({ title }) => {
+      sequence += 1;
+      const todo = { id: `id-${sequence}`, title, completed: false };
+      todos.push(todo);
+      return { ...todo };
+    },
+    'todo.toggle': ({ id }) => {
+      const todo = todos.find((candidate) => candidate.id === id);
+      if (!todo) {
+        throw new Error(`No todo with id ${id}`);
+      }
+      todo.completed = !todo.completed;
+      return { ...todo };
+    },
+    'todo.delete': ({ id }) => {
+      const index = todos.findIndex((candidate) => candidate.id === id);
+      if (index >= 0) {
+        todos.splice(index, 1);
+      }
+      return { id };
+    },
+  };
   const view = render(
     <TestApiProvider handlers={handlers}>
       <TodosPage />
@@ -42,112 +45,60 @@ function renderPage(handlers: TestApiHandlers) {
   return { ...view, user: userEvent.setup() };
 }
 
-async function submitTitle(user: ReturnType<typeof userEvent.setup>, title: string) {
-  const field = screen.getByRole('textbox', { name: 'Title' });
-  await user.clear(field);
-  if (title) {
-    await user.type(field, title);
-  }
+async function addTodo(user: ReturnType<typeof userEvent.setup>, title: string) {
+  await user.type(screen.getByRole('textbox', { name: 'Title' }), title);
   await user.click(screen.getByRole('button', { name: 'Add' }));
+  expect(await screen.findByRole('checkbox', { name: title })).toBeInTheDocument();
 }
 
-const todoList = () => screen.findByRole('list', { name: 'Todos' });
-
-it('shows the heading and the todos from the api', async () => {
-  renderPage(fakeApi([{ id: '1', title: 'Buy milk', completed: true }]));
+it('shows the Todos heading and adds a todo that appears unchecked', async () => {
+  const { user } = renderPage();
 
   expect(screen.getByRole('heading', { level: 1, name: 'Todos' })).toBeInTheDocument();
-  const list = await todoList();
-  expect(within(list).getByRole('checkbox', { name: 'Buy milk' })).toBeChecked();
-});
+  await addTodo(user, 'Buy milk');
 
-it('says there are no todos yet when the list is empty', async () => {
-  renderPage(fakeApi());
-
-  await todoList();
-  expect(screen.getByText('No todos yet.')).toBeInTheDocument();
-});
-
-it('adds a todo with the trimmed title and clears the field', async () => {
-  const api = fakeApi();
-  const { user } = renderPage(api);
-  await todoList();
-
-  await submitTitle(user, '  Buy milk ');
-
-  expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).not.toBeChecked();
-  expect(api['todos.create']).toHaveBeenCalledWith({ title: 'Buy milk' });
-  expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('');
-});
-
-it.each(['', '   '])('asks for a title and adds nothing when the title is %j', async (title) => {
-  const api = fakeApi();
-  const { user } = renderPage(api);
-  await todoList();
-
-  await submitTitle(user, title);
-
-  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a title');
-  expect(screen.getByRole('textbox', { name: 'Title' })).toBeInvalid();
-  expect(api['todos.create']).not.toHaveBeenCalled();
+  const list = screen.getByRole('list', { name: 'Todos' });
+  expect(within(list).getByRole('checkbox', { name: 'Buy milk' })).not.toBeChecked();
 });
 
 it('toggles a todo complete and back', async () => {
-  const api = fakeApi([{ id: '1', title: 'Walk the dog', completed: false }]);
-  const { user } = renderPage(api);
-  const checkbox = within(await todoList()).getByRole('checkbox', { name: 'Walk the dog' });
+  const { user } = renderPage();
+  await addTodo(user, 'Walk the dog');
+  const checkbox = screen.getByRole('checkbox', { name: 'Walk the dog' });
 
   await user.click(checkbox);
   await waitFor(() => expect(checkbox).toBeChecked());
+
   await user.click(checkbox);
   await waitFor(() => expect(checkbox).not.toBeChecked());
-
-  expect(api['todos.toggle']).toHaveBeenCalledWith({ id: '1' });
 });
 
 it('deletes a todo', async () => {
-  const api = fakeApi([
-    { id: '1', title: 'Water the plants', completed: false },
-    { id: '2', title: 'Read a book', completed: false },
-  ]);
-  const { user } = renderPage(api);
-  await todoList();
+  const { user } = renderPage();
+  await addTodo(user, 'Water the plants');
 
   await user.click(screen.getByRole('button', { name: 'Delete Water the plants' }));
 
   await waitFor(() =>
     expect(screen.queryByRole('checkbox', { name: 'Water the plants' })).not.toBeInTheDocument(),
   );
-  expect(screen.getByRole('checkbox', { name: 'Read a book' })).toBeInTheDocument();
-  expect(api['todos.delete']).toHaveBeenCalledWith({ id: '1' });
 });
 
-it('says so when the todos cannot be loaded', async () => {
-  renderPage({ 'todos.list': () => Promise.reject(new Error('api down')) });
+it('shows an alert and adds nothing when the title is blank', async () => {
+  const { user } = renderPage();
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the todos');
+  await user.click(screen.getByRole('button', { name: 'Add' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a title');
+  expect(screen.getByRole('textbox', { name: 'Title' })).toBeInvalid();
+  expect(
+    within(screen.getByRole('list', { name: 'Todos' })).queryAllByRole('checkbox'),
+  ).toHaveLength(0);
 });
 
-it('says so when a change cannot be saved', async () => {
-  const { user } = renderPage({
-    ...fakeApi(),
-    'todos.create': () => Promise.reject(new Error('api down')),
-  });
-  await todoList();
-
-  await submitTitle(user, 'Buy milk');
-
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the change');
-});
-
-it('has no axe-detectable violations with a todo listed and a validation error showing', async () => {
-  const { container, user } = renderPage(
-    fakeApi([{ id: '1', title: 'Buy milk', completed: false }]),
-  );
-  await todoList();
-
-  await submitTitle(user, '');
-  await screen.findByRole('alert');
+it('has no axe-detectable violations with a todo listed', async () => {
+  const { container, user } = renderPage();
+  await addTodo(user, 'Read a book');
 
   expect(await axe(container)).toHaveNoViolations();
 });

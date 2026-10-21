@@ -20,7 +20,7 @@ meta: object;
 errorShape: TRPCDefaultErrorShape;
 transformer: false;
 }, TRPCDecorateCreateRouterOptions<    {
-todos: TRPCBuiltRouter<    {
+todo: TRPCBuiltRouter<    {
 ctx: object;
 meta: object;
 errorShape: TRPCDefaultErrorShape;
@@ -50,7 +50,7 @@ input: {
 readonly id: string;
 };
 output: {
-readonly id: string;
+id: string;
 };
 meta: object;
 }>;

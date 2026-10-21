@@ -22,7 +22,6 @@ flowchart LR
   api_application --> api_integrations
   api_integrations --> api_domain
   api_procedures --> api_application
-  api_procedures -.-> api_domain
   api_procedures --> api_trpc
   web_api_client -.-> api_app
   web_app --> ui

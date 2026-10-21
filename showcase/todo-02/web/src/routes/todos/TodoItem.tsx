@@ -3,18 +3,13 @@ import type { Todo } from './useTodos';
 
 export interface TodoItemProps {
   readonly todo: Todo;
-  readonly onToggle: (id: Todo['id']) => void;
-  readonly onDelete: (id: Todo['id']) => void;
+  readonly onToggle: (id: string) => void;
+  readonly onDelete: (id: string) => void;
 }
 
 export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
-  function handleToggle() {
-    onToggle(todo.id);
-  }
-
-  function handleDelete() {
-    onDelete(todo.id);
-  }
+  const handleToggle = () => onToggle(todo.id);
+  const handleDelete = () => onDelete(todo.id);
 
   return (
     <li className="todo-item">
@@ -25,10 +20,10 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
           checked={todo.completed}
           onChange={handleToggle}
         />
-        <span className={todo.completed ? 'todo-item__title--done' : undefined}>{todo.title}</span>
+        <span className="todo-item__title">{todo.title}</span>
       </label>
-      <Button aria-label={`Delete ${todo.title}`} onClick={handleDelete}>
-        Delete
+      <Button type="button" onClick={handleDelete}>
+        {`Delete ${todo.title}`}
       </Button>
     </li>
   );

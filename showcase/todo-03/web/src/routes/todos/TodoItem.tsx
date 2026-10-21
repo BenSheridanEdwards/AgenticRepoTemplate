@@ -8,16 +8,11 @@ export interface TodoItemProps {
 }
 
 export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
-  function handleToggle() {
-    onToggle(todo.id);
-  }
-
-  function handleDelete() {
-    onDelete(todo.id);
-  }
+  const handleToggle = () => onToggle(todo.id);
+  const handleDelete = () => onDelete(todo.id);
 
   return (
-    <li className={todo.completed ? 'todo-item todo-item--completed' : 'todo-item'}>
+    <li className="todo-item">
       <label className="todo-item__label">
         <input
           type="checkbox"
@@ -27,9 +22,7 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
         />
         <span className="todo-item__title">{todo.title}</span>
       </label>
-      <Button onClick={handleDelete}>
-        Delete<span className="visually-hidden"> {todo.title}</span>
-      </Button>
+      <Button onClick={handleDelete}>Delete {todo.title}</Button>
     </li>
   );
 }
