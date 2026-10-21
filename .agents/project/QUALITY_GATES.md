@@ -138,8 +138,9 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
   `Required gates` on the old commit.
 - **Why three checks stay outside it.** CodeQL, Lighthouse, and the PR body
   check run on triggers `ci.yml` does not share, so they sit outside `needs`.
-  Branch protection requires them directly. The contract still pins their job
-  names and job-level `if:`.
+  Configure branch protection to require them directly. The contract still pins
+  their job names and job-level `if:`; it does not install platform settings.
+  Check [hosted prerequisites](../../docs/hosted-security.md) when onboarding.
 - **Freshness.** `pnpm gates:check` runs in `pnpm verify` and in the aggregate
   job. It fails on a missing or renamed job, a changed job-level `if:`, a
   `continue-on-error` gate job, a `ci.yml` job outside the contract, any change

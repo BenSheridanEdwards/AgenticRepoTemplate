@@ -232,14 +232,20 @@ picks an installed Node 22 older than 22.18, run `nvm install`.
 
 ### Post-clone setup checklist
 
-Some enforcement lives in platform settings outside the repository, so a fresh
-repository has to finish this list before the gates truly block:
+Workflow files report results; platform settings decide whether they block a
+merge. Follow [hosted security and merge enforcement](docs/hosted-security.md)
+before claiming protection is installed:
 
-- [ ] **Require the `PR quality` and CI status checks** in branch protection
-      (Settings → Branches → "Require status checks to pass"), so the PR-body
-      contract and the gate suite block merges.
-- [ ] **Turn on secret scanning and Dependabot** in the repository's security
-      settings.
+- [ ] **Confirm hosted prerequisites for the destination repository.** Public
+      repositories qualify for branch protection and code scanning; private
+      repositories need an eligible plan and Code Security entitlement.
+- [ ] **Require the exact checks in [the inventory](docs/required-gates.md), plus
+      `enforcement-approval`,** through an authorised maintainer, then verify a
+      failing check actually prevents merging.
+- [ ] **Assess native secret scanning and Dependabot settings separately.**
+      Gitleaks and `pnpm audit` run in CI.
+      Add `.github/dependabot.yml` to configure scheduled
+      Dependabot version updates; this template currently provides CI auditing.
 
 ## Adopt it
 
@@ -247,13 +253,14 @@ For a new project, press **Use this template**, run `pnpm install` and
 `pnpm setup:agents`, then build routes in `apps/web/src/routes/*` and api
 features in `apps/api/src/features/*` using the templates in
 [`.agents/templates/`](.agents/templates) and the greeting feature as the model
-([`.agents/project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md)). The gates are live from the first
-commit.
+([`.agents/project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md)). Local hooks and
+workflow definitions are included; hosted prerequisites and merge enforcement
+still need the post-clone checks above.
 
 For a brownfield project, copy the scaffolding into the existing repo:
 
 ```
-AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/  (workflows and dependabot)
+AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/  (workflows and PR template)
 biome.json  eslint.config.js  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
 ```
 
@@ -300,7 +307,6 @@ AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.m
 .husky/                     pre-commit, commit-msg, pre-push gates.
 .github/
   pull_request_template.md  Proof-backed PR handoff template.
-  dependabot.yml            Weekly npm and GitHub Actions updates.
   workflows/
     ci.yml                  Quality, tests, build and size, e2e, security.
     pr-quality.yml          Validates the PR body and title (scripts/validate-pr-body.mjs).
