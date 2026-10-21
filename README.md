@@ -44,6 +44,72 @@ And one fixed rule: **a human merges and a human deploys.**
 Humans hold both ends of the loop, the intent and the merge. Every line is
 owned by a named engineer, whoever or whatever wrote it.
 
+## Where we stand as a software factory
+
+The factory is the repository: a scaffold any agent can operate in that refuses
+changes missing the project's standards (see
+[`.agents/NORTH_STAR.md`](.agents/NORTH_STAR.md) and Sarah Fim's anti-slop
+software factory —
+[video](https://x.com/sarahfim/status/2108298553823203613),
+[write-up](https://x.com/sarahfim/status/2109736893198016898)). Installed means
+the hook, script, or workflow runs on a clean checkout; a target is labelled as
+one.
+
+**What we have today (installed guidance and enforced gates):**
+
+- **Monorepo on one role table.** `apps/web` (Vite + React), `apps/api` (tRPC),
+  and `packages/ui`, each file mapped to the single role table in
+  [`ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md).
+- **Lint ownership.** Biome formats and runs general lint; ESLint owns the
+  policy, React hooks, and React Compiler rules through
+  [`tooling/eslint-plugin-policy.js`](tooling/eslint-plugin-policy.js), with
+  React Doctor in CI.
+- **`strict` TypeScript** across four programs, with Effect Schema defining
+  every boundary (forms and tRPC inputs alike).
+- **State in custom hooks.** `useState`/`useEffect` only inside `use*` hooks,
+  enforced by `policy/state-and-effects-in-hooks`.
+- **Architecture checks.** Fallow owns dead code, cycles, complexity, the
+  import graph and the architecture gate from
+  [`.fallowrc.jsonc`](.fallowrc.jsonc), with a **committed role diagram**
+  ([#62](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/pull/62)) and
+  a per-package **API Extractor report**
+  ([#91](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/pull/91)).
+- **Mirrored gates.** Husky `pre-commit`/`commit-msg`/`pre-push` mirror CI; a
+  [PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses the common hook
+  bypasses; CI re-runs every gate on a clean checkout.
+- **Enforcement sign-off.** A change that loosens a gate stays red until Ben
+  ticks one head-commit-bound checkbox
+  ([`enforcement-approval.yml`](.github/workflows/enforcement-approval.yml)).
+- **Proof the PR contract checks.** Jest + RTL + jest-axe, Playwright E2E with
+  an axe scan, CodeQL, gitleaks, Lighthouse budgets, and a validated PR body
+  ([`validate-pr-body.mjs`](scripts/validate-pr-body.mjs)).
+
+- **Bot review guidance.** Human-written judgment rules in
+  [`REVIEW.md`](REVIEW.md), read after lint and CI, with Cursor Bugbot wired
+  through [`.cursor/BUGBOT.md`](.cursor/BUGBOT.md). `pnpm check:context` checks
+  the discovery wiring
+  ([#113](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/pull/113)).
+
+**What we want (the North Star targets):**
+
+- **Fast CI**, because CI speed is the agent's iteration speed, with local
+  hooks always mirroring it.
+- **Cloud agents**, triggered from tickets, alerts, or schedules — last, once
+  the repository is factory-shaped.
+
+**What is missing / in flight:**
+
+- **Sarah's anti-slop lint rules** that apply here — `no-large-comments` and
+  `max-depth`
+  ([#114](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/114)).
+- **Visual regression proof**, paused until StyleProof is fixed
+  ([#71](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/71)).
+- **Merge-confidence labels** on every PR
+  ([#69](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/69)).
+- **Re-running the interactive architecture audits** against current `HEAD`;
+  only the deterministic recheck is done so far
+  ([`.agents/TODO.md`](.agents/TODO.md)).
+
 ## The method
 
 The same order every time, whether the repository is new or twenty years old:
