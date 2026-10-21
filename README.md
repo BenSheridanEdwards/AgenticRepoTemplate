@@ -367,7 +367,7 @@ apps/                       The reference result. Root configs own every gate.
     src/features/greeting/  index, procedures, application and domain for greeting.greet.
     etc/                    Generated API Extractor reports.
 packages/ui/                @repo/ui: Button, TextField, and styles.css, with no business logic.
-showcase/<id>/              Where each generated trial result goes, with the same web/ and api/ shape (`todo-02`, `todo-03`).
+showcase/<id>/              Where each generated trial result goes, with the same web/ and api/ shape (`todo-01` to `todo-03` by Claude, `todo-codex-01` to `todo-codex-03` by Codex).
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
 graphify-out/               Generated knowledge-graph output (god nodes, communities). Ignored; rebuild with graphify or /pre-audit-setup.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.
