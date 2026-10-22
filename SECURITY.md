@@ -19,13 +19,18 @@ we will coordinate disclosure.
 
 ## What this repo does to stay secure
 
-These run automatically (see `.github/workflows/` and `.github/dependabot.yml`):
+These checks are defined in `.github/workflows/`. For platform prerequisites
+and merge enforcement, see [hosted security](docs/hosted-security.md):
 
 - **Dependency vulnerability audit** — `pnpm audit --audit-level=high` in CI.
 - **Secret scanning** — gitleaks over history in CI, and `gitleaks protect`
   against staged content on pre-commit (when installed locally).
-- **Static application security testing** — CodeQL on every push and pull request.
-- **Dependency updates** — Dependabot for npm packages and GitHub Actions.
+- **Static application security testing** — CodeQL on pushes to `main`, pull
+  requests and a weekly schedule. Public repositories qualify for code scanning.
+  For private repositories, confirm Code Security eligibility and
+  enablement alongside workflow permissions.
+- **Dependency updates** — add `.github/dependabot.yml` to configure scheduled
+  Dependabot version updates. The dependency audit above runs in CI.
 
 Secrets stay out of the repository; runtime configuration is documented in `.env.example`
 and real `.env` files are git-ignored.

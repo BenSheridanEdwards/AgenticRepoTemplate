@@ -170,10 +170,21 @@ jobs:
         run: pnpm audit --audit-level=high
       - name: License compliance
         run: pnpm license:check
-      - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Gitleaks CLI (MIT licensed)
+        run: |
+          directory="$(mktemp -d)"
+          archive="${directory}/gitleaks.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "${archive}"
+          # Pinned release asset SHA-256; verify before extracting or executing.
+          printf '%s  %s\n' 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb "${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${directory}" gitleaks
+          echo "${directory}" >> "$GITHUB_PATH"
+      - name: Secret scanner regression (clean and synthetic history)
+        run: bash scripts/secret-scan-ci.test.sh
+      - name: Secret scan (gitleaks, full history)
+        run: bash scripts/secret-scan-ci.sh
 
   # The stable final result (ADR 0017). scripts/required-gates.mjs owns the
   # lane list and the decision. always() keeps this job running when a lane

@@ -10,7 +10,9 @@ on:
   schedule:
     - cron: '0 6 * * 1' # weekly, Monday 06:00 UTC — catches advisories in code that hasn't changed
 
+# CodeQL reads workflow-run metadata in private repositories.
 permissions:
+  actions: read
   contents: read
   security-events: write
 
