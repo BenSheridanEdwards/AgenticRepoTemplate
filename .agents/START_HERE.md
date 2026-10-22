@@ -5,6 +5,9 @@ Every agent doc for this repo lives in `.agents/`. The root `AGENTS.md` and
 agent or engineer: concrete commands, explicit rules, no tribal knowledge. When
 the way we work changes, change it here.
 
+Before reviewing a pull request, read [`REVIEW.md`](../REVIEW.md): the human-written
+rules every automated reviewer applies after lint.
+
 ## What this repo is
 
 A reference scaffold for **agentic engineering**: the files, gates, and context

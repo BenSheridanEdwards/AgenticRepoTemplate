@@ -1,6 +1,6 @@
 # Claude Code
 
-The Claude Code layer on top of the [start-here guide](README.md). Read that
+The Claude Code layer on top of the [start-here guide](START_HERE.md). Read that
 first.
 
 ## The two things this repo demonstrates

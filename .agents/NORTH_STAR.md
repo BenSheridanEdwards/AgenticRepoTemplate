@@ -23,7 +23,7 @@ This extends the beliefs in the [README](../README.md): executable standards bea
 written standards, and consistency is infrastructure. Domain docs in the repo
 inform the agent. The gates decide what lands.
 
-For day-to-day operating rules see [Start here](README.md). For what is
+For day-to-day operating rules see [Start here](START_HERE.md). For what is
 installed today see [`.agents/project/TECH_STACK.md`](project/TECH_STACK.md)
 and [`.agents/project/QUALITY_GATES.md`](project/QUALITY_GATES.md).
 Settled decisions live as ADRs in [`.agents/decisions/`](decisions/).
