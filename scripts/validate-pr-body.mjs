@@ -71,6 +71,8 @@ const GITHUB_BLOB_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
 /** Machine-local paths start at a publishing boundary and end at a token terminator. */
 const LOCAL_PATH =
   /(?<=^|[\s`'"([<=:])(?:\/Users\/[^\s`'"()[\]<>]+\/|\/home\/[^\s`'"()[\]<>]+\/|\/root\/|\/workspace\/|\/tmp\/[^\s`'"()[\]<>]+|\/private\/var\/|\/var\/folders\/|[A-Za-z]:\\Users\\|file:\/\/)[^\s`'"()[\]<>]*/g;
+/** Web URL tokens are masked before scanning for machine-local paths. */
+const WEB_URL = /\bhttps?:\/\/[^\s`'"()[\]<>]*/gi;
 const NOT_APPLICABLE = /not applicable/i;
 const NOT_APPLICABLE_REASON_WORDS = 2;
 
@@ -140,7 +142,8 @@ function collectImageErrors(body) {
 function findLocalPaths(body) {
   const paths = new Map();
   for (const [index, line] of body.split('\n').entries()) {
-    for (const match of line.matchAll(LOCAL_PATH)) {
+    const maskedLine = line.replace(WEB_URL, ' ');
+    for (const match of maskedLine.matchAll(LOCAL_PATH)) {
       const path = match[0].replace(/[.,;:!?]+$/, '');
       if (!paths.has(path)) {
         paths.set(path, index + 1);

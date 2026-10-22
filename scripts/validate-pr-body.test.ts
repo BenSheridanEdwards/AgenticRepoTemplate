@@ -471,6 +471,21 @@ describe('validatePullRequest', () => {
       resultFor(extra).errors.filter((error) => error.includes('machine-local path'));
 
     it.each([
+      'https://example.com/view?next=/home/box/a&log=/tmp/run/a',
+      '[log](https://example.com/run?path=/workspace/x/y.log)',
+      '<https://example.com/a?u=/Users/ben/x>',
+      'http://example.com/?f=/root/x',
+    ])('passes a path inside an http(s) URL query: %s', (extra) => {
+      expect(resultFor(extra)).toEqual({ ok: true, errors: [] });
+    });
+
+    it('reports a local path outside a URL on the same line', () => {
+      const errors = pathErrors('see https://example.com/?next=/tmp/a and /tmp/run/b.log');
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain('"/tmp/run/b.log"');
+    });
+
+    it.each([
       [
         '- [x] `python3 /Users/agents/.codex/skills/.system/skill-creator/scripts/quick_validate.py .claude/skills/build-quality-gates`',
         '/Users/agents/.codex/skills/.system/skill-creator/scripts/quick_validate.py',
