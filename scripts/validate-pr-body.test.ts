@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   CONVENTIONAL_COMMIT_TYPES,
   REQUIRED_SECTIONS,
@@ -433,6 +435,36 @@ describe('validatePullRequest', () => {
   });
 
   describe('machine-local paths', () => {
+    const readFixture = (name: string) =>
+      readFileSync(resolve(import.meta.dirname, 'fixtures/pr-bodies', name), 'utf8');
+
+    it('fails the #11 body, which ran a validator from a /Users home folder', () => {
+      const fixture = readFixture('pr-11.md');
+      const body = `${VALID_BODY}\n\n${fixture}`;
+      const result = validatePullRequest({ title: VALID_TITLE, body, headSha: HEAD });
+      const path = '/Users/agents/.codex/skills/.system/skill-creator/scripts/quick_validate.py';
+      expect(result.ok).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain(JSON.stringify(`${path.slice(0, 40)}…`));
+    });
+
+    it('fails the #58 body, which cited /tmp/lhproof/classify.sh as proof', () => {
+      const fixture = readFixture('pr-58.md');
+      const body = `${VALID_BODY}\n\n${fixture}`;
+      const result = validatePullRequest({ title: VALID_TITLE, body, headSha: HEAD });
+      expect(result.ok).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('"/tmp/lhproof/classify.sh"');
+    });
+
+    it('fails the #92 body, which published /workspace/mono scratch paths in a fenced block', () => {
+      const fixture = readFixture('pr-92.md');
+      const body = `${VALID_BODY}\n\n${fixture}`;
+      const result = validatePullRequest({ title: VALID_TITLE, body, headSha: HEAD });
+      expect(result.ok).toBe(false);
+      expect(result.errors).toHaveLength(4);
+    });
+
     const resultFor = (extra: string) =>
       validatePullRequest({ title: VALID_TITLE, body: `${VALID_BODY}\n\n${extra}`, headSha: HEAD });
     const pathErrors = (extra: string) =>
