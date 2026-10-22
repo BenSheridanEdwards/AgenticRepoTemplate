@@ -186,13 +186,16 @@ Every gate reaches a showcase result by the globs it uses for the reference
 ## Visual style checking
 
 `Visual regression` (`.github/workflows/visual.yml`) runs `pnpm visual` on the
-same UI-relevant pull requests as Lighthouse. Playwright compares desktop and
+same UI-relevant pull requests as Lighthouse. Their shared scope also includes
+visual baseline PNGs, `apps/web/e2e/visual.spec.ts`, `playwright.config.ts` and
+`.github/workflows/visual.yml`, so changes to the comparison's own inputs run it.
+Playwright compares desktop and
 mobile reference greeting screenshots with committed PNG baselines. Other PRs
 pass through the declared scope rule. Run `pnpm visual:update` on Linux with
 the lockfile's Chromium, inspect and commit the intended baseline changes,
 then rerun `pnpm visual`. CI compares only; missing baselines and visual diffs
 fail, with failure images uploaded as `visual-differences`.
-[ADR 0051](../decisions/0051-playwright-visual-regression.md) supersedes the pause.
+[ADR 0052](../decisions/0052-playwright-visual-regression.md) supersedes the pause.
 The check is required directly in branch protection alongside the other
 stand-alone checks in the generated inventory.
 

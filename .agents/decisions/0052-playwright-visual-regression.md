@@ -1,4 +1,4 @@
-# 51. Playwright screenshot comparisons restore visual regression proof
+# 52. Playwright screenshot comparisons restore visual regression proof
 
 - **Status:** Accepted
 - **Date:** 2026-10-22
@@ -25,8 +25,10 @@ a dependency or a claim that StyleProof's upstream bugs have been fixed.
   inspecting the changed PNGs in `docs/proof/visual-regression/`, committing
   them for human review with the change, and rerunning `pnpm visual`.
 - The `Visual regression` workflow uses the existing tested Lighthouse scope
-  script. It compares on UI-relevant PRs and reports success without capture on
-  other PRs. Failure artifacts include expected, actual and diff screenshots.
+  script. Its inputs include baseline PNGs, the visual spec, Playwright config
+  and the visual workflow itself. It compares on UI-relevant PRs and reports
+  success without capture on other PRs. Failure artifacts include expected,
+  actual and diff screenshots.
 - The required-gate contract lists this stand-alone check. A maintainer selects
   it in branch protection. Existing E2E and accessibility gates keep their scope;
   `pnpm visual` is the separate local equivalent of the screenshot lane.
@@ -38,3 +40,5 @@ approval reviewable. Browser or Linux font changes may require inspected
 baseline updates. Local captures on another OS can differ; reproduce the Linux
 CI environment before approving. Coverage is limited to the six reference
 screens, so reviewers still judge unrepresented states and screenshot proof.
+API-only changes do not trigger comparison, even though the success-state
+screenshot includes the API's greeting text.

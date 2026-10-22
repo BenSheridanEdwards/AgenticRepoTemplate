@@ -46,11 +46,16 @@ ships, leave its block here as history and open the next one above it.
 - **Branch:** `feat/visual-regression-proof`
 - **Scope:** Reference screenshot comparisons on UI-relevant pull requests.
 - **Completed:** Playwright fallback, CI workflow, baseline approval commands,
-  required-gate contract and ADR 0051.
+  required-gate contract and ADR 0052. Review follow-up covers the gate's own
+  inputs and refreshes six Linux baselines; both initial images match CI's
+  actual PNGs byte-for-byte.
 - **Proof artifact:** `docs/proof/visual-regression/` and
   `apps/web/e2e/visual.spec.ts`.
-- **Verification:** Final commands and hosted results are recorded in the PR.
-- **Blockers:** Workflow changes require Ben's head-specific sign-off.
+- **Verification:** Scope and gate-contract tests pass (106 tests); E2E passes
+  (80 tests). Full verification reaches coverage, where ten tests in four
+  untouched suites fail on macOS. Final commands and hosted results are in the PR.
+- **Blockers:** The macOS verification failures block the pre-push hook.
+  Workflow changes also require Ben's head-specific sign-off.
 
 ## Sarah's anti-slop lint rules (#114)
 

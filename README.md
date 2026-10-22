@@ -229,7 +229,7 @@ visual change, run `pnpm visual:update`, inspect every changed PNG, commit the
 approved baselines with the UI change, and run `pnpm visual` again. Reviewers
 approve those image diffs in the PR; CI compares only and fails on missing or
 different baselines. Failed CI runs upload actual, expected and diff images in
-`visual-differences`. See [ADR 0051](.agents/decisions/0051-playwright-visual-regression.md).
+`visual-differences`. See [ADR 0052](.agents/decisions/0052-playwright-visual-regression.md).
 
 ### Skills: processes with exactly one job
 

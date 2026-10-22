@@ -35,7 +35,7 @@ the gate suite.
   and push the slower suites to pre-push and CI to protect that loop.
 - Hooks can be bypassed with `--no-verify`; CI cannot. CI is the backstop.
 
-## Visual regression (ADR 0051)
+## Visual regression (ADR 0052)
 
 `pnpm visual` compares approved reference screenshots in CI on UI-relevant
-pull requests; [0051](0051-playwright-visual-regression.md) records the fallback.
+pull requests; [0052](0052-playwright-visual-regression.md) records the fallback.

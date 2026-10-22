@@ -31,6 +31,11 @@ describe('uiRelevantFiles', () => {
     'lighthouserc.json',
     '.github/workflows/lighthouse.yml',
     'scripts/lighthouse-scope.mjs',
+    'docs/proof/visual-regression/greeting-1280-initial.png',
+    'docs/proof/visual-regression/greeting-390-success.png',
+    'apps/web/e2e/visual.spec.ts',
+    'playwright.config.ts',
+    '.github/workflows/visual.yml',
   ])('audits a pull request that changes %s', (path) => {
     expect(uiRelevantFiles([path])).toEqual([path]);
   });
@@ -41,6 +46,8 @@ describe('uiRelevantFiles', () => {
     'apps/web/src/lib/format.test.ts',
     'README.md',
     'docs/required-gates.md',
+    'docs/proof/visual-regression/README.md',
+    'docs/proof/visual-regression/nested/screenshot.png',
     'scripts/required-gates.mjs',
     'scripts/lighthouse-scope.test.ts',
     '.github/workflows/ci.yml',
@@ -130,6 +137,18 @@ describe('lighthouse-scope CLI', () => {
     expect(outcome.status).toBe(0);
     expect(outcome.output).toBe('ui-changed=false\n');
     expect(outcome.summary).toContain('Lighthouse audits skipped');
+  });
+
+  it.each([
+    'docs/proof/visual-regression/greeting-1280-initial.png',
+    'apps/web/e2e/visual.spec.ts',
+    'playwright.config.ts',
+    '.github/workflows/visual.yml',
+  ])('runs comparisons when the only changed file is %s', (path) => {
+    const outcome = scopeOf([path]);
+    expect(outcome.status).toBe(0);
+    expect(outcome.output).toBe('ui-changed=true\n');
+    expect(outcome.summary).toContain(path);
   });
 
   it('audits a pull request that moves a file out of apps/web/src', () => {

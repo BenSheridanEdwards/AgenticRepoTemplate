@@ -1,6 +1,6 @@
 # 16. Pause StyleProof until it is fixed
 
-- **Status:** Superseded by [0051](0051-playwright-visual-regression.md)
+- **Status:** Superseded by [0052](0052-playwright-visual-regression.md)
 - **Date:** 2026-10-16
 
 ## Context
