@@ -51,11 +51,11 @@ ships, leave its block here as history and open the next one above it.
   actual PNGs byte-for-byte.
 - **Proof artifact:** `docs/proof/visual-regression/` and
   `apps/web/e2e/visual.spec.ts`.
-- **Verification:** Scope and gate-contract tests pass (106 tests); E2E passes
-  (80 tests). Full verification reaches coverage, where ten tests in four
-  untouched suites fail on macOS. Final commands and hosted results are in the PR.
-- **Blockers:** The macOS verification failures block the pre-push hook.
-  Workflow changes also require Ben's head-specific sign-off.
+- **Verification:** `pnpm verify` passes on macOS with Node 22.23.4 after
+  rebasing onto the portability fix from #123. Scope and gate-contract tests
+  pass; final pre-push E2E and hosted results are recorded in PR #121.
+- **Blockers:** Workflow changes require Ben's head-specific sign-off. A
+  maintainer must select `Visual regression` in branch protection.
 
 ## Sarah's anti-slop lint rules (#114)
 
