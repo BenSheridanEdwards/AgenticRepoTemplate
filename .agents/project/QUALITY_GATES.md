@@ -23,6 +23,16 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)). |
 
+## Anti-slop policies
+
+`pnpm lint:policy` enforces `policy/no-large-comments` (four physical lines
+per adjacent comment group), `max-depth` (four nested blocks) and
+`policy/use-ui-primitives` (Button and TextField from `@repo/ui`, with native
+checkbox/radio controls allowed). The existing source globs cover every result.
+`scripts/eslint-policy.test.ts` proves seeded failures and clean boundaries;
+[ADR 0050](../decisions/0050-anti-slop-lint-policies.md) records the audit,
+exemptions and comment threshold. These run in `pnpm verify`, pre-push and CI.
+
 ## Tool ownership
 
 - **Biome** owns formatting, import ordering, and general JavaScript/TypeScript
