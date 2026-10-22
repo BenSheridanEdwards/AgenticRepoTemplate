@@ -45,6 +45,9 @@ The change tightens a gate, so ADR 0024's sign-off does not apply.
 
 - Open PRs whose bodies cite such paths fail until the body is edited. The
   workflow re-runs on `edited`.
+- A PR whose subject is the trial temp folders, such as #94, #99 and #110,
+  which described `/tmp` log files and config entries as the work itself, now
+  names them with placeholders such as `<tmp>/verify.log`.
 - Evidence lives behind commands, links, or committed `docs/proof/` files.
 - The prefix list is fixed, so a new machine layout needs a new prefix and a
   test.
