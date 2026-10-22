@@ -471,6 +471,80 @@ describe('validatePullRequest', () => {
       resultFor(extra).errors.filter((error) => error.includes('machine-local path'));
 
     it.each([
+      ['/home/box:https://example.com/x', '/home/box:https://example.com/x'],
+      ['/Users/ben=https://example.com/x', '/Users/ben=https://example.com/x'],
+      ['/home/box/dir:https://example.com/x', '/home/box/dir:https://example.com/x'],
+      ['/tmp/x:https://example.com/x', '/tmp/x:https://example.com/x'],
+      ['https://example.com`/tmp/local`', '/tmp/local'],
+      ['https://example.com(/tmp/local)', '/tmp/local'],
+      ['https://example.com</tmp/local>', '/tmp/local'],
+    ])('round-3 QA reports the whole path in %s', (text, expected) => {
+      const errors = pathErrors(text);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(JSON.stringify(expected));
+    });
+
+    const urlCases: string[] = [];
+    for (const scheme of ['http', 'https']) {
+      for (const wrap of [
+        (s: string) => s,
+        (s: string) => `[link](${s})`,
+        (s: string) => `<${s}>`,
+      ]) {
+        for (const part of ['/home/box/x', '/tmp/run/x', '/workspace/x']) {
+          for (const suffix of [part, `?next=${part}`, `#${part}`]) {
+            urlCases.push(wrap(`${scheme}://example.com/${suffix}`));
+          }
+        }
+      }
+    }
+    it.each(urlCases)('round-2 QA skips the whole URL in %s', (text) => {
+      expect(pathErrors(text)).toHaveLength(0);
+    });
+
+    it.each<[string, string[]]>([
+      ['https://example.com /tmp/local', ['/tmp/local']],
+      ['https://example.com:/tmp/local', []],
+      ['https://example.com`/tmp/local`', ['/tmp/local']],
+      ['https://example.com(/tmp/local)', ['/tmp/local']],
+      ['/tmp/https://example.com', ['/tmp/https://example.com']],
+      ['/tmp/http://example.com', ['/tmp/http://example.com']],
+      ['/home/box/https://example.com', ['/home/box/https://example.com']],
+      ['/workspace/https://example.com', ['/workspace/https://example.com']],
+    ])('round-2 QA reports expected paths in %s', (text, expected) => {
+      const errors = pathErrors(text);
+      expect(errors).toHaveLength(expected.length);
+      for (const path of expected) {
+        expect(
+          errors.some((error) =>
+            error.includes(JSON.stringify(path.length > 40 ? `${path.slice(0, 40)}…` : path)),
+          ),
+        ).toBe(true);
+      }
+    });
+
+    const embeddedSchemeCases = [
+      '/Users/ben/',
+      '/home/box/',
+      '/root/',
+      '/workspace/',
+      '/tmp/run/',
+      '/private/var/',
+      '/var/folders/',
+      'C:\\Users\\ben\\',
+      'file:///home/box/',
+    ].flatMap((prefix) =>
+      ['x:', 'x=', ''].map((joiner) => `${prefix}${joiner}https://example.com/x`),
+    );
+    it.each(embeddedSchemeCases)('reports the whole path with an embedded scheme in %s', (text) => {
+      const errors = pathErrors(text);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(
+        JSON.stringify(text.length > 40 ? `${text.slice(0, 40)}…` : text),
+      );
+    });
+
+    it.each([
       'https://example.com/view?next=/home/box/a&log=/tmp/run/a',
       '[log](https://example.com/run?path=/workspace/x/y.log)',
       '<https://example.com/a?u=/Users/ben/x>',

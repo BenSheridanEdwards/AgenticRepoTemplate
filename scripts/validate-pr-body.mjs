@@ -68,11 +68,11 @@ const INLINE_IMAGE = /!\[[^\]]*\]\(\s*<?([^\s)>]*)>?[^)]*\)/g;
 const PLAIN_LINK = /(?<!!)\[[^[\]]*\]\(\s*<?([^\s)>]+)>?[^)]*\)/g;
 const IMAGE_FILE_URL = /\.(png|jpe?g|gif|webp)(\?[^#]*)?(#.*)?$/i;
 const GITHUB_BLOB_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
-/** Machine-local paths start at a publishing boundary and end at a token terminator. */
-const LOCAL_PATH =
-  /(?<=^|[\s`'"([<=:])(?:\/Users\/[^\s`'"()[\]<>]+\/|\/home\/[^\s`'"()[\]<>]+\/|\/root\/|\/workspace\/|\/tmp\/[^\s`'"()[\]<>]+|\/private\/var\/|\/var\/folders\/|[A-Za-z]:\\Users\\|file:\/\/)[^\s`'"()[\]<>]*/g;
-/** Web URLs starting at the same publishing boundary are masked before scanning for machine-local paths. */
-const WEB_URL = /(?<=^|[\s`'"([<=:])https?:\/\/[^\s`'"()[\]<>]*/gi;
+/**
+ * Tokens start at a publishing boundary. URL tokens are skipped whole and local-path tokens are reported whole.
+ */
+const PUBLISHED_TOKEN =
+  /(?<=^|[\s`'"([<=:])(?:(?<url>[Hh][Tt][Tt][Pp][Ss]?:\/\/[^\s`'"()[\]<>]*)|(?<path>(?:\/Users\/[^\s`'"()[\]<>]+\/|\/home\/[^\s`'"()[\]<>]+\/|\/root\/|\/workspace\/|\/tmp\/[^\s`'"()[\]<>]+|\/private\/var\/|\/var\/folders\/|[A-Za-z]:\\Users\\|file:\/\/)[^\s`'"()[\]<>]*))/g;
 const NOT_APPLICABLE = /not applicable/i;
 const NOT_APPLICABLE_REASON_WORDS = 2;
 
@@ -138,13 +138,16 @@ function collectImageErrors(body) {
   return errors;
 }
 
-/** Find distinct paths in the raw body with their first line numbers. */
+/**
+ * Read tokens at publishing boundaries, skipping whole URLs and reporting whole local paths.
+ * Keep each distinct path with its first line number.
+ */
 function findLocalPaths(body) {
   const paths = new Map();
   for (const [index, line] of body.split('\n').entries()) {
-    const maskedLine = line.replace(WEB_URL, ' ');
-    for (const match of maskedLine.matchAll(LOCAL_PATH)) {
-      const path = match[0].replace(/[.,;:!?]+$/, '');
+    for (const match of line.matchAll(PUBLISHED_TOKEN)) {
+      if (match.groups.path === undefined) continue;
+      const path = match.groups.path.replace(/[.,;:!?]+$/, '');
       if (!paths.has(path)) {
         paths.set(path, index + 1);
       }
