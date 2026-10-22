@@ -29,6 +29,7 @@ each owner runs locally and in CI.
 | Exported API reports | **API Extractor** | One committed `<package>/etc/*.api.md` per public entry of each package (`pnpm api:report`, `pnpm api:check`). |
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
 | Bundle-size budget | **size-limit** | Fails CI when `apps/web/dist/` exceeds the budget. |
+| Visual regression | **Playwright screenshot comparisons** | `pnpm visual` on UI-relevant PRs; reviewed PNG baselines, reference result only (ADR 0051). |
 | Performance budget | **Lighthouse CI** | a11y floor + perf budget on UI-relevant pull requests. |
 | Git hooks | **husky** | Runs the gates locally before commit/push. |
 | Dependency vulnerabilities | **`pnpm audit`** | High/critical advisories fail CI. |

@@ -41,6 +41,17 @@ ships, leave its block here as history and open the next one above it.
 - **Blockers:** None locally; hosted verification and Claude Opus review/merge
   are tracked in the PR.
 
+## Restore visual regression proof (#71)
+
+- **Branch:** `feat/visual-regression-proof`
+- **Scope:** Reference screenshot comparisons on UI-relevant pull requests.
+- **Completed:** Playwright fallback, CI workflow, baseline approval commands,
+  required-gate contract and ADR 0051.
+- **Proof artifact:** `docs/proof/visual-regression/` and
+  `apps/web/e2e/visual.spec.ts`.
+- **Verification:** Final commands and hosted results are recorded in the PR.
+- **Blockers:** Workflow changes require Ben's head-specific sign-off.
+
 ## Sarah's anti-slop lint rules (#114)
 
 - **Branch:** `feat/sarah-anti-slop`

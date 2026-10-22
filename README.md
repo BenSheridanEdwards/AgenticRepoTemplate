@@ -102,8 +102,6 @@ one.
 - **Sarah's anti-slop lint rules** that apply here — `no-large-comments` and
   `max-depth`
   ([#114](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/114)).
-- **Visual regression proof**, paused until StyleProof is fixed
-  ([#71](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/71)).
 - **Merge-confidence labels** on every PR
   ([#69](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/69)).
 - **Re-running the interactive architecture audits** against current `HEAD`;
@@ -220,10 +218,18 @@ symptom. A reviewer reads exactly what was verified.
 
 ### Visual style checking
 
-The behaviour map in [`apps/web/e2e/greeting.spec.ts`](apps/web/e2e/greeting.spec.ts) drives the product
-through the real interface using roles and visible text. Visual style checking
-returns once [StyleProof](https://github.com/BenSheridanEdwards/styleproof) is
-fixed.
+Playwright screenshot comparisons gate UI-relevant pull requests through the
+`Visual regression` check. `pnpm visual` compares the reference greeting at
+desktop and mobile sizes in its initial, validation and success states against
+committed PNGs in `docs/proof/visual-regression/`. The gate uses Lighthouse's
+UI-change scope and leaves showcase results to their existing behaviour maps.
+
+Run on Linux with the lockfile's Chromium (`pnpm e2e:install`). For an intended
+visual change, run `pnpm visual:update`, inspect every changed PNG, commit the
+approved baselines with the UI change, and run `pnpm visual` again. Reviewers
+approve those image diffs in the PR; CI compares only and fails on missing or
+different baselines. Failed CI runs upload actual, expected and diff images in
+`visual-differences`. See [ADR 0051](.agents/decisions/0051-playwright-visual-regression.md).
 
 ### Skills: processes with exactly one job
 

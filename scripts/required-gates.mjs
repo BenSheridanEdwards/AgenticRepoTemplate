@@ -110,6 +110,19 @@ export const REQUIRED_GATES = [
     local: '`node scripts/lighthouse-scope.mjs origin/main...HEAD`, then `pnpm build && pnpm lhci`',
   },
   {
+    check: 'Visual regression',
+    workflow: 'visual.yml',
+    job: 'visual',
+    judgedBy: 'branch protection',
+    skipRule: {
+      run: 'node scripts/lighthouse-scope.mjs',
+      when: "steps.changes.outputs.ui-changed == 'true'",
+    },
+    appliesWhen:
+      'Pull requests. Reference screenshots run on the same UI-relevant changes as Lighthouse; other changes pass without capturing.',
+    local: '`pnpm visual` (Linux Chromium)',
+  },
+  {
     check: 'Validate PR body and title',
     workflow: 'pr-quality.yml',
     job: 'pr-body',

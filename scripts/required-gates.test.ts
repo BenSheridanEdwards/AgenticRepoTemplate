@@ -52,6 +52,7 @@ const REAL_FILES = {
   'ci.yml': repoFile('.github/workflows/ci.yml'),
   'codeql.yml': repoFile('.github/workflows/codeql.yml'),
   'lighthouse.yml': repoFile('.github/workflows/lighthouse.yml'),
+  'visual.yml': repoFile('.github/workflows/visual.yml'),
   'pr-quality.yml': repoFile('.github/workflows/pr-quality.yml'),
 };
 
@@ -215,6 +216,17 @@ describe('checkContract', () => {
       ),
     }));
     expect(errors.join('\n')).toContain('continue-on-error');
+  });
+
+  it.each([
+    ['scope decision', 'run: node scripts/lighthouse-scope.mjs', 'run: echo skipped'],
+    ['comparison failure', 'run: pnpm visual', 'run: pnpm visual || true'],
+    ['comparison execution', 'run: pnpm visual', 'if: false\n        run: pnpm visual'],
+  ])('rejects a bypass of the visual %s', (_label, from, to) => {
+    const errors = contractErrors((files) => ({
+      'visual.yml': files['visual.yml'].replace(from, to),
+    }));
+    expect(errors.length).toBeGreaterThan(0);
   });
 
   it('fails when Lighthouse stops deciding its skip with the tested rule', () => {

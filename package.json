@@ -44,7 +44,9 @@
     "verify": "pnpm check:context && pnpm check:suppressions && pnpm check:docs && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm build && pnpm size",
     "setup:agents": "bash scripts/setup-agentic-toolkit.sh",
     "trial": "node tooling/trial/run-trial.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "visual": "VISUAL=1 E2E_BUILD=1 playwright test",
+    "visual:update": "pnpm visual --update-snapshots"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
