@@ -71,8 +71,8 @@ const GITHUB_BLOB_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
 /** Machine-local paths start at a publishing boundary and end at a token terminator. */
 const LOCAL_PATH =
   /(?<=^|[\s`'"([<=:])(?:\/Users\/[^\s`'"()[\]<>]+\/|\/home\/[^\s`'"()[\]<>]+\/|\/root\/|\/workspace\/|\/tmp\/[^\s`'"()[\]<>]+|\/private\/var\/|\/var\/folders\/|[A-Za-z]:\\Users\\|file:\/\/)[^\s`'"()[\]<>]*/g;
-/** Web URL tokens are masked before scanning for machine-local paths. */
-const WEB_URL = /\bhttps?:\/\/[^\s`'"()[\]<>]*/gi;
+/** Web URLs starting at the same publishing boundary are masked before scanning for machine-local paths. */
+const WEB_URL = /(?<=^|[\s`'"([<=:])https?:\/\/[^\s`'"()[\]<>]*/gi;
 const NOT_APPLICABLE = /not applicable/i;
 const NOT_APPLICABLE_REASON_WORDS = 2;
 

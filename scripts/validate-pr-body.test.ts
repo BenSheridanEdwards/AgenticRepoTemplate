@@ -479,6 +479,17 @@ describe('validatePullRequest', () => {
       expect(resultFor(extra)).toEqual({ ok: true, errors: [] });
     });
 
+    it.each([
+      ['/tmp/https://example.com', '/tmp/https://example.com'],
+      ['/tmp/http://example.com', '/tmp/http://example.com'],
+      ['/home/box/https://example.com', '/home/box/https://example.com'],
+      ['/workspace/https://example.com', '/workspace/https://example.com'],
+    ])('reports a URL-shaped segment inside a local path in full: %s', (extra, expected) => {
+      const errors = pathErrors(extra);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(JSON.stringify(expected));
+    });
+
     it('reports a local path outside a URL on the same line', () => {
       const errors = pathErrors('see https://example.com/?next=/tmp/a and /tmp/run/b.log');
       expect(errors).toHaveLength(1);
