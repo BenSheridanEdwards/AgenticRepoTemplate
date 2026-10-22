@@ -77,5 +77,5 @@ and [`.cursor/BUGBOT.md`](.cursor/BUGBOT.md) points Cursor Bugbot here.
   behaviour itself, committed under `docs/proof/<short-scope>/`.
 - Confirm the body separates what passed locally, what CI proved on the latest
   commit, what a runtime verified, and what stays unverified.
-- Confirm secrets, tokens, customer names, and local-only paths stay out of the
-  PR body and the diff.
+- Confirm secrets, tokens, and customer names stay out of the PR body and the
+  diff. The `PR quality` check owns machine-local paths in the body.

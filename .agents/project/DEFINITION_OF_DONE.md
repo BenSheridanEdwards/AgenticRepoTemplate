@@ -83,7 +83,11 @@ that names the fix unless:
 - the Verification Summary has exactly one `- Head commit:` line naming one SHA
   (full or short) of the PR head, so a push that moves the head fails until the
   body is re-checked against it
-  ([ADR 0029](../decisions/0029-pr-body-names-its-head-commit.md)).
+  ([ADR 0029](../decisions/0029-pr-body-names-its-head-commit.md));
+- the body names no machine-local path: it cites repo-relative paths,
+  placeholders such as `<workdir>/repo` or `<tmp>/verify.log`, links, and commands,
+  and the check reads code spans, fenced blocks, and HTML comments too
+  ([ADR 0051](../decisions/0051-pr-body-names-no-machine-local-path.md)).
 
 ## Proof judgment
 
