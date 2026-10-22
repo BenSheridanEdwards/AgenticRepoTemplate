@@ -150,7 +150,8 @@ function linkWebModules(packagePath: string, workspace: Record<string, string>) 
 }
 
 beforeAll(() => {
-  copy = mkdtempSync(join(tmpdir(), 'showcase-inclusion-'));
+  // Child tools report physical paths, including through macOS's /var symlink.
+  copy = realpathSync(mkdtempSync(join(tmpdir(), 'showcase-inclusion-')));
   const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
     cwd: REPOSITORY_ROOT,
     encoding: 'utf8',

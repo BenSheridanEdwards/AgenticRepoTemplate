@@ -11,6 +11,8 @@ export const INHERITED_ENV = new Set([
   'SHELL',
   'LANG',
   'LANGUAGE',
+  // CoreFoundation adds this locale setting when a process starts on macOS.
+  '__CF_USER_TEXT_ENCODING',
   'TERM',
   'TZ',
   'TMPDIR',

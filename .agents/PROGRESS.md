@@ -21,6 +21,26 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## macOS verification portability (#122)
+
+- **Branch:** `fix/macos-verification`
+- **Scope:** Make the existing verify and pre-push suites pass on macOS with
+  every test, assertion, threshold and hook preserved.
+- **Completed:** Fixture roots use physical paths, matching child processes,
+  Git, ESLint and Jest. The trial test adapter preserves an omitted environment
+  so the system adapter supplies its toolchain PATH. The Jest allowlist names
+  CoreFoundation's locale variable explicitly, with a nearby unknown name
+  still rejected.
+- **Proof artifact:** `tooling/coverage-by-result.test.ts`,
+  `tooling/trial/inclusion.test.ts`, `tooling/trial/run-trial.test.ts` and
+  `scripts/jest-env.test.ts` retain the ten assertions that failed on macOS.
+- **Verification:** Baseline: four suites, ten failures on Node 22.23.4.
+  Corrected targeted suites passed (124 tests); `pnpm verify` passed (88 suites,
+  1,585 tests, coverage, build and size); `pnpm e2e` passed (80 tests) on macOS.
+  The PR records the actual pre-push result and latest-head hosted checks.
+- **Blockers:** None locally; hosted verification and Claude Opus review/merge
+  are tracked in the PR.
+
 ## Sarah's anti-slop lint rules (#114)
 
 - **Branch:** `feat/sarah-anti-slop`

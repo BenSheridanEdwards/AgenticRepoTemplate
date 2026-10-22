@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -128,14 +129,17 @@ const quietDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => {
     exec: (argv, options) =>
       exec(argv, {
         ...options,
-        env: Object.fromEntries(
-          Object.entries(options.env ?? {}).map(([name, value]) => [
-            name,
-            options.privateTmp && value === options.privateTmp.over
-              ? options.privateTmp.folder
-              : value,
-          ]),
-        ),
+        env:
+          options.env === undefined
+            ? undefined
+            : Object.fromEntries(
+                Object.entries(options.env).map(([name, value]) => [
+                  name,
+                  options.privateTmp && value === options.privateTmp.over
+                    ? options.privateTmp.folder
+                    : value,
+                ]),
+              ),
         privateTmp: undefined,
       }),
     ...overrides,
@@ -201,7 +205,8 @@ function clearEvidence() {
 
 beforeAll(() => {
   Object.assign(process.env, gitEnv);
-  sandbox = mkdtempSync(join(tmpdir(), 'run-trial-'));
+  // Use the same physical root as the child processes and Git's checkout paths.
+  sandbox = realpathSync(mkdtempSync(join(tmpdir(), 'run-trial-')));
   source = join(sandbox, 'source');
   mkdirSync(source);
   write(sandbox, 'claude-config/settings.json', '{ "model": "opus" }\n');

@@ -35,6 +35,7 @@ describe('the Jest global setup', () => {
     'CI',
     'JEST_WORKER_ID',
     'CLAUDECODE',
+    '__CF_UNRELATED_VARIABLE',
   ];
   const kept = [
     'PATH',
@@ -43,6 +44,7 @@ describe('the Jest global setup', () => {
     'COREPACK_HOME',
     'COREPACK_NPM_REGISTRY',
     'LC_ALL',
+    '__CF_USER_TEXT_ENCODING',
     'ALL_PROXY',
     'all_proxy',
   ];
