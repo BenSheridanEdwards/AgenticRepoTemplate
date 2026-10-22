@@ -119,7 +119,10 @@ function assertRegularFile(filesystem, relativePath, errors) {
   return true;
 }
 
-/** Assert each root pointer is a short, regular file naming the start-here guide. */
+/**
+ * Assert each root pointer is a short, regular file naming the start-here guide.
+ * Returns true when the file is a regular file so the caller can run file-specific checks.
+ */
 function checkRootPointer(filesystem, path, errors) {
   if (!assertRegularFile(filesystem, path, errors)) {
     return false;
@@ -155,12 +158,12 @@ function checkStartHere(filesystem, errors) {
   }
 }
 
-/** Assert Claude imports the guide in prose and keeps a distinct root pointer. */
-function checkClaudeImport(filesystem, errors) {
+/** Assert `CLAUDE.md` imports the guide outside fenced code and is not a byte copy of `AGENTS.md`. */
+function checkClaudePointer(filesystem, errors) {
   const claudeText = filesystem.readText('CLAUDE.md');
   if (!proseLines(claudeText).some((line) => line.trim() === `@${START_HERE}`)) {
     errors.push(
-      '`CLAUDE.md` must import the start-here guide on its own line, `@.agents/START_HERE.md`, so Claude Code loads it at launch.',
+      `\`CLAUDE.md\` must import the start-here guide on its own line, \`@${START_HERE}\`, so Claude Code loads it at launch.`,
     );
   }
 
@@ -173,8 +176,8 @@ function checkClaudeImport(filesystem, errors) {
   }
   if (claudeText === agentsText) {
     errors.push(
-      '`CLAUDE.md` is byte-identical to `AGENTS.md`. It must add the Claude-specific ' +
-        'layer, not duplicate the contract.',
+      '`CLAUDE.md` is byte-identical to `AGENTS.md`. Keep `CLAUDE.md` as its own pointer ' +
+        `that carries the \`@${START_HERE}\` import.`,
     );
   }
 }
@@ -402,7 +405,7 @@ export function checkContextLayer(filesystem) {
 
   checkRootPointer(filesystem, 'AGENTS.md', errors);
   if (checkRootPointer(filesystem, 'CLAUDE.md', errors)) {
-    checkClaudeImport(filesystem, errors);
+    checkClaudePointer(filesystem, errors);
   }
   checkStartHere(filesystem, errors);
 

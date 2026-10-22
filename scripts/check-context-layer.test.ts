@@ -140,6 +140,7 @@ describe('checkContextLayer', () => {
     const files = buildPassingTree();
     files['CLAUDE.md'] = '# CLAUDE.md\nRead the docs.\n';
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('`CLAUDE.md` must point to `.agents/START_HERE.md`');
   });
 
@@ -153,6 +154,7 @@ describe('checkContextLayer', () => {
     const files = buildPassingTree();
     files['CLAUDE.md'] = text;
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain(
       '`CLAUDE.md` must import the start-here guide on its own line, `@.agents/START_HERE.md`, so Claude Code loads it at launch.',
     );
@@ -162,17 +164,19 @@ describe('checkContextLayer', () => {
     const files = buildPassingTree();
     files[path] = `Read .agents/START_HERE.md\n@.agents/START_HERE.md\n${'line\n'.repeat(9)}`;
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain(`\`${path}\` has 11 non-empty lines`);
     expect(result.errors.join('\n')).toContain('only a pointer');
   });
 
   it.each([
-    'AGENTS.md',
-    'CLAUDE.md',
-  ])('passes when %s has 10 non-empty lines and whitespace', (path) => {
+    // Two pointer lines plus eight padding lines make ten non-empty lines.
+    ['AGENTS.md', 'line\n'.repeat(8)],
+    // Three pointer lines plus seven padding lines make ten non-empty lines.
+    ['CLAUDE.md', 'line\n'.repeat(7)],
+  ])('passes when %s has 10 non-empty lines and whitespace', (path, padding) => {
     const files = buildPassingTree();
-    files[path] =
-      `${files[path]}${'line\n'.repeat(10 - files[path].split('\n').filter((line) => line.trim()).length)}   \n`;
+    files[path] = `${files[path]}${padding}   \n`;
     expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
       ok: true,
       errors: [],
@@ -223,6 +227,7 @@ describe('checkContextLayer', () => {
       'Read the rules.',
     );
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain(
       '`.agents/START_HERE.md` must reference `REVIEW.md` so Codex and Claude read the review rules on every PR.',
     );

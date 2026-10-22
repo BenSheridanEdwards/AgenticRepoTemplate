@@ -1,6 +1,6 @@
 # 49. Human-written review rules the bot reviewers read
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Proposed (Ben accepts it by approving the PR); the `AGENTS.md` wiring line superseded by [0053](0053-root-pointers-name-start-here.md)
 - **Date:** 2026-10-21
 - **Builds on:** [0021](0021-guidance-docs-state-the-action.md), [0024](0024-sign-off-only-loosening-enforcement-changes.md)
 

@@ -1,6 +1,6 @@
 # 22. Every agent doc lives in `.agents/`; the root files only point
 
-- **Status:** Accepted
+- **Status:** Accepted; points 1 and 2 superseded by [0053](0053-root-pointers-name-start-here.md)
 - **Date:** 2026-10-17
 
 ## Context
