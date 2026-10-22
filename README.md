@@ -141,10 +141,10 @@ engineer, or a new agent, is productive and safe within minutes of cloning,
 without asking anyone anything.
 
 - [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) are the only agent
-  files at the root, and both are pointers. `CLAUDE.md` points to `AGENTS.md`
-  ([agents.md](https://agents.md) convention), which points to the start-here
-  guide.
-- [`.agents/README.md`](.agents/README.md) is the start-here guide: the
+  files at the root, and both are pointers to the start-here guide
+  ([agents.md](https://agents.md) convention). `CLAUDE.md` imports it so Claude
+  Code loads it.
+- [`.agents/START_HERE.md`](.agents/START_HERE.md) is the start-here guide: the
   tool-agnostic operating contract, with golden rules, commands, and a map of
   the rest. [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) adds the Claude Code
   layer, and [`openai.yaml`](.agents/openai.yaml) lists the same entry points
@@ -338,9 +338,9 @@ optimise last. This is the same find, fix, and re-audit loop the committed
 ## Every file, and why it is here
 
 ```
-AGENTS.md / CLAUDE.md     Pointers: CLAUDE.md → AGENTS.md → .agents/README.md.
+AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports it).
 .agents/                  Every agent doc (read before writing).
-  README.md                 Start here: commands, golden rules, and the map.
+  START_HERE.md             Start here: commands, golden rules, and the map.
   CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
   GITNEXUS.md               GitNexus impact analysis and change detection.
   NORTH_STAR.md             Where the repo is heading and why.

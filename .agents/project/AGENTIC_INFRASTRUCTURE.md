@@ -10,8 +10,8 @@ Each layer has one job:
 
 | Layer | Artifact | Job |
 | --- | --- | --- |
-| Root pointers | `CLAUDE.md` → `AGENTS.md` | Send every agent to the start-here guide. No rules. |
-| Entry contract | `.agents/README.md` | Tool-agnostic rules every agent follows, and the map. |
+| Root pointers | `AGENTS.md`, `CLAUDE.md` (each points to the guide; `CLAUDE.md` imports it) | Send every agent to the start-here guide. No rules. |
+| Entry contract | `.agents/START_HERE.md` | Tool-agnostic rules every agent follows, and the map. |
 | Tool adapter | `.agents/CLAUDE_CODE.md` | Claude-specific skills, hooks, and workflow notes. |
 | Project context | `.agents/project/` | Durable standards and facts. |
 | Decisions | `.agents/decisions/` | Why the standards exist and when they changed. |
@@ -27,8 +27,8 @@ Move the rule to the layer that owns it.
 
 1. **Inventory truth.** Read package scripts, workflows, hooks, tests, build
    config, dependency tooling, and deployment surfaces before writing guidance.
-2. **Write the pointers and the start-here guide.** `CLAUDE.md` points to
-   `AGENTS.md`, which points to `.agents/README.md`. That guide says how to work
+2. **Write the pointers and the start-here guide.** `AGENTS.md` and `CLAUDE.md` each point to `.agents/START_HERE.md`;
+   `CLAUDE.md` also imports it with `@.agents/START_HERE.md` so Claude Code loads it. That guide says how to work
    here, where to read next, what commands matter, and which gates always run.
    `.agents/CLAUDE_CODE.md` adds only Claude-specific skills, permissions, and
    hooks.

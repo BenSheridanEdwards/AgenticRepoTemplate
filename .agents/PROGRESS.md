@@ -1,7 +1,7 @@
 # Progress
 
 A checkpoint log for multi-step work in this repo. The Agent Operating Rules
-(`.agents/README.md` and the ADRs) require a checkpoint for any task longer than
+(`.agents/START_HERE.md` and the ADRs) require a checkpoint for any task longer than
 three steps, so the next agent — or a human picking the work back up — can see
 what is done, what proved it, and what is left.
 
