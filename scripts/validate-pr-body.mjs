@@ -68,6 +68,11 @@ const INLINE_IMAGE = /!\[[^\]]*\]\(\s*<?([^\s)>]*)>?[^)]*\)/g;
 const PLAIN_LINK = /(?<!!)\[[^[\]]*\]\(\s*<?([^\s)>]+)>?[^)]*\)/g;
 const IMAGE_FILE_URL = /\.(png|jpe?g|gif|webp)(\?[^#]*)?(#.*)?$/i;
 const GITHUB_BLOB_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//i;
+/**
+ * Tokens start at a publishing boundary. URL tokens are skipped whole and local-path tokens are reported whole.
+ */
+const PUBLISHED_TOKEN =
+  /(?<=^|[\s`'"([<=:])(?:(?<url>[Hh][Tt][Tt][Pp][Ss]?:\/\/[^\s`'"()[\]<>]*)|(?<path>(?:\/Users\/[^\s`'"()[\]<>]+\/|\/home\/[^\s`'"()[\]<>]+\/|\/root\/|\/workspace\/|\/tmp\/[^\s`'"()[\]<>]+|\/private\/var\/|\/var\/folders\/|[A-Za-z]:\\Users\\|file:\/\/)[^\s`'"()[\]<>]*))/g;
 const NOT_APPLICABLE = /not applicable/i;
 const NOT_APPLICABLE_REASON_WORDS = 2;
 
@@ -131,6 +136,33 @@ function collectImageErrors(body) {
     }
   }
   return errors;
+}
+
+/**
+ * Read tokens at publishing boundaries, skipping whole URLs and reporting whole local paths.
+ * Keep each distinct path with its first line number.
+ */
+function findLocalPaths(body) {
+  const paths = new Map();
+  for (const [index, line] of body.split('\n').entries()) {
+    for (const match of line.matchAll(PUBLISHED_TOKEN)) {
+      if (match.groups.path === undefined) continue;
+      const path = match.groups.path.replace(/[.,;:!?]+$/, '');
+      if (!paths.has(path)) {
+        paths.set(path, index + 1);
+      }
+    }
+  }
+  return paths;
+}
+
+/** Collect machine-local path errors with reviewer-accessible alternatives. */
+function collectLocalPathErrors(body) {
+  return [...findLocalPaths(body)].map(
+    ([path, line]) =>
+      `PR body names the machine-local path ${quoteValue(path)} (line ${line}). ` +
+      'Name a repo-relative path (`docs/proof/<scope>/file.png`), a placeholder such as `<workdir>/repo`, or the command a reviewer can run to reproduce it.',
+  );
 }
 
 /** Collect branch-name errors. An empty branch is not checked. */
@@ -435,6 +467,7 @@ export function validatePullRequest({ title, body, headSha, branch }) {
       headSha,
     ),
     ...collectImageErrors(typeof body === 'string' ? body : ''),
+    ...collectLocalPathErrors(typeof body === 'string' ? body : ''),
   ];
 
   return { ok: errors.length === 0, errors };

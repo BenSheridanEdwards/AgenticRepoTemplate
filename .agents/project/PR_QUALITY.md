@@ -54,8 +54,10 @@ the latest-sha checks are green.
   hook, gate, and check in place while you do.
 - If proof depends on a deploy or external service, verify that runtime directly
   before claiming it works there.
-- Keep private project details, secrets, tokens, customer names, and local-only
-  paths out of public PR bodies.
+- Keep private project details, secrets, tokens, and customer names out of public
+  PR bodies. Cite repo-relative paths, placeholders such as `<workdir>/repo`,
+  links, and commands; the `PR quality` check fails a body that names a
+  machine-local path.
 
 ## PR body source
 
