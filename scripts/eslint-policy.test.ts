@@ -212,9 +212,10 @@ export function useMirror(value: number) {
 
   it('blocks a function inside a component without the handle prefix (policy/handler-names)', () => {
     const result = lintPolicy(`
+import { Button } from '@repo/ui';
 export function Fixture({ onSave }: { onSave: () => void }) {
   const save = () => onSave();
-  return <button type="button" onClick={save}>Save</button>;
+  return <Button type="button" onClick={save}>Save</Button>;
 }
 `);
     expect(result.exitCode).toBe(1);
@@ -223,13 +224,14 @@ export function Fixture({ onSave }: { onSave: () => void }) {
 
   it('passes handle-prefixed functions and on-prefixed callback props', () => {
     const result = lintPolicy(`
+import { Button } from '@repo/ui';
 interface FixtureProps {
   label: string;
   onSave: () => void;
 }
 export function Fixture({ label, onSave }: FixtureProps) {
   const handleClick = () => onSave();
-  return <button type="button" onClick={handleClick}>{label}</button>;
+  return <Button type="button" onClick={handleClick}>{label}</Button>;
 }
 `);
     expect(result.ruleIds).toEqual([]);
@@ -245,7 +247,7 @@ export function Fixture({ label, onSave }: FixtureProps) {
   ])('blocks a callback prop without the on prefix in %s (policy/callback-prop-names)', (_label, header) => {
     const result = lintPolicy(`
 ${header}
-  return <button type="button" onClick={save}>Save</button>;
+  return <Button type="button" onClick={save}>Save</Button>;
 }
 `);
     expect(result.exitCode).toBe(1);
@@ -517,9 +519,10 @@ export function Fixture() {
   it('blocks a React.useCallback without the handle prefix (policy/handler-names)', () => {
     const result = lintPolicy(`
 import * as React from 'react';
+import { Button } from '@repo/ui';
 export function Fixture({ onSave }: { onSave: () => void }) {
   const save = React.useCallback(() => onSave(), [onSave]);
-  return <button type="button" onClick={save}>Save</button>;
+  return <Button type="button" onClick={save}>Save</Button>;
 }
 `);
     expect(result.ruleIds).toContain('policy/handler-names');
@@ -541,7 +544,7 @@ export function Fixture({ onSave }: { onSave: () => void }) {
   ])('blocks a callback prop without the on prefix through %s (policy/callback-prop-names)', (_label, header) => {
     const result = lintPolicy(`
 ${header}
-  return <button type="button" onClick={save}>Save</button>;
+  return <Button type="button" onClick={save}>Save</Button>;
 };
 `);
     expect(result.ruleIds).toContain('policy/callback-prop-names');
@@ -887,12 +890,12 @@ describe('ESLint inline config', () => {
       `/* ${ESLINT}-env node */`,
       '/* exported one */',
     ];
-    const result = lintPolicy(`${forms.join('\n')}\n`, filename);
+    const result = lintPolicy(`${forms.join('\n\n')}\n`, filename);
 
     expect(result.exitCode).toBe(1);
     expect(
       result.messages.map(({ line, message }) => [line, /noInlineConfig/.test(message)]),
-    ).toEqual(forms.map((_, index) => [index + 1, true]));
+    ).toEqual(forms.map((_, index) => [index * 2 + 1, true]));
   });
 
   it('keeps a suppressed finding reported when a disable comment names its rule', () => {
@@ -928,5 +931,105 @@ function Badge() {
 
     expect(tracked.length).toBeGreaterThan(100);
     expect(tracked.filter((path) => !linted.includes(path))).toEqual([]);
+  });
+});
+
+describe('anti-slop policies', () => {
+  jest.setTimeout(60_000);
+
+  it.each([
+    'apps/web/src/features/policy/fixture.ts',
+    'apps/api/src/features/policy/domain.ts',
+    'packages/ui/src/fixture.ts',
+    'showcase/x/web/src/features/policy/fixture.ts',
+    'showcase/x/api/src/features/policy/domain.ts',
+  ])('enforces comment and depth ceilings in %s', (filename) => {
+    const source =
+      '// one\n// two\n// three\n// four\n// five\n' +
+      'if (a) { if (b) { if (c) { if (d) { if (e) { work(); } } } } }';
+    const result = lintPolicy(source, filename);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/no-large-comments', 'max-depth']);
+  });
+
+  it.each([
+    '/* one\n two\n three\n four\n five */',
+    '/**\n * one\n * two\n * three\n */',
+    '// one\n/* two */\n// three\n/* four */\n// five',
+    '/* one */\n/* two */\n/* three */\n/* four */\n/* five */',
+    'work(); // one\n// two\n// three\n// four\n// five',
+  ])('blocks long comments including split syntaxes: %s', (source) => {
+    const result = lintPolicy(source);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toEqual(['policy/no-large-comments']);
+    expect(result.messages[0].message).toContain('4 lines or fewer');
+  });
+
+  it('keeps the comment policy active under a named inline disable', () => {
+    const directive = 'eslint';
+    const result = lintPolicy(
+      `/* ${directive}-disable policy/no-large-comments */\n\n// one\n// two\n// three\n// four\n// five`,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/no-large-comments');
+    expect(result.messages.some(({ message }) => message.includes('noInlineConfig'))).toBe(true);
+  });
+
+  it('passes the boundaries and comments separated by code or a blank line', () => {
+    const result = lintPolicy(`
+// one
+// two
+// three
+// four
+if (a) { if (b) { if (c) { if (d) { work(); } } } }
+/* one
+ two
+ three
+ four */
+
+// a separate comment
+work(); // another
+work(); // separate again
+`);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it.each([
+    '<button />',
+    '<input />',
+    '<input type="text" />',
+    '<input type="checkbox" {...props} />',
+    'React.createElement("input", { type: "checkbox", [key]: "text" })',
+    'make("button", {})',
+    'React.createElement("input", { type: "text" })',
+    'React.createElement("input", { type: "checkbox", ...props })',
+  ])('requires shared primitives for %s', (control) => {
+    const result = lintPolicy(`
+import React, { createElement as make } from 'react';
+const control = ${control};
+`);
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('policy/use-ui-primitives');
+  });
+
+  it.each([
+    'apps/web/src/features/policy/Fixture.tsx',
+    'showcase/x/web/src/routes/policy/Fixture.tsx',
+  ])('allows shared components and controls without a primitive in %s', (filename) => {
+    const result = lintPolicy(
+      `
+import { Button, TextField } from '@repo/ui';
+const controls = [<Button />, <TextField label="Name" />, <input type="checkbox" aria-label="Done" />, <input type={'radio'} aria-label="Choice" />];
+`,
+      filename,
+    );
+    expect(result.exitCode).toBe(0);
+  });
+
+  it.each([
+    'packages/ui/src/Button.tsx',
+    'apps/web/src/App.test.tsx',
+  ])('allows native controls in primitive definitions and test harnesses: %s', (filename) => {
+    expect(lintPolicy('const control = <button aria-label="Save" />;', filename).exitCode).toBe(0);
   });
 });

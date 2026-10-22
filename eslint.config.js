@@ -72,6 +72,10 @@ const singleOwnerOverrides = {
 const policyRules = {
   ...Object.fromEntries(Object.keys(policy.rules).map((rule) => [`policy/${rule}`, 'error'])),
   'react-doctor/prefer-function-component': 'error',
+  // Sarah Fim's anti-slop `max-depth` 4: a block nested deeper than four reads
+  // as slop (NORTH_STAR §1). The core rule owns the deterministic nesting limit;
+  // Fallow owns statistical complexity and never gates nesting depth (ADR 0050).
+  'max-depth': ['error', 4],
   // A feature, route, shared module or the api client is imported only through
   // its index.ts.
   // The api names that file with its `.ts` extension, because NodeNext

@@ -18,6 +18,9 @@ The ESLint rules and the Biome naming override run on every package source:
 | Identifiers: `camelCase` functions and variables, `PascalCase` types and components, `SCREAMING_SNAKE_CASE` for true configuration constants. | Biome `style/useNamingConvention` |
 | File names are camelCase, PascalCase, or the name of their export. | Biome `style/useFilenamingConvention` |
 | A component or hook lives in the file of the same name (`GreetingForm.tsx`, `useGreeting.ts`). | ESLint `policy/file-matches-export` |
+| Keep each comment group to four physical lines; write longer rationale in a doc or ADR. Adjacent mixed comment syntaxes count together. | ESLint `policy/no-large-comments` |
+| Keep block nesting to four levels. | ESLint `max-depth` |
+| Use `@repo/ui` Button and TextField for native buttons and inputs; checkbox/radio inputs use native elements until dedicated primitives exist. UI definitions and test harnesses may use native controls. | ESLint `policy/use-ui-primitives` |
 | One React component per file. | ESLint `policy/one-component-per-file` |
 | Function components only. | ESLint `react-doctor/prefer-function-component` |
 | `useState`, `useReducer`, effects, TanStack Query hooks (`useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`) and React Hook Form hooks (`useForm`, `useFieldArray`) run only inside a named custom `use*` hook. | ESLint `policy/state-and-effects-in-hooks` ([ADR 0012](../decisions/0012-local-state-inside-custom-hooks.md)) |

@@ -756,10 +756,108 @@ const formUsesEffectSchema = {
   },
 };
 
+// Sarah Fim's "anti-slop" factory bans a comment longer than a few lines:
+// prefer self-explanatory code (NORTH_STAR §1). The scaffold ships one necessary
+// four-line comment (`web/src/api-client/trpc.ts`), copied verbatim into every
+// frozen trial result (ADR 0034, ADR 0035), so the enforced ceiling is four
+// lines; a fifth line fails. ADR 0050 records the threshold.
+const MAX_COMMENT_LINES = 4;
+
+const noLargeComments = {
+  meta: {
+    type: 'suggestion',
+    messages: {
+      tooLong:
+        'This comment spans {{lines}} lines. Keep a comment to {{max}} lines or fewer: delete it ' +
+        'for self-explanatory code, or move a long rationale into a doc or an ADR.',
+    },
+    schema: [],
+  },
+  create(context) {
+    const source = context.sourceCode;
+    const span = (first, last) => last.loc.end.line - first.loc.start.line + 1;
+    const report = (first, last) =>
+      context.report({
+        loc: { start: first.loc.start, end: last.loc.end },
+        messageId: 'tooLong',
+        data: { lines: span(first, last), max: MAX_COMMENT_LINES },
+      });
+    return {
+      Program() {
+        let run = [];
+        const flushRun = () => {
+          if (run.length > 0 && span(run[0], run[run.length - 1]) > MAX_COMMENT_LINES) {
+            report(run[0], run[run.length - 1]);
+          }
+          run = [];
+        };
+        for (const comment of source.getAllComments()) {
+          const previous = run.at(-1);
+          if (
+            previous &&
+            (comment.loc.start.line > previous.loc.end.line + 1 ||
+              source.text.slice(previous.range[1], comment.range[0]).trim())
+          ) {
+            flushRun();
+          }
+          run.push(comment);
+        }
+        flushRun();
+      },
+    };
+  },
+};
+
+const useUiPrimitives = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: { primitive: 'Use {{primitive}} from @repo/ui for this control.' },
+  },
+  create(context) {
+    if (repositoryPath(context).startsWith('packages/ui/') || isTestFile(context.filename)) {
+      return {};
+    }
+    const element = importTracker('react', 'createElement');
+    const check = (node, tag, type) => {
+      if (tag === 'button' || (tag === 'input' && !['checkbox', 'radio'].includes(type))) {
+        context.report({
+          node,
+          messageId: 'primitive',
+          data: { primitive: tag === 'button' ? 'Button' : 'TextField' },
+        });
+      }
+    };
+    return {
+      ImportDeclaration: element.ImportDeclaration,
+      JSXOpeningElement(node) {
+        const type = node.attributes.findLast(
+          (attribute) => attribute.type === 'JSXSpreadAttribute' || attribute.name.name === 'type',
+        )?.value;
+        check(node, node.name.name, type?.value ?? type?.expression?.value);
+      },
+      CallExpression(node) {
+        if (element.names(node.callee)) {
+          const type = node.arguments[1]?.properties?.findLast(
+            (property) =>
+              property.type === 'SpreadElement' ||
+              property.computed ||
+              property.key?.name === 'type' ||
+              property.key?.value === 'type',
+          );
+          check(node, node.arguments[0]?.value, type?.computed ? undefined : type?.value?.value);
+        }
+      },
+    };
+  },
+};
+
 export default {
   meta: { name: 'policy' },
   rules: {
     'one-component-per-file': oneComponentPerFile,
+    'no-large-comments': noLargeComments,
+    'use-ui-primitives': useUiPrimitives,
     'state-and-effects-in-hooks': stateAndEffectsInHooks,
     'handler-names': handlerNames,
     'callback-prop-names': callbackPropNames,

@@ -21,6 +21,17 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## Sarah's anti-slop lint rules (#114)
+
+- **Branch:** `feat/sarah-anti-slop`
+- **Scope:** Audit Sarah's policies and enforce missing applicable source rules.
+- **Completed:** Comment and nesting ceilings plus shared-control enforcement,
+  seeded CLI tests and ADR 0050 with the audit and scope decisions.
+- **Proof artifact:** `scripts/eslint-policy.test.ts`.
+- **Verification:** `pnpm lint:policy` passed; `pnpm e2e` passed (80 tests).
+  The PR records the full-suite result and current hosted checks.
+- **Blockers:** Enforcement edits require Ben's head-specific sign-off.
+
 ## Project-local verification skill
 
 - **Branch:** `feat/verify-app-skill`
