@@ -470,20 +470,6 @@ describe('validatePullRequest', () => {
     const pathErrors = (extra: string) =>
       resultFor(extra).errors.filter((error) => error.includes('machine-local path'));
 
-    it.each([
-      ['/home/box:https://example.com/x', '/home/box:https://example.com/x'],
-      ['/Users/ben=https://example.com/x', '/Users/ben=https://example.com/x'],
-      ['/home/box/dir:https://example.com/x', '/home/box/dir:https://example.com/x'],
-      ['/tmp/x:https://example.com/x', '/tmp/x:https://example.com/x'],
-      ['https://example.com`/tmp/local`', '/tmp/local'],
-      ['https://example.com(/tmp/local)', '/tmp/local'],
-      ['https://example.com</tmp/local>', '/tmp/local'],
-    ])('round-3 QA reports the whole path in %s', (text, expected) => {
-      const errors = pathErrors(text);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain(JSON.stringify(expected));
-    });
-
     const urlCases: string[] = [];
     for (const scheme of ['http', 'https']) {
       for (const wrap of [
@@ -498,29 +484,27 @@ describe('validatePullRequest', () => {
         }
       }
     }
-    it.each(urlCases)('round-2 QA skips the whole URL in %s', (text) => {
-      expect(pathErrors(text)).toHaveLength(0);
+    it.each([
+      ...urlCases,
+      'https://example.com:/tmp/local',
+      'https://example.com/view?next=/home/box/a&log=/tmp/run/a',
+      '[log](https://example.com/run?path=/workspace/x/y.log)',
+      '<https://example.com/a?u=/Users/ben/x>',
+      'http://example.com/?f=/root/x',
+    ])('passes an http(s) URL whole, query and fragment values included: %s', (text) => {
+      expect(resultFor(text)).toEqual({ ok: true, errors: [] });
     });
 
-    it.each<[string, string[]]>([
-      ['https://example.com /tmp/local', ['/tmp/local']],
-      ['https://example.com:/tmp/local', []],
-      ['https://example.com`/tmp/local`', ['/tmp/local']],
-      ['https://example.com(/tmp/local)', ['/tmp/local']],
-      ['/tmp/https://example.com', ['/tmp/https://example.com']],
-      ['/tmp/http://example.com', ['/tmp/http://example.com']],
-      ['/home/box/https://example.com', ['/home/box/https://example.com']],
-      ['/workspace/https://example.com', ['/workspace/https://example.com']],
-    ])('round-2 QA reports expected paths in %s', (text, expected) => {
+    it.each([
+      ['https://example.com /tmp/local', '/tmp/local'],
+      ['https://example.com`/tmp/local`', '/tmp/local'],
+      ['https://example.com(/tmp/local)', '/tmp/local'],
+      ['https://example.com</tmp/local>', '/tmp/local'],
+      ['see https://example.com/?next=/tmp/a and /tmp/run/b.log', '/tmp/run/b.log'],
+    ])('reports a local path that follows a URL on the same line: %s', (text, expectedPath) => {
       const errors = pathErrors(text);
-      expect(errors).toHaveLength(expected.length);
-      for (const path of expected) {
-        expect(
-          errors.some((error) =>
-            error.includes(JSON.stringify(path.length > 40 ? `${path.slice(0, 40)}…` : path)),
-          ),
-        ).toBe(true);
-      }
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(JSON.stringify(expectedPath));
     });
 
     const embeddedSchemeCases = [
@@ -536,38 +520,24 @@ describe('validatePullRequest', () => {
     ].flatMap((prefix) =>
       ['x:', 'x=', ''].map((joiner) => `${prefix}${joiner}https://example.com/x`),
     );
-    it.each(embeddedSchemeCases)('reports the whole path with an embedded scheme in %s', (text) => {
+    it.each([
+      ...new Set([
+        '/home/box:https://example.com/x',
+        '/Users/ben=https://example.com/x',
+        '/home/box/dir:https://example.com/x',
+        '/tmp/x:https://example.com/x',
+        '/tmp/https://example.com',
+        '/tmp/http://example.com',
+        '/home/box/https://example.com',
+        '/workspace/https://example.com',
+        ...embeddedSchemeCases,
+      ]),
+    ])('reports a local path whole when it holds a URL-shaped segment: %s', (text) => {
       const errors = pathErrors(text);
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain(
         JSON.stringify(text.length > 40 ? `${text.slice(0, 40)}…` : text),
       );
-    });
-
-    it.each([
-      'https://example.com/view?next=/home/box/a&log=/tmp/run/a',
-      '[log](https://example.com/run?path=/workspace/x/y.log)',
-      '<https://example.com/a?u=/Users/ben/x>',
-      'http://example.com/?f=/root/x',
-    ])('passes a path inside an http(s) URL query: %s', (extra) => {
-      expect(resultFor(extra)).toEqual({ ok: true, errors: [] });
-    });
-
-    it.each([
-      ['/tmp/https://example.com', '/tmp/https://example.com'],
-      ['/tmp/http://example.com', '/tmp/http://example.com'],
-      ['/home/box/https://example.com', '/home/box/https://example.com'],
-      ['/workspace/https://example.com', '/workspace/https://example.com'],
-    ])('reports a URL-shaped segment inside a local path in full: %s', (extra, expected) => {
-      const errors = pathErrors(extra);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain(JSON.stringify(expected));
-    });
-
-    it('reports a local path outside a URL on the same line', () => {
-      const errors = pathErrors('see https://example.com/?next=/tmp/a and /tmp/run/b.log');
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain('"/tmp/run/b.log"');
     });
 
     it.each([
