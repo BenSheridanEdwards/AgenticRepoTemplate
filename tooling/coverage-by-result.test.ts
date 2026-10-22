@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { coverageShortfalls } from './coverage-by-result.mjs';
@@ -31,7 +31,8 @@ function write(path: string, text: string) {
 }
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'coverage-by-result-'));
+  // Match the physical paths Jest reports and the CLI gets from process.cwd().
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'coverage-by-result-')));
   for (const result of ['apps', 'showcase/todo-01']) {
     write(`${result}/web/package.json`, '{}\n');
     write(`${result}/api/package.json`, '{}\n');
