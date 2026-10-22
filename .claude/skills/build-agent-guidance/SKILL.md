@@ -28,8 +28,9 @@ the root docs into a second codebase.
 2. **Separate layers.** Keep the start-here guide tool-agnostic. Put
    tool-specific behaviour in `.agents/CLAUDE_CODE.md`, `.claude/settings.json`,
    hooks, and skills. Put durable project knowledge in `.agents/`.
-3. **Root docs only point.** `CLAUDE.md` points to `AGENTS.md`, and `AGENTS.md`
-   points to `.agents/README.md`. The start-here guide answers: what this repo
+3. **Root docs only point.** `CLAUDE.md` points to `.agents/START_HERE.md` and
+   imports it with `@.agents/START_HERE.md`. `AGENTS.md` points to
+   `.agents/START_HERE.md`. The start-here guide answers: what this repo
    is, how to run it, golden rules, where to read next, and safety boundaries.
 4. **Make `.agents/` canonical.** Put architecture, conventions, tech stack,
    glossary, Definition of Done, and ADRs under `.agents/`. If a rule needs more
@@ -46,9 +47,9 @@ the root docs into a second codebase.
 
 ## Layer Contract
 
-- `CLAUDE.md`: points to `AGENTS.md` (and imports it with `@AGENTS.md`).
-- `AGENTS.md`: points to `.agents/README.md`.
-- `.agents/README.md`: start here. Portable operating contract for any agent
+- `CLAUDE.md`: points to `.agents/START_HERE.md` (and imports it with `@.agents/START_HERE.md`).
+- `AGENTS.md`: points to `.agents/START_HERE.md`.
+- `.agents/START_HERE.md`: start here. Portable operating contract for any agent
   or engineer, and the map of `.agents/`.
 - `.agents/CLAUDE_CODE.md`: Claude-specific adapter, local skills, allowed
   commands, and hooks.

@@ -24,7 +24,7 @@ const TRACKED = [
   'scripts/validate-pr-body.mjs',
 ];
 
-const find = (markdown: string, doc = '.agents/README.md') =>
+const find = (markdown: string, doc = '.agents/START_HERE.md') =>
   findUnguardedSignOffPaths(markdown, doc, TRACKED);
 
 describe('isGuardedPath', () => {

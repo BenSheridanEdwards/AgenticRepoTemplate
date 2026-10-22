@@ -2,6 +2,7 @@
 /**
  * Enforce the repository's own context-layer invariants.
  *
+ * Both root files point to `.agents/START_HERE.md`; Claude also imports it.
  * The context layer (the root pointers, the start-here guide, the multi-vendor
  * manifest, the project docs, the house skills) is the part of the standard that is otherwise
  * pure documentation: nothing mechanical fails when a file is deleted, renamed,
@@ -22,14 +23,14 @@ import { fileURLToPath } from 'node:url';
 /** The repository root: this file lives in `scripts/`, so the root is its parent. */
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The start-here guide under `.agents/`, where `AGENTS.md` points. */
-const START_HERE = '.agents/README.md';
+/** The start-here guide under `.agents/`, where both root files point. */
+const START_HERE = '.agents/START_HERE.md';
 
 /** A file is "non-trivial" when it has at least this many non-empty lines. */
 const MINIMUM_NON_EMPTY_LINES = 20;
 
-/** How many leading lines of `CLAUDE.md` may carry the defer-to-AGENTS reference. */
-const CLAUDE_DEFER_HEADER_LINE_COUNT = 10;
+/** Keep root files short so the guide owns the operating contract. */
+const MAXIMUM_POINTER_NON_EMPTY_LINES = 10;
 
 /**
  * The seven project docs under `.agents/project/` that the multi-vendor manifest
@@ -92,17 +93,6 @@ function countNonEmptyLines(text) {
 }
 
 /**
- * True when `CLAUDE.md`'s first lines defer to `AGENTS.md`: either a "read
- * ... AGENTS.md" style pointer or a "defer ... AGENTS.md" style one.
- */
-function defersToAgentsContract(claudeHeaderText) {
-  return (
-    /read[\s\S]*AGENTS\.md/i.test(claudeHeaderText) ||
-    /defer[\s\S]*AGENTS\.md/i.test(claudeHeaderText)
-  );
-}
-
-/**
  * Assert that a repository-relative path exists as a regular, non-symlink file.
  * Pushes an actionable error and returns false on any violation; returns true
  * when the file is a genuine regular file.
@@ -129,17 +119,29 @@ function assertRegularFile(filesystem, relativePath, errors) {
   return true;
 }
 
-/** Assert `AGENTS.md`: a regular, non-symlink file that points to the start-here guide. */
-function checkAgentsPointer(filesystem, errors) {
-  if (!assertRegularFile(filesystem, 'AGENTS.md', errors)) {
-    return;
+/**
+ * Assert each root pointer is a short, regular file naming the start-here guide.
+ * Returns true when the file is a regular file so the caller can run file-specific checks.
+ */
+function checkRootPointer(filesystem, path, errors) {
+  if (!assertRegularFile(filesystem, path, errors)) {
+    return false;
   }
-  if (!filesystem.readText('AGENTS.md').includes(START_HERE)) {
+  const text = filesystem.readText(path);
+  if (!text.includes(START_HERE)) {
     errors.push(
-      `\`AGENTS.md\` must point to \`${START_HERE}\`, the start-here guide. ` +
+      `\`${path}\` must point to \`${START_HERE}\`, the start-here guide. ` +
         'Every agent doc lives under `.agents/`.',
     );
   }
+  const nonEmptyLineCount = countNonEmptyLines(text);
+  if (nonEmptyLineCount > MAXIMUM_POINTER_NON_EMPTY_LINES) {
+    errors.push(
+      `\`${path}\` has ${nonEmptyLineCount} non-empty lines, expected at most ${MAXIMUM_POINTER_NON_EMPTY_LINES}. ` +
+        'The root file is only a pointer: move its content into `.agents/` and link it from the guide.',
+    );
+  }
+  return true;
 }
 
 /** Assert the start-here guide: a non-trivial, regular, non-symlink file. */
@@ -156,25 +158,16 @@ function checkStartHere(filesystem, errors) {
   }
 }
 
-/**
- * Assert `CLAUDE.md`: a regular file that defers to `AGENTS.md` in its header,
- * is not a symlink to `AGENTS.md`, and is not byte-identical to it.
- */
-function checkClaudeLayer(filesystem, errors) {
-  if (!assertRegularFile(filesystem, 'CLAUDE.md', errors)) {
-    return;
-  }
+/** Assert `CLAUDE.md` imports the guide outside fenced code and is not a byte copy of `AGENTS.md`. */
+function checkClaudePointer(filesystem, errors) {
   const claudeText = filesystem.readText('CLAUDE.md');
-  const headerText = claudeText.split('\n').slice(0, CLAUDE_DEFER_HEADER_LINE_COUNT).join('\n');
-  if (!defersToAgentsContract(headerText)) {
+  if (!proseLines(claudeText).some((line) => line.trim() === `@${START_HERE}`)) {
     errors.push(
-      `\`CLAUDE.md\` must defer to \`AGENTS.md\` within its first ${CLAUDE_DEFER_HEADER_LINE_COUNT} ` +
-        'lines (for example "Read `AGENTS.md` first."). No such reference was found.',
+      `\`CLAUDE.md\` must import the start-here guide on its own line, \`@${START_HERE}\`, so Claude Code loads it at launch.`,
     );
   }
 
-  // A symlink CLAUDE.md is already reported by assertRegularFile, but a regular
-  // file that is byte-identical to AGENTS.md defeats the "layer on top" intent.
+  // Keep the Claude entry point distinct from the generic pointer.
   let agentsText = '';
   try {
     agentsText = filesystem.readText('AGENTS.md');
@@ -183,8 +176,8 @@ function checkClaudeLayer(filesystem, errors) {
   }
   if (claudeText === agentsText) {
     errors.push(
-      '`CLAUDE.md` is byte-identical to `AGENTS.md`. It must add the Claude-specific ' +
-        'layer, not duplicate the contract.',
+      '`CLAUDE.md` is byte-identical to `AGENTS.md`. Keep `CLAUDE.md` as its own pointer ' +
+        `that carries the \`@${START_HERE}\` import.`,
     );
   }
 }
@@ -374,7 +367,7 @@ function checkDecisionNumbers(filesystem, errors) {
 
 /**
  * Assert the human-written review rules exist and both reviewer entry points
- * discover them: the root `AGENTS.md` references the file for Codex and Claude,
+ * discover them: the start-here guide references the file for Codex and Claude,
  * and `.cursor/BUGBOT.md` references it for Cursor Bugbot. Keeping the wiring in
  * one check means the rules a bot reviewer reads after lint cannot silently drop
  * off any reviewer.
@@ -385,14 +378,14 @@ function checkReviewRules(filesystem, errors) {
   }
 
   try {
-    if (!filesystem.readText('AGENTS.md').includes(REVIEW_RULES)) {
+    if (!filesystem.readText(START_HERE).includes(REVIEW_RULES)) {
       errors.push(
-        `\`AGENTS.md\` must reference \`${REVIEW_RULES}\` so Codex and Claude read the ` +
+        `\`${START_HERE}\` must reference \`${REVIEW_RULES}\` so Codex and Claude read the ` +
           'review rules on every PR.',
       );
     }
   } catch {
-    // A missing or unreadable `AGENTS.md` is already reported by checkAgentsPointer.
+    // A missing or unreadable guide is already reported by checkStartHere.
   }
 
   if (!assertRegularFile(filesystem, BUGBOT_POINTER, errors)) {
@@ -410,8 +403,10 @@ function checkReviewRules(filesystem, errors) {
 export function checkContextLayer(filesystem) {
   const errors = [];
 
-  checkAgentsPointer(filesystem, errors);
-  checkClaudeLayer(filesystem, errors);
+  checkRootPointer(filesystem, 'AGENTS.md', errors);
+  if (checkRootPointer(filesystem, 'CLAUDE.md', errors)) {
+    checkClaudePointer(filesystem, errors);
+  }
   checkStartHere(filesystem, errors);
 
   // The multi-vendor manifest.

@@ -289,7 +289,7 @@
         "jest.setup.ts",
         "jest.style-stub.cjs",
         "eslint.config.js",
-        "team-walkthrough.html",
+        ".agents/team-walkthrough.html",
         "{apps,showcase/*}/web/{index.html,vite.config.ts}",
         "{apps,showcase/*}/web/e2e/**",
         ".claude/**",

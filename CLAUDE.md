@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Read [`AGENTS.md`](AGENTS.md) first. It points to `.agents/`, where every agent
-doc lives. The Claude Code notes are in
-[`.agents/CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md).
+Every agent doc for this repo lives in [`.agents/`](.agents/). Start here:
+[`.agents/START_HERE.md`](.agents/START_HERE.md), imported below so Claude Code
+loads it at launch.
 
-@AGENTS.md
+@.agents/START_HERE.md
