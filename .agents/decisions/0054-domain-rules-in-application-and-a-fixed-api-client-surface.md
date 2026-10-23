@@ -50,15 +50,19 @@ the existing ADR 0037 implementation with `tooling/trial/result-facts.mjs`.
 `import type`, all-type named import specifiers, `export type` and all-type
 named re-export specifiers bring in types only. The comparison keeps its
 existing interpretation. This rule proves the value crossing; feature tests
-prove the rules' behavior.
+prove the rules' behavior. A bare side-effect import such as
+`import './domain.ts'` counts as a value crossing too; it establishes a runtime
+dependency without proving that application calls a domain rule.
 
 **Scaffold API reports match the reference.** The structure rule
 `scaffold-exports` compares sorted exported `(name, kind)` pairs in each
 result's `web/etc/api-client.api.md` and `api/etc/api.api.md` with those in
 `apps/`. `type` and `interface` declarations count as types; `function`,
 `const`, `class` and `enum` declarations count as values. Missing, added or
-changed kinds fail. Any unrecognised `export` line fails explicitly, keeping
-other declaration and re-export forms from escaping the pin.
+changed kinds fail. Each unrecognised `export` line produces a `scaffold-exports`
+finding with its report path and text, keeping other declaration and re-export
+forms from escaping the pin while validation continues through the other reports
+and structure rules.
 `pnpm api:check` continues to enforce report existence
 and freshness against source.
 

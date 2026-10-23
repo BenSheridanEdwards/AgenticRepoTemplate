@@ -35,6 +35,7 @@ function validate(
     edges = [] as { from: string; to: string }[],
     results = [reference, todo],
     symlinks = [] as string[],
+    contract: structureContract = contract,
   } = {},
 ) {
   const tree = Object.fromEntries(
@@ -49,7 +50,7 @@ function validate(
       .map((file) => [file.slice(0, -'/package.json'.length), JSON.parse(tree[file] ?? '')]),
   );
   return validateStructure({
-    contract,
+    contract: structureContract,
     results,
     files,
     edges: [
@@ -417,6 +418,30 @@ describe('validateStructure', () => {
     ]);
   });
 
+  it('checks only named features when a role source is outside the feature layout', () => {
+    const application = 'showcase/todo-01/api/src/application.ts';
+    const domain = 'showcase/todo-01/api/src/domain.ts';
+    expect(
+      validate(
+        {
+          [application]: 'export const greet = () => "Hello";',
+          [domain]: 'export const formatGreeting = () => "Hello";',
+          [APPLICATION]: "import type { Greeting } from './domain.ts';",
+        },
+        {
+          contract: {
+            ...contract,
+            roleOf: (file: string) => {
+              if (file === application) return 'api-application';
+              if (file === domain) return 'api-domain';
+              return contract.roleOf(file);
+            },
+          },
+        },
+      ),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
   it('accepts the scaffold export names and kinds in any order', () => {
     expect(validate(clientReports([...CLIENT_EXPORTS].reverse()))).toEqual([]);
   });
@@ -429,9 +454,44 @@ describe('validateStructure', () => {
     'export {',
     'export type { Extra };',
   ])('rejects an unrecognised scaffold export: %s', (line) => {
-    expect(() => validate(clientReports([...CLIENT_EXPORTS, line]))).toThrow(
-      `Unsupported scaffold API export: ${line}`,
-    );
+    expect(validate(clientReports([...CLIENT_EXPORTS, line]))).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path: `showcase/todo-01/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${line}`,
+      },
+    ]);
+  });
+
+  it('reports unsupported reference and result lines once each and keeps checking other reports', () => {
+    const lines = ['export namespace Extra {}', 'export declare let extra: unknown;'];
+    expect(
+      validate({
+        [`apps/${CLIENT_REPORT}`]: lines.join('\n'),
+        [`showcase/todo-01/${CLIENT_REPORT}`]: lines[0] ?? '',
+        'apps/api/etc/api.api.md': 'export declare const appRouter: unknown;',
+        'showcase/todo-01/api/etc/api.api.md': '',
+      }),
+    ).toEqual([
+      ...lines.map((line) => ({
+        kind: 'scaffold-exports',
+        path: `apps/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${line}`,
+      })),
+      {
+        kind: 'scaffold-exports',
+        path: `showcase/todo-01/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${lines[0]}`,
+      },
+      {
+        kind: 'scaffold-exports',
+        path: 'showcase/todo-01/api/etc/api.api.md',
+        referencePath: 'apps/api/etc/api.api.md',
+        role: 'api-app',
+        actual: [],
+        expected: ['appRouter:value'],
+      },
+    ]);
   });
 
   it.each([
@@ -545,6 +605,25 @@ describe('validateStructure', () => {
 });
 
 describe('node tooling/architecture/structure.mjs', () => {
+  it('prints unsupported exports alongside other violations instead of aborting validation', () => {
+    const repository = createMonorepo({
+      ...resultFiles('showcase/x', 'x'),
+      'apps/web/etc/api-client.api.md': CLIENT_EXPORTS.join('\n'),
+      'showcase/x/web/etc/api-client.api.md': 'export namespace Extra {}',
+      'showcase/x/web/src/App.tsx': `// @ts-${'ignore'}\nexport const App = 1;`,
+    });
+    try {
+      const run = runTool('structure.mjs', repository.directory);
+      expect(run.status).toBe(1);
+      expect(run.output).toContain(
+        'scaffold-exports showcase/x/web/etc/api-client.api.md: Unsupported scaffold API export: export namespace Extra {}',
+      );
+      expect(run.output).toContain('suppression showcase/x/web/src/App.tsx:1:');
+    } finally {
+      repository.cleanup();
+    }
+  });
+
   it('prints OK with the number of results on a clean tree', () => {
     const repository = createMonorepo(resultFiles('showcase/x', 'x'));
     try {

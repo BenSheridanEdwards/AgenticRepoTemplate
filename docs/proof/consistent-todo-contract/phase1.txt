@@ -281,3 +281,30 @@ note: module wiring excluded from clones
 ── Styling ────────────────────────────────────────
 ✗ dead code: 2 issues · duplication: 14 clone groups · 49 changed files (1.84s)
 
+PR #127 follow-up review regression proof (Node 22.23.4)
+
+Before the implementation fix, with the revised regression tests:
+$ pnpm exec jest tooling/architecture/structure.test.ts --runInBand
+Test Suites: 1 failed, 1 total
+Tests:       9 failed, 59 passed, 68 total
+Exit: 1
+
+After the fix:
+$ pnpm exec jest tooling/architecture/structure.test.ts tooling/trial/compare.test.ts --runInBand
+Test Suites: 2 passed, 2 total
+Tests:       176 passed, 176 total
+Exit: 0
+
+The nine failures cover undefined feature paths, six unsupported export forms,
+invalid reference/result reports alongside another report mismatch, and CLI
+output retaining both an unsupported-export finding and a later suppression
+finding. The existing side-effect-import case continues to pass; ADR 0054 now
+states that it proves a runtime dependency rather than a domain-rule call.
+
+Phase 2 preflight remains blocked on this Mac:
+$ bwrap --dev-bind / / true
+zsh: command not found: bwrap
+Exit: 127
+No new trial evidence or consistency verdict is claimed. Issue #126 requires
+stopping here; the PR stays draft and Ben's ADR/exemption approval is pending.
+
