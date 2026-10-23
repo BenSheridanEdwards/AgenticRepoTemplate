@@ -1,0 +1,163 @@
+{
+  "schema": 2,
+  "task": {
+    "name": "todo",
+    "definitionSha256": "2cc2b515f6a6fbad5351276be5899b9582f787d997f462f4e0f67e19ac36d4f6",
+    "target": null,
+    "checks": ["install", "verify", "e2e", "structure"],
+    "land": "showcase"
+  },
+  "trial": {
+    "number": 2,
+    "id": "todo-02",
+    "branch": "trial/todo-02",
+    "workdir": "todo-02-20261023T111742Z"
+  },
+  "prompt": {
+    "path": "tooling/trial/todo-prompt.md",
+    "templateSha256": "2d858c2fcb845c9453a9c92d7a49b623bdf57d70eb5d3fea598f4df2c87d43a7",
+    "sha256": "e938244413817b772a3d71cd51d7750e89dc4dc480e410af9f73b209c37df0e1",
+    "text": "# Todo trial todo-02\n\nYou are running trial 2 of three independent Todo trials in this repository. Work alone in this one session. Nobody will answer a question or correct you, so make every decision from the repository's own docs and checks, and repair your own mistakes until the checks pass.\n\n## What to build\n\nBuild the Todo result in `showcase/todo-02/`. The brief, word for word:\n\n> Todo brief: create (nonblank title), list, toggle complete, delete; id/title/completed; in-memory storage; no auth/filter/sort/collab/external services/generic CRUD; use GUARDRAILS state+form conventions.\n\nRead it this way.\n\n- A todo has exactly three fields, `id`, `title` and `completed`.\n- A user creates a todo with a title that is not blank, sees the list of todos, toggles a todo between complete and not complete, and deletes a todo.\n- The api keeps the todos in memory, inside the api process.\n- Leave out authentication, filtering, sorting, collaboration, external services and generic CRUD helpers.\n- \"GUARDRAILS state+form conventions\" means the rules in `.agents/README.md`, `.agents/project/ARCHITECTURE.md` and `.agents/project/CONVENTIONS.md`. Server state goes through TanStack Query and tRPC, forms through React Hook Form with the Effect Schema resolver, and local state only inside custom `use*` hooks.\n\n## Where it goes\n\n- `showcase/todo-02/web` is the web package `@todo-02/web`, and `showcase/todo-02/api` is the api package `@todo-02/api`. Give them the same layout, roles, scripts and dependencies as `apps/web` and `apps/api`, which hold the reference greeting feature. Use `@repo/ui` for the primitives it has.\n- Read only inside this clone. Write only inside `showcase/todo-02/`. `pnpm install` may update `pnpm-lock.yaml` for your two packages. Leave every other file as it is.\n- Use only dependencies that `apps/web` and `apps/api` already declare, at the same ranges.\n- Each `package.json` equals its reference package except the name and the dependencies.\n- Put the result's own Playwright specs in `showcase/todo-02/web/e2e/`.\n- `showcase/todo-02/` holds only `web/`, `api/` and its generated `architecture.mmd`. Add no tool config beyond the reference's, no symlink and no suppression directive. `node tooling/architecture/structure.mjs` checks this layout, and `pnpm verify` runs it.\n- Run `pnpm arch:diagram` to write `showcase/todo-02/architecture.mmd`, and keep the written diagram.\n\n## The page\n\nThe fixed acceptance test `tooling/trial/acceptance/todo.spec.ts` drives your page. Make it pass.\n\n- `/` shows a level-one heading `Todos`.\n- A text field labelled `Title` and a button named `Add` create a todo.\n- Submitting a blank title adds nothing and shows an alert.\n- The todos appear in a list named `Todos`. Each item has a checkbox named by the todo's title, which toggles it, and a button named `Delete <title>`, which deletes it.\n- Todos survive a page reload while the api runs.\n- The page reaches the api through `/trpc`, as the reference does.\n\n## Done\n\nDone means `pnpm verify` and `pnpm e2e` pass with every gate as it is, per `.agents/project/DEFINITION_OF_DONE.md`. Run them, fix what they report, and run them again until they pass. Leave your work uncommitted. The harness commits it when you finish.\n\n## Shared machine\n\nNever use `pkill -f`, `killall` or any kill-by-pattern: this machine is shared.\nStop only processes you started, by PID. Never set git `user.name` or\n`user.email` in any git config. Do not push.\n"
+  },
+  "scaffold": {
+    "rev": "de6622e20023050849072bf0449c039a2109cc9d",
+    "enforcementRev": "95ced87c167d7e552a87f48b6fd0fda5e9c02424",
+    "lockfileSha256": "1e1170529b6c60b6bb0c1cd2a712c5171d0874ef422e207342241f2f25301033"
+  },
+  "harness": {
+    "sha256": "f181c33292814d01c135d8d263dcfec390d002240b4f4e89c2213ffbb5733fef",
+    "matchesScaffold": true
+  },
+  "agent": {
+    "name": "claude",
+    "modelSource": "stream",
+    "reasoningEffort": null,
+    "cli": "claude",
+    "version": "2.1.309 (Claude Code)",
+    "argv": [
+      "claude",
+      "-p",
+      "--model",
+      "opus",
+      "--permission-mode",
+      "bypassPermissions",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--session-id",
+      "ade68c37-94b4-46b1-83cd-a58608cd7fe5"
+    ],
+    "sessionId": "ade68c37-94b4-46b1-83cd-a58608cd7fe5",
+    "resolvedModel": "claude-opus-5-5",
+    "userConfigSha256": "0c621ee22dbffda4daa6e9958200eca4f077624490623eb5fdcb92f96bbcfcef",
+    "fake": false
+  },
+  "run": {
+    "startedAt": "2026-10-23T11:17:43.773Z",
+    "finishedAt": "2026-10-23T11:31:47.822Z",
+    "durationMs": 844049,
+    "agentExitCode": 0,
+    "agentDurationMs": 670410,
+    "turns": 29,
+    "costUsd": 1.5874274000000002,
+    "tokenUsage": null
+  },
+  "result": {
+    "status": "passed",
+    "commit": "8e74df216faf9fe52ce87cab7d26f864f8a777ae",
+    "changedPaths": [
+      "pnpm-lock.yaml",
+      "showcase/todo-02/api/etc/api.api.md",
+      "showcase/todo-02/api/etc/features-todos.api.md",
+      "showcase/todo-02/api/package.json",
+      "showcase/todo-02/api/src/features/todos/application.test.ts",
+      "showcase/todo-02/api/src/features/todos/application.ts",
+      "showcase/todo-02/api/src/features/todos/domain.test.ts",
+      "showcase/todo-02/api/src/features/todos/domain.ts",
+      "showcase/todo-02/api/src/features/todos/index.ts",
+      "showcase/todo-02/api/src/features/todos/integrations.test.ts",
+      "showcase/todo-02/api/src/features/todos/integrations.ts",
+      "showcase/todo-02/api/src/features/todos/procedures.test.ts",
+      "showcase/todo-02/api/src/features/todos/procedures.ts",
+      "showcase/todo-02/api/src/router.test.ts",
+      "showcase/todo-02/api/src/router.ts",
+      "showcase/todo-02/api/src/server.ts",
+      "showcase/todo-02/api/src/trpc.ts",
+      "showcase/todo-02/architecture.mmd",
+      "showcase/todo-02/web/e2e/accessibility.spec.ts",
+      "showcase/todo-02/web/e2e/todos.spec.ts",
+      "showcase/todo-02/web/etc/api-client.api.md",
+      "showcase/todo-02/web/etc/features-page-header.api.md",
+      "showcase/todo-02/web/etc/routes-todos.api.md",
+      "showcase/todo-02/web/index.html",
+      "showcase/todo-02/web/package.json",
+      "showcase/todo-02/web/src/App.tsx",
+      "showcase/todo-02/web/src/api-client/ApiProvider.test.tsx",
+      "showcase/todo-02/web/src/api-client/ApiProvider.tsx",
+      "showcase/todo-02/web/src/api-client/TestApiProvider.test.tsx",
+      "showcase/todo-02/web/src/api-client/TestApiProvider.tsx",
+      "showcase/todo-02/web/src/api-client/index.ts",
+      "showcase/todo-02/web/src/api-client/testApiHandlers.ts",
+      "showcase/todo-02/web/src/api-client/trpc.ts",
+      "showcase/todo-02/web/src/api-client/useTestApiClients.ts",
+      "showcase/todo-02/web/src/features/page-header/PageHeader.test.tsx",
+      "showcase/todo-02/web/src/features/page-header/PageHeader.tsx",
+      "showcase/todo-02/web/src/features/page-header/index.ts",
+      "showcase/todo-02/web/src/index.css",
+      "showcase/todo-02/web/src/main.tsx",
+      "showcase/todo-02/web/src/routes/todos/TodoForm.tsx",
+      "showcase/todo-02/web/src/routes/todos/TodoItem.tsx",
+      "showcase/todo-02/web/src/routes/todos/TodoList.tsx",
+      "showcase/todo-02/web/src/routes/todos/TodosPage.test.tsx",
+      "showcase/todo-02/web/src/routes/todos/TodosPage.tsx",
+      "showcase/todo-02/web/src/routes/todos/index.ts",
+      "showcase/todo-02/web/src/routes/todos/todoFormSchema.test.ts",
+      "showcase/todo-02/web/src/routes/todos/todoFormSchema.ts",
+      "showcase/todo-02/web/src/routes/todos/useTodoForm.ts",
+      "showcase/todo-02/web/src/routes/todos/useTodos.test.tsx",
+      "showcase/todo-02/web/src/routes/todos/useTodos.ts",
+      "showcase/todo-02/web/vite.config.ts"
+    ],
+    "outsideScope": [],
+    "outsideReads": [],
+    "stoppedServers": [],
+    "patch": null
+  },
+  "stream": {
+    "path": "docs/trials/todo-02.stream.jsonl",
+    "sha256": "8f557b1d62fbd2176e87b7596d271fa6688799cd842bfd1d18e563b085cec1e9",
+    "userTextEvents": 0
+  },
+  "checks": [
+    {
+      "name": "install",
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "durationMs": 7525,
+      "outputTail": "Scope: all 6 workspace projects\n? Verifying lockfile against supply-chain policies (1034 entries)...\n✓ Lockfile passes supply-chain policies (1034 entries in 4s)\nLockfile is up to date, resolution step is skipped\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +873\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\nProgress: resolved 873, reused 873, downloaded 0, added 373\nProgress: resolved 873, reused 873, downloaded 0, added 872\nProgress: resolved 873, reused 873, downloaded 0, added 873, done\n.../node_modules/@swc/core postinstall$ node postinstall.js\n.../node_modules/@swc/core postinstall: Done\n\ndevDependencies:\n+ @axe-core/playwright 4.11.3\n+ @biomejs/biome 2.5.1\n+ @commitlint/cli 19.8.1\n+ @commitlint/config-conventional 19.8.1\n+ @commitlint/types 19.8.1\n+ @lhci/cli 0.15.1\n+ @microsoft/api-extractor 7.59.4\n+ @playwright/test 1.61.0\n+ @size-limit/file 12.1.0\n+ @swc/core 1.15.41\n+ @swc/jest 0.2.39\n+ @testing-library/dom 10.4.1\n+ @testing-library/jest-dom 6.9.1\n+ @testing-library/react 16.3.2\n+ @testing-library/user-event 14.6.1\n+ @types/jest 29.5.14\n+ @types/jest-axe 3.5.9\n+ @types/node 22.19.21\n+ @types/react 19.2.17\n+ @types/react-dom 19.2.3\n+ eslint 10.12.0\n+ eslint-plugin-react-doctor 0.9.18\n+ eslint-plugin-react-hooks 7.1.1\n+ fallow 3.33.1\n+ husky 9.1.7\n+ jest 29.7.0\n+ jest-axe 10.0.0\n+ jest-environment-jsdom 29.7.0\n+ react-doctor 0.9.18\n+ size-limit 12.1.0\n+ ts-node 10.9.2\n+ typescript 5.9.3\n+ typescript-eslint 8.71.2\n\n. prepare$ husky\n. prepare: Done\nDone in 7.4s using pnpm v11.3.0\n"
+    },
+    {
+      "name": "verify",
+      "command": "pnpm verify",
+      "exitCode": 0,
+      "durationMs": 121118,
+      "outputTail": "  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nPASS tooling scripts/jest-env.test.ts\nPASS web packages/ui/src/TextField.test.tsx\nPASS web apps/web/src/routes/greeting/GreetingPage.test.tsx\nPASS tooling tooling/trial/task.test.ts\nPASS web showcase/todo-02/web/src/routes/todos/useTodos.test.tsx\nPASS tooling scripts/check-suppressions.test.ts\nNote: switching to '839eaa148827688a52c3a01fb268d3933e32baf4'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nPASS web packages/ui/src/Button.test.tsx\nPASS web apps/web/src/api-client/ApiProvider.test.tsx\nPASS web showcase/todo-02/web/src/api-client/ApiProvider.test.tsx\nPASS web apps/web/src/api-client/TestApiProvider.test.tsx\nPASS web showcase/todo-02/web/src/api-client/TestApiProvider.test.tsx\nPASS api showcase/todo-02/api/src/features/todos/procedures.test.ts\nPASS tooling scripts/codeql-workflow.test.ts\nPASS api showcase/todo-02/api/src/features/todos/integrations.test.ts\nPASS api showcase/todo-02/api/src/features/todos/application.test.ts\nNote: switching to '839eaa148827688a52c3a01fb268d3933e32baf4'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nNote: switching to '839eaa148827688a52c3a01fb268d3933e32baf4'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nNote: switching to '839eaa148827688a52c3a01fb268d3933e32baf4'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nPASS web showcase/todo-02/web/src/routes/todos/todoFormSchema.test.ts\nPASS api apps/api/src/features/greeting/procedures.test.ts\nPASS web apps/web/src/routes/greeting/greetingFormSchema.test.ts\nPASS web showcase/todo-02/web/src/features/page-header/PageHeader.test.tsx\nPASS api showcase/todo-02/api/src/features/todos/domain.test.ts\nPASS web apps/web/src/features/page-header/PageHeader.test.tsx\nPASS api showcase/todo-02/api/src/router.test.ts\nPASS api apps/api/src/router.test.ts\nPASS api apps/api/src/features/greeting/application.test.ts\nPASS api apps/api/src/features/greeting/domain.test.ts\nPASS tooling tooling/trial/run-trial.test.ts (28.822 s)\nPASS tooling tooling/trial/inclusion.test.ts (49.167 s)\nPASS tooling scripts/eslint-policy.test.ts (102.537 s)\n-----------------------------------------------|---------|----------|---------|---------|-------------------\nFile                                           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s \n-----------------------------------------------|---------|----------|---------|---------|-------------------\nAll files                                      |   99.29 |    97.56 |     100 |   99.22 |                   \n apps/api/src                                  |     100 |      100 |     100 |     100 |                   \n  router.ts                                    |     100 |      100 |     100 |     100 |                   \n  trpc.ts                                      |     100 |      100 |     100 |     100 |                   \n apps/api/src/features/greeting                |     100 |      100 |     100 |     100 |                   \n  application.ts                               |     100 |      100 |     100 |     100 |                   \n  domain.ts                                    |     100 |      100 |     100 |     100 |                   \n  procedures.ts                                |     100 |      100 |     100 |     100 |                   \n apps/web/src/api-client                       |     100 |      100 |     100 |     100 |                   \n  ApiProvider.tsx                              |     100 |      100 |     100 |     100 |                   \n  TestApiProvider.tsx                          |     100 |      100 |     100 |     100 |                   \n  testApiHandlers.ts                           |     100 |      100 |     100 |     100 |                   \n  trpc.ts                                      |     100 |      100 |     100 |     100 |                   \n  useTestApiClients.ts                         |     100 |      100 |     100 |     100 |                   \n apps/web/src/features/page-header             |     100 |      100 |     100 |     100 |                   \n  PageHeader.tsx                               |     100 |      100 |     100 |     100 |                   \n apps/web/src/routes/greeting                  |   97.67 |    93.33 |     100 |   97.56 |                   \n  GreetingForm.tsx                             |     100 |      100 |     100 |     100 |                   \n  GreetingMessage.tsx                          |     100 |      100 |     100 |     100 |                   \n  GreetingPage.tsx                             |     100 |      100 |     100 |     100 |                   \n  greetingFormSchema.ts                        |     100 |      100 |     100 |     100 |                   \n  useGreeting.ts                               |      95 |     90.9 |     100 |      95 | 37                \n  useGreetingForm.ts                           |     100 |      100 |     100 |     100 |                   \n packages/ui/src                               |     100 |      100 |     100 |     100 |                   \n  Button.tsx                                   |     100 |      100 |     100 |     100 |                   \n  TextField.tsx                                |     100 |      100 |     100 |     100 |                   \n showcase/todo-02/api/src                      |     100 |      100 |     100 |     100 |                   \n  router.ts                                    |     100 |      100 |     100 |     100 |                   \n  trpc.ts                                      |     100 |      100 |     100 |     100 |                   \n showcase/todo-02/api/src/features/todos       |   98.27 |      100 |     100 |   98.18 |                   \n  application.ts                               |     100 |      100 |     100 |     100 |                   \n  domain.ts                                    |     100 |      100 |     100 |     100 |                   \n  integrations.ts                              |     100 |      100 |     100 |     100 |                   \n  procedures.ts                                |   94.73 |      100 |     100 |   93.75 | 16                \n showcase/todo-02/web/src/api-client           |     100 |      100 |     100 |     100 |                   \n  ApiProvider.tsx                              |     100 |      100 |     100 |     100 |                   \n  TestApiProvider.tsx                          |     100 |      100 |     100 |     100 |                   \n  testApiHandlers.ts                           |     100 |      100 |     100 |     100 |                   \n  trpc.ts                                      |     100 |      100 |     100 |     100 |                   \n  useTestApiClients.ts                         |     100 |      100 |     100 |     100 |                   \n showcase/todo-02/web/src/features/page-header |     100 |      100 |     100 |     100 |                   \n  PageHeader.tsx                               |     100 |      100 |     100 |     100 |                   \n showcase/todo-02/web/src/routes/todos         |     100 |      100 |     100 |     100 |                   \n  TodoForm.tsx                                 |     100 |      100 |     100 |     100 |                   \n  TodoItem.tsx                                 |     100 |      100 |     100 |     100 |                   \n  TodoList.tsx                                 |     100 |      100 |     100 |     100 |                   \n  TodosPage.tsx                                |     100 |      100 |     100 |     100 |                   \n  todoFormSchema.ts                            |     100 |      100 |     100 |     100 |                   \n  useTodoForm.ts                               |     100 |      100 |     100 |     100 |                   \n  useTodos.ts                                  |     100 |      100 |     100 |     100 |                   \n-----------------------------------------------|---------|----------|---------|---------|-------------------\n\nTest Suites: 55 passed, 55 total\nTests:       1554 passed, 1554 total\nSnapshots:   0 total\nTime:        102.807 s\nRan all test suites in 3 projects.\nCoverage per result is at 80% or more: reference, todo-02\n$ pnpm -r build\nScope: 5 of 6 workspace projects\napps/web build$ vite build\nshowcase/todo-02/web build$ vite build\napps/web build: \u001b[36mvite v6.4.4 \u001b[32mbuilding for production...\u001b[36m\u001b[39m\nshowcase/todo-02/web build: \u001b[36mvite v6.4.4 \u001b[32mbuilding for production...\u001b[36m\u001b[39m\napps/web build: transforming...\nshowcase/todo-02/web build: transforming...\napps/web build: \u001b[32m✓\u001b[39m 342 modules transformed.\napps/web build: rendering chunks...\napps/web build: computing gzip size...\napps/web build: \u001b[2mdist/\u001b[22m\u001b[32mindex.html                 \u001b[39m\u001b[1m\u001b[2m  0.41 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   0.28 kB\u001b[22m\napps/web build: \u001b[2mdist/\u001b[22m\u001b[2massets/\u001b[22m\u001b[35mindex-DwNSRa9Z.css  \u001b[39m\u001b[1m\u001b[2m  1.90 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   0.71 kB\u001b[22m\napps/web build: \u001b[2mdist/\u001b[22m\u001b[2massets/\u001b[22m\u001b[36mindex-CZlAJJ3q.js   \u001b[39m\u001b[1m\u001b[2m355.88 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip: 113.79 kB\u001b[22m\napps/web build: \u001b[32m✓ built in 1.72s\u001b[39m\nshowcase/todo-02/web build: \u001b[32m✓\u001b[39m 343 modules transformed.\napps/web build: Done\nshowcase/todo-02/web build: rendering chunks...\nshowcase/todo-02/web build: computing gzip size...\nshowcase/todo-02/web build: \u001b[2mdist/\u001b[22m\u001b[32mindex.html                 \u001b[39m\u001b[1m\u001b[2m  0.39 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   0.26 kB\u001b[22m\nshowcase/todo-02/web build: \u001b[2mdist/\u001b[22m\u001b[2massets/\u001b[22m\u001b[35mindex-BQaWDsEl.css  \u001b[39m\u001b[1m\u001b[2m  2.17 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   0.78 kB\u001b[22m\nshowcase/todo-02/web build: \u001b[2mdist/\u001b[22m\u001b[2massets/\u001b[22m\u001b[36mindex-BgeWxnzr.js   \u001b[39m\u001b[1m\u001b[2m359.51 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip: 114.75 kB\u001b[22m\nshowcase/todo-02/web build: \u001b[32m✓ built in 1.90s\u001b[39m\nshowcase/todo-02/web build: Done\n$ size-limit\n  \n  \u001b[1mapp bundle (JS, brotli)\u001b[22m\n  Size limit: \u001b[32m\u001b[1m110 kB\u001b[22m\u001b[39m\n  Size:       \u001b[32m\u001b[1m99.44 kB\u001b[22m\u001b[39m \u001b[90mbrotlied\u001b[39m\n  \n  \u001b[1mapp styles (CSS, brotli)\u001b[22m\n  Size limit: \u001b[32m\u001b[1m5 kB\u001b[22m\u001b[39m\n  Size:       \u001b[32m\u001b[1m578 B\u001b[22m\u001b[39m \u001b[90mbrotlied\u001b[39m\n  \n"
+    },
+    {
+      "name": "e2e",
+      "command": "pnpm e2e",
+      "exitCode": 0,
+      "durationMs": 16412,
+      "outputTail": "$ playwright test\n[WebServer] $ vite build\n\nRunning 23 tests using 3 workers\n·······················\n  23 passed (15.7s)\n::notice title=🎭 Playwright Run Summary::  23 passed (15.7s)\n"
+    },
+    {
+      "name": "structure",
+      "command": "node tooling/architecture/structure.mjs",
+      "exitCode": 0,
+      "durationMs": 1000,
+      "outputTail": "OK: 2 results checked against the structure contract (reference, todo-02).\n"
+    }
+  ],
+  "failures": [],
+  "retries": []
+}
