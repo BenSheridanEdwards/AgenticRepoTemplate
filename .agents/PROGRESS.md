@@ -49,8 +49,16 @@ ships, leave its block here as history and open the next one above it.
   `docs/proof/consistent-todo-contract/colima-first-batch.txt` records runtime
   and privacy proof. Codex also persisted trust entries and downloaded plugin
   files after fingerprinting, so its configuration baseline differs.
-- **Blockers:** Preserve this batch, enforce the newly observed placement gap,
-  and rerun all six with identical initialized configuration snapshots. Keep
+- **Rerun preparation:** Preserved the complete first Colima batch in
+  `f19786a`, then removed its live results and records in `797e5f0`. Added
+  `single-route-features` and moved the unchanged reference header into its
+  greeting route (ADR 0055, proposed). Nine new negative regression assertions
+  failed before the rule; all 188 structure/comparison tests pass afterward.
+- **Scaffold verification:** `pnpm verify` passed (44 suites, 1,531 tests);
+  `pnpm e2e` passed (7 tests). The initial documentation-phrasing failure
+  was corrected and its gate rerun. GitNexus reports low impact.
+- **Blockers:** Rerun all six with identical initialized configuration
+  snapshots. Keep
   the PR draft until the comparison has zero outside-spec aspects and a shared
   baseline. Merge the removal commit only with all six replacement records and
   comparison, with every check green.

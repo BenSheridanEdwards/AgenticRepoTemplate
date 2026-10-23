@@ -1,6 +1,6 @@
-import { PageHeader } from '../../features/page-header';
 import { GreetingForm } from './GreetingForm';
 import { GreetingMessage } from './GreetingMessage';
+import { PageHeader } from './PageHeader';
 import { useGreeting } from './useGreeting';
 
 export function GreetingPage() {

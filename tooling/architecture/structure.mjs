@@ -12,7 +12,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, matchesGlob } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readRepository, runCli } from './graph.mjs';
 import { moduleReferences, resolveRelative } from './imports.mjs';
@@ -95,6 +95,31 @@ function missingRoles({ contract, results, files }) {
         .map((role) => ({ kind: 'missing-role', result: result.root, role }));
     }),
   );
+}
+
+function singleRouteFeatures({ contract, results, files }) {
+  return results.flatMap((result) => {
+    const routeRoot = `${result.web}/src/routes/`;
+    const routes = new Set(
+      files
+        .filter(
+          (file) =>
+            file.startsWith(routeRoot) &&
+            isRoleSource(file) &&
+            contract.roleOf(file) === 'web-routes',
+        )
+        .map((file) => file.slice(routeRoot.length).split('/')[0]),
+    );
+    if (routes.size !== 1) return [];
+    const [route] = routes;
+    return files
+      .filter(
+        (file) =>
+          file.startsWith(`${result.web}/src/features/`) ||
+          matchesGlob(file, `${result.web}/etc/features-*.api.md`),
+      )
+      .map((path) => ({ kind: 'single-route-features', result: result.root, route, path }));
+  });
 }
 
 function unexpectedFiles({ results, files }) {
@@ -331,6 +356,11 @@ const RULES = {
     find: missingRoles,
     describe: (violation) =>
       `missing-role ${violation.result}: no file holds the ${violation.role} role; add it (${ROLE_TABLE}).`,
+  },
+  'single-route-features': {
+    find: singleRouteFeatures,
+    describe: (violation) =>
+      `single-route-features ${violation.path}: ${violation.result} has only route "${violation.route}"; move feature code and tests into web/src/routes/${violation.route}/ and remove the feature barrel and API report (${ROLE_TABLE}).`,
   },
   'unexpected-file': {
     find: unexpectedFiles,

@@ -42,12 +42,13 @@ apps/
 │   │   │       ├── GreetingPage.tsx     # the page: composes the route's components
 │   │   │       ├── GreetingForm.tsx     # one component per file
 │   │   │       ├── GreetingMessage.tsx
+│   │   │       ├── PageHeader.tsx        # this route owns its header
 │   │   │       ├── useGreeting.ts       # server state + local state
 │   │   │       ├── useGreetingForm.ts   # form state
 │   │   │       ├── greetingFormSchema.ts  # Effect Schema for the form
 │   │   │       ├── *.test.ts(x)         # co-located tests
 │   │   │       └── index.ts             # public surface: GreetingPage
-│   │   └── features/<feature-name>/     # optional: web code that routes share
+│   │   └── features/<feature-name>/     # optional: shared by multiple routes
 │   ├── e2e/                             # the behaviour map: greeting.spec.ts, accessibility.spec.ts
 │   ├── etc/                             # generated API reports
 │   └── vite.config.ts                   # proxies /trpc to API_ORIGIN (default http://127.0.0.1:3001)
@@ -133,6 +134,11 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
   `web-routes`, and each api package in `api-app`, `api-trpc`,
   `api-procedures`, `api-application` and `api-domain`. A test file holds no
   role.
+- A result with one production route slice keeps its web feature code in that route.
+  `single-route-features` rejects `web/src/features/**` and
+  `web/etc/features-*.api.md`, including orphan reports. Only production
+  source establishes another route
+  ([ADR 0055](../decisions/0055-single-route-code-stays-in-its-route.md)).
 - In each api feature with application and domain source files, application
   imports or re-exports at least one value from that feature's domain.
   `application-without-domain-rule` checks Fallow's resolved edges and the
@@ -246,6 +252,7 @@ The check's message names the fix.
 | Rule | Why | Enforced by | Proved by |
 | --- | --- | --- | --- |
 | Routes own page composition. | One place per page keeps navigation readable. | ESLint `policy/pages-in-routes`, Fallow `web-routes` | `pnpm lint:policy`, `pnpm arch:gate` |
+| A single-route result keeps web feature code in its route and removes unused feature reports. | One page has no cross-route sharing boundary. | Structure `single-route-features` | `pnpm arch:gate` |
 | Sibling slices stand alone: a route imports no other route, a feature no other feature. | Each slice changes without breaking its siblings. | ESLint `policy/slice-isolation` for every result; Fallow child zones for the `apps/web` routes | `pnpm lint:policy`, `pnpm arch:gate` |
 | Every file belongs to one role and one slice. | Extra layers and loose files hide structure. | Fallow `coverage.requireAllFiles`; `policy/slice-isolation` for a loose file under `src/routes/` or `src/features/` | `pnpm arch:gate`, `pnpm lint:policy` |
 | A package reaches another only by its package name. | Public exports are the only contract. | `policy/slice-isolation` (relative import out of the package) | `pnpm lint:policy` |
@@ -373,7 +380,11 @@ reference result; a trial result uses `showcase/<id>/` in place of `apps/`.
 
 Create `apps/web/src/features/<feature-name>/` with an `index.ts` when web code
 is reused across routes. It may import the api client and `@repo/ui`; routes
-import it through its `index.ts`.
+import it through its `index.ts`. A result with one production route slice
+keeps that code inside `routes/<route>/` and removes its old feature barrel
+and API report. The structure gate counts distinct route slices containing
+production source; it rejects feature paths and feature reports when that
+count is one. For multiple routes, review still establishes actual reuse.
 
 ### Finish
 
