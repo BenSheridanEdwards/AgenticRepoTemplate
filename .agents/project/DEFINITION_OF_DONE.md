@@ -41,7 +41,7 @@ complete once `pnpm verify` and `pnpm e2e` are green.
       [`PR_QUALITY.md`](PR_QUALITY.md) and the
       [pull request template](../../.github/pull_request_template.md), with exact
       local commands, visual proof or `Not applicable` with a reason, CI status,
-      risk, rollback, and no private details.
+      the PRDs and North Star commit checked, risk, rollback, and no private details.
 - [ ] **Patterns followed.** The change matches
       [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`CONVENTIONS.md`](CONVENTIONS.md);
       new files were created from [`../templates/`](../templates).
@@ -84,6 +84,13 @@ that names the fix unless:
   (full or short) of the PR head, so a push that moves the head fails until the
   body is re-checked against it
   ([ADR 0029](../decisions/0029-pr-body-names-its-head-commit.md));
+- the Verification Summary has exactly one `- PRDs checked:` line listing
+  comma-separated Markdown paths tracked directly in `docs/prd/` at the PR
+  head, or `None: <reason>` with a reason of at least two words;
+- the Verification Summary has exactly one `- North Star commit:` line naming
+  one SHA of 7-40 hex characters, optionally in balanced backticks, that is a
+  prefix of the last commit to change `.agents/NORTH_STAR.md` at the PR head
+  ([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md));
 - the body names no machine-local path: it cites repo-relative paths,
   placeholders such as `<workdir>/repo` or `<tmp>/verify.log`, links, and commands,
   and the check reads code spans, fenced blocks, and HTML comments too

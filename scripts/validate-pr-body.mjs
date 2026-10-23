@@ -18,6 +18,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { matchesGlob, posix } from 'node:path';
 
 /**
  * The four template sections, in the order the contract requires them.
@@ -446,26 +447,118 @@ function compareHeadCommit(value, headSha) {
   ];
 }
 
+/** Intent references use one labelled line in the located Verification Summary. */
+function readReferenceField(verificationBody, name) {
+  const label = new RegExp(`^[-*+]\\s+${name}\\s*(\\([^)]*\\))?:`, 'i');
+  const lines = stripHtmlComments(verificationBody)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => label.test(line));
+  if (lines.length !== 1) {
+    return {
+      errors: [
+        `Section "Verification Summary" must have exactly one \`- ${name}:\` line; found ${lines.length}.`,
+      ],
+    };
+  }
+  return { value: lines[0].replace(label, '').trim() };
+}
+
+function collectPrdErrors(value, headSha, listPrdFiles) {
+  const reason = /^None:\s*(.*)$/i.exec(value)?.[1];
+  if (reason !== undefined && countWords(reason) >= NOT_APPLICABLE_REASON_WORDS) return [];
+  const paths = value.split(',').map((part) => /^(`?)([^`\s,]+)\1$/.exec(part.trim())?.[2]);
+  if (
+    paths.some(
+      (path) =>
+        path === undefined || path !== posix.normalize(path) || !matchesGlob(path, 'docs/prd/*.md'),
+    )
+  ) {
+    return [
+      '`- PRDs checked:` must name comma-separated `docs/prd/<feature>.md` paths ' +
+        `or \`None: <reason>\` with at least two words; got ${quoteValue(value)}.`,
+    ];
+  }
+  if (headSha === null) return [];
+  try {
+    const tracked = listPrdFiles();
+    if (!Array.isArray(tracked) || tracked.some((path) => typeof path !== 'string')) {
+      throw new Error('listPrdFiles() must return an array of paths');
+    }
+    return paths
+      .filter((path) => !tracked.includes(path))
+      .map(
+        (path) =>
+          `\`- PRDs checked:\` names ${quoteValue(path)}, which is not a tracked PRD at the PR head.`,
+      );
+  } catch (error) {
+    return [`Could not list PRDs at the PR head: ${error.message}. Fetch the head and retry.`];
+  }
+}
+
+function collectNorthStarErrors(value, headSha, northStarCommit) {
+  const named = HEAD_COMMIT_VALUE_PATTERN.exec(value)?.[2];
+  if (named === undefined) {
+    return [
+      '`- North Star commit:` must be one commit SHA and nothing else (7-40 hex ' +
+        `characters, optionally in backticks); got ${quoteValue(value)}.`,
+    ];
+  }
+  if (headSha === null) return [];
+  try {
+    const expected = northStarCommit(headSha);
+    if (typeof expected !== 'string' || !FULL_SHA_PATTERN.test(expected)) {
+      throw new Error('northStarCommit(headSha) must return a full 40-character SHA');
+    }
+    if (expected.toLowerCase().startsWith(named.toLowerCase())) return [];
+    return [
+      `\`- North Star commit:\` says ${named}, but the last commit changing ` +
+        `\`.agents/NORTH_STAR.md\` at the PR head is ${expected}. ` +
+        'Re-check the North Star and update the field.',
+    ];
+  } catch (error) {
+    return [
+      `Could not read North Star history at the PR head: ${error.message}. Fetch full history and retry.`,
+    ];
+  }
+}
+
+function collectReferenceErrors(verificationBody, headSha, listPrdFiles, northStarCommit) {
+  if (verificationBody === undefined || headShaErrors(headSha).length > 0) return [];
+  const prds = readReferenceField(verificationBody, 'PRDs checked');
+  const northStar = readReferenceField(verificationBody, 'North Star commit');
+  return [
+    ...(prds.errors ?? collectPrdErrors(prds.value, headSha, listPrdFiles)),
+    ...(northStar.errors ?? collectNorthStarErrors(northStar.value, headSha, northStarCommit)),
+  ];
+}
+
 /**
  * Validate a PR title, body, head SHA, and head branch (`branch` is optional).
  * `headSha` is required: a full 40-character SHA, or `null` to check only the
- * `- Head commit:` shape. Returns `{ ok, errors }`; `errors` is an array of
- * actionable strings. Pure and side-effect free so it can be unit-tested.
+ * fields' shapes. Repository reads use injected `listPrdFiles()` and
+ * `northStarCommit(headSha)` ports; null heads call neither. Returns `{ ok, errors }`.
  */
-export function validatePullRequest({ title, body, headSha, branch }) {
+export function validatePullRequest({
+  title,
+  body,
+  headSha,
+  branch,
+  listPrdFiles,
+  northStarCommit,
+}) {
   const sections = splitSections(typeof body === 'string' ? body : '');
   const headings = sections.map((section) => section.heading);
   const located = locateSections(headings);
+  const verificationBody = sections[located.foundIndexBySection.get('Verification Summary')]?.body;
 
   const errors = [
     ...collectTitleErrors(title),
     ...collectBranchErrors(branch),
     ...located.errors,
     ...collectContentErrors(sections, located.foundIndexBySection),
-    ...collectHeadCommitErrors(
-      sections[located.foundIndexBySection.get('Verification Summary')]?.body,
-      headSha,
-    ),
+    ...collectHeadCommitErrors(verificationBody, headSha),
+    ...collectReferenceErrors(verificationBody, headSha, listPrdFiles, northStarCommit),
     ...collectImageErrors(typeof body === 'string' ? body : ''),
     ...collectLocalPathErrors(typeof body === 'string' ? body : ''),
   ];
@@ -540,6 +633,18 @@ function runCli() {
     body: decodeEnv(process.env.PR_BODY),
     headSha,
     branch: decodeEnv(process.env.PR_HEAD_REF),
+    listPrdFiles: () =>
+      execFileSync('git', ['ls-tree', '-r', '--name-only', '-z', headSha, '--', 'docs/prd/'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+        .split('\0')
+        .filter((path) => matchesGlob(path, 'docs/prd/*.md')),
+    northStarCommit: (head) =>
+      execFileSync('git', ['log', '-1', '--format=%H', head, '--', '.agents/NORTH_STAR.md'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }).trim(),
   });
 
   if (result.ok) {

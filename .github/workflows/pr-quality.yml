@@ -5,8 +5,9 @@ name: PR quality
 # section must carry an inline image or "Not applicable" with a reason; every
 # image must be a renderable https URL; the title must be Conventional Commits;
 # the head branch must be `<type>/<short-kebab-summary>`; and the Verification
-# Summary's "- Head commit:" must name the PR head, so a push (`synchronize`)
-# that moves the head past it fails until the body is re-checked. It runs on
+# Summary names the PR head, tracked PRDs (or None with a reason), and the last
+# North Star commit at that head. Machine-local paths fail. A push (`synchronize`)
+# that moves the head past the body fails until it is re-checked. It runs on
 # `edited` too, so fixing the body re-checks it without a new push.
 on:
   pull_request:
@@ -29,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
