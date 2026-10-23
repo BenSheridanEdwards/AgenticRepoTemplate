@@ -22,7 +22,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | Each dependency name new since the merge base with the PR's base branch is named by an ADR added in the same change ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)). |
-| Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Grades every pull request `confidence: green`, `confidence: amber` or `confidence: red` from its gate results, the E2E coverage of its changed slices and its PRD status. Advisory: it grades an already-green PR and gates nothing ([ADR 0052](../decisions/0052-merge-confidence-label.md)). |
+| Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Grades every pull request `confidence: green`, `confidence: amber` or `confidence: red` from its gate results, the E2E coverage of its changed slices and its PRD status. Advisory: it grades an already-green PR and gates nothing ([ADR 0059](../decisions/0059-merge-confidence-label.md)). |
 
 The pre-commit Biome command is
 `pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .`.
@@ -283,7 +283,7 @@ Every other PR passes with no comment.
 
 Use the advisory label and job summary from
 [`.github/workflows/confidence.yml`](../../.github/workflows/confidence.yml)
-to see the merge-confidence reasons ([ADR 0052](../decisions/0052-merge-confidence-label.md)).
+to see the merge-confidence reasons ([ADR 0059](../decisions/0059-merge-confidence-label.md)).
 Keep the required gates as the merge bar.
 
 - Assign `confidence: red` when a required check is failing, pending or

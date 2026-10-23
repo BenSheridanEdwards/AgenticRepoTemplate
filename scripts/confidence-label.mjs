@@ -2,7 +2,7 @@
 /**
  * The merge-confidence label: how much a reviewer can trust a green pull
  * request. CI grades every PR `confidence: green`, `confidence: amber` or
- * `confidence: red` from three inputs (issue #69, ADR 0052):
+ * `confidence: red` from three inputs (issue #69, ADR 0059):
  *
  * - **Gate results.** The required checks a maintainer selects in branch
  *   protection: the `Required gates` aggregate (ADR 0017) and the stand-alone
@@ -10,7 +10,7 @@
  *   has not passed its gates is the least trustworthy state.
  * - **E2E coverage of the changed files.** Each changed route or feature slice
  *   maps to the E2E specs in its own result that name it (the coarse, cheap
- *   measure of ADR 0052). A changed slice no spec names is a gap.
+ *   measure of ADR 0059). A changed slice no spec names is a gap.
  * - **PRD status.** Each changed slice maps to the PRD in `docs/prd/` that
  *   names it and links a spec in its result. A slice without that PRD is a gap.
  *

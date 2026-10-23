@@ -1,4 +1,4 @@
-# 52. Label every pull request with a merge confidence level
+# 59. Label every pull request with a merge confidence level
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-22
@@ -86,8 +86,8 @@ through REST, deleting only other confidence labels actually present and
 surfacing API errors.
 
 **Trigger.** `confidence.yml` runs on `workflow_run` when CI, CodeQL,
-Lighthouse or PR quality completes. Each completion reads the head commit's
-check runs and re-grades, so the label settles as the stand-alone checks
+Lighthouse, Visual regression or PR quality completes. Each completion reads
+the head commit's check runs and re-grades, so the label settles as the stand-alone checks
 finish. Handle only completions whose original event was `pull_request`.
 Use the event's PR number or fall back to open PRs from `commits/{sha}/pulls`.
 Compare the live PR head with the event SHA before grading and again before

@@ -28,6 +28,18 @@ const greetingPrd = {
   text: '# Greeting\n\n[Greeting](../../apps/web/e2e/greeting.spec.ts)',
 };
 
+describe('confidence workflow', () => {
+  it('regrades when any required-check workflow completes', () => {
+    const workflow = readFileSync('.github/workflows/confidence.yml', 'utf8');
+    const watched = workflow.match(/^ {4}workflows: \[(.+)\]$/m)?.[1]?.split(', ');
+    for (const file of new Set(REQUIRED_GATES.map((gate) => gate.workflow))) {
+      const name = readFileSync(`.github/workflows/${file}`, 'utf8').match(/^name: (.+)$/m)?.[1];
+      expect(watched).toContain(name);
+    }
+    expect(workflow).toContain('    types: [completed]');
+  });
+});
+
 describe('sliceOf', () => {
   it('reads a route slice in the reference result', () => {
     expect(sliceOf('apps/web/src/routes/greeting/GreetingPage.tsx')).toEqual({
