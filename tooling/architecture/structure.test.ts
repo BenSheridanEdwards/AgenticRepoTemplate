@@ -52,7 +52,13 @@ function validate(
     contract,
     results,
     files,
-    edges,
+    edges: [
+      ...[reference, todo].map((result) => ({
+        from: `${result.api}/src/features/greeting/application.ts`,
+        to: `${result.api}/src/features/greeting/domain.ts`,
+      })),
+      ...edges,
+    ],
     symlinks,
     manifests,
     readText: (path: string) => tree[path] ?? '',
@@ -64,6 +70,27 @@ const editManifest = (path: string, edit: (fields: Record<string, unknown>) => v
   edit(fields);
   return { [path]: JSON.stringify(fields) };
 };
+
+const FEATURE = 'showcase/todo-01/api/src/features/greeting';
+const APPLICATION = `${FEATURE}/application.ts`;
+const DOMAIN = `${FEATURE}/domain.ts`;
+const DOMAIN_RULE_VIOLATION = { kind: 'application-without-domain-rule', feature: FEATURE };
+const CLIENT_REPORT = 'web/etc/api-client.api.md';
+const CLIENT_EXPORTS = [
+  'export declare function ApiProvider(): void;',
+  'export type RouterInputs = unknown;',
+  'export type RouterOutputs = unknown;',
+  'export interface TestApiHandlers {}',
+  'export declare function TestApiProvider(): void;',
+  'export declare const useTrpc: unknown;',
+];
+
+function clientReports(actual: string[]) {
+  return {
+    [`apps/${CLIENT_REPORT}`]: CLIENT_EXPORTS.join('\n'),
+    [`showcase/todo-01/${CLIENT_REPORT}`]: actual.join('\n'),
+  };
+}
 
 describe('validateStructure', () => {
   it('passes the clean reference and a clean showcase result', () => {
@@ -290,6 +317,168 @@ describe('validateStructure', () => {
         kind: 'cross-result-import',
         from: 'showcase/todo-01/web/src/api-client/index.ts',
         to: 'apps/api/src/router.ts',
+      },
+    ]);
+  });
+
+  it.each([
+    "import { formatGreeting, type Greeting } from './domain.ts';",
+    "export { formatGreeting, type Greeting } from './domain.ts';",
+    "export * from './domain.ts';",
+    "import './domain.ts';",
+    "const domain = import('./domain.ts');",
+  ])('accepts a domain value crossing: %s', (source) => {
+    expect(validate({ [APPLICATION]: source })).toEqual([]);
+  });
+
+  it.each([
+    "import type { Greeting } from './domain.ts';",
+    "import { type Greeting } from './domain.ts';",
+    "export type { Greeting } from './domain.ts';",
+    "export { type Greeting } from './domain.ts';",
+    "export type * from './domain.ts';",
+    "type Greeting = import('./domain.ts').Greeting;",
+    'export const greet = () => "Hello";',
+    "import type { Greeting } from './domain.ts'; import { remember } from './integrations.ts';",
+  ])('fails an application without a domain value crossing: %s', (source) => {
+    expect(validate({ [APPLICATION]: source })).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('accepts an application folder when one file value-imports its domain folder', () => {
+    const from = `${FEATURE}/application/greet.ts`;
+    const to = `${FEATURE}/domain/rules.ts`;
+    expect(
+      validate(
+        {
+          [APPLICATION]: null,
+          [DOMAIN]: null,
+          [`${FEATURE}/application/types.ts`]:
+            "import type { Greeting } from '../domain/rules.ts';",
+          [from]: "import { formatGreeting } from '../domain/rules.ts';",
+          [to]: 'export const formatGreeting = () => "Hello";',
+        },
+        { edges: [{ from, to }] },
+      ),
+    ).toEqual([]);
+  });
+
+  it('requires the value crossing to be resolved by Fallow', () => {
+    expect(
+      validate({
+        [APPLICATION]: null,
+        [`${FEATURE}/application/greet.ts`]: "import { formatGreeting } from '../domain.ts';",
+      }),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('leaves a missing domain to the missing-role check', () => {
+    expect(validate({ [DOMAIN]: null })).toEqual([
+      { kind: 'missing-role', result: 'showcase/todo-01', role: 'api-domain' },
+    ]);
+  });
+
+  it.each([
+    'application/greet.test.ts',
+    'application/greet.d.ts',
+  ])('ignores a value import in %s when checking the application role', (name) => {
+    const from = `${FEATURE}/${name}`;
+    expect(
+      validate(
+        {
+          [APPLICATION]: "import type { Greeting } from './domain.ts';",
+          [from]: "import { formatGreeting } from '../domain.ts';",
+        },
+        { edges: [{ from, to: DOMAIN }] },
+      ),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('requires the domain to belong to the same feature', () => {
+    const sibling = 'showcase/todo-01/api/src/features/other/domain.ts';
+    expect(
+      validate(
+        {
+          [APPLICATION]: "import { formatGreeting } from '../other/domain.ts';",
+          [sibling]: 'export const formatGreeting = () => "Hello";',
+        },
+        { edges: [{ from: APPLICATION, to: sibling }] },
+      ),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('requires a domain value crossing in the reference too', () => {
+    expect(
+      validate({
+        'apps/api/src/features/greeting/application.ts':
+          "import type { Greeting } from './domain.ts';",
+      }),
+    ).toEqual([
+      { kind: 'application-without-domain-rule', feature: 'apps/api/src/features/greeting' },
+    ]);
+  });
+
+  it('accepts the scaffold export names and kinds in any order', () => {
+    expect(validate(clientReports([...CLIENT_EXPORTS].reverse()))).toEqual([]);
+  });
+
+  it.each([
+    ['a missing RouterInputs', CLIENT_EXPORTS.filter((line) => !line.includes('RouterInputs'))],
+    ['an extra export', [...CLIENT_EXPORTS, 'export declare const extra: unknown;']],
+    [
+      'a changed kind',
+      CLIENT_EXPORTS.map((line) =>
+        line.includes('RouterInputs') ? 'export declare const RouterInputs: unknown;' : line,
+      ),
+    ],
+  ])('fails the scaffold report with %s', (_, actual) => {
+    expect(validate(clientReports(actual))).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path: `showcase/todo-01/${CLIENT_REPORT}`,
+        referencePath: `apps/${CLIENT_REPORT}`,
+        role: 'web-api-client',
+        actual: expect.any(Array),
+        expected: [
+          'ApiProvider:value',
+          'RouterInputs:type',
+          'RouterOutputs:type',
+          'TestApiHandlers:type',
+          'TestApiProvider:value',
+          'useTrpc:value',
+        ],
+      },
+    ]);
+  });
+
+  it('treats an interface and a type alias as the same export kind', () => {
+    expect(
+      validate(
+        clientReports(
+          CLIENT_EXPORTS.map((line) =>
+            line.includes('RouterInputs') ? 'export interface RouterInputs {}' : line,
+          ),
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it('pins the api-app report as well as the web api client', () => {
+    const referencePath = 'apps/api/etc/api.api.md';
+    const path = 'showcase/todo-01/api/etc/api.api.md';
+    expect(
+      validate({
+        [referencePath]:
+          'export type AppRouter = unknown;\nexport declare const appRouter: unknown;',
+        [path]: 'export type AppRouter = unknown;',
+      }),
+    ).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path,
+        referencePath,
+        role: 'api-app',
+        actual: ['AppRouter:type'],
+        expected: ['AppRouter:type', 'appRouter:value'],
       },
     ]);
   });

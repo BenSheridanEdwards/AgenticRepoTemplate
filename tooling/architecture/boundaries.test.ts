@@ -123,6 +123,26 @@ describe('Fallow contract over the reference result', () => {
   });
 
   it.each([
+    ['value', "import { rule } from './domain.ts';\nexport const stored = rule();\n", 1],
+    [
+      'type',
+      "import type { Item } from './domain.ts';\nexport const stored: Item = { id: 1 };\n",
+      0,
+    ],
+  ])('checks an integration importing its own domain by %s', (_kind, source, status) => {
+    expect(
+      architectureGate({
+        [`${API}/features/x/domain.ts`]:
+          'export interface Item { id: number }\nexport const rule = () => ({ id: 1 });\n',
+        [`${API}/features/x/integrations.ts`]: source,
+      }),
+    ).toEqual({
+      status,
+      findings: status === 0 ? [] : ['boundary api-integrations -> api-domain'],
+    });
+  });
+
+  it.each([
     [
       'a route imports another route',
       `${WEB}/routes/greeting/index.ts`,

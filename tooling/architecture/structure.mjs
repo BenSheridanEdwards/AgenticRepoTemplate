@@ -15,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readRepository, runCli } from './graph.mjs';
+import { moduleReferences, resolveRelative } from './imports.mjs';
 
 /** What a result root and each package may hold. Anything else is an unexpected file. */
 const LAYOUT = {
@@ -216,6 +217,67 @@ function crossResultImports({ results, edges }) {
     .map(({ from, to }) => ({ kind: 'cross-result-import', from, to }));
 }
 
+const featureDirectory = (file) => /^(.*?\/api\/src\/features\/[^/]+)\//.exec(file)?.[1];
+
+function importsDomainValue(application, domains, { files, edges, readText }) {
+  const targets = new Set(
+    edges
+      .filter(({ from, to }) => from === application && domains.includes(to))
+      .map(({ to }) => to),
+  );
+  return moduleReferences(application, readText(application)).some(
+    ({ specifier, typeOnly }) =>
+      !typeOnly &&
+      specifier.startsWith('.') &&
+      targets.has(resolveRelative(files, application, specifier)),
+  );
+}
+
+function applicationsWithoutDomainRule({ contract, results, files, edges, readText }) {
+  const sources = files.filter((file) => isRoleSource(file) && resultOf(results, file));
+  const applications = sources.filter((file) => contract.roleOf(file) === 'api-application');
+  const domains = sources.filter((file) => contract.roleOf(file) === 'api-domain');
+  return [...new Set(applications.map(featureDirectory))].flatMap((feature) => {
+    const ownDomain = domains.filter((file) => featureDirectory(file) === feature);
+    const ownApplication = applications.filter((file) => featureDirectory(file) === feature);
+    const input = { files: new Set(files), edges, readText };
+    return ownDomain.length > 0 &&
+      !ownApplication.some((file) => importsDomainValue(file, ownDomain, input))
+      ? [{ kind: 'application-without-domain-rule', feature }]
+      : [];
+  });
+}
+
+const SCAFFOLD_REPORTS = [
+  { package: 'web', report: 'api-client', role: 'web-api-client' },
+  { package: 'api', report: 'api', role: 'api-app' },
+];
+
+const reportExports = (text) =>
+  [...text.matchAll(/^export (?:declare )?(function|const|type|interface|class|enum) (\w+)/gm)]
+    .map(
+      ([, kind, name]) => `${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}`,
+    )
+    .sort();
+
+function scaffoldExports({ results, files, readText }) {
+  const [reference] = results;
+  return results.flatMap((result) =>
+    SCAFFOLD_REPORTS.flatMap(({ package: kind, report, role }) => {
+      const path = `${result[kind]}/etc/${report}.api.md`;
+      if (!files.includes(path)) {
+        return [];
+      }
+      const referencePath = `${reference[kind]}/etc/${report}.api.md`;
+      const actual = reportExports(readText(path));
+      const expected = reportExports(readText(referencePath));
+      return sameList(actual, expected)
+        ? []
+        : [{ kind: 'scaffold-exports', path, referencePath, role, actual, expected }];
+    }),
+  );
+}
+
 function suppressions({ results, files, readText }) {
   return files
     .filter((file) => resultOf(results, file))
@@ -272,6 +334,16 @@ const RULES = {
     find: crossResultImports,
     describe: (violation) =>
       `cross-result-import ${violation.from} -> ${violation.to}: a result imports only its own packages and packages/ui.`,
+  },
+  'application-without-domain-rule': {
+    find: applicationsWithoutDomainRule,
+    describe: (violation) =>
+      `application-without-domain-rule ${violation.feature}: application imports nothing from domain by value; put the feature's rules (such as creating or toggling an item) in domain.ts and call them from application (${ROLE_TABLE}).`,
+  },
+  'scaffold-exports': {
+    find: scaffoldExports,
+    describe: (violation) =>
+      `scaffold-exports ${violation.path}: exports [${violation.actual.join(', ')}]; the reference ${violation.referencePath} exports [${violation.expected.join(', ')}]. The ${violation.role} role is scaffold code; keep its public surface as the reference has it.`,
   },
   suppression: {
     find: suppressions,
