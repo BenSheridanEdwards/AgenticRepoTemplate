@@ -3,11 +3,18 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createNodeFilesystem, findPrdConflicts } from './check-prd-conflicts.mjs';
+import {
+  coveredPaths,
+  createNodeFilesystem,
+  findPrdConflicts,
+  parseBehaviours,
+} from './check-prd-conflicts.mjs';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const SPEC = 'apps/web/e2e/greeting.spec.ts';
+const SOURCE = 'apps/web/src/routes/greeting/GreetingPage.tsx';
+const COVERS = '- **Covers:** `apps/web/src/routes/greeting/**`';
 const SPEC_TEXT = [
   "test.describe('Greeting', () => {",
   "  test('greets a name through the api', async ({ page }) => {});",
@@ -32,7 +39,7 @@ function filesystemOf(files: Record<string, string>) {
 }
 
 function prd(...behaviours: string[]) {
-  return ['# Greeting', '', '## Intent', '', 'Greets a visitor.', '', '## Behaviours', '']
+  return ['# Greeting', COVERS, '## Intent', '', 'Greets a visitor.', '', '## Behaviours', '']
     .concat(behaviours)
     .concat(['', '## Out of scope', '', '- Proved by [ignored](../../nowhere.spec.ts)'])
     .join('\n');
@@ -43,7 +50,12 @@ const proof = (title: string, target = '../../apps/web/e2e/greeting.spec.ts') =>
 
 function conflictsOf(prdText: string, extraFiles: Record<string, string> = {}) {
   return findPrdConflicts(
-    filesystemOf({ 'docs/prd/greeting.md': prdText, [SPEC]: SPEC_TEXT, ...extraFiles }),
+    filesystemOf({
+      'docs/prd/greeting.md': prdText,
+      [SPEC]: SPEC_TEXT,
+      [SOURCE]: '',
+      ...extraFiles,
+    }),
   );
 }
 
@@ -114,7 +126,7 @@ describe('findPrdConflicts', () => {
   });
 
   it('fails when a PRD lists no behaviours', () => {
-    const text = '# Greeting\n\n## Intent\n\nGreets a visitor.\n';
+    const text = `# Greeting\n${COVERS}\n## Intent\n\nGreets a visitor.\n`;
     expect(conflictsOf(text)).toEqual([
       expect.stringMatching(/^docs\/prd\/greeting\.md .*Behaviours/),
     ]);
@@ -122,6 +134,7 @@ describe('findPrdConflicts', () => {
 
   it('counts only the list items under the Behaviours heading', () => {
     const text = [
+      COVERS,
       '- **Greets the visitor.** The page shows the greeting.',
       proof('greets a name through the api'),
       '',
@@ -416,6 +429,100 @@ describe('findPrdConflicts', () => {
     );
     expect(conflicts).toEqual([
       expect.stringMatching(/^docs\/prd\/README\.md lists no behaviours/),
+      expect.stringMatching(/^docs\/prd\/README\.md has no `Covers` line/),
+    ]);
+  });
+});
+
+describe('PRD coverage', () => {
+  const text = prd('- **Greets.** Hi.', proof('greets a name through the api'));
+
+  it('requires a Covers line even when a behaviour already links its spec', () => {
+    expect(conflictsOf(text.replace(COVERS, ''))).toEqual([
+      expect.stringMatching(/^docs\/prd\/greeting\.md has no `Covers` line/),
+    ]);
+  });
+
+  it('accepts multiple globs, including brace alternatives and zero nested folders', () => {
+    const declaration =
+      '- **Covers:** `apps/{web,api}/src/**`, `apps/web/src/routes/greeting/**/GreetingPage.tsx`';
+    expect(conflictsOf(text.replace(COVERS, declaration))).toEqual([]);
+  });
+
+  it('leaves ordinary prose beginning with Covers outside the declaration parser', () => {
+    expect(
+      conflictsOf(text.replace('Greets a visitor.', 'Covers the visitor’s greeting needs.')),
+    ).toEqual([]);
+  });
+
+  it('reports an unmatched glob even when another glob matches a tracked file', () => {
+    const declaration = `${COVERS}, \`apps/web/src/routes/missing/**\``;
+    expect(conflictsOf(text.replace(COVERS, declaration))).toEqual([
+      expect.stringMatching(
+        /^docs\/prd\/greeting\.md .*apps\/web\/src\/routes\/missing\/\*\*.*matches no tracked file/,
+      ),
+    ]);
+  });
+
+  it.each([
+    ['an empty declaration', '- **Covers:**'],
+    ['an empty code span', '- **Covers:** ``'],
+    ['an unquoted path', '- **Covers:** apps/web/src/routes/greeting/**'],
+    ['an unclosed code span', '- **Covers:** `apps/web/src/routes/greeting/**'],
+    ['trailing prose', `${COVERS} and its tests`],
+    ['a trailing comma', `${COVERS},`],
+    ['a missing comma', `${COVERS} \`${SPEC}\``],
+    ['an unquoted second path', `${COVERS}, ${SPEC}`],
+    ['a different list marker', COVERS.replace('- ', '+ ')],
+    ['a non-bold label', COVERS.replace('**Covers:**', 'Covers:')],
+    ['an underscore-bold label', COVERS.replace('**Covers:**', '__Covers:__')],
+    ['an absolute path', '- **Covers:** `/apps/web/src/routes/greeting/**`'],
+    ['a Windows absolute path', '- **Covers:** `C:/apps/web/src/routes/greeting/**`'],
+    ['a parent traversal', '- **Covers:** `../apps/web/src/routes/greeting/**`'],
+    ['an embedded parent traversal', '- **Covers:** `apps/web/../web/src/routes/greeting/**`'],
+    ['a backslash path', '- **Covers:** `apps\\web\\src\\routes\\greeting\\**`'],
+  ])('rejects %s as an unreadable Covers line', (_, declaration) => {
+    const conflicts = conflictsOf(text.replace(COVERS, declaration));
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatch(/^docs\/prd\/greeting\.md:2 /);
+    expect(conflicts[0]).toContain('Covers');
+    expect(conflicts[0]).toContain('cannot read');
+  });
+
+  it.each([
+    COVERS,
+    COVERS.replace('**Covers:**', '__Covers:__'),
+  ])('rejects a second Covers line instead of silently picking one: %s', (declaration) => {
+    expect(conflictsOf(text.replace(COVERS, `${COVERS}\n${declaration}`))).toEqual([
+      expect.stringMatching(/^docs\/prd\/greeting\.md:3 .*second `Covers` line/),
+    ]);
+  });
+
+  it('requires Covers to be in the header before the first section', () => {
+    const misplaced = text.replace(`${COVERS}\n## Intent`, `\n## Intent\n${COVERS}`);
+    const conflicts = conflictsOf(misplaced);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatch(/^docs\/prd\/greeting\.md:4 /);
+    expect(conflicts[0]).toContain('header');
+  });
+
+  it('preserves declared globs and automatically covers linked specs once, without anchors', () => {
+    const declaration = `${COVERS}, \`${SPEC}\``;
+    const parsed = parseBehaviours(
+      'docs/prd/greeting.md',
+      prd(
+        '- **Greets.** Hi.',
+        proof('greets a name through the api', `../../${SPEC}#L12`),
+        proof('says so when the api fails'),
+        proof('works accessibly', '../../apps/web/e2e/accessibility.spec.ts#L30'),
+      ).replace(COVERS, declaration),
+    );
+    expect(parsed.covers).toEqual(['apps/web/src/routes/greeting/**', SPEC]);
+    expect(parsed.coverageConflicts).toEqual([]);
+    expect(coveredPaths(parsed)).toEqual([
+      'apps/web/src/routes/greeting/**',
+      SPEC,
+      'apps/web/e2e/accessibility.spec.ts',
     ]);
   });
 });
@@ -444,10 +551,23 @@ describe('createNodeFilesystem', () => {
     track({
       'docs/prd/greeting.md': prd('- **Greets.** Hi.', proof('greets a name through the api')),
       [SPEC]: SPEC_TEXT,
+      [SOURCE]: '',
     });
     rmSync(join(root, SPEC));
     expect(findPrdConflicts(createNodeFilesystem(root))).toEqual([
       expect.stringContaining('is not a tracked E2E spec'),
+    ]);
+  });
+
+  it('ignores untracked files when checking whether a Covers glob matches', () => {
+    track({
+      'docs/prd/greeting.md': prd('- **Greets.** Hi.', proof('greets a name through the api')),
+      [SPEC]: SPEC_TEXT,
+    });
+    mkdirSync(dirname(join(root, SOURCE)), { recursive: true });
+    writeFileSync(join(root, SOURCE), '');
+    expect(findPrdConflicts(createNodeFilesystem(root))).toEqual([
+      expect.stringContaining('matches no tracked file'),
     ]);
   });
 });

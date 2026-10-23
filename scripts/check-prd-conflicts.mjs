@@ -33,6 +33,8 @@ const BEHAVIOURS_HEADING = /^## Behaviours\s*$/;
 const BEHAVIOUR = /^[-*] (.*)$/;
 const PROOF = /^(?:\t| {2})\s*[-*] Proved by \[(.+)\]\(([^)\s<>]+)\)\s*$/;
 const UNREAD_LINE = /^ ?(?:[-*+]|\d+[.)])\s|^\s+(?:(?:[-*+]|\d+[.)])\s+)?Proved by\b/;
+const COVERS_LABEL = /^\s*(?:(?:[-*+]|\d+[.)])\s+)?[*_]{0,2}Covers(?:\s*:|[*_]+(?=\s|:|$)|\s*$)/i;
+const COVERS_LINE = /^- \*\*Covers:\*\* (`[^`]+`(?:,\s*`[^`]+`)*)\s*$/;
 
 /**
  * What each Playwright call declares, by its whole callee. A `test` is a test
@@ -86,8 +88,61 @@ function behavioursSection(lines) {
   return end === -1 ? rest : rest.slice(0, end);
 }
 
-/** The behaviours a PRD lists, with their proofs, and the lines it cannot read. */
-function parseBehaviours(prdPath, text) {
+/** Read one header declaration; glob matching stays with `matchesGlob` (ADR 0058). */
+function parseCovers(prdPath, lines) {
+  const declarations = lines.filter(({ line }) => COVERS_LABEL.test(line));
+  if (declarations.length === 0) {
+    return {
+      covers: [],
+      coverageConflicts: [
+        `${prdPath} has no \`Covers\` line. Add \`- **Covers:**\` in the header with ` +
+          'repository-relative globs in code spans, separated by commas.',
+      ],
+    };
+  }
+  if (declarations.length > 1) {
+    return {
+      covers: [],
+      coverageConflicts: [
+        `${prdPath}:${declarations[1].number} starts a second \`Covers\` line. Combine the globs in one header line.`,
+      ],
+    };
+  }
+  const [{ line, number }] = declarations;
+  const firstSection = lines.find(({ line }) => /^##\s/.test(line));
+  if (firstSection && number > firstSection.number) {
+    return {
+      covers: [],
+      coverageConflicts: [
+        `${prdPath}:${number} puts \`Covers\` outside the header. Move it before the first \`##\` section.`,
+      ],
+    };
+  }
+  const match = COVERS_LINE.exec(line);
+  const covers = match ? [...match[1].matchAll(/`([^`]+)`/g)].map((match) => match[1]) : [];
+  if (covers.length === 0 || covers.some((pattern) => !repositoryRelative(pattern))) {
+    return {
+      covers: [],
+      coverageConflicts: [
+        `${prdPath}:${number} has a \`Covers\` line the check cannot read. Write ` +
+          '`- **Covers:**` followed by repository-relative globs in code spans, separated by commas. ' +
+          'Use forward slashes and paths inside the repository.',
+      ],
+    };
+  }
+  return { covers, coverageConflicts: [] };
+}
+
+function repositoryRelative(pattern) {
+  return (
+    pattern.trim() === pattern &&
+    !/^[A-Za-z]:|\\/.test(pattern) &&
+    pattern.split('/').every((part) => part !== '' && part !== '.' && part !== '..')
+  );
+}
+
+/** A PRD's behaviours, proof paths, coverage globs and unread declarations. */
+export function parseBehaviours(prdPath, text) {
   const lines = text.split(/\r?\n/).map((line, index) => ({ line, number: index + 1 }));
   const behaviours = [];
   const unread = lines.filter(({ line }) => BEHAVIOURS_HEADING.test(line)).slice(1);
@@ -104,7 +159,17 @@ function parseBehaviours(prdPath, text) {
       unread.push({ line, number });
     }
   }
-  return { behaviours, unread };
+  return { behaviours, unread, ...parseCovers(prdPath, lines) };
+}
+
+/** Coverage patterns stay unexpanded so callers can also match deleted files. */
+export function coveredPaths(prd) {
+  return [
+    ...new Set([
+      ...prd.covers,
+      ...prd.behaviours.flatMap(({ proofs }) => proofs.map(({ spec }) => spec)),
+    ]),
+  ];
 }
 
 /** `test.describe.skip` for a callee written that way, or undefined for any other. */
@@ -250,8 +315,19 @@ function proofConflicts(prdPath, { line, title, spec }, specs, readText) {
 }
 
 /** The conflicts in one PRD: no behaviours, an unread line, a behaviour with no proof, or a broken proof. */
-function prdConflicts(prdPath, filesystem, specs) {
-  const { behaviours, unread } = parseBehaviours(prdPath, filesystem.readText(prdPath));
+function prdConflicts(prdPath, filesystem, specs, tracked) {
+  const { behaviours, unread, covers, coverageConflicts } = parseBehaviours(
+    prdPath,
+    filesystem.readText(prdPath),
+  );
+  const conflicts = coverageConflicts.concat(
+    covers
+      .filter((pattern) => !tracked.some((path) => matchesGlob(path, pattern)))
+      .map(
+        (pattern) =>
+          `${prdPath} Covers glob \`${pattern}\` matches no tracked file. Update the glob to name the code this PRD governs.`,
+      ),
+  );
   const unreadConflicts = unread.map(({ line, number }) =>
     BEHAVIOURS_HEADING.test(line)
       ? `${prdPath}:${number} starts a second \`## Behaviours\` section. Merge it into the first.`
@@ -263,10 +339,12 @@ function prdConflicts(prdPath, filesystem, specs) {
     return [
       `${prdPath} lists no behaviours. Add a \`## Behaviours\` section with one list item ` +
         'per behaviour the feature promises.',
+      ...conflicts,
       ...unreadConflicts,
     ];
   }
-  return unreadConflicts.concat(
+  return conflicts.concat(
+    unreadConflicts,
     behaviours.flatMap(({ line, summary, proofs }) => [
       ...(proofs.length === 0
         ? [
@@ -285,7 +363,7 @@ export function findPrdConflicts(filesystem) {
   const specs = new Set(tracked.filter((path) => matchesGlob(path, SPEC_GLOB)));
   return tracked
     .filter((path) => matchesGlob(path, PRD_GLOB))
-    .flatMap((prdPath) => prdConflicts(prdPath, filesystem, specs));
+    .flatMap((prdPath) => prdConflicts(prdPath, filesystem, specs, tracked));
 }
 
 function runCli() {
@@ -296,14 +374,14 @@ function runCli() {
       .listTrackedFiles()
       .filter((path) => matchesGlob(path, PRD_GLOB)).length;
     console.log(
-      `OK: every behaviour in ${count} PRD${count === 1 ? '' : 's'} names an E2E test that exists.`,
+      `OK: coverage and E2E proof links are valid for ${count} PRD${count === 1 ? '' : 's'}.`,
     );
     return;
   }
   console.error('PRDs conflict with the behaviour map:\n');
   console.error(conflicts.map((conflict) => `  ✗ ${conflict}`).join('\n'));
   console.error(
-    '\nSee ADR 0045 (`.agents/decisions/0045-prds-state-intent-and-link-their-specs.md`).',
+    '\nSee ADRs 0045 and 0058 in `.agents/decisions/` for PRD proof and coverage rules.',
   );
   process.exitCode = 1;
 }
