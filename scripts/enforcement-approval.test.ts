@@ -60,6 +60,7 @@ describe('GUARDS', () => {
       'Git hooks',
       'Lint config',
       'Biome config',
+      'Product intent',
     ]);
   });
 
@@ -74,6 +75,9 @@ describe('GUARDS', () => {
     ['tooling/eslint-plugin-policy.js', 'Lint config'],
     ['scripts/check-suppressions.mjs', 'Lint config'],
     ['biome.json', 'Biome config'],
+    ['docs/prd/greeting.md', 'Product intent'],
+    ['docs/prd/nested/feature.md', 'Product intent'],
+    ['.agents/NORTH_STAR.md', 'Product intent'],
   ])('guards %s as %s', (path, area) => {
     expect(guardedPaths([{ filename: path }])).toEqual([path]);
     expect(enforcementProblems([{ path, before: '{}', after: null }])[0]?.area).toBe(area);
@@ -83,6 +87,9 @@ describe('GUARDS', () => {
     'src/App.tsx',
     'AGENTS.md',
     '.agents/x.md',
+    '.agents/PROGRESS.md',
+    '.agents/NORTH_STAR.md.bak',
+    'docs/prd-other/feature.md',
     'package.json',
     'pnpm-lock.yaml',
     'CLAUDE.md',
@@ -145,6 +152,47 @@ describe('rewrite judge', () => {
     'scripts/enforcement-approval.test.ts',
   ])('names an edit to the gate itself in %s', (path) => {
     expect(reasons(path, 'a', 'b')).toEqual(['edits the enforcement-approval gate']);
+  });
+});
+
+describe('product intent', () => {
+  it.each([
+    'docs/prd/greeting.md',
+    '.agents/NORTH_STAR.md',
+  ])('requires sign-off for every addition, edit and deletion of %s', (path) => {
+    for (const [before, after] of [
+      [null, 'intent'],
+      ['intent', 'updated intent'],
+      ['intent', null],
+    ]) {
+      expect(enforcementProblems([{ path, before, after }])).toEqual([
+        expect.objectContaining({ path, area: 'Product intent' }),
+      ]);
+    }
+    expect(reasons(path, 'intent', 'updated intent')).toEqual(['edits product intent']);
+  });
+
+  it.each([
+    ['docs/prd/greeting.md', 'docs/greeting.md', ['docs/prd/greeting.md']],
+    ['docs/greeting.md', 'docs/prd/greeting.md', ['docs/prd/greeting.md']],
+    [
+      'docs/prd/greeting.md',
+      'docs/prd/renamed.md',
+      ['docs/prd/greeting.md', 'docs/prd/renamed.md'],
+    ],
+    ['.agents/NORTH_STAR.md', '.agents/archived.md', ['.agents/NORTH_STAR.md']],
+    ['.agents/draft.md', '.agents/NORTH_STAR.md', ['.agents/NORTH_STAR.md']],
+  ])('requires sign-off for a rename from %s to %s', (previous, filename, expected) => {
+    const paths = guardedPaths([{ filename, previous_filename: previous }]);
+    expect(paths).toEqual(expected);
+    const changes = paths.map((path: string) => ({
+      path,
+      before: path === previous ? 'intent' : null,
+      after: path === filename ? 'intent' : null,
+    }));
+    expect(enforcementProblems(changes)).toEqual(
+      paths.map((path: string) => expect.objectContaining({ path, area: 'Product intent' })),
+    );
   });
 });
 
@@ -814,6 +862,36 @@ describe('run', () => {
   const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`;
   const boxLines = (body: string | undefined) =>
     (body ?? '').split('\n').filter((line) => line.startsWith('- ['));
+
+  it('requires a fresh Ben tick for product intent at each head', async () => {
+    const path = 'docs/prd/greeting.md';
+    const { github, comments, calls, state, editBy } = fakeGitHub({
+      files: [{ filename: path }],
+      contents: {
+        [MERGE_BASE]: { [path]: 'intent' },
+        [HEAD]: { [path]: 'updated intent' },
+        [NEXT]: { [path]: 'next intent' },
+      },
+    });
+    await run({ github, context: pullRequestContext, core });
+    expect(comments[0]?.body).toContain(
+      '| `docs/prd/greeting.md` | Product intent | edits product intent |',
+    );
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+    ]);
+    state.head = NEXT;
+    await run({ github, context: pullRequestContext, core });
+    expect(boxLines(comments[0]?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+    ]);
+    expect(calls.createCommitStatus.map((status) => [status.sha, status.state])).toEqual([
+      [HEAD, 'failure'],
+      [HEAD, 'success'],
+      [NEXT, 'failure'],
+    ]);
+  });
 
   it('posts one sign-off comment and a red status on the head, then stays idle on a rerun', async () => {
     const { github, comments, calls } = fakeGitHub(loosening());

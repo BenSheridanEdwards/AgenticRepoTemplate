@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Ask for a sign-off only when a PR loosens or rewrites what the gates enforce.
+ * Ask for sign-off when a PR loosens or rewrites gates or changes product intent.
  *
  * `.github/workflows/enforcement-approval.yml` runs this module from the
  * default branch's checkout through `actions/github-script`, so the copy on main
  * judges every PR. It reads the guarded files at the merge base and at the PR
  * head through the API, never runs PR code, and ranks each change with the
- * guard that owns the path. When something loosens, it keeps one comment that
+ * guard that owns the path. When a change needs sign-off, it keeps one comment that
  * lists the changes and carries a checkbox bound to the head commit, and sets
  * the `enforcement-approval` commit status. The status turns green only on the
  * edit event in which APPROVER, as a GitHub user, turns this head's unticked box
@@ -284,10 +284,9 @@ const byJson =
 
 /**
  * The guard table, in order; the first guard with a pattern that matches a path
- * judges it. Only the files that run the gates are guarded: the git hooks, the
- * CI workflows, the lint files (ADR 0023), and this gate's own script and test
- * (ADR 0024), so a change to the gate itself needs sign-off. Code can loosen in
- * ways a text diff cannot rank, so code paths read any change as a rewrite.
+ * judges it. Gate files and this gate itself follow ADRs 0023/0024; product intent
+ * follows ADR 0060. Code can loosen in ways a text diff cannot rank, and intent
+ * has no tighten/loosen direction, so both read any change as a rewrite.
  *
  * @type {ReadonlyArray<Guard>}
  */
@@ -323,6 +322,11 @@ export const GUARDS = [
       'json.formatter',
       'css.formatter',
     ]),
+  },
+  {
+    area: 'Product intent',
+    paths: [/^docs\/prd\//, /^\.agents\/NORTH_STAR\.md$/],
+    judge: rewrite('edits product intent'),
   },
 ];
 
@@ -458,7 +462,7 @@ export function signoffComment({ head, problems, approval, refusedBy }) {
     COMMENT_MARKER,
     '## Enforcement sign-off',
     '',
-    'This PR loosens or rewrites what the gates enforce:',
+    'This PR loosens or rewrites what the gates enforce, or changes product intent:',
     '',
     '| File | Area | Change |',
     '| --- | --- | --- |',
