@@ -1,6 +1,9 @@
 # 54. Put domain rules behind application and pin scaffold API exports
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted by Ben on 23 October 2026 at 11:44 BST: "Approve ADR
+  0054 and the Fallow exemption". This approves the paired `RouterInputs` /
+  `RouterOutputs` exemption; PR #127 still requires six replacement trial
+  records, the regenerated comparison and every check green before merge.
 - **Date:** 2026-10-23
 - **Amends:** [0032](0032-api-ui-greeting-and-contract.md) (role table),
   [0033](0033-result-diagrams-and-structure-validation.md) (structure checks)
@@ -100,12 +103,13 @@ unchanged.
   first, using the no-evidence state of
   [0047](0047-trial-fixtures-and-the-no-evidence-state.md). All six new runs
   must share one scaffold revision and retain every failed run.
-- Trials have not been rerun on the local macOS host: bubblewrap is absent.
-  [0038](0038-trial-isolation-and-no-time-limit.md) requires the private
-  `/tmp` mount before an agent starts. The Phase 1 PR stays draft pending a
-  permitted host for Phase 2; a `consistent` verdict with zero outside-spec
-  aspects remains unverified. Merge the baseline-removal commit only together
-  with all six replacement trial records and the regenerated comparison.
+- Ben authorised a local Colima Linux runtime for Phase 2 on 23 October 2026.
+  [0038](0038-trial-isolation-and-no-time-limit.md) still requires the private
+  `/tmp` mount before an agent starts. Run the unchanged harness in that
+  runtime and keep the PR draft until the six-run comparison proves
+  `consistent` with zero outside-spec aspects. Merge the baseline-removal
+  commit only together with all six replacement trial records and the
+  regenerated comparison, with every check green.
 - The existing guarded-path list is unchanged. The narrow Fallow exemption
   and its mandatory-export check are explicit review points in the PR.
 - No dependency or tool owner is added. Reverting this decision's rules and

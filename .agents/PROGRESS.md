@@ -38,11 +38,14 @@ ships, leave its block here as history and open the next one above it.
   The architecture tests cover the new rules; comparison tests stay unchanged.
 - **Verification:** Boundary/contract tests passed (64 tests). Full local
   `pnpm verify`, `pnpm e2e` and latest-head CI are tracked in the PR.
-- **Blockers:** Local macOS preflight has no `bwrap` (exit 127). The plan stops
-  Phase 2 there; no real trial has started and the `consistent` acceptance
-  criterion remains unmet. The PR stays draft pending a permitted confined host.
-  Merge the removal commit only with all six replacement records and comparison;
-  Ben's approval of ADR 0054 and the paired Fallow exemption remains pending.
+- **Phase 2:** Ben authorised Colima on 23 October 2026. The local Linux VM
+  runs and the container runtime is being prepared for the unchanged harness.
+  Ben approved ADR 0054 and the paired `RouterInputs` / `RouterOutputs`
+  Fallow exemption at 11:44 BST: "Approve ADR 0054 and the Fallow exemption".
+- **Blockers:** The six new trials and `consistent` acceptance proof remain
+  outstanding. Keep the PR draft until the comparison has zero outside-spec
+  aspects. Merge the removal commit only with all six replacement records and
+  comparison, with every check green.
 
 ## macOS verification portability (#122)
 
