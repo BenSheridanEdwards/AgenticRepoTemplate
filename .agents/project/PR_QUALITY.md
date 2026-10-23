@@ -10,6 +10,20 @@ the change. The proof must be specific enough that a reviewer can separate:
 
 State each one separately, in place of a single "all good" statement.
 
+## Proposing a PRD change
+
+Use the [PRD change issue form](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/new?template=prd-change.yml)
+to propose a behaviour or intent change. Name the conflicting or superseded
+`docs/prd/<feature>.md`, or write `None: new PRD for <feature>`, link the branch
+compare or draft PR that edits the PRD, and explain the North Star outcome it
+advances. List the E2E tests that would change when known.
+
+GitHub requires answers to the PRD, proposed diff, and outcome fields when
+submitting this form. `scripts/issue-forms.test.ts`, run by `pnpm test` and
+`pnpm verify`, protects those requirements and keeps blank issues available.
+Review checks that the path, diff, and outcome match the proposal
+([ADR 0056](../decisions/0056-prd-changes-start-from-an-issue-form.md)).
+
 ## Required proof
 
 Every PR body must include:
