@@ -39,7 +39,7 @@ ships, leave its block here as history and open the next one above it.
 - **Verification:** Boundary/contract tests passed (64 tests). Full local
   `pnpm verify`, `pnpm e2e` and latest-head CI are tracked in the PR.
 - **Phase 2:** Ben authorised Colima on 23 October 2026. The local Linux VM
-  runs and the container runtime is being prepared for the unchanged harness.
+  ran the unchanged harness inside the local Colima container runtime.
   Ben approved ADR 0054 and the paired `RouterInputs` / `RouterOutputs`
   Fallow exemption at 11:44 BST: "Approve ADR 0054 and the Fallow exemption".
 - **First Colima batch:** All six real runs passed install, verify, E2E and
@@ -57,11 +57,22 @@ ships, leave its block here as history and open the next one above it.
 - **Scaffold verification:** `pnpm verify` passed (44 suites, 1,531 tests);
   `pnpm e2e` passed (7 tests). The initial documentation-phrasing failure
   was corrected and its gate rerun. GitNexus reports low impact.
-- **Blockers:** Rerun all six with identical initialized configuration
-  snapshots. Keep
-  the PR draft until the comparison has zero outside-spec aspects and a shared
-  baseline. Merge the removal commit only with all six replacement records and
-  comparison, with every check green.
+- **Fresh Colima batch:** All six runs on scaffold `f39e76e` passed install,
+  verify, E2E and structure. The unchanged comparison is `consistent`: zero
+  outside-spec aspects, zero author rulings and all 17 baseline checks hold.
+  Each run began with the same initialized per-agent snapshot. Codex persisted
+  its own trust entry during each run; the recorded initial hashes match.
+  Exact result trees were restored from retained trial refs without a merge.
+  Every trial container was stopped; Colima remains running.
+- **Combined verification:** `pnpm verify` passed (90 suites, 1,681 tests);
+  `pnpm e2e` passed (97 tests, including fixed acceptance and accessibility).
+  Independent review matched all 257 result files and every stream hash to
+  the recorded evidence. Runtime and privacy proof is in
+  `docs/proof/consistent-todo-contract/colima-rerun.txt`.
+- **Remaining:** Capture all six browser journeys, push and watch latest-head
+  CI, then mark the PR ready for Claude Opus review.
+  Keep the baseline removals together with all six replacement records and
+  comparison. Codex performs no merge.
 
 ## macOS verification portability (#122)
 

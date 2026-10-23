@@ -1,0 +1,87 @@
+Final Colima Todo rerun proof — 23 October 2026
+
+Verdict from unchanged node tooling/trial/compare.mjs:
+6/6 passed; consistent; 0 outside-spec aspects; 0 author rulings.
+All 17 baseline checks hold. 12 differences are existing spec freedoms.
+The 3 original aspects and the first Colima batch's 6 header-placement aspects
+now match. The first batch remains intact in f19786a (6/6, inconsistent with
+6 outside aspects and a separate recorded configuration-baseline mismatch).
+
+Shared scaffold/enforcement: f39e76e6e9faffbf2f96957fc5854a290f5042d2
+Harness SHA-256: f181c33292814d01c135d8d263dcfec390d002240b4f4e89c2213ffbb5733fef
+Every record reports matchesScaffold=true and fake=false.
+Each agent ran three distinct sessions, with no retries or time limit.
+Commands: pnpm trial --trial N --agent AGENT --scaffold <shared-scaffold>
+          --trials-root <private-trial-root> --dry-run
+          then the same command without --dry-run, N=1,2,3 per agent.
+Every trial passed install, verify, e2e and structure in the unchanged harness.
+All outsideReads and outsideScope lists are empty.
+
+Runtime: Colima Linux aarch64 on the local Mac mini, macOS Virtualization.Framework.
+Image: agentic-todo-pr127:local
+Image ID: sha256:ea7fd0ceb88c4e1ebe1aed2877e694fcb55dd6901e04e1cf1c7e5ba70aa66c32
+Node 22.23.4; pnpm 11.3.0; bubblewrap 0.8.0; git 2.39.5.
+Claude Code 2.1.309, resolved claude-opus-5-5; Codex CLI 0.164.0, resolved gpt-6.1-sol.
+The image contains tools, with credentials supplied only at runtime through the
+existing host login (environment or read-only auth mount). No image was pushed.
+The source worktree was mounted; common Git metadata was mounted read-only.
+No credentials were baked into the image, committed or printed.
+
+Observed runtime identity: UID 501, configured user node, privileged=false.
+bwrap has its supported setuid installation (mode 4755).
+Docker options: --init --cap-add SYS_ADMIN --cap-add NET_ADMIN --cap-add SYS_PTRACE
+--security-opt seccomp=unconfined --security-opt apparmor=unconfined --shm-size 1g.
+bwrap --dev-bind / / true passed in the actual rerun container. The first
+runtime's separate agent/check private-temp sentinel probes remain documented
+in colima-first-batch.txt; the same image and namespace setup were reused.
+The harness's confinement code and preflight remain unchanged. No VM sysctl change.
+
+Starting configuration SHA-256, equal within each agent:
+Claude: 0c621ee22dbffda4daa6e9958200eca4f077624490623eb5fdcb92f96bbcfcef
+Codex: 1ae33750e48e288847c943536cfb35ccc2da5f0f7234f670400889f85f23483a
+Each run used a fresh writable home copied from the same initialized snapshot.
+All three Claude post-run fingerprints stayed unchanged. Each Codex session
+appended only its own trusted-project entry to config.toml. Exact byte checks
+confirmed this delta; all other fingerprinted files remained identical.
+Fresh homes kept those expected startup writes out of subsequent starting hashes.
+The snapshot also preserved and separately verified the public plugin .npmrc
+payload excluded by the harness's credential-name filter. Fingerprinting itself
+was unchanged; no evidence hash or configuration record was rewritten.
+
+Independent integrity review: all 257 staged/working result files matched their
+original recorded commits byte-for-byte, and all retained stream hashes matched.
+Result trees were restored verbatim from retained trial refs without merge commits.
+Original refs, bundles, per-trial homes and audit logs remain outside the repo.
+
+All six streams passed gitleaks 8.30.1 and exact current-host-credential matching
+with zero findings. Contextual review found no private third-party data or
+machine-rule violation. Two process-list candidates in todo-codex-02 were
+resolved as processes of its dedicated container; the scanner findings remain
+recorded separately from their contextual resolution. Claude 02/03 read local
+history metadata, not historical implementation source. Claude 03 inspected
+metadata for its own Fallow core file and removed it without reading the dump.
+These reviews cover the retained transcript and available current credentials.
+
+Cleanup: every trial container started for this batch was stopped and removed;
+the original first-batch container is stopped. No trial container is running.
+Colima remains running. No other agent or machine workload was stopped.
+
+Recorded results (all 4/4 checks, no retries):
+todo-01: 1433f6219284fb5524d6ff373bb936d6aaf219f4
+  2026-10-23T12:25:27.794Z -> 2026-10-23T12:32:39.744Z
+todo-02: 936e391a5091b2ea772c5f3c77364008ab7b5732
+  2026-10-23T12:32:45.209Z -> 2026-10-23T12:40:26.080Z
+todo-03: 2d7b225a8a0f5fbf64d5efd4201ffb15a40e0e09
+  2026-10-23T12:40:32.117Z -> 2026-10-23T12:52:01.025Z
+todo-codex-01: 258c3b4da9facff6eae48efa623d9e5682d1ffb7
+  2026-10-23T12:52:06.151Z -> 2026-10-23T13:00:05.820Z
+todo-codex-02: f40961cb8f6b06da011ef67b0d99fe5552afd92e
+  2026-10-23T13:00:12.325Z -> 2026-10-23T13:08:32.273Z
+todo-codex-03: aafcde2c30224d0103c48eb295a52aef6a744b28
+  2026-10-23T13:08:37.935Z -> 2026-10-23T13:15:24.988Z
+
+Manual whitespace diagnostic: git diff --cached --check exits 2 with 980
+CRLF-only findings in 24 generated API reports. The reference reports use the
+same canonical CRLF format; there are no trailing spaces/tabs or ordinary
+source whitespace findings. Exact generated/evidence bytes are preserved.
+Required API report freshness is checked by pnpm api:check within pnpm verify.
