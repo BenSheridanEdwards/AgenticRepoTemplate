@@ -604,7 +604,119 @@ describe('validateStructure', () => {
   });
 });
 
+describe('single-route feature placement', () => {
+  const feature = `${todo.web}/src/features/page-header/PageHeader.tsx`;
+  const report = `${todo.web}/etc/features-page-header.api.md`;
+  const violation = (path: string, result = todo) => ({
+    kind: 'single-route-features',
+    result: result.root,
+    route: 'greeting',
+    path,
+  });
+
+  it.each([
+    reference,
+    todo,
+  ])('keeps feature code and artifacts in the sole route of $id', (result) => {
+    const paths = [
+      `${result.web}/etc/features-page-header.api.md`,
+      `${result.web}/src/features/page-header/PageHeader.test.tsx`,
+      `${result.web}/src/features/page-header/PageHeader.tsx`,
+      `${result.web}/src/features/page-header/index.ts`,
+    ];
+    expect(validate(Object.fromEntries(paths.map((path) => [path, ''])))).toEqual(
+      paths.map((path) => violation(path, result)),
+    );
+  });
+
+  it('accepts the header and its test inside the route', () => {
+    expect(
+      validate({
+        [`${todo.web}/src/routes/greeting/PageHeader.tsx`]: 'export const PageHeader = 1;',
+        [`${todo.web}/src/routes/greeting/PageHeader.test.tsx`]: 'export {};',
+      }),
+    ).toEqual([]);
+  });
+
+  it('counts multiple files and nested folders within the same route once', () => {
+    expect(
+      validate({
+        [feature]: '',
+        [`${todo.web}/src/routes/greeting/GreetingPage.tsx`]: '',
+        [`${todo.web}/src/routes/greeting/details/Details.tsx`]: '',
+      }),
+    ).toEqual([violation(feature)]);
+  });
+
+  it.each([
+    'Other.test.tsx',
+    'README.md',
+    'types.d.ts',
+  ])('does not count %s as a second production route', (file) => {
+    expect(validate({ [feature]: '', [`${todo.web}/src/routes/other/${file}`]: '' })).toEqual([
+      violation(feature),
+    ]);
+  });
+
+  it('retains web features and their reports when two production route slices exist', () => {
+    expect(
+      validate({
+        [feature]: '',
+        [report]: '',
+        [`${todo.web}/src/routes/other/index.ts`]: 'export const other = 1;',
+      }),
+    ).toEqual([]);
+  });
+
+  it('counts routes separately for each result', () => {
+    expect(
+      validate({
+        [feature]: '',
+        'apps/web/src/routes/other/index.ts': 'export const other = 1;',
+      }),
+    ).toEqual([violation(feature)]);
+  });
+
+  it('rejects an orphan feature report after its source has moved', () => {
+    expect(validate({ [report]: '' })).toEqual([violation(report)]);
+  });
+
+  it('leaves a missing production route to the missing-role check', () => {
+    expect(validate({ [feature]: '', [`${todo.web}/src/routes/greeting/index.ts`]: null })).toEqual(
+      [{ kind: 'missing-role', result: todo.root, role: 'web-routes' }],
+    );
+  });
+});
+
 describe('node tooling/architecture/structure.mjs', () => {
+  it('rejects single-route features and names the route and artifact cleanup', () => {
+    const repository = createMonorepo({
+      ...resultFiles('showcase/x', 'x'),
+      'showcase/x/web/src/features/page-header/PageHeader.tsx':
+        'export function PageHeader() { return <h1>Greeting</h1>; }',
+      'showcase/x/web/src/features/page-header/index.ts':
+        "export { PageHeader } from './PageHeader';",
+      'showcase/x/web/src/routes/greeting/index.ts':
+        "import { PageHeader } from '../../features/page-header';\nexport const greeting = PageHeader;",
+      'showcase/x/web/etc/features-page-header.api.md':
+        'export declare function PageHeader(): void;',
+    });
+    try {
+      const run = runTool('structure.mjs', repository.directory);
+      expect(run.status).toBe(1);
+      expect(run.output).toContain(
+        'single-route-features showcase/x/web/src/features/page-header/PageHeader.tsx:',
+      );
+      expect(run.output).toContain(
+        'single-route-features showcase/x/web/etc/features-page-header.api.md:',
+      );
+      expect(run.output).toContain('web/src/routes/greeting/');
+      expect(run.output).toContain('remove the feature barrel and API report');
+    } finally {
+      repository.cleanup();
+    }
+  });
+
   it('prints unsupported exports alongside other violations instead of aborting validation', () => {
     const repository = createMonorepo({
       ...resultFiles('showcase/x', 'x'),

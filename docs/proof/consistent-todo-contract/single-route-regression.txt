@@ -1,0 +1,53 @@
+Single-route feature rule regression proof
+Node: v22.23.4
+Historical first-batch tree: f19786aef1dc938ca425f29fbf7a0ec6a2037306
+Current structure.mjs SHA-256: dfc10de67081199d74a98d2ece79c1361256c0261d5afe52584ed3746b0d7943
+
+Method: call the current exported validateStructure() against historical tracked
+paths, manifests and source text from git ls-tree/git show at the revision above.
+Current loadContract() reads the unchanged Fallow zone configuration. Relative
+source edges are resolved with the existing moduleReferences()/resolveRelative()
+helpers to supply the other pure structure rules. The new rule reads only paths
+and roles; it does not consume this reconstructed edge list.
+This is a pure structure regression check, not a fresh Fallow or full verify run.
+No tracked source, trial record, stream, branch or container was modified.
+
+reference: FAIL (expected) — 4 single-route-features finding(s)
+  apps/web/etc/features-page-header.api.md (sole route: greeting)
+  apps/web/src/features/page-header/PageHeader.test.tsx (sole route: greeting)
+  apps/web/src/features/page-header/PageHeader.tsx (sole route: greeting)
+  apps/web/src/features/page-header/index.ts (sole route: greeting)
+todo-01: FAIL (expected) — 4 single-route-features finding(s)
+  showcase/todo-01/web/etc/features-page-header.api.md (sole route: todos)
+  showcase/todo-01/web/src/features/page-header/PageHeader.test.tsx (sole route: todos)
+  showcase/todo-01/web/src/features/page-header/PageHeader.tsx (sole route: todos)
+  showcase/todo-01/web/src/features/page-header/index.ts (sole route: todos)
+todo-02: FAIL (expected) — 4 single-route-features finding(s)
+  showcase/todo-02/web/etc/features-page-header.api.md (sole route: todos)
+  showcase/todo-02/web/src/features/page-header/PageHeader.test.tsx (sole route: todos)
+  showcase/todo-02/web/src/features/page-header/PageHeader.tsx (sole route: todos)
+  showcase/todo-02/web/src/features/page-header/index.ts (sole route: todos)
+todo-03: FAIL (expected) — 4 single-route-features finding(s)
+  showcase/todo-03/web/etc/features-page-header.api.md (sole route: todos)
+  showcase/todo-03/web/src/features/page-header/PageHeader.test.tsx (sole route: todos)
+  showcase/todo-03/web/src/features/page-header/PageHeader.tsx (sole route: todos)
+  showcase/todo-03/web/src/features/page-header/index.ts (sole route: todos)
+todo-codex-01: PASS — 0 single-route-features finding(s)
+todo-codex-02: PASS — 0 single-route-features finding(s)
+todo-codex-03: PASS — 0 single-route-features finding(s)
+
+Total: 16 expected findings; 0 other structure findings.
+All three Claude results fail the new rule; all three Codex results pass it.
+The historical reference fails too, proving that the rule is applied uniformly.
+
+Scope judgment: the rule tightens the existing guidance that web features are
+code shared across routes. It leaves comparison classifications, freedoms,
+rulings, prompt and harness untouched. The six observed outside-spec aspects
+all stem from the one feature slice and its report; keeping code in the sole
+route removes that slice and those artifacts.
+
+Limit: the rule counts production route directories, not mounted route usage.
+It intentionally does not enforce sharing or component placement once two
+production route directories exist. Thus it closes the observed one-route
+defect but is not a general enforcement of the component-location invariant.
+The fresh six-run comparison remains necessary proof of consistency.
