@@ -31,6 +31,8 @@ ships, leave its block here as history and open the next one above it.
   import classifier, regenerated the canonical diagram and recorded ADR 0054.
   Addressed PR #127's export-parser review with explicit rejection of unsupported
   export lines and documented the missing-report hand-off to `pnpm api:check`.
+  The follow-up review now reports unsupported lines as structure findings,
+  filters undefined feature paths and documents side-effect value crossings.
 - **Proof artifact:** `docs/proof/consistent-todo-contract/phase1.txt` records
   the expected old-result failures and positive/negative Fallow export controls.
   The architecture tests cover the new rules; comparison tests stay unchanged.

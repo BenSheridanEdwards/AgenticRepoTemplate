@@ -237,7 +237,7 @@ function applicationsWithoutDomainRule({ contract, results, files, edges, readTe
   const sources = files.filter((file) => isRoleSource(file) && resultOf(results, file));
   const applications = sources.filter((file) => contract.roleOf(file) === 'api-application');
   const domains = sources.filter((file) => contract.roleOf(file) === 'api-domain');
-  return [...new Set(applications.map(featureDirectory))].flatMap((feature) => {
+  return [...new Set(applications.map(featureDirectory).filter(Boolean))].flatMap((feature) => {
     const ownDomain = domains.filter((file) => featureDirectory(file) === feature);
     const ownApplication = applications.filter((file) => featureDirectory(file) === feature);
     const input = { files: new Set(files), edges, readText };
@@ -253,18 +253,21 @@ const SCAFFOLD_REPORTS = [
   { package: 'api', report: 'api', role: 'api-app' },
 ];
 
-const reportExports = (text) =>
-  [...text.matchAll(/^export .*$/gm)]
-    .map(([line]) => {
-      const declaration =
-        /^export (?:declare )?(function|const|type|interface|class|enum) (\w+)/.exec(line);
-      if (!declaration) {
-        throw new Error(`Unsupported scaffold API export: ${line.trim()}`);
-      }
+function reportExports(text) {
+  const exports = [];
+  const unsupported = [];
+  for (const [line] of text.matchAll(/^export .*$/gm)) {
+    const declaration =
+      /^export (?:declare )?(function|const|type|interface|class|enum) (\w+)/.exec(line);
+    if (declaration) {
       const [, kind, name] = declaration;
-      return `${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}`;
-    })
-    .sort();
+      exports.push(`${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}`);
+    } else {
+      unsupported.push(line.trim());
+    }
+  }
+  return { exports: exports.sort(), unsupported };
+}
 
 function scaffoldExports({ results, files, readText }) {
   const [reference] = results;
@@ -278,9 +281,25 @@ function scaffoldExports({ results, files, readText }) {
       const referencePath = `${reference[kind]}/etc/${report}.api.md`;
       const actual = reportExports(readText(path));
       const expected = reportExports(readText(referencePath));
-      return sameList(actual, expected)
+      if (actual.unsupported.length > 0 || expected.unsupported.length > 0) {
+        return actual.unsupported.map((line) => ({
+          kind: 'scaffold-exports',
+          path,
+          problem: `Unsupported scaffold API export: ${line}`,
+        }));
+      }
+      return sameList(actual.exports, expected.exports)
         ? []
-        : [{ kind: 'scaffold-exports', path, referencePath, role, actual, expected }];
+        : [
+            {
+              kind: 'scaffold-exports',
+              path,
+              referencePath,
+              role,
+              actual: actual.exports,
+              expected: expected.exports,
+            },
+          ];
     }),
   );
 }
@@ -350,7 +369,9 @@ const RULES = {
   'scaffold-exports': {
     find: scaffoldExports,
     describe: (violation) =>
-      `scaffold-exports ${violation.path}: exports [${violation.actual.join(', ')}]; the reference ${violation.referencePath} exports [${violation.expected.join(', ')}]. The ${violation.role} role is scaffold code; keep its public surface as the reference has it.`,
+      violation.problem
+        ? `scaffold-exports ${violation.path}: ${violation.problem}; use the reference's supported export declarations.`
+        : `scaffold-exports ${violation.path}: exports [${violation.actual.join(', ')}]; the reference ${violation.referencePath} exports [${violation.expected.join(', ')}]. The ${violation.role} role is scaffold code; keep its public surface as the reference has it.`,
   },
   suppression: {
     find: suppressions,
