@@ -14,6 +14,19 @@
     }
   ],
 
+  // Preserve the six independent recorded trial outputs (ADR 0058).
+  // Exclude only these results from duplication analysis; other checks still run.
+  "duplicates": {
+    "ignore": [
+      "showcase/todo-01/**",
+      "showcase/todo-02/**",
+      "showcase/todo-03/**",
+      "showcase/todo-codex-01/**",
+      "showcase/todo-codex-02/**",
+      "showcase/todo-codex-03/**"
+    ]
+  },
+
   // jest.style-stub.cjs is referenced as a string in jest.config.ts
   // (moduleNameMapper), not imported, so it isn't statically reachable. It is
   // used by every test run — exclude it from dead-file analysis.
