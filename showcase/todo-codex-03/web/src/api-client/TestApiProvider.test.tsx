@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { TestApiProvider } from './TestApiProvider';
 import { useTrpc } from './trpc';
 
-function TodoProbe() {
+function GreetingProbe() {
   const trpc = useTrpc();
   const query = useQuery(trpc.todos.list.queryOptions());
   return <p>{query.error?.message ?? query.data?.[0]?.title ?? 'waiting'}</p>;
@@ -12,9 +12,9 @@ function TodoProbe() {
 it('answers a procedure from its handler', async () => {
   render(
     <TestApiProvider
-      handlers={{ 'todos.list': () => [{ id: 'one', title: 'Hi Ada', completed: false }] }}
+      handlers={{ 'todos.list': () => [{ id: '1', title: 'Hi Ada', completed: false }] }}
     >
-      <TodoProbe />
+      <GreetingProbe />
     </TestApiProvider>,
   );
 
@@ -24,7 +24,7 @@ it('answers a procedure from its handler', async () => {
 it('fails a procedure that the test gave no handler, naming it', async () => {
   render(
     <TestApiProvider handlers={{}}>
-      <TodoProbe />
+      <GreetingProbe />
     </TestApiProvider>,
   );
 

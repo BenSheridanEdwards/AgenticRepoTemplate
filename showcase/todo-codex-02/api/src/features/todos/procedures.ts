@@ -1,24 +1,18 @@
-import { TRPCError } from '@trpc/server';
 import { Schema } from 'effect';
 import { procedure, router } from '../../trpc.ts';
-import { createTodo, deleteTodo, listTodos, toggleCompleted } from './application.ts';
+import { create, list, remove, toggle } from './application.ts';
 
-const createInputSchema = Schema.Struct({ title: Schema.Trim.check(Schema.isNonEmpty()) });
-const idInputSchema = Schema.Struct({ id: Schema.String.check(Schema.isNonEmpty()) });
-
-export const todosRouter = router({
-  list: procedure.input(Schema.toStandardSchemaV1(Schema.Void)).query(() => listTodos()),
+const titleInput = Schema.Struct({ title: Schema.Trim.check(Schema.isNonEmpty()) });
+const idInput = Schema.Struct({ id: Schema.String.check(Schema.isNonEmpty()) });
+export const todoRouter = router({
+  list: procedure.query(() => list()),
   create: procedure
-    .input(Schema.toStandardSchemaV1(createInputSchema))
-    .mutation(({ input }) => createTodo(input)),
-  toggle: procedure.input(Schema.toStandardSchemaV1(idInputSchema)).mutation(({ input }) => {
-    try {
-      return toggleCompleted(input);
-    } catch {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Todo not found' });
-    }
-  }),
+    .input(Schema.toStandardSchemaV1(titleInput))
+    .mutation(({ input }) => create(input.title)),
+  toggle: procedure
+    .input(Schema.toStandardSchemaV1(idInput))
+    .mutation(({ input }) => toggle(input.id)),
   delete: procedure
-    .input(Schema.toStandardSchemaV1(idInputSchema))
-    .mutation(({ input }) => deleteTodo(input)),
+    .input(Schema.toStandardSchemaV1(idInput))
+    .mutation(({ input }) => remove(input.id)),
 });

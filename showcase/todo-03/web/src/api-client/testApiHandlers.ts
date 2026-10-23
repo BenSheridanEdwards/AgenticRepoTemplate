@@ -15,7 +15,7 @@ type Lookup<Tree, Path> = Path extends `${infer Router}.${infer Procedure}`
     : never
   : never;
 
-/** A fake answer per procedure path, such as `'todo.list'`, typed by the router. */
+/** A fake answer per procedure path, such as `'greeting.greet'`, typed by the router. */
 export type TestApiHandlers = {
   readonly [Path in ProcedurePath]?: (
     input: Lookup<RouterInputs, Path>,

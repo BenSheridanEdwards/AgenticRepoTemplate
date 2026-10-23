@@ -1,10 +1,10 @@
 import { appRouter } from './router.ts';
 import { createCallerFactory } from './trpc.ts';
 
-it('serves the todo feature: a created todo appears under todo.list', async () => {
+it('serves the todos feature under todos', async () => {
   const caller = createCallerFactory(appRouter)({});
 
-  const created = await caller.todo.create({ title: 'Read a book' });
+  const todo = await caller.todos.create({ title: 'Buy milk' });
 
-  await expect(caller.todo.list()).resolves.toContainEqual(created);
+  await expect(caller.todos.list()).resolves.toContainEqual(todo);
 });

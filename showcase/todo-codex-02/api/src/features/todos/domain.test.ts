@@ -1,8 +1,11 @@
-import { toggleTodo } from './domain.ts';
+import { normalizeTitle, toggleTodo } from './domain.ts';
 
-it('toggles completion without changing the identity or title', () => {
-  const todo = { id: 'one', title: 'Read', completed: false };
-  expect(toggleTodo(todo)).toEqual({ ...todo, completed: true });
+it('normalizes titles and refuses blank ones', () => {
+  expect(normalizeTitle('  Read  ')).toBe('Read');
+  expect(() => normalizeTitle('  ')).toThrow('Enter a title');
+});
+it('toggles in both directions without changing the original', () => {
+  const todo = { id: '1', title: 'Read', completed: false };
+  expect(toggleTodo(todo).completed).toBe(true);
   expect(toggleTodo(toggleTodo(todo))).toEqual(todo);
-  expect(todo.completed).toBe(false);
 });

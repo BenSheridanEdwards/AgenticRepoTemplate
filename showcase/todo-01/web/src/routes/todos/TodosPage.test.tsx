@@ -1,107 +1,144 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { type TestApiHandlers, TestApiProvider } from '../../api-client';
 import { TodosPage } from './TodosPage';
 import type { Todo } from './useTodos';
 
-function renderPage() {
-  const store: Todo[] = [];
-  let counter = 0;
-  const create = jest.fn(({ title }: { title: string }) => {
-    counter += 1;
-    const todo: Todo = { id: String(counter), title, completed: false };
-    store.push(todo);
-    return { ...todo };
-  });
-  const handlers: TestApiHandlers = {
-    'todo.list': () => store.map((todo) => ({ ...todo })),
-    'todo.create': create,
-    'todo.toggle': ({ id }) => {
-      const todo = store.find((candidate) => candidate.id === id);
-      if (!todo) {
-        throw new Error(`No todo with id ${id}`);
-      }
-      const next: Todo = { ...todo, completed: !todo.completed };
-      store[store.indexOf(todo)] = next;
-      return { ...next };
-    },
-    'todo.delete': ({ id }) => {
-      const index = store.findIndex((candidate) => candidate.id === id);
-      if (index >= 0) {
-        store.splice(index, 1);
-      }
-      return { id };
-    },
+/** Handlers over one in-memory list, so each change shows in the next list call. */
+function inMemoryHandlers(initial: readonly Todo[]) {
+  let todos = [...initial];
+  const find = (id: string) => {
+    const todo = todos.find((candidate) => candidate.id === id);
+    if (!todo) {
+      throw new Error(`no todo ${id}`);
+    }
+    return todo;
   };
+  return {
+    'todos.list': () => todos,
+    'todos.add': jest.fn(({ title }: { title: string }) => {
+      const todo = { id: String(todos.length + 1), title, completed: false };
+      todos = [...todos, todo];
+      return todo;
+    }),
+    'todos.toggle': ({ id }: { id: string }) => {
+      const toggled = { ...find(id), completed: !find(id).completed };
+      todos = todos.map((todo) => (todo.id === id ? toggled : todo));
+      return toggled;
+    },
+    'todos.delete': ({ id }: { id: string }) => {
+      const deleted = find(id);
+      todos = todos.filter((todo) => todo.id !== id);
+      return deleted;
+    },
+  } satisfies TestApiHandlers;
+}
+
+function renderPage(handlers: TestApiHandlers) {
   const view = render(
     <TestApiProvider handlers={handlers}>
       <TodosPage />
     </TestApiProvider>,
   );
-  return { ...view, user: userEvent.setup(), create };
+  return { ...view, user: userEvent.setup() };
 }
 
-async function addTodo(user: ReturnType<typeof userEvent.setup>, title: string) {
-  await user.type(screen.getByRole('textbox', { name: 'Title' }), title);
-  await user.click(screen.getByRole('button', { name: 'Add' }));
-  await screen.findByRole('checkbox', { name: title });
-}
-
-it('shows the Todos heading, the Title field and the Add button', () => {
-  renderPage();
-
-  expect(screen.getByRole('heading', { level: 1, name: 'Todos' })).toBeInTheDocument();
-  expect(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
-});
-
-it('adds a todo, toggles it complete and back, then deletes it', async () => {
-  const { user } = renderPage();
-
-  await addTodo(user, 'Buy milk');
-  const checkbox = screen.getByRole('checkbox', { name: 'Buy milk' });
-  expect(within(screen.getByRole('list', { name: 'Todos' })).getByRole('checkbox')).toBe(checkbox);
-  expect(checkbox).not.toBeChecked();
-
-  await user.click(checkbox);
-  await waitFor(() => expect(checkbox).toBeChecked());
-
-  await user.click(checkbox);
-  await waitFor(() => expect(checkbox).not.toBeChecked());
-
-  await user.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
-  await waitFor(() =>
-    expect(screen.queryByRole('checkbox', { name: 'Buy milk' })).not.toBeInTheDocument(),
-  );
-});
-
-it('clears the field after adding a todo', async () => {
-  const { user } = renderPage();
-
-  await addTodo(user, 'Walk the dog');
-
-  expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('');
-});
-
-it.each(['', '   '])('asks for a title and adds nothing when it is %j', async (title) => {
-  const { user, create } = renderPage();
-
+async function addTitle(user: ReturnType<typeof userEvent.setup>, title: string) {
   const field = screen.getByRole('textbox', { name: 'Title' });
+  await user.clear(field);
   if (title) {
     await user.type(field, title);
   }
   await user.click(screen.getByRole('button', { name: 'Add' }));
+}
+
+const todoList = () => screen.getByRole('list', { name: 'Todos' });
+
+it('lists the todos from the api', async () => {
+  renderPage(inMemoryHandlers([{ id: '1', title: 'Buy milk', completed: true }]));
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).toBeChecked();
+  expect(screen.getByRole('heading', { level: 1, name: 'Todos' })).toBeInTheDocument();
+});
+
+it('says there is nothing to do when the list is empty', async () => {
+  renderPage(inMemoryHandlers([]));
+
+  expect(await screen.findByText('Nothing to do yet.')).toBeInTheDocument();
+  expect(within(todoList()).queryAllByRole('listitem')).toHaveLength(0);
+});
+
+it('adds a todo with the trimmed title and clears the field', async () => {
+  const handlers = inMemoryHandlers([]);
+  const { user } = renderPage(handlers);
+
+  await addTitle(user, '  Buy milk ');
+
+  expect(await within(todoList()).findByRole('checkbox', { name: 'Buy milk' })).not.toBeChecked();
+  expect(handlers['todos.add']).toHaveBeenCalledWith({ title: 'Buy milk' });
+  expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('');
+});
+
+it.each(['', '   '])('asks for a title and adds nothing when it is %j', async (title) => {
+  const handlers = inMemoryHandlers([]);
+  const { user } = renderPage(handlers);
+
+  await addTitle(user, title);
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Enter a title');
-  expect(field).toBeInvalid();
-  expect(create).not.toHaveBeenCalled();
+  expect(screen.getByRole('textbox', { name: 'Title' })).toBeInvalid();
+  expect(handlers['todos.add']).not.toHaveBeenCalled();
+});
+
+it('toggles a todo complete and back', async () => {
+  const { user } = renderPage(inMemoryHandlers([{ id: '1', title: 'Buy milk', completed: false }]));
+  const checkbox = await screen.findByRole('checkbox', { name: 'Buy milk' });
+
+  await user.click(checkbox);
+  await screen.findByRole('checkbox', { name: 'Buy milk', checked: true });
+
+  await user.click(checkbox);
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk', checked: false })).toBeVisible();
+});
+
+it('deletes a todo', async () => {
+  const { user } = renderPage(
+    inMemoryHandlers([
+      { id: '1', title: 'Buy milk', completed: false },
+      { id: '2', title: 'Walk the dog', completed: false },
+    ]),
+  );
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }));
+
+  await screen.findByText('Walk the dog');
+  expect(screen.queryByRole('checkbox', { name: 'Buy milk' })).not.toBeInTheDocument();
+});
+
+it('says so when the todos cannot be loaded', async () => {
+  renderPage({ 'todos.list': () => Promise.reject(new Error('api down')) });
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the todos');
+});
+
+it('says so when a change cannot be saved', async () => {
+  const { user } = renderPage({
+    'todos.list': () => [],
+    'todos.add': () => Promise.reject(new Error('api down')),
+  });
+
+  await addTitle(user, 'Buy milk');
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the change');
 });
 
 it('has no axe-detectable violations with a todo listed', async () => {
-  const { container, user } = renderPage();
+  const { container } = renderPage(
+    inMemoryHandlers([{ id: '1', title: 'Buy milk', completed: true }]),
+  );
 
-  await addTodo(user, 'Read a book');
+  await screen.findByRole('checkbox', { name: 'Buy milk' });
 
   expect(await axe(container)).toHaveNoViolations();
 });

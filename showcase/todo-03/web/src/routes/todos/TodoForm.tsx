@@ -2,15 +2,12 @@ import { Button, TextField } from '@repo/ui';
 import { useTodoForm } from './useTodoForm';
 
 export interface TodoFormProps {
-  readonly onAdd: (title: string) => void;
+  readonly onAdd: (title: string, onAdded: () => void) => void;
 }
 
 export function TodoForm({ onAdd }: TodoFormProps) {
   const { register, handleSubmit, formState, reset } = useTodoForm();
-  const handleAdd = handleSubmit(({ title }) => {
-    onAdd(title);
-    reset();
-  });
+  const handleAdd = handleSubmit(({ title }) => onAdd(title, () => reset()));
 
   return (
     <form className="todo-form" onSubmit={handleAdd} noValidate>

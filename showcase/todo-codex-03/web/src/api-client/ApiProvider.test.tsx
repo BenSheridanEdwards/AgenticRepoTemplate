@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { ApiProvider } from './ApiProvider';
 import { useTrpc } from './trpc';
 
-function TodoProbe() {
+function GreetingProbe() {
   const trpc = useTrpc();
   const query = useQuery(trpc.todos.list.queryOptions());
   return <p>{query.data?.[0]?.title ?? 'waiting'}</p>;
@@ -19,15 +19,13 @@ it('sends procedure calls to /trpc on the same origin and reads the answer', asy
     ok: true,
     status: 200,
     headers: { get: () => 'application/json' },
-    json: async () => [
-      { result: { data: [{ id: 'one', title: 'Hello, Ada!', completed: false }] } },
-    ],
+    json: async () => [{ result: { data: [{ id: '1', title: 'Hello, Ada!', completed: false }] } }],
   }));
   globalThis.fetch = fetchMock as unknown as typeof fetch;
 
   render(
     <ApiProvider>
-      <TodoProbe />
+      <GreetingProbe />
     </ApiProvider>,
   );
 

@@ -1,21 +1,21 @@
 import { Button, TextField } from '@repo/ui';
 import { useTodoForm } from './useTodoForm';
-
-export interface TodoFormProps {
-  readonly onCreate: (title: string) => Promise<boolean>;
-}
-
-export function TodoForm({ onCreate }: TodoFormProps) {
-  const { register, submit, formState } = useTodoForm(onCreate);
+export function TodoForm({
+  onAdd,
+  pending,
+}: {
+  readonly onAdd: (title: string) => Promise<unknown>;
+  readonly pending: boolean;
+}) {
+  const { register, handleSubmit, formState, reset } = useTodoForm();
+  const handleAdd = handleSubmit(async ({ title }) => {
+    await onAdd(title);
+    reset();
+  });
   return (
-    <form className="todo-form" onSubmit={submit} noValidate>
-      <TextField
-        label="Title"
-        autoComplete="off"
-        error={formState.errors.title?.message}
-        {...register('title')}
-      />
-      <Button type="submit" disabled={formState.isSubmitting}>
+    <form className="greeting-form" noValidate onSubmit={handleAdd}>
+      <TextField label="Title" error={formState.errors.title?.message} {...register('title')} />
+      <Button type="submit" disabled={pending}>
         Add
       </Button>
     </form>

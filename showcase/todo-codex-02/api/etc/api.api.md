@@ -42,16 +42,14 @@ toggle: TRPCMutationProcedure<    {
 input: {
 readonly id: string;
 };
-output: Todo;
+output: Todo | null;
 meta: object;
 }>;
 delete: TRPCMutationProcedure<    {
 input: {
 readonly id: string;
 };
-output: {
-id: string;
-};
+output: null;
 meta: object;
 }>;
 }>>;

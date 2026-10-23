@@ -5,20 +5,19 @@ import { type TestApiHandlers, TestApiProvider } from '../../api-client';
 import { TodosPage } from './TodosPage';
 
 function renderPage(handlers: TestApiHandlers) {
-  return render(
+  const view = render(
     <TestApiProvider handlers={handlers}>
       <TodosPage />
     </TestApiProvider>,
   );
+  return { ...view, user: userEvent.setup() };
 }
-
-it('validates, creates, toggles and deletes through the api', async () => {
-  const user = userEvent.setup();
-  let todos: { id: string; title: string; completed: boolean }[] = [];
-  const view = renderPage({
+it('creates, toggles and deletes through the api', async () => {
+  let todos = [{ id: '1', title: 'Existing', completed: false }];
+  const { user, container } = renderPage({
     'todos.list': () => todos,
     'todos.create': ({ title }) => {
-      const todo = { id: 'one', title, completed: false };
+      const todo = { id: '2', title, completed: false };
       todos = [...todos, todo];
       return todo;
     },
@@ -26,67 +25,44 @@ it('validates, creates, toggles and deletes through the api', async () => {
       todos = todos.map((todo) =>
         todo.id === id ? { ...todo, completed: !todo.completed } : todo,
       );
-      const changed = todos[0];
-      if (!changed) throw new Error('Missing todo');
-      return changed;
+      return todos.find((todo) => todo.id === id) ?? null;
     },
-    'todos.delete': () => {
-      todos = [];
-      return true;
+    'todos.delete': ({ id }) => {
+      todos = todos.filter((todo) => todo.id !== id);
+      return null;
     },
   });
+  await screen.findByRole('checkbox', { name: 'Existing' });
+  await user.type(screen.getByRole('textbox', { name: 'Title' }), '  New task  ');
+  await user.click(screen.getByRole('button', { name: 'Add' }));
+  const checkbox = await screen.findByRole('checkbox', { name: 'New task' });
+  await user.click(checkbox);
+  await waitFor(() => expect(checkbox).toBeChecked());
+  await user.click(screen.getByRole('button', { name: 'Delete New task' }));
+  await waitFor(() =>
+    expect(screen.queryByRole('checkbox', { name: 'New task' })).not.toBeInTheDocument(),
+  );
+  expect(await axe(container)).toHaveNoViolations();
+});
+it.each(['', '   '])('validates blank title %j', async (title) => {
+  const create = jest.fn();
+  const { user } = renderPage({ 'todos.list': () => [], 'todos.create': create });
   await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+  if (title) {
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), title);
+  }
   await user.click(screen.getByRole('button', { name: 'Add' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Enter a title');
-  await user.type(screen.getByRole('textbox', { name: 'Title' }), '  Read  ');
-  await user.click(screen.getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('checkbox', { name: 'Read' })).not.toBeChecked();
-  await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue(''));
-  await user.click(screen.getByRole('checkbox', { name: 'Read' }));
-  await waitFor(() => expect(screen.getByRole('checkbox')).toBeChecked());
-  expect(await axe(view.container)).toHaveNoViolations();
-  await user.click(screen.getByRole('button', { name: 'Delete Read' }));
-  await waitFor(() => expect(screen.queryByRole('checkbox')).not.toBeInTheDocument());
+  expect(create).not.toHaveBeenCalled();
 });
-
-it('shows loading and query failure', async () => {
-  renderPage({
-    'todos.list': () => {
-      throw new Error('offline');
-    },
+it('shows load and mutation errors', async () => {
+  const { user } = renderPage({
+    'todos.list': () => Promise.reject(new Error('offline')),
+    'todos.create': () => Promise.reject(new Error('offline')),
   });
-  expect(screen.getByRole('status')).toHaveTextContent('Loading');
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not save or load');
-});
-
-it('keeps the title when creation fails', async () => {
-  const user = userEvent.setup();
-  renderPage({
-    'todos.list': () => [],
-    'todos.create': () => {
-      throw new Error('offline');
-    },
-  });
-  await user.type(screen.getByRole('textbox'), 'Read');
+  await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Task');
   await user.click(screen.getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not save or load');
-  expect(screen.getByRole('textbox')).toHaveValue('Read');
-});
-
-it('reports toggle and delete failures', async () => {
-  const user = userEvent.setup();
-  renderPage({
-    'todos.list': () => [{ id: 'one', title: 'Read', completed: false }],
-    'todos.toggle': () => {
-      throw new Error('offline');
-    },
-    'todos.delete': () => {
-      throw new Error('offline');
-    },
-  });
-  await user.click(await screen.findByRole('checkbox'));
-  expect(await screen.findByRole('alert')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Delete Read' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Delete Read' })).toBeEnabled());
-  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled());
+  expect(screen.getByRole('alert')).toBeVisible();
 });

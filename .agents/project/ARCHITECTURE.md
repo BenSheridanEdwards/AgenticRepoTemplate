@@ -42,12 +42,13 @@ apps/
 │   │   │       ├── GreetingPage.tsx     # the page: composes the route's components
 │   │   │       ├── GreetingForm.tsx     # one component per file
 │   │   │       ├── GreetingMessage.tsx
+│   │   │       ├── PageHeader.tsx        # this route owns its header
 │   │   │       ├── useGreeting.ts       # server state + local state
 │   │   │       ├── useGreetingForm.ts   # form state
 │   │   │       ├── greetingFormSchema.ts  # Effect Schema for the form
 │   │   │       ├── *.test.ts(x)         # co-located tests
 │   │   │       └── index.ts             # public surface: GreetingPage
-│   │   └── features/<feature-name>/     # optional: web code that routes share
+│   │   └── features/<feature-name>/     # optional: shared by multiple routes
 │   ├── e2e/                             # the behaviour map: greeting.spec.ts, accessibility.spec.ts
 │   ├── etc/                             # generated API reports
 │   └── vite.config.ts                   # proxies /trpc to API_ORIGIN (default http://127.0.0.1:3001)
@@ -106,7 +107,7 @@ relative to a result root (`apps/` or `showcase/<id>/`).
 | `api-procedures` | `api/src/features/<name>/{index,procedures}.ts`, `features/<name>/procedures/**` | `api-trpc`, `api-application` |
 | `api-application` | `api/src/features/<name>/application.ts`, `features/<name>/application/**` | `api-domain`, `api-integrations` |
 | `api-domain` | `api/src/features/<name>/domain.ts`, `features/<name>/domain/**` | no other role |
-| `api-integrations` | `api/src/features/<name>/integrations.ts`, `features/<name>/integrations/**` | `api-domain` |
+| `api-integrations` | `api/src/features/<name>/integrations.ts`, `features/<name>/integrations/**` | `api-domain` types only |
 
 Tests (`*.test.ts(x)`), `web/e2e/**`, `web/index.html`, `web/vite.config.ts`
 and `etc/**` sit outside the roles. A file that grows too large becomes a
@@ -133,6 +134,22 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
   `web-routes`, and each api package in `api-app`, `api-trpc`,
   `api-procedures`, `api-application` and `api-domain`. A test file holds no
   role.
+- A result with one production route slice keeps its web feature code in that route.
+  `single-route-features` rejects `web/src/features/**` and
+  `web/etc/features-*.api.md`, including orphan reports. Only production
+  source establishes another route
+  ([ADR 0055](../decisions/0055-single-route-code-stays-in-its-route.md)).
+- In each api feature with application and domain source files, application
+  imports or re-exports at least one value from that feature's domain.
+  `application-without-domain-rule` checks Fallow's resolved edges and the
+  shared import-kind reader in `tooling/architecture/imports.mjs`.
+- Each result's scaffold API reports, `web/etc/api-client.api.md` and
+  `api/etc/api.api.md`, keep the reference's exported names and kinds
+  (`scaffold-exports`). The api-client barrel keeps `ApiProvider`,
+  `RouterInputs`, `RouterOutputs`, `TestApiHandlers`, `TestApiProvider` and
+  `useTrpc`. Fallow exempts only the two router type re-exports from unused
+  export findings; the structure check makes them mandatory
+  ([ADR 0054](../decisions/0054-domain-rules-in-application-and-a-fixed-api-client-surface.md)).
 - A result root holds `web/`, `api/` and `architecture.mmd`. A web package
   holds `package.json`, `index.html`, `vite.config.ts`, `src/`, `public/`,
   `e2e/` and `etc/`. An api package holds `package.json`, `src/` and `etc/`.
@@ -157,7 +174,7 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
 | `procedures.ts` | The feature's tRPC router. Each procedure validates its input with `.input(Schema.toStandardSchemaV1(schema))`, with `Schema` from `effect`, and delegates to application. It maps application errors to `TRPCError`. | `greetingRouter = router({ greet: procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => greet(input)) })` |
 | `application.ts` | The use cases. It calls domain rules and integrations and knows no transport. | `greet(request)` returns `{ message: formatGreeting(request.name) }` |
 | `domain.ts` | Pure types and rules. It imports nothing by value: no tRPC, no Effect, no Node. | `Greeting`, `formatGreeting(name)` |
-| `integrations.ts` | Storage, including in-memory storage, and every effect: `fetch`, Node IO, `Effect.runPromise`, `Effect.runSync`, `Effect.runFork`. Application calls it. | The greeting needs none, so the file is absent. |
+| `integrations.ts` | Storage, including in-memory storage, and every effect: `fetch`, Node IO, `Effect.runPromise`, `Effect.runSync`, `Effect.runFork`. It imports domain types only; application calls domain rules and integrations. | The greeting needs none, so the file is absent. |
 | `index.ts` | The public surface: the feature's router. | `export { greetingRouter } from './procedures.ts';` |
 
 The router mounts each feature through its `index.ts`, with the extension:
@@ -229,17 +246,22 @@ A procedure the test gives no handler fails with
 
 Each rule fails a check on a seeded violation in a committed test
 (`tooling/architecture/boundaries.test.ts`, `scripts/eslint-policy.test.ts`,
-`tooling/architecture/typescript.test.ts`). The check's message names the fix.
+`tooling/architecture/typescript.test.ts`, `tooling/architecture/structure.test.ts`).
+The check's message names the fix.
 
 | Rule | Why | Enforced by | Proved by |
 | --- | --- | --- | --- |
 | Routes own page composition. | One place per page keeps navigation readable. | ESLint `policy/pages-in-routes`, Fallow `web-routes` | `pnpm lint:policy`, `pnpm arch:gate` |
+| A single-route result keeps web feature code in its route and removes unused feature reports. | One page has no cross-route sharing boundary. | Structure `single-route-features` | `pnpm arch:gate` |
 | Sibling slices stand alone: a route imports no other route, a feature no other feature. | Each slice changes without breaking its siblings. | ESLint `policy/slice-isolation` for every result; Fallow child zones for the `apps/web` routes | `pnpm lint:policy`, `pnpm arch:gate` |
 | Every file belongs to one role and one slice. | Extra layers and loose files hide structure. | Fallow `coverage.requireAllFiles`; `policy/slice-isolation` for a loose file under `src/routes/` or `src/features/` | `pnpm arch:gate`, `pnpm lint:policy` |
 | A package reaches another only by its package name. | Public exports are the only contract. | `policy/slice-isolation` (relative import out of the package) | `pnpm lint:policy` |
 | A module is imported through its `index.ts`. | The public surface is a deliberate, reviewed list. | ESLint `no-restricted-imports`; API reports | `pnpm lint:policy`, `pnpm api:check` |
 | Procedures validate their input with Effect Schema. | Data from the network is untrusted until parsed. | ESLint `policy/procedure-input-schema` | `pnpm lint:policy` |
 | Procedures delegate to application logic. | Transport stays thin; logic stays testable. | Fallow `api-procedures` value-imports only `api-trpc`, `api-application` | `pnpm arch:gate` |
+| Integrations import domain types only. | Storage can change independently of domain rules. | Fallow `api-integrations` allows `api-domain` through `allowTypeOnly` | `pnpm arch:gate`, `pnpm fallow:audit` |
+| Each feature's application imports or re-exports a value from its domain. | Domain rules have one place in the use case's dependency chain. | Structure `application-without-domain-rule` | `pnpm arch:gate` |
+| Scaffold API exports match the reference's names and kinds. | Every result exposes the same api-client and api-app surface. | Structure `scaffold-exports`; API report freshness | `pnpm arch:gate`, `pnpm api:check` |
 | The domain is pure, and application knows no tRPC. | Rules test as plain functions. | Fallow `api-domain`; `contract/domain-pure`, `contract/application-without-trpc`; `tsconfig.domain.json` (no Node types) | `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
 | Effects run only in integrations or the api composition root. | One place to swap storage or IO. | `contract/effects-in-integrations`, `contract/io-effects-in-integrations`, `contract/node-io-in-integrations` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | The web reaches the api only by type: `import type` of the router type. | The bundle carries no server code. | Fallow `allowTypeOnly` (a value import of `api-app` fails); the `types`-only export of `@repo/api`; `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` | `pnpm arch:gate`, `pnpm fallow:audit` |
@@ -296,7 +318,10 @@ lands in `docs/trials/<id>.json`.
 - Depend only on its own api (types only) and `@repo/ui`; a result imports
   nothing from another result.
 - Every gate reaches it by the same globs as the reference, with no config
-  entry of its own; `tooling/trial/inclusion.test.ts` proves it.
+  entry of its own; `tooling/trial/inclusion.test.ts` proves it. The six
+  recorded Todo results have the duplication and health exception in
+  [ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md);
+  their dead-code, architecture and other gates remain active.
 - Coverage holds per result: each result reaches 80 percent on its own
   (`tooling/coverage-by-result.mjs`).
 - Besides its own `web/e2e/*.spec.ts`, Playwright runs the fixed acceptance
@@ -358,7 +383,11 @@ reference result; a trial result uses `showcase/<id>/` in place of `apps/`.
 
 Create `apps/web/src/features/<feature-name>/` with an `index.ts` when web code
 is reused across routes. It may import the api client and `@repo/ui`; routes
-import it through its `index.ts`.
+import it through its `index.ts`. A result with one production route slice
+keeps that code inside `routes/<route>/` and removes its old feature barrel
+and API report. The structure gate counts distinct route slices containing
+production source; it rejects feature paths and feature reports when that
+count is one. For multiple routes, review still establishes actual reuse.
 
 ### Finish
 

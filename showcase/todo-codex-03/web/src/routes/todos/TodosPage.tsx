@@ -1,16 +1,18 @@
 import { Button } from '@repo/ui';
 import { TodoForm } from './TodoForm';
 import { useTodos } from './useTodos';
-
 export function TodosPage() {
-  const { todos, loading, error, create, toggle, deleteTodo, saving } = useTodos();
+  const { todos, loading, error, pending, busy, addTodo, toggleTodo, deleteTodo } = useTodos();
   return (
     <main className="app">
-      <h1>Todos</h1>
-      <section className="todos" aria-label="Your todos">
-        <TodoForm onCreate={create} />
+      <header className="app__header">
+        <h1 className="app__title">Todos</h1>
+        <p className="app__tagline">Keep track of what needs doing.</p>
+      </header>
+      <section className="greeting" aria-label="Todo tasks">
+        <TodoForm onAdd={addTodo} pending={pending} />
         {loading ? <p role="status">Loading todos…</p> : null}
-        {error ? <p role="alert">Could not save or load todos. Please try again.</p> : null}
+        {error ? <p role="alert">Could not save or load todos. Try again.</p> : null}
         <ul aria-label="Todos">
           {todos.map((todo) => (
             <li key={todo.id}>
@@ -18,14 +20,14 @@ export function TodosPage() {
                 <input
                   type="checkbox"
                   checked={todo.completed}
-                  disabled={saving}
-                  onChange={() => toggle(todo.id)}
+                  disabled={busy}
+                  onChange={() => toggleTodo(todo.id)}
                 />
                 {todo.title}
               </label>
               <Button
                 aria-label={`Delete ${todo.title}`}
-                disabled={saving}
+                disabled={busy}
                 onClick={() => deleteTodo(todo.id)}
               >
                 Delete

@@ -11,7 +11,7 @@ import { TRPCMutationProcedure } from '@trpc/server';
 import { TRPCQueryProcedure } from '@trpc/server';
 
 // @public (undocumented)
-export const todosRouter: TRPCBuiltRouter<    {
+export const todoRouter: TRPCBuiltRouter<    {
 ctx: object;
 meta: object;
 errorShape: TRPCDefaultErrorShape;
@@ -33,16 +33,14 @@ toggle: TRPCMutationProcedure<    {
 input: {
 readonly id: string;
 };
-output: Todo;
+output: Todo | null;
 meta: object;
 }>;
 delete: TRPCMutationProcedure<    {
 input: {
 readonly id: string;
 };
-output: {
-id: string;
-};
+output: null;
 meta: object;
 }>;
 }>>;

@@ -44,7 +44,7 @@ body {
   font-size: 16px;
 }
 
-.todos {
+.greeting {
   display: flex;
   flex-direction: column;
   gap: var(--space);
@@ -54,33 +54,26 @@ body {
   padding: 24px;
 }
 
-.todo-form {
+.greeting-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.greeting-message {
+  display: block;
+  min-height: 1.5em;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.greeting-error {
+  margin: 0;
+  color: var(--color-danger);
 }
 
 @media (max-width: 480px) {
   .app {
     padding: 24px var(--space);
   }
-}
-
-ul {
-  padding: 0;
-  list-style: none;
-}
-li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 16px;
-}
-li label {
-  overflow-wrap: anywhere;
-}
-input[type="checkbox"] {
-  margin-right: 12px;
-  accent-color: var(--color-focus);
 }

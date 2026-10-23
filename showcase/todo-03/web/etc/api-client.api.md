@@ -17,6 +17,9 @@ export function ApiProvider(input: {
 }): JSX.Element;
 
 // @public (undocumented)
+export type RouterInputs = inferRouterInputs<AppRouter>;
+
+// @public (undocumented)
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 // @public

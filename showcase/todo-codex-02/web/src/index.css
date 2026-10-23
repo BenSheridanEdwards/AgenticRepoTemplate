@@ -28,30 +28,77 @@ body {
   padding: 48px var(--space);
 }
 
-.todo-form {
+.app__header {
+  margin-bottom: 32px;
+}
+
+.app__title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.app__tagline {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 16px;
+}
+
+.greeting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.greeting-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.todo-list {
-  list-style: none;
-  padding: 0;
+
+.greeting-message {
+  display: block;
+  min-height: 1.5em;
+  font-size: 20px;
+  font-weight: 600;
 }
-.todo-list li {
+
+.greeting-error {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+@media (max-width: 480px) {
+  .app {
+    padding: 24px var(--space);
+  }
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--color-border);
 }
-.todo-list label {
+li label {
   display: flex;
   align-items: center;
   gap: 12px;
   overflow-wrap: anywhere;
 }
-.completed {
-  text-decoration: line-through;
-  color: var(--color-muted);
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-focus);
 }

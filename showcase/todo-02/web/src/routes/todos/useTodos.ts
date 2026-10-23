@@ -1,33 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type RouterInputs, type RouterOutputs, useTrpc } from '../../api-client';
 
-export type Todo = RouterOutputs['todo']['list'][number];
-type Title = RouterInputs['todo']['create']['title'];
-type TodoId = RouterInputs['todo']['toggle']['id'];
+type CreateInput = RouterInputs['todos']['create'];
+type TodoId = RouterInputs['todos']['toggle']['id'];
+export type Todo = RouterOutputs['todos']['list'][number];
 
-/** The todos the api holds, with the actions that create, toggle and delete them. */
+export type TodosState =
+  | { readonly status: 'loading' }
+  | { readonly status: 'error' }
+  | { readonly status: 'success'; readonly todos: readonly Todo[] };
+
+/** The todo list from the api, and the writes that change it. */
 export function useTodos() {
   const trpc = useTrpc();
   const queryClient = useQueryClient();
-  const query = useQuery(trpc.todo.list.queryOptions());
+  const query = useQuery(trpc.todos.list.queryOptions());
+  const refreshList = () => queryClient.invalidateQueries({ queryKey: trpc.todos.list.queryKey() });
+  const create = useMutation(trpc.todos.create.mutationOptions({ onSuccess: refreshList }));
+  const toggle = useMutation(trpc.todos.toggle.mutationOptions({ onSuccess: refreshList }));
+  const remove = useMutation(trpc.todos.delete.mutationOptions({ onSuccess: refreshList }));
 
-  const refreshTodos = () => queryClient.invalidateQueries({ queryKey: trpc.todo.list.queryKey() });
-
-  const createMutation = useMutation(trpc.todo.create.mutationOptions({ onSuccess: refreshTodos }));
-  const toggleMutation = useMutation(trpc.todo.toggle.mutationOptions({ onSuccess: refreshTodos }));
-  const removeMutation = useMutation(trpc.todo.remove.mutationOptions({ onSuccess: refreshTodos }));
-
-  function createTodo(title: Title) {
-    createMutation.mutate({ title });
+  let todos: TodosState;
+  if (query.isError) {
+    todos = { status: 'error' };
+  } else if (query.data) {
+    todos = { status: 'success', todos: query.data };
+  } else {
+    todos = { status: 'loading' };
   }
 
-  function toggleTodo(id: TodoId) {
-    toggleMutation.mutate({ id });
-  }
-
-  function removeTodo(id: TodoId) {
-    removeMutation.mutate({ id });
-  }
-
-  return { todos: query.data ?? [], createTodo, toggleTodo, removeTodo };
+  return {
+    todos,
+    saveFailed: create.isError || toggle.isError || remove.isError,
+    addTodo: (title: CreateInput['title']) => create.mutate({ title }),
+    toggleTodo: (id: TodoId) => toggle.mutate({ id }),
+    deleteTodo: (id: TodoId) => remove.mutate({ id }),
+  };
 }

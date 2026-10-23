@@ -3,9 +3,9 @@ import { render, screen } from '@testing-library/react';
 import { ApiProvider } from './ApiProvider';
 import { useTrpc } from './trpc';
 
-function TodoProbe() {
+function TodosProbe() {
   const trpc = useTrpc();
-  const query = useQuery(trpc.todo.list.queryOptions());
+  const query = useQuery(trpc.todos.list.queryOptions());
   return <p>{query.data?.[0]?.title ?? 'waiting'}</p>;
 }
 
@@ -25,11 +25,11 @@ it('sends procedure calls to /trpc on the same origin and reads the answer', asy
 
   render(
     <ApiProvider>
-      <TodoProbe />
+      <TodosProbe />
     </ApiProvider>,
   );
 
   expect(await screen.findByText('Buy milk')).toBeInTheDocument();
   const [url] = fetchMock.mock.calls[0] ?? [''];
-  expect(String(url)).toMatch(/^\/trpc\/todo\.list\?batch=1/);
+  expect(String(url)).toMatch(/^\/trpc\/todos\.list\?batch=1&input=/);
 });

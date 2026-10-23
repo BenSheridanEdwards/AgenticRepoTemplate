@@ -2,6 +2,13 @@ import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
+/**
+ * The fixed Todo acceptance spec (ADR 0034). Playwright runs it as the
+ * `<id>-acceptance` project against every showcase result's own servers. It
+ * drives only the UI contract in `tooling/trial/todo-prompt.md`, so it fits
+ * any result that keeps that contract. Each test makes its own titles and
+ * never counts todos, because the tests share one api process.
+ */
 const newTitle = (label: string) => `${label} ${randomUUID().slice(0, 8)}`;
 
 const todoList = (page: Page) => page.getByRole('list', { name: 'Todos' });
@@ -35,7 +42,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test.describe('Todos', () => {
+test.describe('Todo acceptance', () => {
   test('shows the Todos heading, the Title field and the Add button', async ({ page }) => {
     await expect(page.getByRole('heading', { level: 1, name: 'Todos' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Title' })).toBeVisible();

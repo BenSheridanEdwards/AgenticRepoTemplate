@@ -425,7 +425,7 @@ docs/architecture/roles.mmd  Generated canonical role diagram (pnpm arch:diagram
 docs/required-gates.md      Generated required-check inventory (pnpm gates:inventory).
 docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
 docs/prd/                   Committed PRDs: each states a feature's intent and links every behaviour to its E2E test (ADR 0045).
-docs/trials/                Committed Todo-trial records, redacted agent streams, patches, and the comparison report.
+docs/trials/                Six confined Todo trial records and the generated comparison: 6/6 passed, consistent, shared baseline.
 apps/                       The reference result. Root configs own every gate.
   architecture.mmd          The reference result's generated diagram (pnpm arch:diagram).
   web/                      @repo/web: the Vite + React app.
@@ -445,7 +445,7 @@ apps/                       The reference result. Root configs own every gate.
     src/features/greeting/  index, procedures, application and domain for greeting.greet.
     etc/                    Generated API Extractor reports.
 packages/ui/                @repo/ui: Button, TextField, and styles.css, with no business logic.
-showcase/<id>/              Where each generated trial result goes, with the same web/ and api/ shape (`todo-01` to `todo-03` by Claude, `todo-codex-01` to `todo-codex-03` by Codex).
+showcase/<id>/              Six generated Todo results, each with the same web/ and api/ shape.
 .architect-audits/          Committed ArchitectPlaybook reports (5 audits).
 graphify-out/               Generated knowledge-graph output (god nodes, communities). Ignored; rebuild with graphify or /pre-audit-setup.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.

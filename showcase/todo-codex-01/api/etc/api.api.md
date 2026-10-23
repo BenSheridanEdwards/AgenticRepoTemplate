@@ -20,7 +20,7 @@ meta: object;
 errorShape: TRPCDefaultErrorShape;
 transformer: false;
 }, TRPCDecorateCreateRouterOptions<    {
-todos: TRPCBuiltRouter<    {
+todo: TRPCBuiltRouter<    {
 ctx: object;
 meta: object;
 errorShape: TRPCDefaultErrorShape;
@@ -42,14 +42,16 @@ toggle: TRPCMutationProcedure<    {
 input: {
 readonly id: string;
 };
-output: Todo;
+output: Todo | undefined;
 meta: object;
 }>;
 delete: TRPCMutationProcedure<    {
 input: {
 readonly id: string;
 };
-output: boolean;
+output: {
+readonly id: string;
+};
 meta: object;
 }>;
 }>>;

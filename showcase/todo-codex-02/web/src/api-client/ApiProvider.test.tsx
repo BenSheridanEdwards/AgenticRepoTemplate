@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { ApiProvider } from './ApiProvider';
 import { useTrpc } from './trpc';
 
-function TodoProbe() {
+function GreetingProbe() {
   const trpc = useTrpc();
   const query = useQuery(trpc.todos.list.queryOptions());
   return <p>{query.data?.[0]?.title ?? 'waiting'}</p>;
@@ -25,7 +25,7 @@ it('sends procedure calls to /trpc on the same origin and reads the answer', asy
 
   render(
     <ApiProvider>
-      <TodoProbe />
+      <GreetingProbe />
     </ApiProvider>,
   );
 

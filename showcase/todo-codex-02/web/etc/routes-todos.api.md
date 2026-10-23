@@ -7,7 +7,7 @@
 import { JSX } from 'react';
 
 // @public (undocumented)
-export function TodosPage(): JSX.Element;
+export function TodoPage(): JSX.Element;
 
 // (No @packageDocumentation comment for this package)
 

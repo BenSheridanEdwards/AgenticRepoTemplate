@@ -2,30 +2,19 @@ import { randomUUID } from 'node:crypto';
 import type { Todo } from './domain.ts';
 
 const todos = new Map<string, Todo>();
-
-export function readTodos(): Todo[] {
+export function listTodos(): Todo[] {
   return [...todos.values()];
 }
-
-export function insertTodo(title: string): Todo {
-  const todo = { id: randomUUID(), title, completed: false };
+export function storeTodo(todo: Todo): Todo {
   todos.set(todo.id, todo);
   return todo;
 }
-
-export function readTodo(id: string): Todo {
-  const todo = todos.get(id);
-  if (!todo) {
-    throw new Error('Todo not found');
-  }
-  return todo;
+export function newTodoId(): string {
+  return randomUUID();
 }
-
-export function saveTodo(todo: Todo): Todo {
-  todos.set(todo.id, todo);
-  return todo;
+export function findTodo(id: string): Todo | undefined {
+  return todos.get(id);
 }
-
-export function removeTodo(id: string): void {
+export function deleteTodo(id: string): void {
   todos.delete(id);
 }

@@ -21,6 +21,96 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## Latest Claude review follow-up (#127)
+
+- **Branch:** `feat/consistent-todo-contract`
+- **Scope:** Address the latest Claude review and rebase onto main `cdd5709`.
+- **Completed:** Rebased without a merge, renumbered the trial-output exemption
+  to ADR 0059 and removed the greeting PRD's obsolete page-header coverage glob.
+  Scaffold export validation now reports unsupported reference lines explicitly
+  once per report, alongside result findings, with focused reference-only coverage.
+- **Proof artifact:** `tooling/architecture/structure.test.ts`; the six result
+  trees and all trial evidence match reviewed head `9611335` byte for byte.
+- **Verification:** Structure and comparison suites passed (189 tests). Full
+  `pnpm verify` passed (91 suites, 1,778 tests, coverage, builds and size budgets).
+  Regenerating the comparison produced identical bytes. Pre-push E2E and hosted
+  results are tracked in PR #127 against its new head.
+- **Blockers:** ADR 0055 remains proposed pending Ben's explicit acceptance.
+  The existing approvals cover ADR 0054 and the trial-output exemption only.
+
+## Recorded trial styling exemption (#127, Fallow3)
+
+- **Branch:** `feat/consistent-todo-contract`
+- **Scope:** Extend ADR 0059's six generated-output paths to Fallow styling
+  under Ben's 23 October 2026 approvals at 16:36 and 16:38 BST.
+- **Completed:** Added the same six `health.ignore` patterns as
+  `duplicates.ignore` and documented their styling, complexity and health-score
+  scope. Real-code rules and recorded trial outputs remain unchanged.
+- **Proof artifact:** ADR 0059 records both exact approvals and the versioned
+  Fallow scanner that applies `health.ignore` to CSS.
+- **Verification:** The CI-equivalent uncached Fallow audit passed with zero
+  styling findings, down from seven. A disposable CSS fixture excluded only
+  the six trial folders and retained identical warnings in eight other paths.
+  Full local verification and latest-head CI results are tracked in PR #127.
+- **Blockers:** Resolve only the two remaining CSS threads after the new-head
+  CI log/annotations and absence of fresh findings prove both warnings gone.
+
+## Consistent Todo contract (#126)
+
+- **Branch:** `feat/consistent-todo-contract`
+- **Scope:** Enforce application/domain value crossings, type-only integrations
+  imports and the reference scaffold API surface; prepare one rerun baseline.
+- **Completed:** Removed the six old results and live evidence in a separate
+  scaffold commit. Added Fallow and structure rules, shared the comparison's
+  import classifier, regenerated the canonical diagram and recorded ADR 0054.
+  Addressed PR #127's export-parser review with explicit rejection of unsupported
+  export lines and documented the missing-report hand-off to `pnpm api:check`.
+  The follow-up review now reports unsupported lines as structure findings,
+  filters undefined feature paths and documents side-effect value crossings.
+- **Proof artifact:** `docs/proof/consistent-todo-contract/phase1.txt` records
+  the expected old-result failures and positive/negative Fallow export controls.
+  The architecture tests cover the new rules; comparison tests stay unchanged.
+- **Verification:** Boundary/contract tests passed (64 tests). Full local
+  `pnpm verify`, `pnpm e2e` and latest-head CI are tracked in the PR.
+- **Phase 2:** Ben authorised Colima on 23 October 2026. The local Linux VM
+  ran the unchanged harness inside the local Colima container runtime.
+  Ben approved ADR 0054 and the paired `RouterInputs` / `RouterOutputs`
+  Fallow exemption at 11:44 BST: "Approve ADR 0054 and the Fallow exemption".
+- **First Colima batch:** All six real runs passed install, verify, E2E and
+  structure. The unchanged comparison reports `inconsistent`: six outside-spec
+  aspects all caused by Claude retaining `PageHeader` in `web-features`, while
+  Codex keeps its UI in routes. The three original aspects now match.
+  `docs/proof/consistent-todo-contract/colima-first-batch.txt` records runtime
+  and privacy proof. Codex also persisted trust entries and downloaded plugin
+  files after fingerprinting, so its configuration baseline differs.
+- **Rerun preparation:** Preserved the complete first Colima batch in
+  `f19786a`, then removed its live results and records in `797e5f0`. Added
+  `single-route-features` and moved the unchanged reference header into its
+  greeting route (ADR 0055, proposed). Nine new negative regression assertions
+  failed before the rule; all 188 structure/comparison tests pass afterward.
+- **Scaffold verification:** `pnpm verify` passed (44 suites, 1,531 tests);
+  `pnpm e2e` passed (7 tests). The initial documentation-phrasing failure
+  was corrected and its gate rerun. GitNexus reports low impact.
+- **Fresh Colima batch:** All six runs on scaffold `f39e76e` passed install,
+  verify, E2E and structure. The unchanged comparison is `consistent`: zero
+  outside-spec aspects, zero author rulings and all 17 baseline checks hold.
+  Each run began with the same initialized per-agent snapshot. Codex persisted
+  its own trust entry during each run; the recorded initial hashes match.
+  Exact result trees were restored from retained trial refs without a merge.
+  Every trial container was stopped; Colima remains running.
+- **Combined verification:** `pnpm verify` passed (90 suites, 1,681 tests);
+  `pnpm e2e` passed (97 tests, including fixed acceptance and accessibility).
+  Independent review matched all 257 result files and every stream hash to
+  the recorded evidence. Runtime and privacy proof is in
+  `docs/proof/consistent-todo-contract/colima-rerun.txt`.
+- **Browser proof:** All six real-API journeys passed (30 steps), screenshots
+  inspected and proof servers stopped. `todo-browser.txt` records the source
+  commit and outcomes beside the six PNGs. The reference greeting also passed.
+- **Handoff:** Latest-head push, hosted checks and readiness are recorded in
+  PR #127. Mark ready only with the consistent comparison and complete proof.
+  Keep the baseline removals together with all six replacement records and
+  comparison. Codex performs no merge.
+
 ## macOS verification portability (#122)
 
 - **Branch:** `fix/macos-verification`

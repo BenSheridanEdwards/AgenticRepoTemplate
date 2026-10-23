@@ -1,5 +1,5 @@
-import { TodosPage } from './routes/todos';
+import { TodoPage } from './routes/todo';
 
 export function App() {
-  return <TodosPage />;
+  return <TodoPage />;
 }

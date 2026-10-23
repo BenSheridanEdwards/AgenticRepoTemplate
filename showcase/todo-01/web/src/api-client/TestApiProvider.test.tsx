@@ -3,18 +3,18 @@ import { render, screen } from '@testing-library/react';
 import { TestApiProvider } from './TestApiProvider';
 import { useTrpc } from './trpc';
 
-function TodoProbe() {
+function TodosProbe() {
   const trpc = useTrpc();
-  const query = useQuery(trpc.todo.list.queryOptions());
+  const query = useQuery(trpc.todos.list.queryOptions());
   return <p>{query.error?.message ?? query.data?.[0]?.title ?? 'waiting'}</p>;
 }
 
 it('answers a procedure from its handler', async () => {
   render(
     <TestApiProvider
-      handlers={{ 'todo.list': () => [{ id: '1', title: 'Buy milk', completed: false }] }}
+      handlers={{ 'todos.list': () => [{ id: '1', title: 'Buy milk', completed: false }] }}
     >
-      <TodoProbe />
+      <TodosProbe />
     </TestApiProvider>,
   );
 
@@ -24,11 +24,11 @@ it('answers a procedure from its handler', async () => {
 it('fails a procedure that the test gave no handler, naming it', async () => {
   render(
     <TestApiProvider handlers={{}}>
-      <TodoProbe />
+      <TodosProbe />
     </TestApiProvider>,
   );
 
   expect(
-    await screen.findByText('TestApiProvider has no handler for todo.list'),
+    await screen.findByText('TestApiProvider has no handler for todos.list'),
   ).toBeInTheDocument();
 });

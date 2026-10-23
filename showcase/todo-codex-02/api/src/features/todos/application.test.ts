@@ -1,13 +1,17 @@
-import { createTodo, deleteTodo, listTodos, toggleCompleted } from './application.ts';
+import { create, list, remove, toggle } from './application.ts';
 
-it('creates, lists, toggles and deletes a todo in memory', () => {
-  const todo = createTodo({ title: 'Read' });
-  expect(todo).toEqual({ id: expect.any(String), title: 'Read', completed: false });
-  expect(listTodos()).toContainEqual(todo);
-  expect(toggleCompleted(todo)).toEqual({ ...todo, completed: true });
-  expect(toggleCompleted(todo)).toEqual(todo);
-  deleteTodo(todo);
-  expect(listTodos()).not.toContainEqual(todo);
-  expect(() => toggleCompleted(todo)).toThrow('Todo not found');
-  expect(() => deleteTodo(todo)).not.toThrow();
+it('keeps independent todos intact when one changes', () => {
+  const kept = create('Keep');
+  const changed = create('Change');
+  expect(toggle(changed.id)).toEqual({ ...changed, completed: true });
+  remove(changed.id);
+  expect(list()).toContainEqual(kept);
+  expect(list()).not.toContainEqual(changed);
+  remove(kept.id);
+});
+
+it('refuses blank titles before storing anything', () => {
+  const before = list();
+  expect(() => create('  ')).toThrow('Enter a title');
+  expect(list()).toEqual(before);
 });

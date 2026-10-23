@@ -7,8 +7,8 @@ This report compares the Todo trial results under ADR 0035 and ADR 0037: the ful
 ## Verdict
 
 - Full pass count 6/6
-- Consistency: `inconsistent`. 3 aspects sit outside the spec, 0 with an author's note; 11 sit inside a spec freedom, 11 by the script's rules and 0 by an author's ruling.
-- Baseline: differs at Scaffold rev, Enforcement rev, Lockfile SHA-256, Harness SHA-256, User config SHA-256.
+- Consistency: `consistent`. 0 aspects sit outside the spec, 0 with an author's note; 12 sit inside a spec freedom, 12 by the script's rules and 0 by an author's ruling.
+- Baseline: shared. All 17 baseline checks hold.
 
 ## Structure
 
@@ -27,11 +27,9 @@ This report compares the Todo trial results under ADR 0035 and ADR 0037: the ful
 | `role api-integrations` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `edge api-app --> api-procedures` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `edge api-app --> api-trpc` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
-| `edge api-application -.-> api-domain` | `(absent)` | `(absent)` | `present` | `(absent)` | `present` | `(absent)` | spec freedom 8 |
-| `edge api-application --> api-domain` | `present` | `present` | `(absent)` | `present` | `(absent)` | `present` | outside the spec |
+| `edge api-application --> api-domain` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `edge api-application --> api-integrations` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
-| `edge api-integrations --> api-domain` | `(absent)` | `(absent)` | `present` | `(absent)` | `present` | `(absent)` | outside the spec |
-| `edge api-integrations -.-> api-domain` | `present` | `present` | `(absent)` | `present` | `(absent)` | `present` | spec freedom 8 |
+| `edge api-integrations -.-> api-domain` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `edge api-procedures --> api-application` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `edge api-procedures --> api-trpc` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `edge web-api-client -.-> api-app` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
@@ -42,7 +40,7 @@ This report compares the Todo trial results under ADR 0035 and ADR 0037: the ful
 | `edge web-routes --> web-api-client` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `files web-app` | `3` | `3` | `3` | `3` | `3` | `3` | identical |
 | `files web-api-client` | `6` | `6` | `6` | `6` | `6` | `6` | identical |
-| `files web-routes` | `8` | `6` | `8` | `6` | `8` | `6` | spec freedom 2 |
+| `files web-routes` | `10` | `6` | `9` | `6` | `9` | `6` | spec freedom 2 |
 | `files web-features` | `0` | `0` | `0` | `0` | `0` | `0` | identical |
 | `files ui` | `0` | `0` | `0` | `0` | `0` | `0` | identical |
 | `files api-app` | `2` | `2` | `2` | `2` | `2` | `2` | identical |
@@ -53,34 +51,35 @@ This report compares the Todo trial results under ADR 0035 and ADR 0037: the ful
 | `files api-integrations` | `1` | `1` | `1` | `1` | `1` | `1` | identical |
 | `files outside-roles` | `9` | `9` | `9` | `9` | `9` | `9` | identical |
 | `tests web-app` | `0` | `0` | `0` | `0` | `0` | `0` | identical |
-| `tests web-api-client` | `2` | `2` | `2` | `2` | `2` | `2` | identical |
-| `tests web-routes` | `3` | `1` | `2` | `1` | `2` | `1` | spec freedom 6 |
+| `tests web-api-client` | `2` | `1` | `2` | `2` | `2` | `2` | spec freedom 6 |
+| `tests web-routes` | `3` | `1` | `4` | `1` | `3` | `1` | spec freedom 6 |
 | `tests api-app` | `1` | `0` | `1` | `0` | `1` | `0` | spec freedom 6 |
 | `tests api-trpc` | `0` | `0` | `0` | `0` | `0` | `0` | identical |
 | `tests api-procedures` | `1` | `1` | `1` | `1` | `1` | `1` | identical |
-| `tests api-application` | `1` | `1` | `1` | `1` | `1` | `1` | identical |
-| `tests api-domain` | `1` | `1` | `1` | `1` | `1` | `1` | identical |
-| `tests api-integrations` | `0` | `0` | `0` | `0` | `1` | `0` | spec freedom 6 |
+| `tests api-application` | `1` | `1` | `1` | `1` | `1` | `0` | spec freedom 6 |
+| `tests api-domain` | `1` | `1` | `1` | `1` | `1` | `0` | spec freedom 6 |
+| `tests api-integrations` | `1` | `0` | `1` | `0` | `1` | `0` | spec freedom 6 |
 | `tests outside-roles` | `0` | `0` | `0` | `0` | `0` | `0` | identical |
-| `tests e2e` | `2` | `1` | `2` | `1` | `1` | `1` | spec freedom 6 |
-| `file web/index.html` | `3c4143801c2a` | `b6b27106721a` | `3c4143801c2a` | `3c4143801c2a` | `b6b27106721a` | `3c4143801c2a` | spec freedom 5 |
+| `tests e2e` | `2` | `1` | `2` | `1` | `2` | `1` | spec freedom 6 |
+| `file web/index.html` | `3c4143801c2a` | `3c4143801c2a` | `b6b27106721a` | `3c4143801c2a` | `3c4143801c2a` | `3c4143801c2a` | spec freedom 5 |
 | `file web/vite.config.ts` | `0002d92d5d0d` | `0002d92d5d0d` | `0002d92d5d0d` | `0002d92d5d0d` | `0002d92d5d0d` | `0002d92d5d0d` | identical |
 
 Written forms where the runs differ:
 
-- `files web-routes`: `todo-01` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodoItem.tsx, web/src/routes/todos/TodoList.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-codex-01` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-02` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodoItem.tsx, web/src/routes/todos/TodoList.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-codex-02` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-03` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodoItem.tsx, web/src/routes/todos/TodoList.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-codex-03` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`
-- `files api-procedures`: `todo-01` `api/src/features/todo/index.ts, api/src/features/todo/procedures.ts`; `todo-codex-01` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`; `todo-02` `api/src/features/todo/index.ts, api/src/features/todo/procedures.ts`; `todo-codex-02` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`; `todo-03` `api/src/features/todo/index.ts, api/src/features/todo/procedures.ts`; `todo-codex-03` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`
-- `files api-application`: `todo-01` `api/src/features/todo/application.ts`; `todo-codex-01` `api/src/features/todos/application.ts`; `todo-02` `api/src/features/todo/application.ts`; `todo-codex-02` `api/src/features/todos/application.ts`; `todo-03` `api/src/features/todo/application.ts`; `todo-codex-03` `api/src/features/todos/application.ts`
-- `files api-domain`: `todo-01` `api/src/features/todo/domain.ts`; `todo-codex-01` `api/src/features/todos/domain.ts`; `todo-02` `api/src/features/todo/domain.ts`; `todo-codex-02` `api/src/features/todos/domain.ts`; `todo-03` `api/src/features/todo/domain.ts`; `todo-codex-03` `api/src/features/todos/domain.ts`
-- `files api-integrations`: `todo-01` `api/src/features/todo/integrations.ts`; `todo-codex-01` `api/src/features/todos/integrations.ts`; `todo-02` `api/src/features/todo/integrations.ts`; `todo-codex-02` `api/src/features/todos/integrations.ts`; `todo-03` `api/src/features/todo/integrations.ts`; `todo-codex-03` `api/src/features/todos/integrations.ts`
-- `files outside-roles`: `todo-01` `api/etc/api.api.md, api/etc/features-todo.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-codex-01` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-02` `api/etc/api.api.md, api/etc/features-todo.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-codex-02` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-03` `api/etc/api.api.md, api/etc/features-todo.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-codex-03` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`
-- `tests web-routes`: `todo-01` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts, web/src/routes/todos/useTodos.test.tsx`; `todo-codex-01` `web/src/routes/todos/TodosPage.test.tsx`; `todo-02` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts`; `todo-codex-02` `web/src/routes/todos/TodosPage.test.tsx`; `todo-03` `web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts`; `todo-codex-03` `web/src/routes/todos/TodosPage.test.tsx`
+- `files web-routes`: `todo-01` `web/src/routes/todos/PageHeader.tsx, web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodoItem.tsx, web/src/routes/todos/TodoList.tsx, web/src/routes/todos/TodosError.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-codex-01` `web/src/routes/todo/TodoForm.tsx, web/src/routes/todo/TodoPage.tsx, web/src/routes/todo/index.ts, web/src/routes/todo/todoFormSchema.ts, web/src/routes/todo/useTodoForm.ts, web/src/routes/todo/useTodos.ts`; `todo-02` `web/src/routes/todos/PageHeader.tsx, web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodoItem.tsx, web/src/routes/todos/TodoList.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-codex-02` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodoPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-03` `web/src/routes/todos/PageHeader.tsx, web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodoItem.tsx, web/src/routes/todos/TodoList.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`; `todo-codex-03` `web/src/routes/todos/TodoForm.tsx, web/src/routes/todos/TodosPage.tsx, web/src/routes/todos/index.ts, web/src/routes/todos/todoFormSchema.ts, web/src/routes/todos/useTodoForm.ts, web/src/routes/todos/useTodos.ts`
+- `files api-procedures`: `todo-01` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`; `todo-codex-01` `api/src/features/todo/index.ts, api/src/features/todo/procedures.ts`; `todo-02` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`; `todo-codex-02` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`; `todo-03` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`; `todo-codex-03` `api/src/features/todos/index.ts, api/src/features/todos/procedures.ts`
+- `files api-application`: `todo-01` `api/src/features/todos/application.ts`; `todo-codex-01` `api/src/features/todo/application.ts`; `todo-02` `api/src/features/todos/application.ts`; `todo-codex-02` `api/src/features/todos/application.ts`; `todo-03` `api/src/features/todos/application.ts`; `todo-codex-03` `api/src/features/todos/application.ts`
+- `files api-domain`: `todo-01` `api/src/features/todos/domain.ts`; `todo-codex-01` `api/src/features/todo/domain.ts`; `todo-02` `api/src/features/todos/domain.ts`; `todo-codex-02` `api/src/features/todos/domain.ts`; `todo-03` `api/src/features/todos/domain.ts`; `todo-codex-03` `api/src/features/todos/domain.ts`
+- `files api-integrations`: `todo-01` `api/src/features/todos/integrations.ts`; `todo-codex-01` `api/src/features/todo/integrations.ts`; `todo-02` `api/src/features/todos/integrations.ts`; `todo-codex-02` `api/src/features/todos/integrations.ts`; `todo-03` `api/src/features/todos/integrations.ts`; `todo-codex-03` `api/src/features/todos/integrations.ts`
+- `files outside-roles`: `todo-01` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-codex-01` `api/etc/api.api.md, api/etc/features-todo.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todo.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-02` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-codex-02` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-03` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`; `todo-codex-03` `api/etc/api.api.md, api/etc/features-todos.api.md, api/package.json, architecture.mmd, web/etc/api-client.api.md, web/etc/routes-todos.api.md, web/index.html, web/package.json, web/vite.config.ts`
+- `tests web-api-client`: `todo-01` `web/src/api-client/ApiProvider.test.tsx, web/src/api-client/TestApiProvider.test.tsx`; `todo-codex-01` `web/src/api-client/ApiProvider.test.tsx`; `todo-02` `web/src/api-client/ApiProvider.test.tsx, web/src/api-client/TestApiProvider.test.tsx`; `todo-codex-02` `web/src/api-client/ApiProvider.test.tsx, web/src/api-client/TestApiProvider.test.tsx`; `todo-03` `web/src/api-client/ApiProvider.test.tsx, web/src/api-client/TestApiProvider.test.tsx`; `todo-codex-03` `web/src/api-client/ApiProvider.test.tsx, web/src/api-client/TestApiProvider.test.tsx`
+- `tests web-routes`: `todo-01` `web/src/routes/todos/PageHeader.test.tsx, web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts`; `todo-codex-01` `web/src/routes/todo/TodoPage.test.tsx`; `todo-02` `web/src/routes/todos/PageHeader.test.tsx, web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts, web/src/routes/todos/useTodos.test.tsx`; `todo-codex-02` `web/src/routes/todos/TodoPage.test.tsx`; `todo-03` `web/src/routes/todos/PageHeader.test.tsx, web/src/routes/todos/TodosPage.test.tsx, web/src/routes/todos/todoFormSchema.test.ts`; `todo-codex-03` `web/src/routes/todos/TodosPage.test.tsx`
 - `tests api-app`: `todo-01` `api/src/router.test.ts`; `todo-codex-01` `(none)`; `todo-02` `api/src/router.test.ts`; `todo-codex-02` `(none)`; `todo-03` `api/src/router.test.ts`; `todo-codex-03` `(none)`
-- `tests api-procedures`: `todo-01` `api/src/features/todo/procedures.test.ts`; `todo-codex-01` `api/src/features/todos/procedures.test.ts`; `todo-02` `api/src/features/todo/procedures.test.ts`; `todo-codex-02` `api/src/features/todos/procedures.test.ts`; `todo-03` `api/src/features/todo/procedures.test.ts`; `todo-codex-03` `api/src/features/todos/procedures.test.ts`
-- `tests api-application`: `todo-01` `api/src/features/todo/application.test.ts`; `todo-codex-01` `api/src/features/todos/application.test.ts`; `todo-02` `api/src/features/todo/application.test.ts`; `todo-codex-02` `api/src/features/todos/application.test.ts`; `todo-03` `api/src/features/todo/application.test.ts`; `todo-codex-03` `api/src/features/todos/application.test.ts`
-- `tests api-domain`: `todo-01` `api/src/features/todo/domain.test.ts`; `todo-codex-01` `api/src/features/todos/domain.test.ts`; `todo-02` `api/src/features/todo/domain.test.ts`; `todo-codex-02` `api/src/features/todos/domain.test.ts`; `todo-03` `api/src/features/todo/domain.test.ts`; `todo-codex-03` `api/src/features/todos/domain.test.ts`
-- `tests api-integrations`: `todo-01` `(none)`; `todo-codex-01` `(none)`; `todo-02` `(none)`; `todo-codex-02` `(none)`; `todo-03` `api/src/features/todo/integrations.test.ts`; `todo-codex-03` `(none)`
-- `tests e2e`: `todo-01` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`; `todo-codex-01` `web/e2e/todos.spec.ts`; `todo-02` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`; `todo-codex-02` `web/e2e/todo.spec.ts`; `todo-03` `web/e2e/todos.spec.ts`; `todo-codex-03` `web/e2e/todo.spec.ts`
+- `tests api-procedures`: `todo-01` `api/src/features/todos/procedures.test.ts`; `todo-codex-01` `api/src/features/todo/procedures.test.ts`; `todo-02` `api/src/features/todos/procedures.test.ts`; `todo-codex-02` `api/src/features/todos/procedures.test.ts`; `todo-03` `api/src/features/todos/procedures.test.ts`; `todo-codex-03` `api/src/features/todos/procedures.test.ts`
+- `tests api-application`: `todo-01` `api/src/features/todos/application.test.ts`; `todo-codex-01` `api/src/features/todo/application.test.ts`; `todo-02` `api/src/features/todos/application.test.ts`; `todo-codex-02` `api/src/features/todos/application.test.ts`; `todo-03` `api/src/features/todos/application.test.ts`; `todo-codex-03` `(none)`
+- `tests api-domain`: `todo-01` `api/src/features/todos/domain.test.ts`; `todo-codex-01` `api/src/features/todo/domain.test.ts`; `todo-02` `api/src/features/todos/domain.test.ts`; `todo-codex-02` `api/src/features/todos/domain.test.ts`; `todo-03` `api/src/features/todos/domain.test.ts`; `todo-codex-03` `(none)`
+- `tests api-integrations`: `todo-01` `api/src/features/todos/integrations.test.ts`; `todo-codex-01` `(none)`; `todo-02` `api/src/features/todos/integrations.test.ts`; `todo-codex-02` `(none)`; `todo-03` `api/src/features/todos/integrations.test.ts`; `todo-codex-03` `(none)`
+- `tests e2e`: `todo-01` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`; `todo-codex-01` `web/e2e/todo.spec.ts`; `todo-02` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`; `todo-codex-02` `web/e2e/todo.spec.ts`; `todo-03` `web/e2e/accessibility.spec.ts, web/e2e/todos.spec.ts`; `todo-codex-03` `web/e2e/todo.spec.ts`
 
 ## Public API
 
@@ -94,21 +93,22 @@ Written forms where the runs differ:
 | `create input` | `{ title: string }` | `{ title: string }` | `{ title: string }` | `{ title: string }` | `{ title: string }` | `{ title: string }` | identical |
 | `create output` | `Item` | `Item` | `Item` | `Item` | `Item` | `Item` | identical |
 | `toggle input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `toggle output` | `Item` | `Item` | `Item[]` | `Item` | `Item` | `Item` | spec freedom 4 |
+| `toggle output` | `Item` | `Item \| undefined` | `Item` | `Item \| null` | `Item` | `Item \| null` | spec freedom 4 |
 | `delete input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `delete output` | `{ id: Id }` | `boolean` | `Item[]` | `{ id: Id }` | `{ id: Id }` | `boolean` | spec freedom 4 |
+| `delete output` | `Item` | `{ id: Id }` | `{ id: Id }` | `null` | `Item` | `null` | spec freedom 4 |
 | `exports api:api-app` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | identical |
 | `exports api:api-procedures` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
-| `exports web:web-api-client` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | outside the spec |
+| `exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | identical |
 | `exports web:web-routes` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
 
 Written forms where the runs differ:
 
-- `operations`: `todo-01` `todo.list query list, todo.create mutation create, todo.toggle mutation toggle, todo.delete mutation delete`; `todo-codex-01` `todos.list query list, todos.create mutation create, todos.toggle mutation toggle, todos.delete mutation delete`; `todo-02` `todo.list query list, todo.create mutation create, todo.toggle mutation toggle, todo.remove mutation delete`; `todo-codex-02` `todos.list query list, todos.create mutation create, todos.toggle mutation toggle, todos.delete mutation delete`; `todo-03` `todo.list query list, todo.create mutation create, todo.toggle mutation toggle, todo.delete mutation delete`; `todo-codex-03` `todos.list query list, todos.create mutation create, todos.toggle mutation toggle, todos.delete mutation delete`
+- `operations`: `todo-01` `todos.list query list, todos.add mutation create, todos.toggle mutation toggle, todos.delete mutation delete`; `todo-codex-01` `todo.list query list, todo.create mutation create, todo.toggle mutation toggle, todo.delete mutation delete`; `todo-02` `todos.list query list, todos.create mutation create, todos.toggle mutation toggle, todos.delete mutation delete`; `todo-codex-02` `todos.list query list, todos.create mutation create, todos.toggle mutation toggle, todos.delete mutation delete`; `todo-03` `todos.list query list, todos.create mutation create, todos.toggle mutation toggle, todos.delete mutation delete`; `todo-codex-03` `todos.list query list, todos.create mutation create, todos.toggle mutation toggle, todos.delete mutation delete`
 - `list output`: `todo-01` `readonly Todo[]`; `todo-codex-01` `Todo[]`; `todo-02` `readonly Todo[]`; `todo-codex-02` `Todo[]`; `todo-03` `readonly Todo[]`; `todo-codex-03` `Todo[]`
-- `toggle output`: `todo-01` `Todo`; `todo-codex-01` `Todo`; `todo-02` `readonly Todo[]`; `todo-codex-02` `Todo`; `todo-03` `Todo`; `todo-codex-03` `Todo`
-- `delete output`: `todo-01` `{ id: string; }`; `todo-codex-01` `boolean`; `todo-02` `readonly Todo[]`; `todo-codex-02` `{ id: string; }`; `todo-03` `{ id: string; }`; `todo-codex-03` `boolean`
-- `exports api:api-procedures`: `todo-01` `todoRouter`; `todo-codex-01` `todosRouter`; `todo-02` `todoRouter`; `todo-codex-02` `todosRouter`; `todo-03` `todoRouter`; `todo-codex-03` `todosRouter`
+- `toggle output`: `todo-01` `Todo`; `todo-codex-01` `Todo \| undefined`; `todo-02` `Todo`; `todo-codex-02` `Todo \| null`; `todo-03` `Todo`; `todo-codex-03` `Todo \| null`
+- `delete output`: `todo-01` `Todo`; `todo-codex-01` `{ readonly id: string; }`; `todo-02` `{ id: string; }`; `todo-codex-02` `null`; `todo-03` `Todo`; `todo-codex-03` `null`
+- `exports api:api-procedures`: `todo-01` `todosRouter`; `todo-codex-01` `todoRouter`; `todo-02` `todosRouter`; `todo-codex-02` `todoRouter`; `todo-03` `todosRouter`; `todo-codex-03` `todosRouter`
+- `exports web:web-routes`: `todo-01` `TodosPage`; `todo-codex-01` `TodoPage`; `todo-02` `TodosPage`; `todo-codex-02` `TodoPage`; `todo-03` `TodosPage`; `todo-codex-03` `TodosPage`
 
 ## Dependencies
 
@@ -124,8 +124,8 @@ Written forms where the runs differ:
 | `web dependencies react` | `^19.1.0` | `^19.1.0` | `^19.1.0` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
 | `web dependencies react-dom` | `^19.1.0` | `^19.1.0` | `^19.1.0` | `^19.1.0` | `^19.1.0` | `^19.1.0` | identical |
 | `web dependencies react-hook-form` | `^7.90.0` | `^7.90.0` | `^7.90.0` | `^7.90.0` | `^7.90.0` | `^7.90.0` | identical |
-| `web devDependencies @{id}/api` | `workspace:*` | `workspace:*` | `workspace:*` | `workspace:*` | `workspace:*` | `workspace:*` | identical |
 | `web devDependencies @standard-schema/spec` | `^1.1.0` | `^1.1.0` | `^1.1.0` | `^1.1.0` | `^1.1.0` | `^1.1.0` | identical |
+| `web devDependencies @{id}/api` | `workspace:*` | `workspace:*` | `workspace:*` | `workspace:*` | `workspace:*` | `workspace:*` | identical |
 | `web devDependencies @vitejs/plugin-react` | `^4.3.4` | `^4.3.4` | `^4.3.4` | `^4.3.4` | `^4.3.4` | `^4.3.4` | identical |
 | `web devDependencies vite` | `^6.0.7` | `^6.0.7` | `^6.0.7` | `^6.0.7` | `^6.0.7` | `^6.0.7` | identical |
 | `web manifest` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | `{"name":"@{id}/web","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview --port 3000"},"type":"module","version":"0.1.0"}` | identical |
@@ -142,11 +142,12 @@ Written forms where the runs differ:
 | `feature component roles` | holds | holds | holds | holds | holds | holds | identical |
 | `components web-api-client` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | identical |
 | `components web-app` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | identical |
-| `components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | spec freedom 2 |
+| `components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(fn/2) ui(Button,TextField) raw() calls(use*) ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1,value) ui(Button,TextField) raw() calls(use*)` | spec freedom 2 |
 
 Written forms where the runs differ:
 
-- `components web-routes`: `todo-01` `TodoForm, TodoItem, TodoList, TodosPage`; `todo-codex-01` `TodoForm, TodosPage`; `todo-02` `TodoForm, TodoItem, TodoList, TodosPage`; `todo-codex-02` `TodoForm, TodosPage`; `todo-03` `TodoForm, TodoItem, TodoList, TodosPage`; `todo-codex-03` `TodoForm, TodosPage`
+- `page`: `todo-01` `TodosPage`; `todo-codex-01` `TodoPage`; `todo-02` `TodosPage`; `todo-codex-02` `TodoPage`; `todo-03` `TodosPage`; `todo-codex-03` `TodosPage`
+- `components web-routes`: `todo-01` `PageHeader, TodoForm, TodoItem, TodoList, TodosError, TodosPage`; `todo-codex-01` `TodoForm, TodoPage`; `todo-02` `PageHeader, TodoForm, TodoItem, TodoList, TodosPage`; `todo-codex-02` `TodoForm, TodoPage`; `todo-03` `PageHeader, TodoForm, TodoItem, TodoList, TodosPage`; `todo-codex-03` `TodoForm, TodosPage`
 
 ## Conventions
 
@@ -164,25 +165,25 @@ Written forms where the runs differ:
 
 | Run | Agent | Model | Status | Agent time | Run time | Checks (exit code) |
 | --- | --- | --- | --- | --- | --- | --- |
-| `todo-01` | `claude` | `claude-opus-4-8` | `passed` | `17 min 46 s` | `20 min 28 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
-| `todo-codex-01` | `codex` | `gpt-6.1-sol` | `passed` | `4 min 25 s` | `6 min 56 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
-| `todo-02` | `claude` | `claude-opus-4-8` | `passed` | `20 min 25 s` | `22 min 57 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
-| `todo-codex-02` | `codex` | `gpt-6.1-sol` | `passed` | `3 min 53 s` | `6 min 25 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
-| `todo-03` | `claude` | `claude-opus-4-8` | `passed` | `20 min 55 s` | `23 min 37 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
-| `todo-codex-03` | `codex` | `gpt-6.1-sol` | `passed` | `4 min 44 s` | `7 min 14 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
+| `todo-01` | `claude` | `claude-opus-5-5` | `passed` | `4 min 59 s` | `7 min 12 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
+| `todo-codex-01` | `codex` | `gpt-6.1-sol` | `passed` | `5 min 53 s` | `8 min 0 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
+| `todo-02` | `claude` | `claude-opus-5-5` | `passed` | `5 min 46 s` | `7 min 41 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
+| `todo-codex-02` | `codex` | `gpt-6.1-sol` | `passed` | `6 min 5 s` | `8 min 20 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
+| `todo-03` | `claude` | `claude-opus-5-5` | `passed` | `9 min 16 s` | `11 min 29 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
+| `todo-codex-03` | `codex` | `gpt-6.1-sol` | `passed` | `4 min 28 s` | `6 min 47 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |
 
 Agent is the variable under test. Agent CLI, version, argv, model and user config must match within each agent; session ids stay distinct. Every non-agent baseline field must match across agents.
 
 | Run | Status | Read from | Commit | Agent time | Checks (exit code) | Failure |
 | --- | --- | --- | --- | --- | --- | --- |
-| `todo-01` | `passed` | `showcase/todo-01` | `038a1b2` | `17 min 46 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
-| `todo-codex-01` | `passed` | `showcase/todo-codex-01` | `17570c5` | `4 min 25 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
-| `todo-02` | `passed` | `showcase/todo-02` | `689e1db` | `20 min 25 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
-| `todo-codex-02` | `passed` | `showcase/todo-codex-02` | `c451941` | `3 min 53 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
-| `todo-03` | `passed` | `showcase/todo-03` | `834218a` | `20 min 55 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
-| `todo-codex-03` | `passed` | `showcase/todo-codex-03` | `b07953a` | `4 min 44 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
+| `todo-01` | `passed` | `showcase/todo-01` | `1433f62` | `4 min 59 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
+| `todo-codex-01` | `passed` | `showcase/todo-codex-01` | `258c3b4` | `5 min 53 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
+| `todo-02` | `passed` | `showcase/todo-02` | `936e391` | `5 min 46 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
+| `todo-codex-02` | `passed` | `showcase/todo-codex-02` | `f40961c` | `6 min 5 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
+| `todo-03` | `passed` | `showcase/todo-03` | `2d7b225` | `9 min 16 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
+| `todo-codex-03` | `passed` | `showcase/todo-codex-03` | `aafcde2` | `4 min 28 s` | `install` `0`, `verify` `0`, `e2e` `0` and `structure` `0` |  |
 
-`todo-01`, `todo-codex-01`, `todo-02` and `todo-03` wrote files under `/tmp`: `todo-01` to `/tmp/claude-1000/-workspace-trials-root-todo-01-20261020T183029Z-repo/c4770247-d4a1-4e09-b2e7-6597d01aaa84/tasks/b2ydxv73u.output` and `/tmp/claude-1000/-workspace-trials-root-todo-01-20261020T183029Z-repo/c4770247-d4a1-4e09-b2e7-6597d01aaa84/tasks/bmh48fpjq.output`; `todo-codex-01` to `/tmp/todo-verify.log`, `/tmp/todo-verify-final.log`, `/tmp/todo-e2e.log`, `/tmp/todo-api.log` and `/tmp/todo-e2e-final.log`; `todo-02` to `/tmp/verify.log`; `todo-03` to `/tmp/tc.log`, `/tmp/apicheck.log`, `/tmp/biome.log`, `/tmp/eslint.log`, `/tmp/rd.log`, `/tmp/fallow.log`, `/tmp/apireport.log`, `/tmp/fallow2.log`, `/tmp/cov.log`, `/tmp/build.log`, `/tmp/v_$c.log`, `/tmp/verify.log` and `/tmp/e2e.log`. The paths of `todo-01`, `todo-codex-01`, `todo-02` and `todo-03` were new during their runs, so the ADR 0034 allowlist covers them.
+`todo-01`, `todo-02` and `todo-03` wrote logs under `/tmp`: `todo-01` to `/tmp/verify.log` and `/tmp/e2e.log`; `todo-02` to `/tmp/verify.log` and `/tmp/e2e.log`; `todo-03` to `/tmp/verify.log` and `/tmp/e2e.log`. The paths of `todo-01`, `todo-02` and `todo-03` were new during their runs, so the ADR 0034 allowlist covers them.
 
 ## Baseline
 
@@ -190,20 +191,20 @@ Every row comes from the committed evidence and files (ADR 0034, "New baseline")
 
 | Field | Proof | `todo-01` | `todo-codex-01` | `todo-02` | `todo-codex-02` | `todo-03` | `todo-codex-03` | Holds |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Scaffold rev | equal across runs | `1bda42815fde…` | `5c248c9f57d4…` | `1bda42815fde…` | `5c248c9f57d4…` | `1bda42815fde…` | `5c248c9f57d4…` | no |
-| Enforcement rev | equal across runs | `cd0ac7179f7a…` | `5cc32eec3638…` | `cd0ac7179f7a…` | `5cc32eec3638…` | `cd0ac7179f7a…` | `5cc32eec3638…` | no |
-| Lockfile SHA-256 | equal across runs | `573fd0b36041…` | `61233679ab81…` | `573fd0b36041…` | `61233679ab81…` | `573fd0b36041…` | `61233679ab81…` | no |
+| Scaffold rev | equal across runs | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | yes |
+| Enforcement rev | equal across runs | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | `f39e76e6e9fa…` | yes |
+| Lockfile SHA-256 | equal across runs | `1e1170529b6c…` | `1e1170529b6c…` | `1e1170529b6c…` | `1e1170529b6c…` | `1e1170529b6c…` | `1e1170529b6c…` | yes |
 | Prompt template SHA-256 | equal across runs | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | yes |
-| Harness SHA-256 | equal across runs | `e8941a50559d…` | `f181c3329281…` | `e8941a50559d…` | `f181c3329281…` | `e8941a50559d…` | `f181c3329281…` | no |
-| CLI version | equal within each agent; agent is the variable under test | `2.1.197 (Claude Code)` | `codex-cli 0.163.0` | `2.1.197 (Claude Code)` | `codex-cli 0.163.0` | `2.1.197 (Claude Code)` | `codex-cli 0.163.0` | yes |
-| Resolved model | equal within each agent; agent is the variable under test | `claude-opus-4-8` | `gpt-6.1-sol` | `claude-opus-4-8` | `gpt-6.1-sol` | `claude-opus-4-8` | `gpt-6.1-sol` | yes |
-| User config SHA-256 | equal within each agent; agent is the variable under test | `676b4e95d6ab…` | `5ae1d1adbf37…` | `676b4e95d6ab…` | `cb5d1ff09f37…` | `676b4e95d6ab…` | `9fb9744ab231…` | no |
+| Harness SHA-256 | equal across runs | `f181c3329281…` | `f181c3329281…` | `f181c3329281…` | `f181c3329281…` | `f181c3329281…` | `f181c3329281…` | yes |
+| CLI version | equal within each agent; agent is the variable under test | `2.1.309 (Claude Code)` | `codex-cli 0.164.0` | `2.1.309 (Claude Code)` | `codex-cli 0.164.0` | `2.1.309 (Claude Code)` | `codex-cli 0.164.0` | yes |
+| Resolved model | equal within each agent; agent is the variable under test | `claude-opus-5-5` | `gpt-6.1-sol` | `claude-opus-5-5` | `gpt-6.1-sol` | `claude-opus-5-5` | `gpt-6.1-sol` | yes |
+| User config SHA-256 | equal within each agent; agent is the variable under test | `0c621ee22dbf…` | `1ae33750e48e…` | `0c621ee22dbf…` | `1ae33750e48e…` | `0c621ee22dbf…` | `1ae33750e48e…` | yes |
 | Agent CLI | equal within each agent; argv excludes clone paths and session ids | `claude` | `codex` | `claude` | `codex` | `claude` | `codex` | yes |
 | Agent argv | equal within each agent; argv excludes clone paths and session ids | `["claude","-p","--model","opus","--permission-mode","bypassPermissions","--output-format","stream-json","--verbose","--session-id","{session}"]` | `["codex","exec","--json","--dangerously-bypass-approvals-and-sandbox","--dangerously-bypass-hook-trust","-m","gpt-6.1-sol","-c","allow_login_shell=false","-c","projects.\"{clone}\".trust_level=\"trusted\"","-C","{clone}","-"]` | `["claude","-p","--model","opus","--permission-mode","bypassPermissions","--output-format","stream-json","--verbose","--session-id","{session}"]` | `["codex","exec","--json","--dangerously-bypass-approvals-and-sandbox","--dangerously-bypass-hook-trust","-m","gpt-6.1-sol","-c","allow_login_shell=false","-c","projects.\"{clone}\".trust_level=\"trusted\"","-C","{clone}","-"]` | `["claude","-p","--model","opus","--permission-mode","bypassPermissions","--output-format","stream-json","--verbose","--session-id","{session}"]` | `["codex","exec","--json","--dangerously-bypass-approvals-and-sandbox","--dangerously-bypass-hook-trust","-m","gpt-6.1-sol","-c","allow_login_shell=false","-c","projects.\"{clone}\".trust_level=\"trusted\"","-C","{clone}","-"]` | yes |
 | Reasoning effort | equal within each agent; argv excludes clone paths and session ids | `(none)` | `(none)` | `(none)` | `(none)` | `(none)` | `(none)` | yes |
 | Task target and checks | equal across runs | `{"name":"todo","definitionSha256":"2cc2b515f6a6fbad5351276be5899b9582f787d997f462f4e0f67e19ac36d4f6","target":null,"checks":["install","verify","e2e","structure"],"land":"showcase"}` | `{"name":"todo","definitionSha256":"2cc2b515f6a6fbad5351276be5899b9582f787d997f462f4e0f67e19ac36d4f6","target":null,"checks":["install","verify","e2e","structure"],"land":"showcase"}` | `{"name":"todo","definitionSha256":"2cc2b515f6a6fbad5351276be5899b9582f787d997f462f4e0f67e19ac36d4f6","target":null,"checks":["install","verify","e2e","structure"],"land":"showcase"}` | `{"name":"todo","definitionSha256":"2cc2b515f6a6fbad5351276be5899b9582f787d997f462f4e0f67e19ac36d4f6","target":null,"checks":["install","verify","e2e","structure"],"land":"showcase"}` | `{"name":"todo","definitionSha256":"2cc2b515f6a6fbad5351276be5899b9582f787d997f462f4e0f67e19ac36d4f6","target":null,"checks":["install","verify","e2e","structure"],"land":"showcase"}` | `{"name":"todo","definitionSha256":"2cc2b515f6a6fbad5351276be5899b9582f787d997f462f4e0f67e19ac36d4f6","target":null,"checks":["install","verify","e2e","structure"],"land":"showcase"}` | yes |
 | Harness equals the scaffold copy | `true` in each run | `true` | `true` | `true` | `true` | `true` | `true` | yes |
-| Session id | distinct per run | `c4770247-d4a1-4e09-b2e7-6597d01aaa84` | `01a15b2c-652e-71a1-88bb-79c117e9b018` | `5479c215-c619-418f-9353-72ba1962626b` | `01a15b32-edbe-75f1-b088-7ac61c785a52` | `87c6a05d-7224-4e6b-aa99-ac864c05ea33` | `01a15b39-132c-7bb0-bd5d-7aeb258c5f76` | yes |
+| Session id | distinct per run | `720ab1e2-e88f-460a-819c-0e0585a1cb5f` | `01a168d1-a97b-7152-8521-7e0fd89323a4` | `e3616e14-57fc-428c-b783-3ca834353c87` | `01a168d9-2569-70b2-b9b3-33c5bb88d891` | `1798245f-f9c0-44e0-9865-3aa71c1c110c` | `01a168e0-cf11-7a51-bc22-c09ed5a7cd18` | yes |
 | Template file hash | re-derived from the template at `prompt.path` | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | `2d858c2fcb84…` | yes |
 | Rendered prompt SHA-256 | re-derived with `renderPrompt` | `7ff9de6de6e2…` | `63911c73272c…` | `e93824441381…` | `418dab421023…` | `f3389d5d95df…` | `5ee7a779bc53…` | yes |
 | Recorded prompt text | re-derived from `prompt.text` | `7ff9de6de6e2…` | `63911c73272c…` | `e93824441381…` | `418dab421023…` | `f3389d5d95df…` | `5ee7a779bc53…` | yes |
@@ -235,34 +236,27 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 | 3 | The type and generation of `id`. |  |
 | 4 | What a mutation returns. | `public-api · toggle output`, `public-api · delete output` |
 | 5 | Copy text and styling outside the UI contract names. | `structure · file web/index.html` |
-| 6 | Test names and the number of tests beyond what the gates require. | `structure · tests web-routes`, `structure · tests api-app`, `structure · tests api-integrations`, `structure · tests e2e` |
+| 6 | Test names and the number of tests beyond what the gates require. | `structure · tests web-api-client`, `structure · tests web-routes`, `structure · tests api-app`, `structure · tests api-application`, `structure · tests api-domain`, `structure · tests api-integrations`, `structure · tests e2e` |
 | 7 | Optional roles left empty, when all three agree. |  |
-| 8 | A type-only import between roles, along any direction, which the comparison reads as a dashed edge. | `structure · edge api-application -.-> api-domain`, `structure · edge api-integrations -.-> api-domain` |
+| 8 | A type-only import between roles, along any direction, which the comparison reads as a dashed edge. |  |
 | 9 | Dropping a re-export that a gate flagged, such as an unused export Fallow reports. |  |
-
-## Outside the spec
-
-| Aspect | `todo-01` | `todo-codex-01` | `todo-02` | `todo-codex-02` | `todo-03` | `todo-codex-03` | Why | By |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `structure · edge api-application --> api-domain` | `present` | `present` | `(absent)` | `present` | `(absent)` | `present` | the spec freedoms leave role edges fixed | script rule |
-| `structure · edge api-integrations --> api-domain` | `(absent)` | `(absent)` | `present` | `(absent)` | `present` | `(absent)` | the spec freedoms leave role edges fixed | script rule |
-| `public-api · exports web:web-api-client` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | the reference fixes the scaffold roles | script rule |
 
 ## Inside a spec freedom
 
 | Aspect | `todo-01` | `todo-codex-01` | `todo-02` | `todo-codex-02` | `todo-03` | `todo-codex-03` | Freedom | By | Why |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `structure · edge api-application -.-> api-domain` | `(absent)` | `(absent)` | `present` | `(absent)` | `present` | `(absent)` | 8 | script rule | a type-only import between roles; every run's `verify` check exited `0` |
-| `structure · edge api-integrations -.-> api-domain` | `present` | `present` | `(absent)` | `present` | `(absent)` | `present` | 8 | script rule | a type-only import between roles; every run's `verify` check exited `0` |
-| `structure · files web-routes` | `8` | `6` | `8` | `6` | `8` | `6` | 2 | script rule | how a role splits into files |
-| `structure · tests web-routes` | `3` | `1` | `2` | `1` | `2` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · files web-routes` | `10` | `6` | `9` | `6` | `9` | `6` | 2 | script rule | how a role splits into files |
+| `structure · tests web-api-client` | `2` | `1` | `2` | `2` | `2` | `2` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · tests web-routes` | `3` | `1` | `4` | `1` | `3` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `structure · tests api-app` | `1` | `0` | `1` | `0` | `1` | `0` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
-| `structure · tests api-integrations` | `0` | `0` | `0` | `0` | `1` | `0` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
-| `structure · tests e2e` | `2` | `1` | `2` | `1` | `1` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
-| `structure · file web/index.html` | `3c4143801c2a` | `b6b27106721a` | `3c4143801c2a` | `3c4143801c2a` | `b6b27106721a` | `3c4143801c2a` | 5 | script rule | copy text: only the `<title>` differs |
-| `public-api · toggle output` | `Item` | `Item` | `Item[]` | `Item` | `Item` | `Item` | 4 | script rule | what a mutation returns |
-| `public-api · delete output` | `{ id: Id }` | `boolean` | `Item[]` | `{ id: Id }` | `{ id: Id }` | `boolean` | 4 | script rule | what a mutation returns |
-| `component-boundaries · components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | 2 | script rule | how a role splits into components; the role-wide primitives, raw controls and calls match |
+| `structure · tests api-application` | `1` | `1` | `1` | `1` | `1` | `0` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · tests api-domain` | `1` | `1` | `1` | `1` | `1` | `0` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · tests api-integrations` | `1` | `0` | `1` | `0` | `1` | `0` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · tests e2e` | `2` | `1` | `2` | `1` | `2` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
+| `structure · file web/index.html` | `3c4143801c2a` | `3c4143801c2a` | `b6b27106721a` | `3c4143801c2a` | `3c4143801c2a` | `3c4143801c2a` | 5 | script rule | copy text: only the `<title>` differs |
+| `public-api · toggle output` | `Item` | `Item \| undefined` | `Item` | `Item \| null` | `Item` | `Item \| null` | 4 | script rule | what a mutation returns |
+| `public-api · delete output` | `Item` | `{ id: Id }` | `{ id: Id }` | `null` | `Item` | `null` | 4 | script rule | what a mutation returns |
+| `component-boundaries · components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(fn/2) ui(Button,TextField) raw() calls(use*) ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1,value) ui(Button,TextField) raw() calls(use*)` | 2 | script rule | how a role splits into components; the role-wide primitives, raw controls and calls match |
 
 ## Diagrams
 
@@ -292,7 +286,7 @@ flowchart LR
   api_app --> api_trpc
   api_application --> api_domain
   api_application --> api_integrations
-  api_integrations --> api_domain
+  api_integrations -.-> api_domain
   api_procedures --> api_application
   api_procedures --> api_trpc
   web_api_client -.-> api_app
@@ -327,7 +321,7 @@ flowchart LR
   api_app --> api_trpc
   api_application --> api_domain
   api_application --> api_integrations
-  api_integrations --> api_domain
+  api_integrations -.-> api_domain
   api_procedures --> api_application
   api_procedures --> api_trpc
   web_api_client -.-> api_app
@@ -362,7 +356,7 @@ flowchart LR
   api_app --> api_trpc
   api_application --> api_domain
   api_application --> api_integrations
-  api_integrations --> api_domain
+  api_integrations -.-> api_domain
   api_procedures --> api_application
   api_procedures --> api_trpc
   web_api_client -.-> api_app
@@ -397,7 +391,7 @@ flowchart LR
   api_app --> api_trpc
   api_application --> api_domain
   api_application --> api_integrations
-  api_integrations --> api_domain
+  api_integrations -.-> api_domain
   api_procedures --> api_application
   api_procedures --> api_trpc
   web_api_client -.-> api_app
@@ -432,7 +426,7 @@ flowchart LR
   api_app --> api_trpc
   api_application --> api_domain
   api_application --> api_integrations
-  api_integrations --> api_domain
+  api_integrations -.-> api_domain
   api_procedures --> api_application
   api_procedures --> api_trpc
   web_api_client -.-> api_app
@@ -467,7 +461,7 @@ flowchart LR
   api_app --> api_trpc
   api_application --> api_domain
   api_application --> api_integrations
-  api_integrations --> api_domain
+  api_integrations -.-> api_domain
   api_procedures --> api_application
   api_procedures --> api_trpc
   web_api_client -.-> api_app

@@ -96,13 +96,22 @@ the behaviour is observable.
 - `require-suppression-reason`: every `fallow-ignore` names its reason.
 - `audit.gate: "all"`: `pnpm fallow:audit` fails every finding in a file the
   change touches, inherited ones included.
+- `ignoreExports`: only `RouterInputs` and `RouterOutputs` in each api-client
+  barrel are exempt from unused export findings. The structure check pins
+  those exports to the reference ([ADR 0054](../decisions/0054-domain-rules-in-application-and-a-fixed-api-client-surface.md)).
+- `duplicates.ignore` and `health.ignore`: the six recorded `todo-01`, `todo-02`, `todo-03`,
+  `todo-codex-01`, `todo-codex-02` and `todo-codex-03` directories under
+  `showcase/` are excluded from duplication, styling, complexity findings and
+  health scores. Dead-code and architecture checks still cover them; reference
+  code and other result directories retain all Fallow checks
+  ([ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md)).
 
 Three checks read it. They run locally through `pnpm arch:check` (part of `pnpm verify`) and
 in CI as steps of the `Code intelligence (Fallow)` job:
 
 | Check | Command | Fails when |
 | --- | --- | --- |
-| Architecture gate | `pnpm arch:gate` (`fallow architecture -q`, then `node tooling/architecture/structure.mjs` and `node tooling/architecture/diagram.mjs --check`) | An import crosses a role boundary the rules file does not allow, a source file sits in no role, or a `contract/<id>` rule finds a banned import, call or effect. A result lacks a required role, holds a file outside its layout, a nested tool config or a symlink, departs from the reference manifest of its kind, has no e2e spec, imports another result or holds a suppression, or a showcase folder is incomplete. A diagram is missing, stale or extra. |
+| Architecture gate | `pnpm arch:gate` (`fallow architecture -q`, then `node tooling/architecture/structure.mjs` and `node tooling/architecture/diagram.mjs --check`) | An import crosses a role boundary the rules file does not allow, a source file sits in no role, or a `contract/<id>` rule finds a banned import, call or effect. A result lacks a required role, holds a file outside its layout, a nested tool config or a symlink, departs from the reference manifest of its kind, has no e2e spec, imports another result or holds a suppression, or a showcase folder is incomplete. A feature's application lacks a value import or re-export from its domain (`application-without-domain-rule`), or a scaffold API report's export names or kinds differ from the reference (`scaffold-exports`). A single-route result holds web feature paths or feature API reports (`single-route-features`). A diagram is missing, stale or extra. |
 | Role diagram | `pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd` | The committed canonical diagram differs from a fresh render of the rules file. |
 | API reports | `pnpm api:check` | A public entry's exports differ from its committed report. Each package entry gives `<package>/etc/<name>.api.md`, and each route, feature and api-client `index.ts` gives `<package>/etc/<folder>-<name>.api.md`. |
 

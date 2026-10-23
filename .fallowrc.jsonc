@@ -5,6 +5,41 @@
   // audit stays honest rather than flagging a false positive on every run.
   "ignoreDependencies": ["@size-limit/file"],
 
+  // The api-client scaffold keeps both router types (ADR 0054), even when a
+  // route uses only one. The structure gate pins the reference export surface.
+  "ignoreExports": [
+    {
+      "file": "{apps,showcase/*}/web/src/api-client/index.ts",
+      "exports": ["RouterInputs", "RouterOutputs"]
+    }
+  ],
+
+  // Preserve the six independent recorded trial outputs (ADR 0059).
+  // Duplication and health use separate ignore lists; keep their paths identical.
+  "duplicates": {
+    "ignore": [
+      "showcase/todo-01/**",
+      "showcase/todo-02/**",
+      "showcase/todo-03/**",
+      "showcase/todo-codex-01/**",
+      "showcase/todo-codex-02/**",
+      "showcase/todo-codex-03/**"
+    ]
+  },
+
+  // Styling (including css-duplicate-block) uses health.ignore in Fallow 3.33.1.
+  // Ben approved this generated-output scope on 23 October 2026 at 16:38 BST.
+  "health": {
+    "ignore": [
+      "showcase/todo-01/**",
+      "showcase/todo-02/**",
+      "showcase/todo-03/**",
+      "showcase/todo-codex-01/**",
+      "showcase/todo-codex-02/**",
+      "showcase/todo-codex-03/**"
+    ]
+  },
+
   // jest.style-stub.cjs is referenced as a string in jest.config.ts
   // (moduleNameMapper), not imported, so it isn't statically reachable. It is
   // used by every test run — exclude it from dead-file analysis.
@@ -264,7 +299,8 @@
       },
       {
         "from": "api-integrations",
-        "allow": ["api-domain"],
+        // Storage persists domain types; it never calls domain rules.
+        "allow": [],
         "allowTypeOnly": [
           "web-app",
           "web-api-client",
@@ -274,7 +310,8 @@
           "api-app",
           "api-trpc",
           "api-procedures",
-          "api-application"
+          "api-application",
+          "api-domain"
         ]
       }
     ],

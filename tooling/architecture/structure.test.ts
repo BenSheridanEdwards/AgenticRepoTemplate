@@ -35,6 +35,7 @@ function validate(
     edges = [] as { from: string; to: string }[],
     results = [reference, todo],
     symlinks = [] as string[],
+    contract: structureContract = contract,
   } = {},
 ) {
   const tree = Object.fromEntries(
@@ -49,10 +50,16 @@ function validate(
       .map((file) => [file.slice(0, -'/package.json'.length), JSON.parse(tree[file] ?? '')]),
   );
   return validateStructure({
-    contract,
+    contract: structureContract,
     results,
     files,
-    edges,
+    edges: [
+      ...[reference, todo].map((result) => ({
+        from: `${result.api}/src/features/greeting/application.ts`,
+        to: `${result.api}/src/features/greeting/domain.ts`,
+      })),
+      ...edges,
+    ],
     symlinks,
     manifests,
     readText: (path: string) => tree[path] ?? '',
@@ -64,6 +71,27 @@ const editManifest = (path: string, edit: (fields: Record<string, unknown>) => v
   edit(fields);
   return { [path]: JSON.stringify(fields) };
 };
+
+const FEATURE = 'showcase/todo-01/api/src/features/greeting';
+const APPLICATION = `${FEATURE}/application.ts`;
+const DOMAIN = `${FEATURE}/domain.ts`;
+const DOMAIN_RULE_VIOLATION = { kind: 'application-without-domain-rule', feature: FEATURE };
+const CLIENT_REPORT = 'web/etc/api-client.api.md';
+const CLIENT_EXPORTS = [
+  'export declare function ApiProvider(): void;',
+  'export type RouterInputs = unknown;',
+  'export type RouterOutputs = unknown;',
+  'export interface TestApiHandlers {}',
+  'export declare function TestApiProvider(): void;',
+  'export declare const useTrpc: unknown;',
+];
+
+function clientReports(actual: string[]) {
+  return {
+    [`apps/${CLIENT_REPORT}`]: CLIENT_EXPORTS.join('\n'),
+    [`showcase/todo-01/${CLIENT_REPORT}`]: actual.join('\n'),
+  };
+}
 
 describe('validateStructure', () => {
   it('passes the clean reference and a clean showcase result', () => {
@@ -295,6 +323,256 @@ describe('validateStructure', () => {
   });
 
   it.each([
+    "import { formatGreeting, type Greeting } from './domain.ts';",
+    "export { formatGreeting, type Greeting } from './domain.ts';",
+    "export * from './domain.ts';",
+    "import './domain.ts';",
+    "const domain = import('./domain.ts');",
+  ])('accepts a domain value crossing: %s', (source) => {
+    expect(validate({ [APPLICATION]: source })).toEqual([]);
+  });
+
+  it.each([
+    "import type { Greeting } from './domain.ts';",
+    "import { type Greeting } from './domain.ts';",
+    "export type { Greeting } from './domain.ts';",
+    "export { type Greeting } from './domain.ts';",
+    "export type * from './domain.ts';",
+    "type Greeting = import('./domain.ts').Greeting;",
+    'export const greet = () => "Hello";',
+    "import type { Greeting } from './domain.ts'; import { remember } from './integrations.ts';",
+  ])('fails an application without a domain value crossing: %s', (source) => {
+    expect(validate({ [APPLICATION]: source })).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('accepts an application folder when one file value-imports its domain folder', () => {
+    const from = `${FEATURE}/application/greet.ts`;
+    const to = `${FEATURE}/domain/rules.ts`;
+    expect(
+      validate(
+        {
+          [APPLICATION]: null,
+          [DOMAIN]: null,
+          [`${FEATURE}/application/types.ts`]:
+            "import type { Greeting } from '../domain/rules.ts';",
+          [from]: "import { formatGreeting } from '../domain/rules.ts';",
+          [to]: 'export const formatGreeting = () => "Hello";',
+        },
+        { edges: [{ from, to }] },
+      ),
+    ).toEqual([]);
+  });
+
+  it('requires the value crossing to be resolved by Fallow', () => {
+    expect(
+      validate({
+        [APPLICATION]: null,
+        [`${FEATURE}/application/greet.ts`]: "import { formatGreeting } from '../domain.ts';",
+      }),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('leaves a missing domain to the missing-role check', () => {
+    expect(validate({ [DOMAIN]: null })).toEqual([
+      { kind: 'missing-role', result: 'showcase/todo-01', role: 'api-domain' },
+    ]);
+  });
+
+  it.each([
+    'application/greet.test.ts',
+    'application/greet.d.ts',
+  ])('ignores a value import in %s when checking the application role', (name) => {
+    const from = `${FEATURE}/${name}`;
+    expect(
+      validate(
+        {
+          [APPLICATION]: "import type { Greeting } from './domain.ts';",
+          [from]: "import { formatGreeting } from '../domain.ts';",
+        },
+        { edges: [{ from, to: DOMAIN }] },
+      ),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('requires the domain to belong to the same feature', () => {
+    const sibling = 'showcase/todo-01/api/src/features/other/domain.ts';
+    expect(
+      validate(
+        {
+          [APPLICATION]: "import { formatGreeting } from '../other/domain.ts';",
+          [sibling]: 'export const formatGreeting = () => "Hello";',
+        },
+        { edges: [{ from: APPLICATION, to: sibling }] },
+      ),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('requires a domain value crossing in the reference too', () => {
+    expect(
+      validate({
+        'apps/api/src/features/greeting/application.ts':
+          "import type { Greeting } from './domain.ts';",
+      }),
+    ).toEqual([
+      { kind: 'application-without-domain-rule', feature: 'apps/api/src/features/greeting' },
+    ]);
+  });
+
+  it('checks only named features when a role source is outside the feature layout', () => {
+    const application = 'showcase/todo-01/api/src/application.ts';
+    const domain = 'showcase/todo-01/api/src/domain.ts';
+    expect(
+      validate(
+        {
+          [application]: 'export const greet = () => "Hello";',
+          [domain]: 'export const formatGreeting = () => "Hello";',
+          [APPLICATION]: "import type { Greeting } from './domain.ts';",
+        },
+        {
+          contract: {
+            ...contract,
+            roleOf: (file: string) => {
+              if (file === application) return 'api-application';
+              if (file === domain) return 'api-domain';
+              return contract.roleOf(file);
+            },
+          },
+        },
+      ),
+    ).toEqual([DOMAIN_RULE_VIOLATION]);
+  });
+
+  it('accepts the scaffold export names and kinds in any order', () => {
+    expect(validate(clientReports([...CLIENT_EXPORTS].reverse()))).toEqual([]);
+  });
+
+  it.each([
+    'export abstract class Extra {}',
+    'export namespace Extra {}',
+    'export declare let extra: unknown;',
+    'export { extra };',
+    'export {',
+    'export type { Extra };',
+  ])('rejects an unrecognised scaffold export: %s', (line) => {
+    expect(validate(clientReports([...CLIENT_EXPORTS, line]))).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path: `showcase/todo-01/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${line}`,
+      },
+    ]);
+  });
+
+  it('reports unsupported reference and result lines once each and keeps checking other reports', () => {
+    const lines = ['export namespace Extra {}', 'export declare let extra: unknown;'];
+    expect(
+      validate({
+        [`apps/${CLIENT_REPORT}`]: lines.join('\n'),
+        [`showcase/todo-01/${CLIENT_REPORT}`]: lines[0] ?? '',
+        'apps/api/etc/api.api.md': 'export declare const appRouter: unknown;',
+        'showcase/todo-01/api/etc/api.api.md': '',
+      }),
+    ).toEqual([
+      ...lines.map((line) => ({
+        kind: 'scaffold-exports',
+        path: `apps/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${line}`,
+      })),
+      {
+        kind: 'scaffold-exports',
+        path: `showcase/todo-01/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${lines[0]}`,
+      },
+      {
+        kind: 'scaffold-exports',
+        path: 'showcase/todo-01/api/etc/api.api.md',
+        referencePath: 'apps/api/etc/api.api.md',
+        role: 'api-app',
+        actual: [],
+        expected: ['appRouter:value'],
+      },
+    ]);
+  });
+
+  it('reports unsupported reference lines when the result exports are supported', () => {
+    const line = 'export namespace Extra {}';
+    expect(
+      validate({
+        ...clientReports(CLIENT_EXPORTS),
+        [`apps/${CLIENT_REPORT}`]: [...CLIENT_EXPORTS, line].join('\n'),
+      }),
+    ).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path: `apps/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${line}`,
+      },
+    ]);
+  });
+
+  it.each([
+    ['a missing RouterInputs', CLIENT_EXPORTS.filter((line) => !line.includes('RouterInputs'))],
+    ['an extra export', [...CLIENT_EXPORTS, 'export declare const extra: unknown;']],
+    [
+      'a changed kind',
+      CLIENT_EXPORTS.map((line) =>
+        line.includes('RouterInputs') ? 'export declare const RouterInputs: unknown;' : line,
+      ),
+    ],
+  ])('fails the scaffold report with %s', (_, actual) => {
+    expect(validate(clientReports(actual))).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path: `showcase/todo-01/${CLIENT_REPORT}`,
+        referencePath: `apps/${CLIENT_REPORT}`,
+        role: 'web-api-client',
+        actual: expect.any(Array),
+        expected: [
+          'ApiProvider:value',
+          'RouterInputs:type',
+          'RouterOutputs:type',
+          'TestApiHandlers:type',
+          'TestApiProvider:value',
+          'useTrpc:value',
+        ],
+      },
+    ]);
+  });
+
+  it('treats an interface and a type alias as the same export kind', () => {
+    expect(
+      validate(
+        clientReports(
+          CLIENT_EXPORTS.map((line) =>
+            line.includes('RouterInputs') ? 'export interface RouterInputs {}' : line,
+          ),
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it('pins the api-app report as well as the web api client', () => {
+    const referencePath = 'apps/api/etc/api.api.md';
+    const path = 'showcase/todo-01/api/etc/api.api.md';
+    expect(
+      validate({
+        [referencePath]:
+          'export type AppRouter = unknown;\nexport declare const appRouter: unknown;',
+        [path]: 'export type AppRouter = unknown;',
+      }),
+    ).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path,
+        referencePath,
+        role: 'api-app',
+        actual: ['AppRouter:type'],
+        expected: ['AppRouter:type', 'appRouter:value'],
+      },
+    ]);
+  });
+
+  it.each([
     '/* eslint policy/one-component-per-file: off */',
     '/* eslint-env node */',
     '/* global document */',
@@ -342,7 +620,138 @@ describe('validateStructure', () => {
   });
 });
 
+describe('single-route feature placement', () => {
+  const feature = `${todo.web}/src/features/page-header/PageHeader.tsx`;
+  const report = `${todo.web}/etc/features-page-header.api.md`;
+  const violation = (path: string, result = todo) => ({
+    kind: 'single-route-features',
+    result: result.root,
+    route: 'greeting',
+    path,
+  });
+
+  it.each([
+    reference,
+    todo,
+  ])('keeps feature code and artifacts in the sole route of $id', (result) => {
+    const paths = [
+      `${result.web}/etc/features-page-header.api.md`,
+      `${result.web}/src/features/page-header/PageHeader.test.tsx`,
+      `${result.web}/src/features/page-header/PageHeader.tsx`,
+      `${result.web}/src/features/page-header/index.ts`,
+    ];
+    expect(validate(Object.fromEntries(paths.map((path) => [path, ''])))).toEqual(
+      paths.map((path) => violation(path, result)),
+    );
+  });
+
+  it('accepts the header and its test inside the route', () => {
+    expect(
+      validate({
+        [`${todo.web}/src/routes/greeting/PageHeader.tsx`]: 'export const PageHeader = 1;',
+        [`${todo.web}/src/routes/greeting/PageHeader.test.tsx`]: 'export {};',
+      }),
+    ).toEqual([]);
+  });
+
+  it('counts multiple files and nested folders within the same route once', () => {
+    expect(
+      validate({
+        [feature]: '',
+        [`${todo.web}/src/routes/greeting/GreetingPage.tsx`]: '',
+        [`${todo.web}/src/routes/greeting/details/Details.tsx`]: '',
+      }),
+    ).toEqual([violation(feature)]);
+  });
+
+  it.each([
+    'Other.test.tsx',
+    'README.md',
+    'types.d.ts',
+  ])('does not count %s as a second production route', (file) => {
+    expect(validate({ [feature]: '', [`${todo.web}/src/routes/other/${file}`]: '' })).toEqual([
+      violation(feature),
+    ]);
+  });
+
+  it('retains web features and their reports when two production route slices exist', () => {
+    expect(
+      validate({
+        [feature]: '',
+        [report]: '',
+        [`${todo.web}/src/routes/other/index.ts`]: 'export const other = 1;',
+      }),
+    ).toEqual([]);
+  });
+
+  it('counts routes separately for each result', () => {
+    expect(
+      validate({
+        [feature]: '',
+        'apps/web/src/routes/other/index.ts': 'export const other = 1;',
+      }),
+    ).toEqual([violation(feature)]);
+  });
+
+  it('rejects an orphan feature report after its source has moved', () => {
+    expect(validate({ [report]: '' })).toEqual([violation(report)]);
+  });
+
+  it('leaves a missing production route to the missing-role check', () => {
+    expect(validate({ [feature]: '', [`${todo.web}/src/routes/greeting/index.ts`]: null })).toEqual(
+      [{ kind: 'missing-role', result: todo.root, role: 'web-routes' }],
+    );
+  });
+});
+
 describe('node tooling/architecture/structure.mjs', () => {
+  it('rejects single-route features and names the route and artifact cleanup', () => {
+    const repository = createMonorepo({
+      ...resultFiles('showcase/x', 'x'),
+      'showcase/x/web/src/features/page-header/PageHeader.tsx':
+        'export function PageHeader() { return <h1>Greeting</h1>; }',
+      'showcase/x/web/src/features/page-header/index.ts':
+        "export { PageHeader } from './PageHeader';",
+      'showcase/x/web/src/routes/greeting/index.ts':
+        "import { PageHeader } from '../../features/page-header';\nexport const greeting = PageHeader;",
+      'showcase/x/web/etc/features-page-header.api.md':
+        'export declare function PageHeader(): void;',
+    });
+    try {
+      const run = runTool('structure.mjs', repository.directory);
+      expect(run.status).toBe(1);
+      expect(run.output).toContain(
+        'single-route-features showcase/x/web/src/features/page-header/PageHeader.tsx:',
+      );
+      expect(run.output).toContain(
+        'single-route-features showcase/x/web/etc/features-page-header.api.md:',
+      );
+      expect(run.output).toContain('web/src/routes/greeting/');
+      expect(run.output).toContain('remove the feature barrel and API report');
+    } finally {
+      repository.cleanup();
+    }
+  });
+
+  it('prints unsupported exports alongside other violations instead of aborting validation', () => {
+    const repository = createMonorepo({
+      ...resultFiles('showcase/x', 'x'),
+      'apps/web/etc/api-client.api.md': CLIENT_EXPORTS.join('\n'),
+      'showcase/x/web/etc/api-client.api.md': 'export namespace Extra {}',
+      'showcase/x/web/src/App.tsx': `// @ts-${'ignore'}\nexport const App = 1;`,
+    });
+    try {
+      const run = runTool('structure.mjs', repository.directory);
+      expect(run.status).toBe(1);
+      expect(run.output).toContain(
+        'scaffold-exports showcase/x/web/etc/api-client.api.md: Unsupported scaffold API export: export namespace Extra {}',
+      );
+      expect(run.output).toContain('suppression showcase/x/web/src/App.tsx:1:');
+    } finally {
+      repository.cleanup();
+    }
+  });
+
   it('prints OK with the number of results on a clean tree', () => {
     const repository = createMonorepo(resultFiles('showcase/x', 'x'));
     try {

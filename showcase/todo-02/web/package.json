@@ -21,8 +21,8 @@
     "react-hook-form": "^7.90.0"
   },
   "devDependencies": {
-    "@todo-02/api": "workspace:*",
     "@standard-schema/spec": "^1.1.0",
+    "@todo-02/api": "workspace:*",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^6.0.7"
   }

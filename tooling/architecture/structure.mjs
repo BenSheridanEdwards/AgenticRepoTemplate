@@ -12,9 +12,10 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, matchesGlob } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readRepository, runCli } from './graph.mjs';
+import { moduleReferences, resolveRelative } from './imports.mjs';
 
 /** What a result root and each package may hold. Anything else is an unexpected file. */
 const LAYOUT = {
@@ -94,6 +95,31 @@ function missingRoles({ contract, results, files }) {
         .map((role) => ({ kind: 'missing-role', result: result.root, role }));
     }),
   );
+}
+
+function singleRouteFeatures({ contract, results, files }) {
+  return results.flatMap((result) => {
+    const routeRoot = `${result.web}/src/routes/`;
+    const routes = new Set(
+      files
+        .filter(
+          (file) =>
+            file.startsWith(routeRoot) &&
+            isRoleSource(file) &&
+            contract.roleOf(file) === 'web-routes',
+        )
+        .map((file) => file.slice(routeRoot.length).split('/')[0]),
+    );
+    if (routes.size !== 1) return [];
+    const [route] = routes;
+    return files
+      .filter(
+        (file) =>
+          file.startsWith(`${result.web}/src/features/`) ||
+          matchesGlob(file, `${result.web}/etc/features-*.api.md`),
+      )
+      .map((path) => ({ kind: 'single-route-features', result: result.root, route, path }));
+  });
 }
 
 function unexpectedFiles({ results, files }) {
@@ -216,6 +242,101 @@ function crossResultImports({ results, edges }) {
     .map(({ from, to }) => ({ kind: 'cross-result-import', from, to }));
 }
 
+const featureDirectory = (file) => /^(.*?\/api\/src\/features\/[^/]+)\//.exec(file)?.[1];
+
+function importsDomainValue(application, domains, { files, edges, readText }) {
+  const targets = new Set(
+    edges
+      .filter(({ from, to }) => from === application && domains.includes(to))
+      .map(({ to }) => to),
+  );
+  return moduleReferences(application, readText(application)).some(
+    ({ specifier, typeOnly }) =>
+      !typeOnly &&
+      specifier.startsWith('.') &&
+      targets.has(resolveRelative(files, application, specifier)),
+  );
+}
+
+function applicationsWithoutDomainRule({ contract, results, files, edges, readText }) {
+  const sources = files.filter((file) => isRoleSource(file) && resultOf(results, file));
+  const applications = sources.filter((file) => contract.roleOf(file) === 'api-application');
+  const domains = sources.filter((file) => contract.roleOf(file) === 'api-domain');
+  return [...new Set(applications.map(featureDirectory).filter(Boolean))].flatMap((feature) => {
+    const ownDomain = domains.filter((file) => featureDirectory(file) === feature);
+    const ownApplication = applications.filter((file) => featureDirectory(file) === feature);
+    const input = { files: new Set(files), edges, readText };
+    return ownDomain.length > 0 &&
+      !ownApplication.some((file) => importsDomainValue(file, ownDomain, input))
+      ? [{ kind: 'application-without-domain-rule', feature }]
+      : [];
+  });
+}
+
+const SCAFFOLD_REPORTS = [
+  { package: 'web', report: 'api-client', role: 'web-api-client' },
+  { package: 'api', report: 'api', role: 'api-app' },
+];
+
+function reportExports(text) {
+  const exports = [];
+  const unsupported = [];
+  for (const [line] of text.matchAll(/^export .*$/gm)) {
+    const declaration =
+      /^export (?:declare )?(function|const|type|interface|class|enum) (\w+)/.exec(line);
+    if (declaration) {
+      const [, kind, name] = declaration;
+      exports.push(`${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}`);
+    } else {
+      unsupported.push(line.trim());
+    }
+  }
+  return { exports: exports.sort(), unsupported };
+}
+
+function scaffoldExports({ results, files, readText }) {
+  const [reference] = results;
+  return SCAFFOLD_REPORTS.flatMap(({ package: kind, report, role }) => {
+    // pnpm api:check enforces report existence and freshness against source.
+    const paths = results
+      .map((result) => `${result[kind]}/etc/${report}.api.md`)
+      .filter((path) => files.includes(path));
+    if (paths.length === 0) return [];
+    const referencePath = `${reference[kind]}/etc/${report}.api.md`;
+    const expected = reportExports(readText(referencePath));
+    const referenceProblems = expected.unsupported.map((line) => ({
+      kind: 'scaffold-exports',
+      path: referencePath,
+      problem: `Unsupported scaffold API export: ${line}`,
+    }));
+    const resultProblems = paths
+      .filter((path) => path !== referencePath)
+      .flatMap((path) => {
+        const actual = reportExports(readText(path));
+        if (actual.unsupported.length > 0 || expected.unsupported.length > 0) {
+          return actual.unsupported.map((line) => ({
+            kind: 'scaffold-exports',
+            path,
+            problem: `Unsupported scaffold API export: ${line}`,
+          }));
+        }
+        return sameList(actual.exports, expected.exports)
+          ? []
+          : [
+              {
+                kind: 'scaffold-exports',
+                path,
+                referencePath,
+                role,
+                actual: actual.exports,
+                expected: expected.exports,
+              },
+            ];
+      });
+    return [...referenceProblems, ...resultProblems];
+  });
+}
+
 function suppressions({ results, files, readText }) {
   return files
     .filter((file) => resultOf(results, file))
@@ -243,6 +364,11 @@ const RULES = {
     find: missingRoles,
     describe: (violation) =>
       `missing-role ${violation.result}: no file holds the ${violation.role} role; add it (${ROLE_TABLE}).`,
+  },
+  'single-route-features': {
+    find: singleRouteFeatures,
+    describe: (violation) =>
+      `single-route-features ${violation.path}: ${violation.result} has only route "${violation.route}"; move feature code and tests into web/src/routes/${violation.route}/ and remove the feature barrel and API report (${ROLE_TABLE}).`,
   },
   'unexpected-file': {
     find: unexpectedFiles,
@@ -272,6 +398,18 @@ const RULES = {
     find: crossResultImports,
     describe: (violation) =>
       `cross-result-import ${violation.from} -> ${violation.to}: a result imports only its own packages and packages/ui.`,
+  },
+  'application-without-domain-rule': {
+    find: applicationsWithoutDomainRule,
+    describe: (violation) =>
+      `application-without-domain-rule ${violation.feature}: application imports nothing from domain by value; put the feature's rules (such as creating or toggling an item) in domain.ts and call them from application (${ROLE_TABLE}).`,
+  },
+  'scaffold-exports': {
+    find: scaffoldExports,
+    describe: (violation) =>
+      violation.problem
+        ? `scaffold-exports ${violation.path}: ${violation.problem}; use the reference's supported export declarations.`
+        : `scaffold-exports ${violation.path}: exports [${violation.actual.join(', ')}]; the reference ${violation.referencePath} exports [${violation.expected.join(', ')}]. The ${violation.role} role is scaffold code; keep its public surface as the reference has it.`,
   },
   suppression: {
     find: suppressions,

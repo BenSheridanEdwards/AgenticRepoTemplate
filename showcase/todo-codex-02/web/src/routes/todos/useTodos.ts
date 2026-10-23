@@ -1,22 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type RouterInputs, useTrpc } from '../../api-client';
+import { type RouterOutputs, useTrpc } from '../../api-client';
 
-export function useTodos() {
-  const trpc = useTrpc();
-  const queryClient = useQueryClient();
-  const query = useQuery(trpc.todos.list.queryOptions());
-  const refresh = () => queryClient.invalidateQueries({ queryKey: trpc.todos.list.queryKey() });
-  const create = useMutation(trpc.todos.create.mutationOptions({ onSuccess: refresh }));
-  const toggle = useMutation(trpc.todos.toggle.mutationOptions({ onSuccess: refresh }));
-  const remove = useMutation(trpc.todos.delete.mutationOptions({ onSuccess: refresh }));
-
-  return {
-    todos: query.data ?? [],
-    loading: query.isPending,
-    error: query.isError || create.isError || toggle.isError || remove.isError,
-    busy: toggle.isPending || remove.isPending,
-    createTodo: (title: RouterInputs['todos']['create']['title']) => create.mutateAsync({ title }),
-    toggleTodo: (id: string) => toggle.mutate({ id }),
-    deleteTodo: (id: string) => remove.mutate({ id }),
+interface TodoMutation<Input, Output> {
+  readonly mutate: (input: Input) => void;
+  readonly mutateAsync: (input: Input) => Promise<Output>;
+  readonly isPending: boolean;
+  readonly isError: boolean;
+}
+interface TodosState {
+  readonly query: {
+    readonly data: RouterOutputs['todos']['list'] | undefined;
+    readonly isPending: boolean;
+    readonly isError: boolean;
   };
+  readonly create: TodoMutation<{ title: string }, RouterOutputs['todos']['create']>;
+  readonly toggle: TodoMutation<{ id: string }, RouterOutputs['todos']['toggle']>;
+  readonly remove: TodoMutation<{ id: string }, RouterOutputs['todos']['delete']>;
+}
+export function useTodos(): TodosState {
+  const trpc = useTrpc();
+  const client = useQueryClient();
+  const query = useQuery(trpc.todos.list.queryOptions());
+  const onSuccess = () => client.invalidateQueries({ queryKey: trpc.todos.list.queryKey() });
+  const create = useMutation(trpc.todos.create.mutationOptions({ onSuccess }));
+  const toggle = useMutation(trpc.todos.toggle.mutationOptions({ onSuccess }));
+  const remove = useMutation(trpc.todos.delete.mutationOptions({ onSuccess }));
+  return { query, create, toggle, remove };
 }
