@@ -69,8 +69,11 @@ ships, leave its block here as history and open the next one above it.
   Independent review matched all 257 result files and every stream hash to
   the recorded evidence. Runtime and privacy proof is in
   `docs/proof/consistent-todo-contract/colima-rerun.txt`.
-- **Remaining:** Capture all six browser journeys, push and watch latest-head
-  CI, then mark the PR ready for Claude Opus review.
+- **Browser proof:** All six real-API journeys passed (30 steps), screenshots
+  inspected and proof servers stopped. `todo-browser.txt` records the source
+  commit and outcomes beside the six PNGs. The reference greeting also passed.
+- **Handoff:** Latest-head push, hosted checks and readiness are recorded in
+  PR #127. Mark ready only with the consistent comparison and complete proof.
   Keep the baseline removals together with all six replacement records and
   comparison. Codex performs no merge.
 
