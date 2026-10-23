@@ -99,11 +99,12 @@ the behaviour is observable.
 - `ignoreExports`: only `RouterInputs` and `RouterOutputs` in each api-client
   barrel are exempt from unused export findings. The structure check pins
   those exports to the reference ([ADR 0054](../decisions/0054-domain-rules-in-application-and-a-fixed-api-client-surface.md)).
-- `duplicates.ignore`: the six recorded `todo-01`, `todo-02`, `todo-03`,
+- `duplicates.ignore` and `health.ignore`: the six recorded `todo-01`, `todo-02`, `todo-03`,
   `todo-codex-01`, `todo-codex-02` and `todo-codex-03` directories under
-  `showcase/` are excluded only from duplication analysis. Other Fallow
-  checks still cover them; reference code and other result directories retain
-  duplication checks ([ADR 0058](../decisions/0058-preserve-recorded-trial-outputs-in-duplication-analysis.md)).
+  `showcase/` are excluded from duplication, styling, complexity findings and
+  health scores. Dead-code and architecture checks still cover them; reference
+  code and other result directories retain all Fallow checks
+  ([ADR 0058](../decisions/0058-preserve-recorded-trial-outputs-in-duplication-analysis.md)).
 
 Three checks read it. They run locally through `pnpm arch:check` (part of `pnpm verify`) and
 in CI as steps of the `Code intelligence (Fallow)` job:

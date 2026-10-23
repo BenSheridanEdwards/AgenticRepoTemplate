@@ -15,8 +15,21 @@
   ],
 
   // Preserve the six independent recorded trial outputs (ADR 0058).
-  // Exclude only these results from duplication analysis; other checks still run.
+  // Duplication and health use separate ignore lists; keep their paths identical.
   "duplicates": {
+    "ignore": [
+      "showcase/todo-01/**",
+      "showcase/todo-02/**",
+      "showcase/todo-03/**",
+      "showcase/todo-codex-01/**",
+      "showcase/todo-codex-02/**",
+      "showcase/todo-codex-03/**"
+    ]
+  },
+
+  // Styling (including css-duplicate-block) uses health.ignore in Fallow 3.33.1.
+  // Ben approved this generated-output scope on 23 October 2026 at 16:38 BST.
+  "health": {
     "ignore": [
       "showcase/todo-01/**",
       "showcase/todo-02/**",

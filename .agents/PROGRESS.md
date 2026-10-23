@@ -21,6 +21,23 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## Recorded trial styling exemption (#127, Fallow3)
+
+- **Branch:** `feat/consistent-todo-contract`
+- **Scope:** Extend ADR 0058's six generated-output paths to Fallow styling
+  under Ben's 23 October 2026 approvals at 16:36 and 16:38 BST.
+- **Completed:** Added the same six `health.ignore` patterns as
+  `duplicates.ignore` and documented their styling, complexity and health-score
+  scope. Real-code rules and recorded trial outputs remain unchanged.
+- **Proof artifact:** ADR 0058 records both exact approvals and the versioned
+  Fallow scanner that applies `health.ignore` to CSS.
+- **Verification:** The CI-equivalent uncached Fallow audit passed with zero
+  styling findings, down from seven. A disposable CSS fixture excluded only
+  the six trial folders and retained identical warnings in eight other paths.
+  Full local verification and latest-head CI results are tracked in PR #127.
+- **Blockers:** Resolve only the two remaining CSS threads after the new-head
+  CI log/annotations and absence of fresh findings prove both warnings gone.
+
 ## Consistent Todo contract (#126)
 
 - **Branch:** `feat/consistent-todo-contract`

@@ -319,9 +319,9 @@ lands in `docs/trials/<id>.json`.
   nothing from another result.
 - Every gate reaches it by the same globs as the reference, with no config
   entry of its own; `tooling/trial/inclusion.test.ts` proves it. The six
-  recorded Todo results have the duplication-only exception in
+  recorded Todo results have the duplication and health exception in
   [ADR 0058](../decisions/0058-preserve-recorded-trial-outputs-in-duplication-analysis.md);
-  their other checks remain active.
+  their dead-code, architecture and other gates remain active.
 - Coverage holds per result: each result reaches 80 percent on its own
   (`tooling/coverage-by-result.mjs`).
 - Besides its own `web/e2e/*.spec.ts`, Playwright runs the fixed acceptance
