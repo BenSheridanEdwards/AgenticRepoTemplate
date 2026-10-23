@@ -42,9 +42,17 @@ ships, leave its block here as history and open the next one above it.
   runs and the container runtime is being prepared for the unchanged harness.
   Ben approved ADR 0054 and the paired `RouterInputs` / `RouterOutputs`
   Fallow exemption at 11:44 BST: "Approve ADR 0054 and the Fallow exemption".
-- **Blockers:** The six new trials and `consistent` acceptance proof remain
-  outstanding. Keep the PR draft until the comparison has zero outside-spec
-  aspects. Merge the removal commit only with all six replacement records and
+- **First Colima batch:** All six real runs passed install, verify, E2E and
+  structure. The unchanged comparison reports `inconsistent`: six outside-spec
+  aspects all caused by Claude retaining `PageHeader` in `web-features`, while
+  Codex keeps its UI in routes. The three original aspects now match.
+  `docs/proof/consistent-todo-contract/colima-first-batch.txt` records runtime
+  and privacy proof. Codex also persisted trust entries and downloaded plugin
+  files after fingerprinting, so its configuration baseline differs.
+- **Blockers:** Preserve this batch, enforce the newly observed placement gap,
+  and rerun all six with identical initialized configuration snapshots. Keep
+  the PR draft until the comparison has zero outside-spec aspects and a shared
+  baseline. Merge the removal commit only with all six replacement records and
   comparison, with every check green.
 
 ## macOS verification portability (#122)
