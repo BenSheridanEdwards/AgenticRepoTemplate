@@ -146,7 +146,7 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
   is cancelled. With `!cancelled()` it would be skipped, and a skipped check
   reads as a pass. A superseded push therefore ends with a red or cancelled
   `Required gates` on the old commit.
-- **Why three checks stay outside it.** CodeQL, Lighthouse, and the PR body
+- **Why four checks stay outside it.** CodeQL, Lighthouse, Visual regression, and the PR body
   check run on triggers `ci.yml` does not share, so they sit outside `needs`.
   Configure branch protection to require them directly. The contract still pins
   their job names and job-level `if:`; it does not install platform settings.
@@ -165,7 +165,7 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
 - **Local versus hosted proof.** `pnpm verify` and `pnpm e2e` mirror every lane
   with a local command. The security audit and CodeQL run only on GitHub, and
   Lighthouse runs locally only on request. Hosted readiness is a green
-  `Required gates` plus the three stand-alone checks on the latest commit.
+  `Required gates` plus the four stand-alone checks on the latest commit.
 - **Selecting the check.** In branch protection for `main`, require the checks
   listed under "Checks to require" in the inventory. Compare the live settings:
   `gh api repos/OWNER/REPO/branches/main/protection/required_status_checks | node scripts/required-gates.mjs --protection`.
@@ -185,8 +185,19 @@ Every gate reaches a showcase result by the globs it uses for the reference
 
 ## Visual style checking
 
-Visual style checking returns once StyleProof is fixed
-([ADR 0016](../decisions/0016-pause-styleproof-until-it-is-fixed.md)).
+`Visual regression` (`.github/workflows/visual.yml`) runs `pnpm visual` on the
+same UI-relevant pull requests as Lighthouse. Their shared scope also includes
+visual baseline PNGs, `apps/web/e2e/visual.spec.ts`, `playwright.config.ts` and
+`.github/workflows/visual.yml`, so changes to the comparison's own inputs run it.
+Playwright compares desktop and
+mobile reference greeting screenshots with committed PNG baselines. Other PRs
+pass through the declared scope rule. Run `pnpm visual:update` on Linux with
+the lockfile's Chromium, inspect and commit the intended baseline changes,
+then rerun `pnpm visual`. CI compares only; missing baselines and visual diffs
+fail, with failure images uploaded as `visual-differences`.
+[ADR 0052](../decisions/0052-playwright-visual-regression.md) supersedes the pause.
+The check is required directly in branch protection alongside the other
+stand-alone checks in the generated inventory.
 
 ## Enforcement approval
 

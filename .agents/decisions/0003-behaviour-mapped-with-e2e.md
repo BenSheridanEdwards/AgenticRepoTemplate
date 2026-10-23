@@ -28,3 +28,8 @@ but they verify *units*, while the behaviour map verifies *the product*.
   living documentation.
 - E2E is slower than unit tests, so it runs on pre-push and in CI, not on every
   commit.
+
+## Visual regression (ADR 0052)
+
+`pnpm visual` compares approved reference screenshots in CI on UI-relevant
+pull requests; [0052](0052-playwright-visual-regression.md) records the fallback.

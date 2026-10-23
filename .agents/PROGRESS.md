@@ -41,6 +41,22 @@ ships, leave its block here as history and open the next one above it.
 - **Blockers:** None locally; hosted verification and Claude Opus review/merge
   are tracked in the PR.
 
+## Restore visual regression proof (#71)
+
+- **Branch:** `feat/visual-regression-proof`
+- **Scope:** Reference screenshot comparisons on UI-relevant pull requests.
+- **Completed:** Playwright fallback, CI workflow, baseline approval commands,
+  required-gate contract and ADR 0052. Review follow-up covers the gate's own
+  inputs and refreshes six Linux baselines; both initial images match CI's
+  actual PNGs byte-for-byte.
+- **Proof artifact:** `docs/proof/visual-regression/` and
+  `apps/web/e2e/visual.spec.ts`.
+- **Verification:** `pnpm verify` passes on macOS with Node 22.23.4 after
+  rebasing onto the portability fix from #123. Scope and gate-contract tests
+  pass; final pre-push E2E and hosted results are recorded in PR #121.
+- **Blockers:** Workflow changes require Ben's head-specific sign-off. A
+  maintainer must select `Visual regression` in branch protection.
+
 ## Sarah's anti-slop lint rules (#114)
 
 - **Branch:** `feat/sarah-anti-slop`

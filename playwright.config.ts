@@ -28,7 +28,8 @@ const productionBuild =
   process.env.E2E_BUILD === undefined
     ? Boolean(process.env.CI)
     : process.env.E2E_BUILD !== '0' && process.env.E2E_BUILD !== 'false';
-const results = listResults(import.meta.dirname);
+const visual = process.env.VISUAL === '1';
+const results = listResults(import.meta.dirname).filter(({ id }) => !visual || id === 'reference');
 
 type WebServer = Extract<PlaywrightTestConfig['webServer'], readonly unknown[]>[number];
 
@@ -39,6 +40,10 @@ const usesProductionBuild = (id: string) =>
 
 export default defineConfig({
   fullyParallel: true,
+  testMatch: visual ? '**/visual.spec.ts' : '**/*.spec.ts',
+  testIgnore: visual ? [] : ['**/visual.spec.ts'],
+  updateSnapshots: 'none',
+  snapshotPathTemplate: '{testDir}/../../../docs/proof/visual-regression/{arg}{ext}',
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['github']] : 'list',

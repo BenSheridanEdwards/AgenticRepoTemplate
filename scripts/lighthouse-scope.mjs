@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Decide whether a pull request is UI-relevant, so `lighthouse.yml` audits it.
+ * Decide whether the Lighthouse and visual workflows compare a pull request.
  *
  * A pull request is UI-relevant when it changes a file that can change the
  * shipped bundle or the audit itself: the web app and the ui kit it bundles.
@@ -17,6 +17,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, realpathSync } from 'node:fs';
+import { matchesGlob } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /** Source folders whose files ship in the bundle; their test files never ship. */
@@ -25,7 +26,7 @@ const SOURCE_DIRECTORIES = ['apps/web/src/', 'packages/ui/src/'];
 /** Directories whose files ship in the bundle; `public/` ships every file as is. */
 const UI_DIRECTORIES = [...SOURCE_DIRECTORIES, 'apps/web/public/'];
 
-/** Files that change the bundle, the build, or the audit. */
+/** Files that change the bundle, the build, or either UI comparison. */
 const UI_FILES = new Set([
   'apps/web/index.html',
   'apps/web/vite.config.ts',
@@ -40,6 +41,9 @@ const UI_FILES = new Set([
   'lighthouserc.json',
   '.github/workflows/lighthouse.yml',
   'scripts/lighthouse-scope.mjs',
+  'apps/web/e2e/visual.spec.ts',
+  'playwright.config.ts',
+  '.github/workflows/visual.yml',
 ]);
 
 const TEST_FILE = /\.test\.[^/]*$/;
@@ -49,7 +53,11 @@ function isUiRelevant(path) {
   if (SOURCE_DIRECTORIES.some((directory) => path.startsWith(directory)) && TEST_FILE.test(path)) {
     return false;
   }
-  return UI_FILES.has(path) || UI_DIRECTORIES.some((directory) => path.startsWith(directory));
+  return (
+    UI_FILES.has(path) ||
+    UI_DIRECTORIES.some((directory) => path.startsWith(directory)) ||
+    matchesGlob(path, 'docs/proof/visual-regression/*.png')
+  );
 }
 
 /**
