@@ -2,6 +2,7 @@
 
 - **Result:** the reference result, `apps/`
 - **Decision:** [ADR 0045](../../.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)
+- **Covers:** `apps/web/src/routes/greeting/**`, `apps/web/src/features/page-header/**`, `apps/api/src/features/greeting/**`
 
 ## Intent
 
