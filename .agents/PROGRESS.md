@@ -29,6 +29,8 @@ ships, leave its block here as history and open the next one above it.
 - **Completed:** Removed the six old results and live evidence in a separate
   scaffold commit. Added Fallow and structure rules, shared the comparison's
   import classifier, regenerated the canonical diagram and recorded ADR 0054.
+  Addressed PR #127's export-parser review with explicit rejection of unsupported
+  export lines and documented the missing-report hand-off to `pnpm api:check`.
 - **Proof artifact:** `docs/proof/consistent-todo-contract/phase1.txt` records
   the expected old-result failures and positive/negative Fallow export controls.
   The architecture tests cover the new rules; comparison tests stay unchanged.
@@ -37,6 +39,8 @@ ships, leave its block here as history and open the next one above it.
 - **Blockers:** Local macOS preflight has no `bwrap` (exit 127). The plan stops
   Phase 2 there; no real trial has started and the `consistent` acceptance
   criterion remains unmet. The PR stays draft pending a permitted confined host.
+  Merge the removal commit only with all six replacement records and comparison;
+  Ben's approval of ADR 0054 and the paired Fallow exemption remains pending.
 
 ## macOS verification portability (#122)
 
