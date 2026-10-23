@@ -1,0 +1,46 @@
+{
+  "name": "PRD change",
+  "description": "Propose a behaviour or intent change and show the PRD diff and North Star outcome.",
+  "body": [
+    {
+      "type": "input",
+      "id": "conflicting-prd",
+      "attributes": {
+        "label": "Which PRD does this conflict with or supersede?",
+        "description": "Give a docs/prd/<feature>.md path, or write None: new PRD for <feature>.",
+        "placeholder": "docs/prd/greeting.md"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "input",
+      "id": "proposed-prd-diff",
+      "attributes": {
+        "label": "Proposed PRD diff",
+        "description": "Link the branch compare or draft PR that edits the named PRD or adds the new PRD.",
+        "placeholder": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/compare/main...<branch>"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "outcome",
+      "attributes": {
+        "label": "Outcome",
+        "description": "Name the outcome in [.agents/NORTH_STAR.md](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/blob/main/.agents/NORTH_STAR.md) this change advances, and explain how.",
+        "placeholder": "The North Star outcome and how the proposed behaviour or intent change moves it."
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "e2e-tests",
+      "attributes": {
+        "label": "E2E tests that would change",
+        "description": "Optionally list the spec paths and test titles that would change to prove the proposed behaviour.",
+        "placeholder": "apps/web/e2e/greeting.spec.ts — test title and proposed change"
+      },
+      "validations": { "required": false }
+    }
+  ]
+}
