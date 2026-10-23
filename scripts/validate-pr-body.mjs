@@ -19,6 +19,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { matchesGlob, posix } from 'node:path';
+import { coveredPaths, parseBehaviours } from './check-prd-conflicts.mjs';
 
 /**
  * The four template sections, in the order the contract requires them.
@@ -533,11 +534,71 @@ function collectReferenceErrors(verificationBody, headSha, listPrdFiles, northSt
   ];
 }
 
+function isPathList(value) {
+  return Array.isArray(value) && value.every((path) => typeof path === 'string' && path !== '');
+}
+
+/** Match unexpanded coverage so deleted files and both sides of a rename count. */
+function affectedPrds(changedFiles, prdCoverage) {
+  if (!isPathList(changedFiles)) throw new Error('changedFiles must be an array of paths');
+  if (
+    !Array.isArray(prdCoverage) ||
+    prdCoverage.some((prd) => !prd || typeof prd.path !== 'string' || !isPathList(prd.patterns))
+  ) {
+    throw new Error('prdCoverage must be an array of { path, patterns } entries');
+  }
+  return prdCoverage.filter(({ patterns }) =>
+    changedFiles.some((path) => patterns.some((pattern) => matchesGlob(path, pattern))),
+  );
+}
+
+function checkAffectedPrds(verificationBody, changedFiles, prdCoverage, explained) {
+  const checked = readReferenceField(verificationBody, 'PRDs checked');
+  const named = (checked.value ?? '').split(',').map((path) => path.trim().replace(/^`|`$/g, ''));
+  return affectedPrds(changedFiles, prdCoverage).flatMap(({ path }) => [
+    ...(!named.includes(path)
+      ? [`Changed files are covered by ${path}. Add it to \`- PRDs checked:\`.`]
+      : []),
+    ...(!changedFiles.includes(path) && !explained
+      ? [
+          `Changed files are covered by ${path}, but that PRD is unchanged. ` +
+            `Update ${path} in this PR or write \`- PRD impact: No behaviour change: <reason>\` ` +
+            'with at least two words.',
+        ]
+      : []),
+  ]);
+}
+
+function hasNoBehaviourChangeReason(value) {
+  const reason = /^No behaviour change:\s*(.*)$/i.exec(value)?.[1];
+  return reason !== undefined && countWords(reason) >= NOT_APPLICABLE_REASON_WORDS;
+}
+
+function collectPrdImpactErrors(verificationBody, headSha, changedFiles, prdCoverage) {
+  if (verificationBody === undefined || headShaErrors(headSha).length > 0) return [];
+  const impact = readReferenceField(verificationBody, 'PRD impact');
+  if (impact.errors) return impact.errors;
+  const explained = hasNoBehaviourChangeReason(impact.value);
+  if (!explained && !/^None$/i.test(impact.value)) {
+    return [
+      '`- PRD impact:` must be `None` or `No behaviour change: <reason>` with at least two words; ' +
+        `got ${quoteValue(impact.value)}.`,
+    ];
+  }
+  if (headSha === null) return [];
+  try {
+    return checkAffectedPrds(verificationBody, changedFiles, prdCoverage, explained);
+  } catch (error) {
+    return [`Could not check PRD impact: ${error.message}. Fetch the base and head and retry.`];
+  }
+}
+
 /**
  * Validate a PR title, body, head SHA, and head branch (`branch` is optional).
  * `headSha` is required: a full 40-character SHA, or `null` to check only the
  * fields' shapes. Repository reads use injected `listPrdFiles()` and
- * `northStarCommit(headSha)` ports; null heads call neither. Returns `{ ok, errors }`.
+ * `northStarCommit(headSha)` ports. Impact uses injected `changedFiles` and
+ * `prdCoverage` lists; null heads check shapes only. Returns `{ ok, errors }`.
  */
 export function validatePullRequest({
   title,
@@ -546,6 +607,8 @@ export function validatePullRequest({
   branch,
   listPrdFiles,
   northStarCommit,
+  changedFiles,
+  prdCoverage,
 }) {
   const sections = splitSections(typeof body === 'string' ? body : '');
   const headings = sections.map((section) => section.heading);
@@ -559,6 +622,7 @@ export function validatePullRequest({
     ...collectContentErrors(sections, located.foundIndexBySection),
     ...collectHeadCommitErrors(verificationBody, headSha),
     ...collectReferenceErrors(verificationBody, headSha, listPrdFiles, northStarCommit),
+    ...collectPrdImpactErrors(verificationBody, headSha, changedFiles, prdCoverage),
     ...collectImageErrors(typeof body === 'string' ? body : ''),
     ...collectLocalPathErrors(typeof body === 'string' ? body : ''),
   ];
@@ -605,6 +669,57 @@ export function resolveHeadSha(env, readGitHead) {
   return readGitHead();
 }
 
+/** CI supplies a raw base SHA; local runs compare with origin/main. */
+export function resolveBaseSha(env) {
+  const fromEnv = env.PR_BASE_SHA;
+  if (fromEnv === undefined && env.GITHUB_ACTIONS !== 'true') return 'origin/main';
+  if (!FULL_SHA_PATTERN.test(fromEnv ?? '')) {
+    throw new Error(
+      `PR_BASE_SHA must be the 40-character PR base SHA, got ${quoteValue(fromEnv ?? '')}. ` +
+        'Set it from `github.event.pull_request.base.sha`.',
+    );
+  }
+  return fromEnv;
+}
+
+/** Disable rename collapsing so moves out of covered folders retain the old path. */
+export function readChangedFiles(baseSha, headSha, cwd = process.cwd()) {
+  return execFileSync(
+    'git',
+    ['diff', '--name-only', '--no-renames', '-z', `${baseSha}...${headSha}`, '--'],
+    {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+    .split('\0')
+    .filter(Boolean);
+}
+
+function readPrdFiles(headSha) {
+  return execFileSync('git', ['ls-tree', '-r', '--name-only', '-z', headSha, '--', 'docs/prd/'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+    .split('\0')
+    .filter((path) => matchesGlob(path, 'docs/prd/*.md'));
+}
+
+function readPrdCoverage(headSha) {
+  return readPrdFiles(headSha).map((path) => {
+    const text = execFileSync('git', ['show', `${headSha}:${path}`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const prd = parseBehaviours(path, text);
+    if (prd.coverageConflicts.length > 0) throw new Error(prd.coverageConflicts.join('\n'));
+    if (prd.unread.length > 0)
+      throw new Error(`${path} has unread behaviour lines; run pnpm check:docs.`);
+    return { path, patterns: coveredPaths(prd) };
+  });
+}
+
 /** The local checkout's `HEAD`, with a one-line error instead of a stack trace. */
 function readGitHead() {
   try {
@@ -622,8 +737,12 @@ function readGitHead() {
 
 function runCli() {
   let headSha;
+  let changedFiles;
+  let prdCoverage;
   try {
     headSha = resolveHeadSha(process.env, readGitHead);
+    changedFiles = readChangedFiles(resolveBaseSha(process.env), headSha);
+    prdCoverage = readPrdCoverage(headSha);
   } catch (error) {
     console.error(`PR quality contract failed:\n\n  ✗ ${error.message}`);
     process.exit(1);
@@ -632,14 +751,10 @@ function runCli() {
     title: decodeEnv(process.env.PR_TITLE),
     body: decodeEnv(process.env.PR_BODY),
     headSha,
+    changedFiles,
+    prdCoverage,
     branch: decodeEnv(process.env.PR_HEAD_REF),
-    listPrdFiles: () =>
-      execFileSync('git', ['ls-tree', '-r', '--name-only', '-z', headSha, '--', 'docs/prd/'], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-        .split('\0')
-        .filter((path) => matchesGlob(path, 'docs/prd/*.md')),
+    listPrdFiles: () => readPrdFiles(headSha),
     northStarCommit: (head) =>
       execFileSync('git', ['log', '-1', '--format=%H', head, '--', '.agents/NORTH_STAR.md'], {
         encoding: 'utf8',

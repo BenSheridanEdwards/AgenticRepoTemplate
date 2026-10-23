@@ -32,7 +32,8 @@ Every PR body must include:
 - **What changed:** the smallest reviewable summary of the diff.
 - **Local verification:** exact commands run, with pass/fail status.
 - **Intent checked:** the PRDs and North Star commit checked against the PR
-  head, recorded in the Verification Summary fields below.
+  head, plus the impact on covered behaviour, recorded in the Verification
+  Summary fields below.
 - **Visual proof:** screenshots, video, or `Not applicable` with a reason. Any UI-visible
   or CSS change needs visual proof.
 - **CI status:** whether checks are green for the latest commit, still pending,
@@ -90,14 +91,24 @@ Beside that line, include exactly one of each:
 - `- PRDs checked:` lists one or more comma-separated `docs/prd/<feature>.md`
   paths tracked directly in `docs/prd/` at the PR head. For a change outside
   the PRDs, write `None: <reason>` with a reason of at least two words.
+- `- PRD impact:` is `None`, or `No behaviour change: <reason>` with a reason
+  of at least two words. List every PRD whose `Covers` globs or linked specs
+  match a changed path in `PRDs checked:`. Update each affected PRD in the
+  same PR, or explain why behaviour stays the same in `PRD impact:`. Use
+  `None` when every affected PRD changes with the code, or when the PR touches
+  only paths outside PRD coverage.
 - `- North Star commit:` names the last commit that changed
   `.agents/NORTH_STAR.md` as the PR head sees it: one SHA of 7-40 hex characters,
   optionally in balanced backticks. Read it with
   `git log -1 --format=%H <head> -- .agents/NORTH_STAR.md`.
 
-`PR quality` checks these references at the PR head
-([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md)).
-Review still checks that the selected PRDs and stated outcome fit the change.
+`PR quality` checks these references and PRD coverage at the PR head
+([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md),
+[ADR 0059](../decisions/0059-prd-impact-in-the-pr-body.md)). It compares changed
+paths from the merge base with the PR base through the PR head, including
+both paths of a rename. Local `pnpm validate:pr` uses `origin/main...HEAD`.
+Review still checks that the selected PRDs, stated outcome, PRD updates and
+reasons fit the change.
 Re-check these fields after each push along with the head commit.
 
 Commit screenshot proof on the branch, normally under
