@@ -9,6 +9,11 @@ import {
 
 // The PR head every body below is checked against.
 const HEAD = '0a21f68d4a57e7998b1357444f2bdad00cea6528';
+const NORTH_STAR = 'abcdef1234567890abcdef1234567890abcdef12';
+const INTENT_PORTS = {
+  listPrdFiles: () => ['docs/prd/greeting.md', 'docs/prd/todo.md'],
+  northStarCommit: () => NORTH_STAR,
+};
 
 // A body that satisfies every rule: all four sections in order, each with real
 // content, inline-image proof, and a head commit naming HEAD.
@@ -28,6 +33,8 @@ const VALID_BODY = [
   '# Verification Summary',
   '',
   '- Head commit: 0a21f68',
+  '- PRDs checked: docs/prd/greeting.md',
+  '- North Star commit: abcdef1',
   '- Commands run: `pnpm verify`, `pnpm e2e`.',
   '- Results: all green.',
 ].join('\n');
@@ -36,13 +43,19 @@ const VALID_TITLE = 'feat(pr-quality): validate PR bodies in CI';
 
 describe('validatePullRequest', () => {
   it('passes a well-formed body and title', () => {
-    const result = validatePullRequest({ title: VALID_TITLE, body: VALID_BODY, headSha: HEAD });
+    const result = validatePullRequest({
+      ...INTENT_PORTS,
+      title: VALID_TITLE,
+      body: VALID_BODY,
+      headSha: HEAD,
+    });
     expect(result).toEqual({ ok: true, errors: [] });
   });
 
   it('fails when a required section is missing', () => {
     const withoutVerification = VALID_BODY.replace(/# Verification Summary[\s\S]*$/, '');
     const result = validatePullRequest({
+      ...INTENT_PORTS,
       title: VALID_TITLE,
       body: withoutVerification,
       headSha: HEAD,
@@ -57,6 +70,7 @@ describe('validatePullRequest', () => {
       '# What changed?\n\n-\n\n',
     );
     const result = validatePullRequest({
+      ...INTENT_PORTS,
       title: VALID_TITLE,
       body: placeholderProof,
       headSha: HEAD,
@@ -70,7 +84,12 @@ describe('validatePullRequest', () => {
       /!\[the counter at capacity\].*\)/,
       'The build passed, so this is fine.',
     );
-    const result = validatePullRequest({ title: VALID_TITLE, body: noProof, headSha: HEAD });
+    const result = validatePullRequest({
+      ...INTENT_PORTS,
+      title: VALID_TITLE,
+      body: noProof,
+      headSha: HEAD,
+    });
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('no proof');
   });
@@ -81,6 +100,7 @@ describe('validatePullRequest', () => {
       'Not applicable — no rendered UI surface changed.',
     );
     const result = validatePullRequest({
+      ...INTENT_PORTS,
       title: VALID_TITLE,
       body: notApplicable,
       headSha: HEAD,
@@ -98,6 +118,7 @@ describe('validatePullRequest', () => {
       '<!-<!-- x -->- still a comment -->',
     );
     const result = validatePullRequest({
+      ...INTENT_PORTS,
       title: VALID_TITLE,
       body: overlappingComment,
       headSha: HEAD,
@@ -108,6 +129,7 @@ describe('validatePullRequest', () => {
 
   it('fails a non-Conventional-Commits title', () => {
     const result = validatePullRequest({
+      ...INTENT_PORTS,
       title: '[claude] add PR validator',
       body: VALID_BODY,
       headSha: HEAD,
@@ -118,7 +140,12 @@ describe('validatePullRequest', () => {
 
   const withHeadCommit = (field: string) => VALID_BODY.replace('- Head commit: 0a21f68', field);
   const headErrors = (field: string, headSha: string | null) =>
-    validatePullRequest({ title: VALID_TITLE, body: withHeadCommit(field), headSha }).errors;
+    validatePullRequest({
+      ...INTENT_PORTS,
+      title: VALID_TITLE,
+      body: withHeadCommit(field),
+      headSha,
+    }).errors;
 
   it('passes when the head commit names the PR head: full, short, uppercase, or next line', () => {
     for (const field of [
@@ -183,7 +210,12 @@ describe('validatePullRequest', () => {
       '# Behavioural Proof',
       '# Verification Summary\n\n- Head commit: 0a21f68\n\n# Behavioural Proof',
     );
-    const result = validatePullRequest({ title: VALID_TITLE, body: decoy, headSha: HEAD });
+    const result = validatePullRequest({
+      ...INTENT_PORTS,
+      title: VALID_TITLE,
+      body: decoy,
+      headSha: HEAD,
+    });
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('says 16b1728');
   });
@@ -204,7 +236,12 @@ describe('validatePullRequest', () => {
 
   it('fails closed when headSha is missing or malformed instead of skipping the comparison', () => {
     for (const headSha of [undefined, '', '0a21f68', `${HEAD}x`]) {
-      const result = validatePullRequest({ title: VALID_TITLE, body: VALID_BODY, headSha });
+      const result = validatePullRequest({
+        ...INTENT_PORTS,
+        title: VALID_TITLE,
+        body: VALID_BODY,
+        headSha,
+      });
       expect(result.ok).toBe(false);
       expect(result.errors.join('\n')).toContain(
         'headSha must be the 40-character PR head SHA or null',
@@ -212,11 +249,201 @@ describe('validatePullRequest', () => {
     }
   });
 
+  describe('intent references', () => {
+    const withField = (name: string, field: string) =>
+      VALID_BODY.replace(new RegExp(`^- ${name}:.*$`, 'm'), field);
+    const check = (body: string, ports = INTENT_PORTS, headSha: string | null = HEAD) =>
+      validatePullRequest({ title: VALID_TITLE, body, headSha, ...ports });
+
+    it.each(['PRDs checked', 'North Star commit'])('requires exactly one %s line', (name) => {
+      for (const field of ['', `<!-- - ${name}: ignored -->`]) {
+        const result = check(withField(name, field));
+        expect(result.ok).toBe(false);
+        expect(result.errors.join('\n')).toContain(`exactly one \`- ${name}:\` line; found 0`);
+      }
+      const result = check(`${VALID_BODY}\n- ${name} (again): ignored`);
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toContain(`exactly one \`- ${name}:\` line; found 2`);
+    });
+
+    it.each(['PRDs checked', 'North Star commit'])('ignores a decoy section for %s', (name) => {
+      const body = withField(name, '').replace(
+        '# Behavioural Proof',
+        `# Verification Summary\n- PRDs checked: docs/prd/greeting.md\n- North Star commit: abcdef1\n\n# Behavioural Proof`,
+      );
+      expect(check(body).errors.join('\n')).toContain(`exactly one \`- ${name}:\` line; found 0`);
+    });
+
+    it.each([
+      'docs/prd/greeting.md',
+      '`docs/prd/greeting.md`, docs/prd/todo.md',
+      'None: tooling only',
+      'None: docs-only change',
+    ])('accepts PRDs checked: %s', (value) => {
+      expect(check(withField('PRDs checked', `- PRDs checked: ${value}`))).toEqual({
+        ok: true,
+        errors: [],
+      });
+    });
+
+    it.each([
+      '',
+      'None',
+      'None:',
+      'None: tooling',
+      'None: n/a',
+      'None:\n- Commands run: pnpm verify',
+      'docs/prd/nested/greeting.md',
+      'docs/other.md',
+      'docs/prd/greeting.txt',
+      'docs/prd/../greeting.md',
+      'docs//prd/greeting.md',
+      './docs/prd/greeting.md',
+      'docs/prd/greeting.md,',
+      ',docs/prd/greeting.md',
+      'docs/prd/greeting.md, None: tooling only',
+      'docs/prd/greeting.md docs/prd/todo.md',
+      '`docs/prd/greeting.md',
+      'docs/prd/greeting.md`',
+      'docs/prd/greeting.md (checked)',
+    ])('rejects malformed PRDs checked: %s', (value) => {
+      const result = check(withField('PRDs checked', `- PRDs checked: ${value}`));
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toContain('must name comma-separated');
+    });
+
+    it('rejects a valid-shaped path missing from the head tree', () => {
+      const result = check(withField('PRDs checked', '- PRDs checked: docs/prd/untracked.md'));
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toContain(
+        '"docs/prd/untracked.md", which is not a tracked PRD at the PR head',
+      );
+    });
+
+    it('requires every PRD in a list to be tracked', () => {
+      const result = check(
+        withField('PRDs checked', '- PRDs checked: docs/prd/greeting.md, docs/prd/untracked.md'),
+      );
+      expect(result.ok).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('docs/prd/untracked.md');
+    });
+
+    it.each([
+      NORTH_STAR,
+      'abcdef1',
+      '`abcdef1`',
+      'ABCDEF1',
+    ])('accepts North Star commit: %s', (value) => {
+      expect(check(withField('North Star commit', `- North Star commit: ${value}`))).toEqual({
+        ok: true,
+        errors: [],
+      });
+    });
+
+    it.each([
+      '',
+      'None',
+      'abcdef',
+      'g'.repeat(40),
+      'a'.repeat(41),
+      '`abcdef1',
+      'abcdef1`',
+      'abcdef1, 1234567',
+      'abcdef1 (checked)',
+    ])('rejects malformed North Star commit: %s', (value) => {
+      const result = check(withField('North Star commit', `- North Star commit: ${value}`));
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toContain('`- North Star commit:` must be one commit SHA');
+    });
+
+    it('rejects a stale North Star commit and names the expected revision', () => {
+      const result = check(withField('North Star commit', '- North Star commit: 1234567'));
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toContain(
+        `last commit changing \`.agents/NORTH_STAR.md\` at the PR head is ${NORTH_STAR}`,
+      );
+    });
+
+    it('passes the PR head to the port and accepts a North Star edit at that head', () => {
+      const northStarCommit = jest.fn((_head: string) => HEAD);
+      const result = check(withField('North Star commit', `- North Star commit: ${HEAD}`), {
+        ...INTENT_PORTS,
+        northStarCommit,
+      });
+      expect(result).toEqual({ ok: true, errors: [] });
+      expect(northStarCommit).toHaveBeenCalledWith(HEAD);
+    });
+
+    it('checks shape only with a null head and calls neither repository port', () => {
+      const noRead = jest.fn(() => {
+        throw new Error('repository must not be read');
+      });
+      const ports = { listPrdFiles: noRead, northStarCommit: noRead };
+      const body = withField('PRDs checked', '- PRDs checked: docs/prd/untracked.md');
+      expect(check(body, ports, null)).toEqual({ ok: true, errors: [] });
+      expect(check(withField('PRDs checked', '- PRDs checked: None'), ports, null).ok).toBe(false);
+      expect(
+        check(withField('North Star commit', '- North Star commit: None'), ports, null).ok,
+      ).toBe(false);
+      expect(noRead).not.toHaveBeenCalled();
+    });
+
+    it('accepts a reason without requesting a PRD listing', () => {
+      const listPrdFiles = jest.fn(() => {
+        throw new Error('unused');
+      });
+      expect(
+        check(withField('PRDs checked', '- PRDs checked: None: tooling only'), {
+          ...INTENT_PORTS,
+          listPrdFiles,
+        }),
+      ).toEqual({ ok: true, errors: [] });
+      expect(listPrdFiles).not.toHaveBeenCalled();
+    });
+
+    it('fails closed on missing ports or repository read failures', () => {
+      const missing = validatePullRequest({ title: VALID_TITLE, body: VALID_BODY, headSha: HEAD });
+      expect(missing.ok).toBe(false);
+      expect(missing.errors.join('\n')).toContain('Could not list PRDs');
+      expect(missing.errors.join('\n')).toContain('Could not read North Star history');
+      const unavailable = () => {
+        throw new Error('unavailable');
+      };
+      const result = check(VALID_BODY, { listPrdFiles: unavailable, northStarCommit: unavailable });
+      expect(result.ok).toBe(false);
+      expect(result.errors).toHaveLength(2);
+      expect(result.errors.every((error) => error.includes('unavailable'))).toBe(true);
+    });
+
+    it.each([
+      '',
+      'abcdef1',
+      'g'.repeat(40),
+    ])('fails closed on invalid North Star history: %s', (value) => {
+      const result = check(VALID_BODY, { ...INTENT_PORTS, northStarCommit: () => value });
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toContain('must return a full 40-character SHA');
+    });
+
+    it('fails closed on an invalid PRD listing', () => {
+      const result = validatePullRequest({
+        title: VALID_TITLE,
+        body: VALID_BODY,
+        headSha: HEAD,
+        ...INTENT_PORTS,
+        listPrdFiles: () => 'docs/prd/greeting.md',
+      });
+      expect(result.ok).toBe(false);
+      expect(result.errors.join('\n')).toContain('must return an array of paths');
+    });
+  });
+
   describe('inline images', () => {
     const IMAGE = /!\[the counter at capacity\].*\)/;
     const withProof = (proof: string) => VALID_BODY.replace(IMAGE, proof);
     const errorsFor = (body: string) =>
-      validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body }).errors;
+      validatePullRequest({ ...INTENT_PORTS, headSha: HEAD, title: VALID_TITLE, body }).errors;
 
     it.each([
       'docs/proof/x/at-capacity.png',
@@ -307,6 +534,7 @@ describe('validatePullRequest', () => {
       'Not applicable: n/a',
     ])('fails "%s" without a reason on the same line', (line) => {
       const result = validatePullRequest({
+        ...INTENT_PORTS,
         headSha: HEAD,
         title: VALID_TITLE,
         body: withProof(line),
@@ -317,7 +545,9 @@ describe('validatePullRequest', () => {
 
     it('passes a reason on the next non-empty line', () => {
       const body = withProof('Not applicable.\n\nThis is a docs-only change.');
-      expect(validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body })).toEqual({
+      expect(
+        validatePullRequest({ ...INTENT_PORTS, headSha: HEAD, title: VALID_TITLE, body }),
+      ).toEqual({
         ok: true,
         errors: [],
       });
@@ -329,7 +559,9 @@ describe('validatePullRequest', () => {
       'Not Applicable: docs-only change.',
     ])('passes %j', (line) => {
       const body = withProof(line);
-      expect(validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body })).toEqual({
+      expect(
+        validatePullRequest({ ...INTENT_PORTS, headSha: HEAD, title: VALID_TITLE, body }),
+      ).toEqual({
         ok: true,
         errors: [],
       });
@@ -340,14 +572,18 @@ describe('validatePullRequest', () => {
       'Proof format: `![alt](https://example.com/a.png)`',
     ])('treats %j as no proof', (line) => {
       const body = withProof(line);
-      expect(validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body }).ok).toBe(false);
+      expect(
+        validatePullRequest({ ...INTENT_PORTS, headSha: HEAD, title: VALID_TITLE, body }).ok,
+      ).toBe(false);
     });
 
     it('accepts ?raw=true on a GitHub blob image', () => {
       const body = withProof(
         '![s](https://github.com/o/r/blob/feat/x/docs/proof/a/s.png?raw=true)',
       );
-      expect(validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body })).toEqual({
+      expect(
+        validatePullRequest({ ...INTENT_PORTS, headSha: HEAD, title: VALID_TITLE, body }),
+      ).toEqual({
         ok: true,
         errors: [],
       });
@@ -355,7 +591,9 @@ describe('validatePullRequest', () => {
 
     it('passes a reason on the same line', () => {
       const body = withProof('Not applicable: docs-only change, no rendered surface.');
-      expect(validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body })).toEqual({
+      expect(
+        validatePullRequest({ ...INTENT_PORTS, headSha: HEAD, title: VALID_TITLE, body }),
+      ).toEqual({
         ok: true,
         errors: [],
       });
@@ -366,7 +604,9 @@ describe('validatePullRequest', () => {
         '# Verification Summary',
         'Video: Not applicable\n\n# Verification Summary',
       );
-      expect(validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body })).toEqual({
+      expect(
+        validatePullRequest({ ...INTENT_PORTS, headSha: HEAD, title: VALID_TITLE, body }),
+      ).toEqual({
         ok: true,
         errors: [],
       });
@@ -384,7 +624,13 @@ describe('validatePullRequest', () => {
       'revert-12-feat/threshold-reset',
     ])('passes %s', (branch) => {
       expect(
-        validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body: VALID_BODY, branch }),
+        validatePullRequest({
+          ...INTENT_PORTS,
+          headSha: HEAD,
+          title: VALID_TITLE,
+          body: VALID_BODY,
+          branch,
+        }),
       ).toEqual({
         ok: true,
         errors: [],
@@ -401,6 +647,7 @@ describe('validatePullRequest', () => {
       'claude/threshold-reset',
     ])('fails %s with an example', (branch) => {
       const result = validatePullRequest({
+        ...INTENT_PORTS,
         headSha: HEAD,
         title: VALID_TITLE,
         body: VALID_BODY,
@@ -414,16 +661,28 @@ describe('validatePullRequest', () => {
 
     it('does not check the branch when none is given', () => {
       expect(
-        validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body: VALID_BODY, branch: '' }).ok,
+        validatePullRequest({
+          ...INTENT_PORTS,
+          headSha: HEAD,
+          title: VALID_TITLE,
+          body: VALID_BODY,
+          branch: '',
+        }).ok,
       ).toBe(true);
-      expect(validatePullRequest({ headSha: HEAD, title: VALID_TITLE, body: VALID_BODY }).ok).toBe(
-        true,
-      );
+      expect(
+        validatePullRequest({
+          ...INTENT_PORTS,
+          headSha: HEAD,
+          title: VALID_TITLE,
+          body: VALID_BODY,
+        }).ok,
+      ).toBe(true);
     });
 
     it('accepts every Conventional Commit type in both the title and the branch', () => {
       for (const type of CONVENTIONAL_COMMIT_TYPES) {
         const result = validatePullRequest({
+          ...INTENT_PORTS,
           headSha: HEAD,
           title: `${type}: do the thing`,
           body: VALID_BODY,
@@ -441,7 +700,12 @@ describe('validatePullRequest', () => {
     it('fails the #11 body, which ran a validator from a /Users home folder', () => {
       const fixture = readFixture('pr-11.md');
       const body = `${VALID_BODY}\n\n${fixture}`;
-      const result = validatePullRequest({ title: VALID_TITLE, body, headSha: HEAD });
+      const result = validatePullRequest({
+        ...INTENT_PORTS,
+        title: VALID_TITLE,
+        body,
+        headSha: HEAD,
+      });
       const path = '/Users/agents/.codex/skills/.system/skill-creator/scripts/quick_validate.py';
       expect(result.ok).toBe(false);
       expect(result.errors).toHaveLength(1);
@@ -451,7 +715,12 @@ describe('validatePullRequest', () => {
     it('fails the #58 body, which cited /tmp/lhproof/classify.sh as proof', () => {
       const fixture = readFixture('pr-58.md');
       const body = `${VALID_BODY}\n\n${fixture}`;
-      const result = validatePullRequest({ title: VALID_TITLE, body, headSha: HEAD });
+      const result = validatePullRequest({
+        ...INTENT_PORTS,
+        title: VALID_TITLE,
+        body,
+        headSha: HEAD,
+      });
       expect(result.ok).toBe(false);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('"/tmp/lhproof/classify.sh"');
@@ -460,13 +729,23 @@ describe('validatePullRequest', () => {
     it('fails the #92 body, which published /workspace/mono scratch paths in a fenced block', () => {
       const fixture = readFixture('pr-92.md');
       const body = `${VALID_BODY}\n\n${fixture}`;
-      const result = validatePullRequest({ title: VALID_TITLE, body, headSha: HEAD });
+      const result = validatePullRequest({
+        ...INTENT_PORTS,
+        title: VALID_TITLE,
+        body,
+        headSha: HEAD,
+      });
       expect(result.ok).toBe(false);
       expect(result.errors).toHaveLength(4);
     });
 
     const resultFor = (extra: string) =>
-      validatePullRequest({ title: VALID_TITLE, body: `${VALID_BODY}\n\n${extra}`, headSha: HEAD });
+      validatePullRequest({
+        ...INTENT_PORTS,
+        title: VALID_TITLE,
+        body: `${VALID_BODY}\n\n${extra}`,
+        headSha: HEAD,
+      });
     const pathErrors = (extra: string) =>
       resultFor(extra).errors.filter((error) => error.includes('machine-local path'));
 
@@ -579,7 +858,9 @@ describe('validatePullRequest', () => {
       const line = `Output: ${path}`;
       const body = `${VALID_BODY}\n\n${line}`;
       const lineNumber = body.split('\n').indexOf(line) + 1;
-      expect(validatePullRequest({ title: VALID_TITLE, body, headSha: HEAD }).errors).toEqual([
+      expect(
+        validatePullRequest({ ...INTENT_PORTS, title: VALID_TITLE, body, headSha: HEAD }).errors,
+      ).toEqual([
         `PR body names the machine-local path "${path.slice(0, 40)}…" (line ${lineNumber}). ` +
           'Name a repo-relative path (`docs/proof/<scope>/file.png`), a placeholder such as `<workdir>/repo`, or the command a reviewer can run to reproduce it.',
       ]);
@@ -637,6 +918,7 @@ describe('validatePullRequest', () => {
 
   it('ignores an image example quoted in inline code', () => {
     const result = validatePullRequest({
+      ...INTENT_PORTS,
       headSha: HEAD,
       title: VALID_TITLE,
       body: `${VALID_BODY}\n\n# Notes\n\n- Embed proof as \`![alt](...png?raw=1)\`.`,

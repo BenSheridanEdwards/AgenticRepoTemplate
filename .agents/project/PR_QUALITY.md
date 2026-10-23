@@ -31,6 +31,8 @@ Every PR body must include:
 - **Why:** the problem, risk, or capability the change exists to address.
 - **What changed:** the smallest reviewable summary of the diff.
 - **Local verification:** exact commands run, with pass/fail status.
+- **Intent checked:** the PRDs and North Star commit checked against the PR
+  head, recorded in the Verification Summary fields below.
 - **Visual proof:** screenshots, video, or `Not applicable` with a reason. Any UI-visible
   or CSS change needs visual proof.
 - **CI status:** whether checks are green for the latest commit, still pending,
@@ -81,7 +83,24 @@ contract; this document explains the standard behind it. The `PR quality`
 workflow checks the structure, the proof format, the title, and the branch
 name; [`DEFINITION_OF_DONE.md`](DEFINITION_OF_DONE.md#pr-contract-checks) lists
 each check, including the `- Head commit:` line that every push re-checks
-against the PR head. Commit screenshot proof on the branch, normally under
+against the PR head.
+
+Beside that line, include exactly one of each:
+
+- `- PRDs checked:` lists one or more comma-separated `docs/prd/<feature>.md`
+  paths tracked directly in `docs/prd/` at the PR head. For a change outside
+  the PRDs, write `None: <reason>` with a reason of at least two words.
+- `- North Star commit:` names the last commit that changed
+  `.agents/NORTH_STAR.md` as the PR head sees it: one SHA of 7-40 hex characters,
+  optionally in balanced backticks. Read it with
+  `git log -1 --format=%H <head> -- .agents/NORTH_STAR.md`.
+
+`PR quality` checks these references at the PR head
+([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md)).
+Review still checks that the selected PRDs and stated outcome fit the change.
+Re-check these fields after each push along with the head commit.
+
+Commit screenshot proof on the branch, normally under
 `docs/proof/<short-scope>/` (see [`docs/proof/README.md`](../../docs/proof/README.md)),
 and embed it inline, as
 [`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md)
