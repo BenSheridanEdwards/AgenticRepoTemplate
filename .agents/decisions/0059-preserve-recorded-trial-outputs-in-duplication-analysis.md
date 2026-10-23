@@ -1,4 +1,4 @@
-# 58. Preserve recorded trial outputs in duplication and styling analysis
+# 59. Preserve recorded trial outputs in duplication and styling analysis
 
 - **Status:** Accepted by Ben on 23 October 2026 at 16:36 BST:
   "exclude from fallow". Approval covers generated trial-output paths only.

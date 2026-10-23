@@ -104,7 +104,7 @@ the behaviour is observable.
   `showcase/` are excluded from duplication, styling, complexity findings and
   health scores. Dead-code and architecture checks still cover them; reference
   code and other result directories retain all Fallow checks
-  ([ADR 0058](../decisions/0058-preserve-recorded-trial-outputs-in-duplication-analysis.md)).
+  ([ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md)).
 
 Three checks read it. They run locally through `pnpm arch:check` (part of `pnpm verify`) and
 in CI as steps of the `Code intelligence (Fallow)` job:

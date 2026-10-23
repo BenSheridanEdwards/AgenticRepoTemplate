@@ -296,37 +296,45 @@ function reportExports(text) {
 
 function scaffoldExports({ results, files, readText }) {
   const [reference] = results;
-  return results.flatMap((result) =>
-    SCAFFOLD_REPORTS.flatMap(({ package: kind, report, role }) => {
-      const path = `${result[kind]}/etc/${report}.api.md`;
-      if (!files.includes(path)) {
-        // pnpm api:check enforces report existence and freshness against source.
-        return [];
-      }
-      const referencePath = `${reference[kind]}/etc/${report}.api.md`;
-      const actual = reportExports(readText(path));
-      const expected = reportExports(readText(referencePath));
-      if (actual.unsupported.length > 0 || expected.unsupported.length > 0) {
-        return actual.unsupported.map((line) => ({
-          kind: 'scaffold-exports',
-          path,
-          problem: `Unsupported scaffold API export: ${line}`,
-        }));
-      }
-      return sameList(actual.exports, expected.exports)
-        ? []
-        : [
-            {
-              kind: 'scaffold-exports',
-              path,
-              referencePath,
-              role,
-              actual: actual.exports,
-              expected: expected.exports,
-            },
-          ];
-    }),
-  );
+  return SCAFFOLD_REPORTS.flatMap(({ package: kind, report, role }) => {
+    // pnpm api:check enforces report existence and freshness against source.
+    const paths = results
+      .map((result) => `${result[kind]}/etc/${report}.api.md`)
+      .filter((path) => files.includes(path));
+    if (paths.length === 0) return [];
+    const referencePath = `${reference[kind]}/etc/${report}.api.md`;
+    const expected = reportExports(readText(referencePath));
+    const referenceProblems = expected.unsupported.map((line) => ({
+      kind: 'scaffold-exports',
+      path: referencePath,
+      problem: `Unsupported scaffold API export: ${line}`,
+    }));
+    const resultProblems = paths
+      .filter((path) => path !== referencePath)
+      .flatMap((path) => {
+        const actual = reportExports(readText(path));
+        if (actual.unsupported.length > 0 || expected.unsupported.length > 0) {
+          return actual.unsupported.map((line) => ({
+            kind: 'scaffold-exports',
+            path,
+            problem: `Unsupported scaffold API export: ${line}`,
+          }));
+        }
+        return sameList(actual.exports, expected.exports)
+          ? []
+          : [
+              {
+                kind: 'scaffold-exports',
+                path,
+                referencePath,
+                role,
+                actual: actual.exports,
+                expected: expected.exports,
+              },
+            ];
+      });
+    return [...referenceProblems, ...resultProblems];
+  });
 }
 
 function suppressions({ results, files, readText }) {

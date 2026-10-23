@@ -21,15 +21,32 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## Latest Claude review follow-up (#127)
+
+- **Branch:** `feat/consistent-todo-contract`
+- **Scope:** Address the latest Claude review and rebase onto main `cdd5709`.
+- **Completed:** Rebased without a merge, renumbered the trial-output exemption
+  to ADR 0059 and removed the greeting PRD's obsolete page-header coverage glob.
+  Scaffold export validation now reports unsupported reference lines explicitly
+  once per report, alongside result findings, with focused reference-only coverage.
+- **Proof artifact:** `tooling/architecture/structure.test.ts`; the six result
+  trees and all trial evidence match reviewed head `9611335` byte for byte.
+- **Verification:** Structure and comparison suites passed (189 tests). Full
+  `pnpm verify` passed (91 suites, 1,778 tests, coverage, builds and size budgets).
+  Regenerating the comparison produced identical bytes. Pre-push E2E and hosted
+  results are tracked in PR #127 against its new head.
+- **Blockers:** ADR 0055 remains proposed pending Ben's explicit acceptance.
+  The existing approvals cover ADR 0054 and the trial-output exemption only.
+
 ## Recorded trial styling exemption (#127, Fallow3)
 
 - **Branch:** `feat/consistent-todo-contract`
-- **Scope:** Extend ADR 0058's six generated-output paths to Fallow styling
+- **Scope:** Extend ADR 0059's six generated-output paths to Fallow styling
   under Ben's 23 October 2026 approvals at 16:36 and 16:38 BST.
 - **Completed:** Added the same six `health.ignore` patterns as
   `duplicates.ignore` and documented their styling, complexity and health-score
   scope. Real-code rules and recorded trial outputs remain unchanged.
-- **Proof artifact:** ADR 0058 records both exact approvals and the versioned
+- **Proof artifact:** ADR 0059 records both exact approvals and the versioned
   Fallow scanner that applies `health.ignore` to CSS.
 - **Verification:** The CI-equivalent uncached Fallow audit passed with zero
   styling findings, down from seven. A disposable CSS fixture excluded only

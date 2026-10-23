@@ -494,6 +494,22 @@ describe('validateStructure', () => {
     ]);
   });
 
+  it('reports unsupported reference lines when the result exports are supported', () => {
+    const line = 'export namespace Extra {}';
+    expect(
+      validate({
+        ...clientReports(CLIENT_EXPORTS),
+        [`apps/${CLIENT_REPORT}`]: [...CLIENT_EXPORTS, line].join('\n'),
+      }),
+    ).toEqual([
+      {
+        kind: 'scaffold-exports',
+        path: `apps/${CLIENT_REPORT}`,
+        problem: `Unsupported scaffold API export: ${line}`,
+      },
+    ]);
+  });
+
   it.each([
     ['a missing RouterInputs', CLIENT_EXPORTS.filter((line) => !line.includes('RouterInputs'))],
     ['an extra export', [...CLIENT_EXPORTS, 'export declare const extra: unknown;']],

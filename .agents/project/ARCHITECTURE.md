@@ -320,7 +320,7 @@ lands in `docs/trials/<id>.json`.
 - Every gate reaches it by the same globs as the reference, with no config
   entry of its own; `tooling/trial/inclusion.test.ts` proves it. The six
   recorded Todo results have the duplication and health exception in
-  [ADR 0058](../decisions/0058-preserve-recorded-trial-outputs-in-duplication-analysis.md);
+  [ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md);
   their dead-code, architecture and other gates remain active.
 - Coverage holds per result: each result reaches 80 percent on its own
   (`tooling/coverage-by-result.mjs`).

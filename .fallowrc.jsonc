@@ -14,7 +14,7 @@
     }
   ],
 
-  // Preserve the six independent recorded trial outputs (ADR 0058).
+  // Preserve the six independent recorded trial outputs (ADR 0059).
   // Duplication and health use separate ignore lists; keep their paths identical.
   "duplicates": {
     "ignore": [
