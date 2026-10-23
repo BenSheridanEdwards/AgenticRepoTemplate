@@ -422,6 +422,19 @@ describe('validateStructure', () => {
   });
 
   it.each([
+    'export abstract class Extra {}',
+    'export namespace Extra {}',
+    'export declare let extra: unknown;',
+    'export { extra };',
+    'export {',
+    'export type { Extra };',
+  ])('rejects an unrecognised scaffold export: %s', (line) => {
+    expect(() => validate(clientReports([...CLIENT_EXPORTS, line]))).toThrow(
+      `Unsupported scaffold API export: ${line}`,
+    );
+  });
+
+  it.each([
     ['a missing RouterInputs', CLIENT_EXPORTS.filter((line) => !line.includes('RouterInputs'))],
     ['an extra export', [...CLIENT_EXPORTS, 'export declare const extra: unknown;']],
     [

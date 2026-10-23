@@ -57,7 +57,9 @@ prove the rules' behavior.
 result's `web/etc/api-client.api.md` and `api/etc/api.api.md` with those in
 `apps/`. `type` and `interface` declarations count as types; `function`,
 `const`, `class` and `enum` declarations count as values. Missing, added or
-changed kinds fail. `pnpm api:check` continues to enforce report existence
+changed kinds fail. Any unrecognised `export` line fails explicitly, keeping
+other declaration and re-export forms from escaping the pin.
+`pnpm api:check` continues to enforce report existence
 and freshness against source.
 
 The api-client surface is therefore `ApiProvider`, `RouterInputs`,
@@ -98,7 +100,8 @@ unchanged.
   [0038](0038-trial-isolation-and-no-time-limit.md) requires the private
   `/tmp` mount before an agent starts. The Phase 1 PR stays draft pending a
   permitted host for Phase 2; a `consistent` verdict with zero outside-spec
-  aspects remains unverified.
+  aspects remains unverified. Merge the baseline-removal commit only together
+  with all six replacement trial records and the regenerated comparison.
 - The existing guarded-path list is unchanged. The narrow Fallow exemption
   and its mandatory-export check are explicit review points in the PR.
 - No dependency or tool owner is added. Reverting this decision's rules and

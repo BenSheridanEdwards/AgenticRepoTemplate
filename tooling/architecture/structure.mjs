@@ -254,10 +254,16 @@ const SCAFFOLD_REPORTS = [
 ];
 
 const reportExports = (text) =>
-  [...text.matchAll(/^export (?:declare )?(function|const|type|interface|class|enum) (\w+)/gm)]
-    .map(
-      ([, kind, name]) => `${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}`,
-    )
+  [...text.matchAll(/^export .*$/gm)]
+    .map(([line]) => {
+      const declaration =
+        /^export (?:declare )?(function|const|type|interface|class|enum) (\w+)/.exec(line);
+      if (!declaration) {
+        throw new Error(`Unsupported scaffold API export: ${line.trim()}`);
+      }
+      const [, kind, name] = declaration;
+      return `${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}`;
+    })
     .sort();
 
 function scaffoldExports({ results, files, readText }) {
@@ -266,6 +272,7 @@ function scaffoldExports({ results, files, readText }) {
     SCAFFOLD_REPORTS.flatMap(({ package: kind, report, role }) => {
       const path = `${result[kind]}/etc/${report}.api.md`;
       if (!files.includes(path)) {
+        // pnpm api:check enforces report existence and freshness against source.
         return [];
       }
       const referencePath = `${reference[kind]}/etc/${report}.api.md`;
