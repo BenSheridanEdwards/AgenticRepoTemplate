@@ -5,6 +5,15 @@
   // audit stays honest rather than flagging a false positive on every run.
   "ignoreDependencies": ["@size-limit/file"],
 
+  // The api-client scaffold keeps both router types (ADR 0054), even when a
+  // route uses only one. The structure gate pins the reference export surface.
+  "ignoreExports": [
+    {
+      "file": "{apps,showcase/*}/web/src/api-client/index.ts",
+      "exports": ["RouterInputs", "RouterOutputs"]
+    }
+  ],
+
   // jest.style-stub.cjs is referenced as a string in jest.config.ts
   // (moduleNameMapper), not imported, so it isn't statically reachable. It is
   // used by every test run — exclude it from dead-file analysis.
@@ -264,7 +273,8 @@
       },
       {
         "from": "api-integrations",
-        "allow": ["api-domain"],
+        // Storage persists domain types; it never calls domain rules.
+        "allow": [],
         "allowTypeOnly": [
           "web-app",
           "web-api-client",
@@ -274,7 +284,8 @@
           "api-app",
           "api-trpc",
           "api-procedures",
-          "api-application"
+          "api-application",
+          "api-domain"
         ]
       }
     ],

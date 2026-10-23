@@ -21,6 +21,23 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## Consistent Todo contract (#126)
+
+- **Branch:** `feat/consistent-todo-contract`
+- **Scope:** Enforce application/domain value crossings, type-only integrations
+  imports and the reference scaffold API surface; prepare one rerun baseline.
+- **Completed:** Removed the six old results and live evidence in a separate
+  scaffold commit. Added Fallow and structure rules, shared the comparison's
+  import classifier, regenerated the canonical diagram and recorded ADR 0054.
+- **Proof artifact:** `docs/proof/consistent-todo-contract/phase1.txt` records
+  the expected old-result failures and positive/negative Fallow export controls.
+  The architecture tests cover the new rules; comparison tests stay unchanged.
+- **Verification:** Boundary/contract tests passed (64 tests). Full local
+  `pnpm verify`, `pnpm e2e` and latest-head CI are tracked in the PR.
+- **Blockers:** Local macOS preflight has no `bwrap` (exit 127). The plan stops
+  Phase 2 there; no real trial has started and the `consistent` acceptance
+  criterion remains unmet. The PR stays draft pending a permitted confined host.
+
 ## macOS verification portability (#122)
 
 - **Branch:** `fix/macos-verification`

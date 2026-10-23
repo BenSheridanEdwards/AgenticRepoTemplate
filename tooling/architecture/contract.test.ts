@@ -174,8 +174,12 @@ describe("the repository's contract, read through Fallow", () => {
       'api-procedures -> api-application',
       'api-application -> api-domain',
       'api-application -> api-integrations',
-      'api-integrations -> api-domain',
     ]);
+    expect(repository.directions).toContainEqual({
+      from: 'api-integrations',
+      to: 'api-domain',
+      typeOnly: true,
+    });
   });
 });
 

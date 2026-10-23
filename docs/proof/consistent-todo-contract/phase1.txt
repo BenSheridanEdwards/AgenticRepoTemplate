@@ -1,0 +1,283 @@
+Phase 1 regression proof — 2026-10-23
+
+Old baseline: cb999fcaed8dcc89d4880737b5c5b4c213522038.
+Fixture: git archive of that baseline, pnpm install --frozen-lockfile, then
+copy the new .fallowrc.jsonc, structure.mjs, imports.mjs and result-facts.mjs
+on top without removing its six results. No trial agent runs in this fixture.
+
+$ node tooling/architecture/structure.mjs --root <fixture>
+exit 1 (expected)
+application-without-domain-rule showcase/todo-02/api/src/features/todo: application imports nothing from domain by value; put the feature's rules (such as creating or toggling an item) in domain.ts and call them from application (see .agents/project/ARCHITECTURE.md).
+application-without-domain-rule showcase/todo-03/api/src/features/todo: application imports nothing from domain by value; put the feature's rules (such as creating or toggling an item) in domain.ts and call them from application (see .agents/project/ARCHITECTURE.md).
+scaffold-exports showcase/todo-01/web/etc/api-client.api.md: exports [ApiProvider:value, RouterOutputs:type, TestApiHandlers:type, TestApiProvider:value, useTrpc:value]; the reference apps/web/etc/api-client.api.md exports [ApiProvider:value, RouterInputs:type, RouterOutputs:type, TestApiHandlers:type, TestApiProvider:value, useTrpc:value]. The web-api-client role is scaffold code; keep its public surface as the reference has it.
+scaffold-exports showcase/todo-03/web/etc/api-client.api.md: exports [ApiProvider:value, RouterOutputs:type, TestApiHandlers:type, TestApiProvider:value, useTrpc:value]; the reference apps/web/etc/api-client.api.md exports [ApiProvider:value, RouterInputs:type, RouterOutputs:type, TestApiHandlers:type, TestApiProvider:value, useTrpc:value]. The web-api-client role is scaffold code; keep its public surface as the reference has it.
+scaffold-exports showcase/todo-codex-01/web/etc/api-client.api.md: exports [ApiProvider:value, TestApiHandlers:type, TestApiProvider:value, useTrpc:value]; the reference apps/web/etc/api-client.api.md exports [ApiProvider:value, RouterInputs:type, RouterOutputs:type, TestApiHandlers:type, TestApiProvider:value, useTrpc:value]. The web-api-client role is scaffold code; keep its public surface as the reference has it.
+
+$ pnpm --dir <fixture> arch:gate
+exit 1 (expected)
+$ fallow architecture -q && node tooling/architecture/structure.mjs && node tooling/architecture/diagram.mjs --check
+── Architecture ─────────────────────────────────────
+
+● Boundary violations (2)
+  showcase/todo-02/api/src/features/todo/integrations.ts:2 → showcase/todo-02/api/src/features/todo/domain.ts (api-integrations → api-domain)
+  showcase/todo-03/api/src/features/todo/integrations.ts:2 → showcase/todo-03/api/src/features/todo/domain.ts (api-integrations → api-domain)
+  Imports that cross defined architecture zone boundaries
+  https://fallow.tools/docs/explanations/dead-code/#boundary-violations
+
+[X] Exit code 1: gate error-severity-findings (2 at or above error) failed. To report a finding type without a failure, set its rule to "warn".
+[ELIFECYCLE] Command failed with exit code 1.
+
+Observed: exactly two application-without-domain-rule findings and three
+scaffold-exports findings; exactly two Fallow boundary violations.
+Reference and all Codex results have no R1/R2 finding. No freedom or ruling
+was changed to obtain this result.
+
+Phase 2 preflight (local macOS host)
+$ node -v
+v22.23.4
+$ bwrap --dev-bind / / true
+command not found: bwrap
+exit 127
+$ claude --version
+2.1.309 (Claude Code)
+$ codex --version
+codex-cli 0.164.0
+
+Trials not re-run: no bubblewrap host available locally.
+The plan requires stopping before a real trial when confinement is unavailable.
+No generated consistency verdict is claimed. The six old results and live
+records were removed in the scaffold commit; git history retains the baseline.
+
+$ node tooling/trial/compare.mjs
+exit 0
+No trial records in docs/trials; nothing to compare.
+
+R3a real Fallow proof
+Node v22.23.4; Fallow 3.33.1 (repository pin).
+Disposable fixture copied from the checkout; source stays unchanged.
+Reference and showcase/x retain all six api-client exports; each useGreeting hook consumes RouterOutputs only.
+Fixture uses linked dependencies and the inclusion test's pnpm option to prevent reinstalling through links.
+Local fixture commits use command-scoped Ben identity; no git identity config is written.
+Main base exists before the seeded branch, so audit runs rather than taking its first-commit skip.
+Enabled results: dead-code exit 0; fallow:audit exit 0.
+
+Brace exemption enabled: both routes use RouterOutputs only.
+$ pnpm --config.verify-deps-before-run=false exec fallow dead-code
+exit 0
+loaded config: <fixture>/.fallowrc.jsonc
+   0.186501458s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern
+  101 entry points detected (72 plugin, 27 package.json, 2 default index)
+
+✓ No issues found (0.22s)
+
+
+Brace exemption enabled: both barrels are touched versus main.
+$ pnpm --config.verify-deps-before-run=false fallow:audit
+exit 0
+■ Metrics: dead code 0 · complexity 0 · duplication 14
+● Duplicates (14 clone groups)
+
+     79 lines  2 instances  spread 7  dup:e0f26621
+    apps/web/src/index.css:1-79
+    showcase/x/web/src/index.css:1-79
+
+     42 lines  2 instances  spread 9  dup:16fa1b48
+    apps/web/src/api-client/testApiHandlers.ts:6-47
+    showcase/x/web/src/api-client/testApiHandlers.ts:6-47
+
+     34 lines  2 instances  spread 11  dup:1184690a
+    apps/web/src/routes/greeting/useGreeting.ts:5-38
+    showcase/x/web/src/routes/greeting/useGreeting.ts:5-38
+
+     18 lines  2 instances  spread 11  dup:4225f11e
+    apps/web/src/routes/greeting/GreetingForm.tsx:4-21
+    showcase/x/web/src/routes/greeting/GreetingForm.tsx:4-21
+
+     10 lines  2 instances  spread 7  dup:87bfbeb0
+    apps/api/src/server.ts:5-14
+    showcase/x/api/src/server.ts:5-14
+
+     13 lines  2 instances  spread 11  dup:761a7861
+    apps/web/src/routes/greeting/GreetingMessage.tsx:3-15
+    showcase/x/web/src/routes/greeting/GreetingMessage.tsx:3-15
+
+      7 lines  2 instances  spread 11  dup:9d9fb608
+    apps/api/src/features/greeting/procedures.ts:5-11
+    showcase/x/api/src/features/greeting/procedures.ts:5-11
+
+     10 lines  2 instances  spread 9  dup:bbb93a41
+    apps/web/src/api-client/ApiProvider.tsx:7-16
+    showcase/x/web/src/api-client/ApiProvider.tsx:7-16
+
+     14 lines  2 instances  spread 9  dup:26fad6fb
+    apps/web/src/api-client/TestApiProvider.tsx:7-20
+    showcase/x/web/src/api-client/TestApiProvider.tsx:7-20
+
+     15 lines  2 instances  spread 9  dup:14ce3fdb
+    apps/web/src/api-client/trpc.ts:6-20
+    showcase/x/web/src/api-client/trpc.ts:6-20
+
+  ... 4 of 14 clone groups withheld by a display limit
+  Duplicate code blocks
+  https://fallow.tools/docs/explanations/duplication/#clone-groups
+
+● Mirrored: apps/web/src/api-client/ ↔ showcase/x/web/src/api-client/ (5 files, 90 lines)
+  ApiProvider.tsx
+  TestApiProvider.tsx
+  testApiHandlers.ts
+  trpc.ts
+  useTestApiClients.ts
+
+● Mirrored: apps/web/src/routes/greeting/ ↔ showcase/x/web/src/routes/greeting/ (4 files, 76 lines)
+  GreetingForm.tsx
+  GreetingMessage.tsx
+  GreetingPage.tsx
+  useGreeting.ts
+
+  Directories containing identical file copies
+  https://fallow.tools/docs/explanations/duplication/#clone-families
+
+  showcase/x/web/src/index.css:1  css-duplicate-block  10-declaration block repeated 2 times  (advisory: rules.css-duplicate-block=warn)
+  showcase/x/web/src/index.css:47  css-duplicate-block  7-declaration block repeated 2 times  (advisory: rules.css-duplicate-block=warn)
+  showcase/x/web/src/index.css:63  css-duplicate-block  4-declaration block repeated 2 times  (advisory: rules.css-duplicate-block=warn)
+  (run `fallow audit --format json` for full styling detail)
+$ bash scripts/fallow-audit.sh
+loaded config: <fixture>/.fallowrc.jsonc
+fallow: reclaimed 6 stale base-snapshot caches
+   1.391624208s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern
+
+Audit scope: 48 changed files vs main (7efc3be..HEAD)
+
+── Duplication ────────────────────────────────────
+note: skipped 59 files matching default duplicates ignores
+  (--explain-skipped for the list)
+note: module wiring excluded from clones
+  (duplicates.ignoreImports: false to include it)
+
+⚠ 572 lines (4.8%) duplicated across 28 files (0.02s)
+
+── Styling ────────────────────────────────────────
+⚠ duplication: 14 clone groups (warn) · 48 changed files (1.87s)
+
+
+Negative control: remove only ignoreExports in this disposable fixture.
+$ pnpm --config.verify-deps-before-run=false exec fallow dead-code
+exit 1
+── Unused Code ─────────────────────────────────────
+
+● Unused type exports (2)
+  apps/web/src/api-client/index.ts
+    :5 RouterInputs (re-export)
+  showcase/x/web/src/api-client/index.ts
+    :5 RouterInputs (re-export)
+  Type exports with no known consumers
+  https://fallow.tools/docs/explanations/dead-code/#unused-types
+
+loaded config: <fixture>/.fallowrc.jsonc
+   0.089903916s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern
+  101 entry points detected (72 plugin, 27 package.json, 2 default index)
+
+✗ 2 types (0.10s)
+
+
+Negative control: same touched files, exemption removed.
+$ pnpm --config.verify-deps-before-run=false fallow:audit
+exit 1
+── Unused Code ─────────────────────────────────────
+
+● Unused type exports (2)
+  apps/web/src/api-client/index.ts
+    :5 RouterInputs (re-export)
+  showcase/x/web/src/api-client/index.ts
+    :5 RouterInputs (re-export)
+  Type exports with no known consumers
+  https://fallow.tools/docs/explanations/dead-code/#unused-types
+
+● Duplicates (14 clone groups)
+
+     79 lines  2 instances  spread 7  dup:e0f26621
+    apps/web/src/index.css:1-79
+    showcase/x/web/src/index.css:1-79
+
+     42 lines  2 instances  spread 9  dup:16fa1b48
+    apps/web/src/api-client/testApiHandlers.ts:6-47
+    showcase/x/web/src/api-client/testApiHandlers.ts:6-47
+
+     34 lines  2 instances  spread 11  dup:1184690a
+    apps/web/src/routes/greeting/useGreeting.ts:5-38
+    showcase/x/web/src/routes/greeting/useGreeting.ts:5-38
+
+     18 lines  2 instances  spread 11  dup:4225f11e
+    apps/web/src/routes/greeting/GreetingForm.tsx:4-21
+    showcase/x/web/src/routes/greeting/GreetingForm.tsx:4-21
+
+     10 lines  2 instances  spread 7  dup:87bfbeb0
+    apps/api/src/server.ts:5-14
+    showcase/x/api/src/server.ts:5-14
+
+     13 lines  2 instances  spread 11  dup:761a7861
+    apps/web/src/routes/greeting/GreetingMessage.tsx:3-15
+    showcase/x/web/src/routes/greeting/GreetingMessage.tsx:3-15
+
+      7 lines  2 instances  spread 11  dup:9d9fb608
+    apps/api/src/features/greeting/procedures.ts:5-11
+    showcase/x/api/src/features/greeting/procedures.ts:5-11
+
+     10 lines  2 instances  spread 9  dup:bbb93a41
+    apps/web/src/api-client/ApiProvider.tsx:7-16
+    showcase/x/web/src/api-client/ApiProvider.tsx:7-16
+
+     14 lines  2 instances  spread 9  dup:26fad6fb
+    apps/web/src/api-client/TestApiProvider.tsx:7-20
+    showcase/x/web/src/api-client/TestApiProvider.tsx:7-20
+
+     15 lines  2 instances  spread 9  dup:14ce3fdb
+    apps/web/src/api-client/trpc.ts:6-20
+    showcase/x/web/src/api-client/trpc.ts:6-20
+
+  ... 4 of 14 clone groups withheld by a display limit
+  Duplicate code blocks
+  https://fallow.tools/docs/explanations/duplication/#clone-groups
+
+● Mirrored: apps/web/src/api-client/ ↔ showcase/x/web/src/api-client/ (5 files, 90 lines)
+  ApiProvider.tsx
+  TestApiProvider.tsx
+  testApiHandlers.ts
+  trpc.ts
+  useTestApiClients.ts
+
+● Mirrored: apps/web/src/routes/greeting/ ↔ showcase/x/web/src/routes/greeting/ (4 files, 76 lines)
+  GreetingForm.tsx
+  GreetingMessage.tsx
+  GreetingPage.tsx
+  useGreeting.ts
+
+  Directories containing identical file copies
+  https://fallow.tools/docs/explanations/duplication/#clone-families
+
+  showcase/x/web/src/index.css:1  css-duplicate-block  10-declaration block repeated 2 times  (advisory: rules.css-duplicate-block=warn)
+  showcase/x/web/src/index.css:47  css-duplicate-block  7-declaration block repeated 2 times  (advisory: rules.css-duplicate-block=warn)
+  showcase/x/web/src/index.css:63  css-duplicate-block  4-declaration block repeated 2 times  (advisory: rules.css-duplicate-block=warn)
+  (run `fallow audit --format json` for full styling detail)
+[ELIFECYCLE] Command failed with exit code 1.
+$ bash scripts/fallow-audit.sh
+loaded config: <fixture>/.fallowrc.jsonc
+   1.363728583s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern
+
+Audit scope: 49 changed files vs main (7efc3be..HEAD)
+
+── Dead Code ──────────────────────────────────────
+
+✗ 2 types (0.49s)
+
+── Duplication ────────────────────────────────────
+note: skipped 59 files matching default duplicates ignores
+  (--explain-skipped for the list)
+note: module wiring excluded from clones
+  (duplicates.ignoreImports: false to include it)
+
+⚠ 572 lines (4.8%) duplicated across 28 files (0.01s)
+
+── Styling ────────────────────────────────────────
+✗ dead code: 2 issues · duplication: 14 clone groups · 49 changed files (1.84s)
+
