@@ -27,9 +27,10 @@ ships, leave its block here as history and open the next one above it.
 - **Scope:** Follow Ben's 24 October 12:06 request and 12:07 revision: retain
   staged formatting, move branch freshness to push, and document a 30-second
   budget for each pre-commit step.
-- **Completed:** Removed the duplicate freshness check and its unused offline
-  and merge-in-progress paths. Kept pre-push commands and Fallow settings;
-  updated hook tests, gate inventory, philosophy docs and ADR 0062.
+- **Completed:** Removed the duplicate pre-commit freshness check. Retained
+  the script's offline and merge-in-progress paths, pre-push commands and
+  Fallow settings; updated hook tests, gate inventory, philosophy docs and
+  ADR 0062.
 - **Proof artifact:** `scripts/require-up-to-date-main.test.ts` and
   `docs/required-gates.md`; PR #142 carries per-step timing and latest-head proof.
 - **Verification:** Five targeted Jest suites passed (289 tests), along with

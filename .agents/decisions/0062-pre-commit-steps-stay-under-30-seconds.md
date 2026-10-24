@@ -33,9 +33,9 @@ stronger check.
   `sh scripts/require-up-to-date-main.sh --pushed-refs`, then `pnpm verify`
   (which includes `pnpm build` and `pnpm size`) and `pnpm e2e`. The freshness
   check and build each already run there, so neither needs another copy.
-- `scripts/require-up-to-date-main.sh` drops the unused offline fallback and
-  conflicted-merge `MERGE_HEAD` allowance. Pre-push and CI fail closed when
-  fetching main fails.
+- `scripts/require-up-to-date-main.sh` retains its `--allow-offline` mode and
+  conflicted-merge `MERGE_HEAD` allowance. Pre-push and CI use the strict mode
+  and fail closed when fetching main fails.
 - Each pre-commit step must finish in under 30 seconds on a realistic staged
   change. Record per-step wall-clock measurements in the PR. Review examines
   any slower step carefully for a likely move to pre-push; a timing result
