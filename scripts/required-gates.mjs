@@ -45,7 +45,7 @@ export const REQUIRED_GATES = [
     job: 'up-to-date',
     judgedBy: 'aggregate',
     appliesTo: { event: 'pull_request', baseRef: 'main' },
-    local: 'pre-commit and pre-push hooks',
+    local: 'pre-push hook',
   },
   {
     check: 'Type check · lint · format',

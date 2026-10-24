@@ -102,20 +102,7 @@ describe('require-up-to-date-main.sh', () => {
     expect(check()).toMatchObject({ status: 0 });
   });
 
-  it('passes the commit that concludes a conflicted merge of origin/main', () => {
-    writeFileSync(join(work, 'base'), 'feature edit');
-    git(work, 'commit', '-q', '-am', 'feature edits base');
-    writeFileSync(join(other, 'base'), 'main edit');
-    git(other, 'commit', '-q', '-am', 'main edits base');
-    git(other, 'push', '-q', 'origin', 'main');
-    const merge = spawnSync('sh', ['-c', REMEDY], { cwd: work, env, encoding: 'utf8' });
-    expect(merge.status).not.toBe(0);
-    writeFileSync(join(work, 'base'), 'resolved');
-    git(work, 'add', 'base');
-    expect(check()).toMatchObject({ status: 0 });
-  });
-
-  it('allows commits on main itself even when local main is behind', () => {
+  it('exempts main itself even when local main is behind', () => {
     git(work, 'switch', '-q', 'main');
     advanceRemoteMain();
     expect(check()).toMatchObject({ status: 0 });
@@ -135,16 +122,16 @@ describe('require-up-to-date-main.sh', () => {
       git(work, 'remote', 'set-url', 'origin', join(root, 'missing.git'));
     });
 
-    it('fails closed by default (pre-push and CI)', () => {
+    it('fails closed (pre-push and CI)', () => {
       const { status, output } = check();
       expect(status).toBe(1);
       expect(output).toMatch(/could not fetch origin\/main/i);
     });
 
-    it('gives up on a hanging fetch after the timeout', () => {
+    it('gives up on a hanging fetch after the timeout and fails closed', () => {
       git(work, 'remote', 'set-url', 'origin', 'ssh://example.invalid/repo.git');
       const started = Date.now();
-      const result = spawnSync('sh', [SCRIPT, '--allow-offline'], {
+      const result = spawnSync('sh', [SCRIPT], {
         cwd: work,
         env: {
           ...env,
@@ -154,24 +141,8 @@ describe('require-up-to-date-main.sh', () => {
         encoding: 'utf8',
       });
       expect(Date.now() - started).toBeLessThan(5000);
-      expect(result.status).toBe(0);
+      expect(result.status).toBe(1);
       expect(result.stderr).toMatch(/could not fetch origin\/main/i);
-    });
-
-    it('with --allow-offline, warns and passes against the last known origin/main', () => {
-      const { status, output } = check('--allow-offline');
-      expect(status).toBe(0);
-      expect(output).toMatch(/could not fetch origin\/main/i);
-    });
-
-    it('with --allow-offline, still refuses a branch behind the last known origin/main', () => {
-      git(work, 'switch', '-q', 'main');
-      commit(work, 'local-main-advance');
-      git(work, 'update-ref', 'refs/remotes/origin/main', 'main');
-      git(work, 'switch', '-q', 'feature');
-      const { status, output } = check('--allow-offline');
-      expect(status).toBe(1);
-      expect(output).toContain(REMEDY);
     });
   });
 });
@@ -236,13 +207,10 @@ describe('require-up-to-date-main.sh --pushed-refs (pre-push)', () => {
 describe('gate wiring', () => {
   const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
-  it('runs the check first in both hooks: offline-tolerant on HEAD at commit, strict on pushed refs at push', () => {
+  it('runs the strict check on pushed refs before any pnpm step at push, and none at commit', () => {
     const preCommit = read('.husky/pre-commit');
     const prePush = read('.husky/pre-push');
-    expect(preCommit).toContain('sh scripts/require-up-to-date-main.sh --allow-offline');
-    expect(preCommit.indexOf('require-up-to-date-main.sh')).toBeLessThan(
-      preCommit.indexOf('pnpm typecheck'),
-    );
+    expect(preCommit).not.toContain('require-up-to-date-main.sh');
     expect(prePush).toMatch(/sh scripts\/require-up-to-date-main\.sh --pushed-refs\n/);
     expect(prePush.indexOf('require-up-to-date-main.sh')).toBeLessThan(prePush.indexOf('pnpm '));
   });

@@ -130,6 +130,15 @@ rules `react-hooks/immutability`, `react-hooks/globals` and
 `react-hooks/purity`; loops and other mutation are not enforced yet
 ([ADR 0061](decisions/0061-refine-the-software-factory-philosophy.md)).
 
+Pre-commit runs `pnpm typecheck`, staged Biome lint and format,
+`pnpm fallow:audit` (including complexity), and staged gitleaks. Review holds
+the budget: each step must finish in under 30 seconds on a realistic staged
+change, and a slower step receives careful review for a likely move to
+pre-push ([ADR 0062](decisions/0062-pre-commit-steps-stay-under-30-seconds.md)).
+The up-to-date-with-main check runs at push before `pnpm verify` (including
+the build) and `pnpm e2e`, and in CI. The budget is documentation only;
+record per-step timings in the PR.
+
 Review judges whether a comment contains a decision that belongs in an ADR.
 The comment cap checks length only; `pnpm check:adr` requires a record only
 for a new dependency. A general decision-record check remains a target.

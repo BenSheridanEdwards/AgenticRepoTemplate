@@ -60,8 +60,11 @@ one.
 [`.agents/NORTH_STAR.md`](.agents/NORTH_STAR.md)):
 
 1. **The toolchain refuses slop.** Lint rules, type rules and architecture
-   tests hold the agreed conventions. Typecheck, staged Biome and Fallow run
-   in pre-commit; ESLint policy, the architecture gate and the tests run in
+   tests hold the agreed conventions. Typecheck, staged Biome lint and
+   format, Fallow (including complexity) and staged gitleaks run in
+   pre-commit. Each step must finish in under 30 seconds; review examines a
+   slower step for a likely move to pre-push. The up-to-date-with-main check,
+   ESLint policy, the architecture gate, the tests and the build run in
    pre-push; CI re-runs all of them. Git skips pre-commit on a conflict-free
    merge, and Fallow's audit needs a base branch. A hook refuses common
    bypasses in Claude Code and trusted Codex Bash sessions, with the gaps in
@@ -208,7 +211,7 @@ mean the same thing. A green PR means "this change introduced nothing new".
 
 | Stage | What it enforces | Where |
 | --- | --- | --- |
-| **On commit** | The branch contains main, type safety, consistent style and imports, code intelligence (dead code, cycles, complexity), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
+| **On commit** | Typecheck, staged Biome lint and format, Fallow audit (including complexity), and staged gitleaks, with a review-held budget of under 30 seconds per pre-commit step; commitlint checks the commit message | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
 | **On push** | The branch contains the latest main, then everything `pnpm verify` checks (types, lint, policy, architecture, logic tested with a coverage floor, a production build, bundle size), the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green, including a clean merge from main | [`.husky/pre-push`](.husky/pre-push) |
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, and PR-body validation | [`.github/workflows/`](.github/workflows) |
 

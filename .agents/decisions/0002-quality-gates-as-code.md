@@ -1,6 +1,6 @@
 # 2. Quality gates are code, enforced locally and in CI
 
-- **Status:** Accepted, amended by [0028](0028-pre-push-runs-the-full-local-gate-suite.md)
+- **Status:** Accepted, amended by [0028](0028-pre-push-runs-the-full-local-gate-suite.md) and [0062](0062-pre-commit-steps-stay-under-30-seconds.md)
 - **Date:** 2026-06-17
 
 ## Context
@@ -34,6 +34,15 @@ the gate suite.
 - Hooks add seconds to the commit loop; we keep pre-commit fast and staged-only,
   and push the slower suites to pre-push and CI to protect that loop.
 - Hooks can be bypassed with `--no-verify`; CI cannot. CI is the backstop.
+
+## Current hook scope (ADR 0062)
+
+[0062](0062-pre-commit-steps-stay-under-30-seconds.md) supersedes the
+staged-only description above: typecheck covers the project, Fallow audit
+covers touched files against its base, and Biome and gitleaks cover staged
+content. Each pre-commit step must finish in under 30 seconds; review examines
+slower checks for a likely move to pre-push. The up-to-date-with-main check
+runs at push, before the full `pnpm verify` suite and `pnpm e2e`.
 
 ## Visual regression (ADR 0052)
 

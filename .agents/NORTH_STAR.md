@@ -55,14 +55,22 @@ boundaries, the `contract/<id>` rule pack and the structure check), plus unit
 and E2E tests:
 
 - **At pre-commit**, `.husky/pre-commit` runs `pnpm typecheck`, staged
-  Biome, `pnpm fallow:audit` over the files the change touches, and gitleaks.
-  **Before every push**, `.husky/pre-push` runs `pnpm verify` and `pnpm e2e`:
-  ESLint policy lint, React Doctor, the architecture gate and structure
-  check, the diagrams and API reports, and the tests. CI re-runs every gate on
-  a clean checkout. Git skips pre-commit on a conflict-free merge
+  Biome lint and format, `pnpm fallow:audit` (including complexity) over the
+  files the change touches, and gitleaks on staged content. Each pre-commit
+  step must finish in under 30 seconds on a realistic staged change. Review
+  examines slower steps carefully for a likely move to pre-push
+  ([ADR 0062](decisions/0062-pre-commit-steps-stay-under-30-seconds.md)).
+  **Before every push**, `.husky/pre-push` checks that every pushed branch
+  contains a freshly fetched `origin/main`, then runs `pnpm verify` and
+  `pnpm e2e`: ESLint policy lint, React Doctor, the architecture gate and
+  structure check, the diagrams and API reports, the tests and the
+  production build. CI re-runs every gate on a clean checkout. Git skips
+  pre-commit on a conflict-free merge
   ([ADR 0028](decisions/0028-pre-push-runs-the-full-local-gate-suite.md));
   `scripts/fallow-audit.sh` skips its audit when a base branch is absent.
-  Running every convention check before every commit remains a target.
+  Running every convention check before every commit remains a target,
+  within the 30-second budget. Review holds the budget through recorded
+  measurements; timing enforcement is documentation only.
 - **Common skipping attempts are refused.** The PreToolUse hook
   [`block-gate-bypass.sh`](../.claude/hooks/block-gate-bypass.sh) blocks
   `--no-verify`, `git commit -n`, `HUSKY=0` and rewrites of `core.hooksPath`,
@@ -274,6 +282,7 @@ acceptance criteria lives in [`TODO.md`](TODO.md).
 | Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Installed (#90, #96; ADR 0011, 0036) |
 | State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
 | Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) | Installed |
+| Pre-commit budget | Each `.husky/pre-commit` step must finish in under 30 seconds; review examines slower steps for a likely move to pre-push ([ADR 0062](decisions/0062-pre-commit-steps-stay-under-30-seconds.md)) | Review-held through recorded per-step measurements; documentation only |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Installed (#62, #91; ADR 0014, 0033) |
 | Role-named folders | `lib/`, `utils/` and the other catch-all folders fail a check | Installed, ESLint `policy/role-named-folders` |
 | Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, [`START_HERE.md`](START_HERE.md) and [`CONVENTIONS.md`](project/CONVENTIONS.md) |

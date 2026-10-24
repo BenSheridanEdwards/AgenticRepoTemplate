@@ -3,6 +3,7 @@
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-17
 - **Amends:** [0002](0002-quality-gates-as-code.md)
+- **Amended by:** [0062](0062-pre-commit-steps-stay-under-30-seconds.md)
 
 ## Context
 
@@ -42,7 +43,10 @@ CI.
 3. `pnpm e2e`, unchanged.
 
 That is the Definition of Done, `pnpm verify` and `pnpm e2e`, enforced where
-nothing can skip it short of a bypass. Pre-commit stays fast and staged-only.
+nothing can skip it short of a bypass. Pre-commit stays fast. Its current
+scope and per-step budget are recorded in
+[0062](0062-pre-commit-steps-stay-under-30-seconds.md): only Biome and gitleaks
+are staged-scoped; typecheck covers the project and Fallow audits touched files.
 Anything later added to `pnpm verify` runs at push with no hook edit.
 
 Before `pnpm verify`, the hook clears git's per-repo variables

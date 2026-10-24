@@ -21,6 +21,26 @@ ships, leave its block here as history and open the next one above it.
 
 ---
 
+## Pre-commit placement and budget (#142)
+
+- **Branch:** `docs/refine-factory-philosophy`
+- **Scope:** Follow Ben's 24 October 12:06 request and 12:07 revision: retain
+  staged formatting, move branch freshness to push, and document a 30-second
+  budget for each pre-commit step.
+- **Completed:** Removed the duplicate freshness check and its unused offline
+  and merge-in-progress paths. Kept pre-push commands and Fallow settings;
+  updated hook tests, gate inventory, philosophy docs and ADR 0062.
+- **Proof artifact:** `scripts/require-up-to-date-main.test.ts` and
+  `docs/required-gates.md`; PR #142 carries per-step timing and latest-head proof.
+- **Verification:** Five targeted Jest suites passed (289 tests), along with
+  gates inventory/check, docs/context checks, shell syntax and scoped Biome.
+  Installed Fallow 3.33.1 audit JSON confirms complexity/health analysis and an
+  enforced passing verdict. Final normal-hook verify/E2E results are tracked
+  in the PR body, alongside the new head commit.
+- **Blockers:** Ben's enforcement sign-off remains pending for the hook edit.
+  The existing dependency Security audit failure is out of scope. GitNexus
+  reports this checkout unindexed; direct caller inspection supplements tests.
+
 ## Latest Claude review follow-up (#127)
 
 - **Branch:** `feat/consistent-todo-contract`

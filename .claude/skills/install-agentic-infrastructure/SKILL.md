@@ -53,11 +53,14 @@ Layer the infrastructure so every instruction has one owner.
    `.agents/` so agents know the repo shape before code changes begin.
 4. **Install local gates by feedback speed.**
    - `commit-msg`: Conventional Commits.
-   - `pre-commit`: fast staged checks: typecheck, Biome, code intelligence,
-     staged secret scan.
-   - `pre-push`: the full local gate suite (static checks, coverage,
-     production build) and the E2E behaviour map. Git skips pre-commit for a
-     merge with no conflicts, so this is where a clean merge gets checked.
+   - `pre-commit`: typecheck, staged Biome lint and format, Fallow audit
+     including complexity, and staged gitleaks; each step under 30 seconds on a
+     realistic staged change. Record timings and review slower steps for a
+     likely move to pre-push.
+   - `pre-push`: the up-to-date-with-main check, then the full local gate suite
+     (static checks, coverage, production build) and the E2E behaviour map.
+     Git skips pre-commit for a merge with no conflicts, so this is where a
+     clean merge gets checked.
      If those checks create or inspect other Git repos, clear Git-local hook
      variables before running them: `unset $(git rev-parse --local-env-vars)`.
 5. **Install CI as the clean-room mirror.** Split jobs by concern and keep names

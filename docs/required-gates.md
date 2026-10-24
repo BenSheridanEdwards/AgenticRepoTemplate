@@ -8,7 +8,7 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 
 | Check | Workflow job | Judged by | Applies when | Local mirror |
 | --- | --- | --- | --- | --- |
-| Branch contains main | `ci.yml` `up-to-date` | `Required gates` | `pull_request` into `main`. Skipped elsewhere. | pre-commit and pre-push hooks |
+| Branch contains main | `ci.yml` `up-to-date` | `Required gates` | `pull_request` into `main`. Skipped elsewhere. | pre-push hook |
 | Type check · lint · format | `ci.yml` `quality` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Code intelligence (Fallow) | `ci.yml` `fallow` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Unit + component tests | `ci.yml` `test` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |

@@ -55,7 +55,11 @@ lint rules as missing.
     specifiers and non-relative aliases remain gaps in that rule.
   - `policy/no-large-comments` limits comment length in package TypeScript
     source; whether a comment holds a decision is review's call.
-- Gates, configs, hooks, scripts and tests stay as they are.
+- Existing gate rules and configs stay as they are.
+  [ADR 0062](0062-pre-commit-steps-stay-under-30-seconds.md) records this PR's
+  hook change: the up-to-date check leaves pre-commit, and each remaining
+  pre-commit step must finish in under 30 seconds. Hook scripts, tests and the
+  generated gate inventory follow that placement.
 
 ## Consequences
 
