@@ -244,7 +244,8 @@ HEAD_SHA=$(git rev-parse HEAD)
 env pnpm_config_ignore_workspace_root_check=true pnpm_config_minimum_release_age=0 \
   pnpm exec styleproof-ci --base "$BASE" --head "$HEAD_SHA" \
   --spec-ref-if-missing "$HEAD_SHA" --base-dir .styleproof/maps --no-store --force
-pnpm exec styleproof report .styleproof/maps/base .styleproof/maps/head --out styleproof-report
+pnpm exec styleproof report .styleproof/maps/base .styleproof/maps/head --out styleproof-report \
+  --expected-before-sha "$BASE" --expected-after-sha "$HEAD_SHA"
 ```
 
 ### Skills: processes with exactly one job

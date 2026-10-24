@@ -53,7 +53,7 @@ export function Gallery() {
   return (
     <main className="app">
       <h1>Component gallery</h1>
-      {sections.filter((section) => !component || section.props.id === component)}
+      {sections.filter((section) => !component || section.key === component)}
     </main>
   );
 }

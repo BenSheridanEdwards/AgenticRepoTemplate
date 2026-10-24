@@ -3,8 +3,7 @@
   "entry": [
     "playwright.styleproof.config.ts",
     "styleproof.config.ts",
-    "apps/web/e2e/styleproof/main.tsx",
-    "apps/web/e2e/styleproof/gallery.capture.ts"
+    "{apps,showcase/*}/web/e2e/styleproof/{main.tsx,gallery.capture.ts}"
   ],
   // size-limit auto-loads its plugins (the @size-limit/* packages) from
   // package.json at runtime, so @size-limit/file is never `import`ed in source.
