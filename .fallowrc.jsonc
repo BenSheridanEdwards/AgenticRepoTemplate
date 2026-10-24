@@ -1,4 +1,11 @@
 {
+  // StyleProof loads its configs by file name and the gallery by its index.html.
+  "entry": [
+    "playwright.styleproof.config.ts",
+    "styleproof.config.ts",
+    "apps/web/e2e/styleproof/main.tsx",
+    "apps/web/e2e/styleproof/gallery.capture.ts"
+  ],
   // size-limit auto-loads its plugins (the @size-limit/* packages) from
   // package.json at runtime, so @size-limit/file is never `import`ed in source.
   // It is genuinely used by the `size` script — tell Fallow so the dependency
@@ -323,6 +330,8 @@
         "**/*.d.ts",
         "**/*.d.mts",
         "{commitlint,jest,playwright}.config.ts",
+        "playwright.styleproof.config.ts",
+        "styleproof.config.ts",
         "jest.setup.ts",
         "jest.style-stub.cjs",
         "eslint.config.js",
