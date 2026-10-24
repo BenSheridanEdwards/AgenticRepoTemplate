@@ -73,13 +73,17 @@ ADR 0052's screenshots. Each new UI component needs gallery states before its
 capture can pass. The harness stays separate from the application's routes
 and from the ordinary E2E spec selection.
 
-The first-adoption local base/head capture completed in **85.09 wall seconds**
+The final-config first-adoption capture completed in **36.86 wall seconds**
 on 2026-10-24, below the 300-second target. It compared base
 `ac05e811d7b4776909e222bdb078ed57b65eb22d` with head
-`5b780438dc86883697e5b5060fb649512c502d0d` in an isolated disposable checkout.
+`2148a11950aca70c9488cd6a79b650eacda6067b` in an isolated disposable checkout.
 Each side captured two components at two widths plus two metadata checks.
 The machine's `uptime` load averages (1, 5 and 15 minutes) were
-**26.81, 28.74, 28.15** before and **68.86, 42.41, 33.48** after. CI job timing
-is pending and will be recorded in the PR evidence. When rendering a report
-from explicit capture directories, pass `--expected-before-sha` and
-`--expected-after-sha` to bind the comparison to those revisions.
+**20.74, 34.10, 34.62** before and **15.24, 31.24, 33.55** after. A separate
+intentional Button background change completed in **60.51 seconds** and
+produced side-by-side crops with four findings across the two Button widths.
+The temporary style change was removed after saving the screenshot proof.
+CI job timing is pending and will be recorded in the PR evidence. When
+rendering a report from explicit capture directories, pass
+`--expected-before-sha` and `--expected-after-sha` to bind the comparison to
+those revisions.
