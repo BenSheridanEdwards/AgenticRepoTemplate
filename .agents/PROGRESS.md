@@ -30,7 +30,8 @@ ships, leave its block here as history and open the next one above it.
 - **Completed:** Removed the duplicate pre-commit freshness check. Retained
   the script's offline and merge-in-progress paths, pre-push commands and
   Fallow settings; updated hook tests, gate inventory, philosophy docs and
-  ADR 0062.
+  ADR 0062. Rebased onto main's dependency Security audit fix (#144), keeping
+  both script allowances and their regression cases identical to main.
 - **Proof artifact:** `scripts/require-up-to-date-main.test.ts` and
   `docs/required-gates.md`; PR #142 carries per-step timing and latest-head proof.
 - **Verification:** Five targeted Jest suites passed (289 tests), along with
@@ -39,8 +40,8 @@ ships, leave its block here as history and open the next one above it.
   enforced passing verdict. Final normal-hook verify/E2E results are tracked
   in the PR body, alongside the new head commit.
 - **Blockers:** Ben's enforcement sign-off remains pending for the hook edit.
-  The existing dependency Security audit failure is out of scope. GitNexus
-  reports this checkout unindexed; direct caller inspection supplements tests.
+  Latest-head CI results are tracked in the PR body. GitNexus reports this
+  checkout unindexed; direct caller inspection supplements tests.
 
 ## Latest Claude review follow-up (#127)
 
