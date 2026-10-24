@@ -48,6 +48,15 @@ partly gated by Biome `style/useConst` and the React Hooks rules
 `react-hooks/immutability`, `react-hooks/globals` and `react-hooks/purity`; a
 general loop and mutation rule is a target with no owner yet.
 
+## Advisory declarative-style lint
+
+`pnpm lint:declarative` reports loops, parameter reassignment, `var`, `++`/`--`,
+`let` that could be `const`, function-expression callbacks and array callbacks
+that skip a return. New rules report warnings; existing Biome severities stay
+unchanged. It stays outside `pnpm verify`, the hooks and CI, because those
+gates fail on any warning
+([ADR 0063](../decisions/0063-advisory-declarative-style-lint.md)).
+
 ## Tool ownership
 
 - **Biome** owns formatting, import ordering, and general JavaScript/TypeScript

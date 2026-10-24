@@ -136,6 +136,15 @@ export function Fixture() {
     expect(result.exitCode).toBe(0);
   });
 
+  it('keeps advisory loop warnings out of the policy gate in their own folder', () => {
+    const result = lintPolicy(
+      'for (const value of [1]) { console.log(value); }',
+      'tooling/declarative-lint/fixture.js',
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.messages).toEqual([]);
+  });
+
   it('blocks a second component in one file (policy/one-component-per-file)', () => {
     const result = lintPolicy(`
 export function Fixture() {
@@ -877,6 +886,7 @@ describe('ESLint inline config', () => {
     'showcase/x/web/src/App.tsx',
     'tooling/architecture/structure.mjs',
     'tooling/trial/compare.test.ts',
+    'tooling/declarative-lint/fixture.js',
     'scripts/check-suppressions.mjs',
     'playwright.config.ts',
   ])('blocks every inline config form in %s', (filename) => {
