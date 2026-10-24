@@ -33,6 +33,14 @@ checkbox/radio controls allowed). The existing source globs cover every result.
 [ADR 0050](../decisions/0050-anti-slop-lint-policies.md) records the audit,
 exemptions and comment threshold. These run in `pnpm verify`, pre-push and CI.
 
+## Advisory declarative-style lint
+
+`pnpm lint:declarative` reports loops, parameter reassignment, `var`, `++`/`--`,
+`let` that could be `const`, function-expression callbacks and array callbacks
+that skip a return, all as warnings. It stays outside `pnpm verify`, the hooks
+and CI, because those gates fail on any warning
+([ADR 0060](../decisions/0060-advisory-declarative-style-lint.md)).
+
 ## Tool ownership
 
 - **Biome** owns formatting, import ordering, and general JavaScript/TypeScript
