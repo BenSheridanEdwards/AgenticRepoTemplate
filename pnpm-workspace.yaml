@@ -60,7 +60,7 @@ overrides:
   # react-doctor brings a newer playwright-core; this keeps axe's Page type on
   # the version @playwright/test uses. Bump it together with @playwright/test.
   '@axe-core/playwright>playwright-core': 1.61.0
-  body-parser@<1.20.6: ^1.20.6
+  body-parser@<1.20.9: 1.20.9
   brace-expansion@<1.1.16: ^1.1.16
   brace-expansion@<1.1.17: ^1.1.17
   brace-expansion@<1.1.18: ^1.1.18
@@ -94,6 +94,7 @@ overrides:
   source-map-js@>=1.0.0 <1.2.2: ^1.2.2
   tmp: '>=0.2.6'
   uuid@<11.1.1: ^11.1.1
+  zod@<4.6.6: 4.6.6
 
 # GHSA-jmr9-qjv8-65gv is an older extract-zip advisory with no published
 # patched release. The newer GHSA-7pqw-9j4j-h8q3 is cleared via the vendored
