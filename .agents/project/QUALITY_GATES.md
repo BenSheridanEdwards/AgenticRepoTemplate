@@ -208,6 +208,27 @@ fail, with failure images uploaded as `visual-differences`.
 The check is required directly in branch protection alongside the other
 stand-alone checks in the generated inventory.
 
+`StyleProof` (`.github/workflows/styleproof.yml`) captures the component gallery
+(`apps/web/e2e/styleproof/`) at the PR base and head and posts before/after crops
+of each computed-style change. It is advisory and runs on UI-kit, token,
+harness and dependency changes. Route traversal is a future direction
+([ADR 0063](../decisions/0063-styleproof-checks-the-component-gallery-only.md)).
+Use a clean, committed disposable checkout with independent Git metadata for
+local captures: `styleproof-ci` prunes worktree registrations during cleanup.
+Capture and render the local report with:
+
+```bash
+uptime
+BASE=$(git rev-parse origin/main)
+HEAD_SHA=$(git rev-parse HEAD)
+/usr/bin/time -p env CI=1 pnpm_config_ignore_workspace_root_check=true \
+  pnpm_config_minimum_release_age=0 pnpm exec styleproof-ci --base "$BASE" --head "$HEAD_SHA" \
+  --spec-ref-if-missing "$HEAD_SHA" --base-dir .styleproof/maps --no-store --force
+uptime
+pnpm exec styleproof report .styleproof/maps/base .styleproof/maps/head --out styleproof-report \
+  --expected-before-sha "$BASE" --expected-after-sha "$HEAD_SHA"
+```
+
 ## Enforcement approval
 
 [`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)

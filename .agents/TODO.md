@@ -4,6 +4,18 @@ Forward-handoff work, each item with an acceptance criterion precise enough that
 a reviewer can tell when it is done. Keep this honest: an item stays here until
 its acceptance criterion is met and proven.
 
+## StyleProof route traversal (future)
+
+The component gallery is the active StyleProof integration
+([ADR 0063](decisions/0063-styleproof-checks-the-component-gallery-only.md)).
+Route traversal remains a separate follow-up once its reliability and cost
+are demonstrated against this repository.
+
+- **Acceptance:** crawl the reference app's routes, measure a complete
+  base/head StyleProof run under five minutes in CI, and record an ADR that
+  enables traversal with its route scope and evidence. Include the showcase
+  results when establishing that scope and time budget.
+
 ## Re-run the interactive (LLM-graded) architecture audits against current HEAD
 
 The committed reports under `.architect-audits/` graded an older commit

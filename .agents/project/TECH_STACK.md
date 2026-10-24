@@ -30,6 +30,7 @@ each owner runs locally and in CI.
 | Accessibility | **jest-axe + @axe-core/playwright** | axe at unit level and in the real browser (contrast). |
 | Bundle-size budget | **size-limit** | Fails CI when `apps/web/dist/` exceeds the budget. |
 | Visual regression | **Playwright screenshot comparisons** | `pnpm visual` on UI-relevant PRs; reviewed PNG baselines, reference result only (ADR 0052). |
+| Computed-style review | **StyleProof** (8.0.1) | Component gallery only, advisory before/after report on PRs (ADR 0063). |
 | Performance budget | **Lighthouse CI** | a11y floor + perf budget on UI-relevant pull requests. |
 | Git hooks | **husky** | Runs the gates locally before commit/push. |
 | Dependency vulnerabilities | **`pnpm audit`** | High/critical advisories fail CI. |

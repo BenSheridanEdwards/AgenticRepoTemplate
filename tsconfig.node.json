@@ -3,6 +3,7 @@
   // Vite config and the e2e specs of every result.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -18,6 +19,8 @@
     "jest.config.ts",
     "jest.setup.ts",
     "commitlint.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "playwright.styleproof.config.ts",
+    "styleproof.config.ts"
   ]
 }
