@@ -33,6 +33,14 @@ checkbox/radio controls allowed). The existing source globs cover every result.
 [ADR 0050](../decisions/0050-anti-slop-lint-policies.md) records the audit,
 exemptions and comment threshold. These run in `pnpm verify`, pre-push and CI.
 
+Slop is code more complex than the change needs, or code that breaks an
+agreed convention ([North Star](../NORTH_STAR.md)). Biome, ESLint and React
+Doctor fail on any warning
+([ADR 0046](../decisions/0046-fail-lint-on-warnings.md)). Declarative code is
+partly gated by Biome `style/useConst` and the React Hooks rules
+`react-hooks/immutability`, `react-hooks/globals` and `react-hooks/purity`; a
+general loop and mutation rule is a target with no owner yet.
+
 ## Tool ownership
 
 - **Biome** owns formatting, import ordering, and general JavaScript/TypeScript
@@ -94,8 +102,9 @@ the behaviour is observable.
   whose findings report as `contract/<id>` and fail as errors
   (`policy-violation: error`).
 - `require-suppression-reason`: every `fallow-ignore` names its reason.
-- `audit.gate: "all"`: `pnpm fallow:audit` fails every finding in a file the
-  change touches, inherited ones included.
+- `audit.gate: "all"`: `pnpm fallow:audit` fails error findings in a file the
+  change touches, inherited ones included; warning-level findings remain
+  nonblocking. `scripts/fallow-audit.sh` needs a base branch to run the audit.
 - `ignoreExports`: only `RouterInputs` and `RouterOutputs` in each api-client
   barrel are exempt from unused export findings. The structure check pins
   those exports to the reference ([ADR 0054](../decisions/0054-domain-rules-in-application-and-a-fixed-api-client-surface.md)).

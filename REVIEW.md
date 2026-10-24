@@ -53,14 +53,18 @@ which the root `AGENTS.md` and `CLAUDE.md` point to, sends Codex and Claude here
 - Prefer deletion, an existing pattern, and a stdlib or platform feature over a
   new abstraction or dependency (the repo's Ponytail discipline).
 - Confirm one logical change per PR, so a reviewer holds the whole change in mind.
+- Flag a loop, a `let` accumulator or an in-place mutation where `map`,
+  `filter`, `flatMap` or `reduce` expresses the transform. Lint holds only
+  part of this rule (see the North Star's declarative principle).
 
 ## Naming and clarity
 
 - Confirm identifiers use full words and the exact terms from
   [`.agents/project/GLOSSARY.md`](.agents/project/GLOSSARY.md); a name is the
   cheapest documentation the next agent reads.
-- Flag a comment that restates the code; keep comments for the reason behind a
-  non-obvious choice.
+- Flag a comment that restates the code or records a decision. Keep comments
+  for the local reason behind a non-obvious line, and ask for an ADR for the
+  decision.
 
 ## Changing the rules in the open
 

@@ -91,7 +91,11 @@ classified against the spec freedoms of
    [`project/PR_QUALITY.md`](project/PR_QUALITY.md) before opening a PR or
    marking it ready.
 7. **Change rules in the open.** When a constraint is wrong, propose an ADR in
-   [`decisions/`](decisions/) and change the rule there.
+   [`decisions/`](decisions/) and change the rule there. Record each decision
+   in an ADR, and keep code comments to the local reason for a line.
+8. **Write declarative code.** Transform data with `map`, `filter`, `flatMap`
+   and `reduce` over `const` bindings, in place of loops and mutation
+   ([North Star §9](NORTH_STAR.md#9-declarative-over-imperative)).
 
 ## Rules and what enforces them
 
@@ -101,22 +105,34 @@ the code-level rules and their checks.
 
 | Rule | Enforced by |
 | --- | --- |
-| Every file has one architecture role, and imports follow the role table and the contract in [`project/ARCHITECTURE.md`](project/ARCHITECTURE.md). | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
+| Each in-scope source file has an architecture role; value imports between roles follow the table in [`project/ARCHITECTURE.md`](project/ARCHITECTURE.md). Type-only imports may cross roles; slice isolation still applies. Tests, E2E specs, configs, scripts and tooling sit outside the role table. | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck`; [North Star §2](NORTH_STAR.md#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs) names the limits. |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
-| Every hook runs; `--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides are refused. | `.claude/hooks/block-gate-bypass.sh` (Claude Code and trusted Codex sessions with hook trust, [ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI re-runs every gate |
+| Run every applicable hook. Common bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides) are refused for the supported command forms. | `.claude/hooks/block-gate-bypass.sh` in Claude Code and trusted Codex Bash sessions; [ADR 0027](decisions/0027-block-common-hook-bypasses.md) lists the gaps. CI re-runs the gates; hosted required checks govern merging. |
 | A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `eslint.config.js`, `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`, `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`) waits for BenSheridanEdwards to tick the sign-off for its head commit. A tick counts when it is made as BenSheridanEdwards. | `enforcement-approval` status ([ADR 0023](decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | A new dependency arrives with an ADR. | `pnpm check:adr` |
 | Secrets stay out of commits. | gitleaks in pre-commit and CI |
 | An ESLint exception lives in `eslint.config.js` with its reason; an inline `eslint-disable*`, `/* eslint <rule>: off */` or `/* global */` comment fails lint in every source file. | `pnpm lint:policy` (`noInlineConfig`, [ADR 0039](decisions/0039-block-inline-lint-disable-comments.md)) |
-| Every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
+| Biome, ESLint and React Doctor fail on a warning. | Biome `--error-on-warnings`, ESLint `--max-warnings=0`, React Doctor `--blocking warning` ([ADR 0046](decisions/0046-fail-lint-on-warnings.md)); Fallow warnings remain nonblocking. |
+| Each comment group in package TypeScript source keeps to four lines; longer reasoning goes in an ADR or doc. | ESLint `policy/no-large-comments` ([ADR 0050](decisions/0050-anti-slop-lint-policies.md)) |
+| Outside result roots, every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. In `apps/` and `showcase/<id>/`, fix the cause of a suppression. | `pnpm check:suppressions`; Biome for `biome-ignore`; the structure check's `suppression` rule rejects these directives and coverage pragmas in result roots. |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
 | Gate and tooling scripts match a glob with `matchesGlob` from `node:path` or the tool's own file list. | `pnpm lint:policy` ([ADR 0041](decisions/0041-scripts-ask-the-tool-which-files-a-glob-covers.md)) |
 | A test's child process starts from the allowlisted environment in `scripts/jest-global-setup.mjs`; a test passes any other variable it needs in `env`. | Jest `globalSetup` and `scripts/jest-env.test.ts` ([ADR 0042](decisions/0042-test-child-processes-get-an-allowlisted-environment.md)) |
 | Guidance docs state rules as the action to take. | `pnpm check:docs` |
 | Each PRD in `docs/prd/` links every behaviour it lists to the E2E test that proves it. | `pnpm check:docs` ([ADR 0045](decisions/0045-prds-state-intent-and-link-their-specs.md)) |
 | A doc that ties sign-off to a file names only a file the enforcement gate guards. | `pnpm check:docs` ([ADR 0030](decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)) |
+
+Review holds the declarative-code target until a general check lands.
+Transforms are partly enforced by Biome `style/useConst` and the React Hooks
+rules `react-hooks/immutability`, `react-hooks/globals` and
+`react-hooks/purity`; loops and other mutation are not enforced yet
+([ADR 0061](decisions/0061-refine-the-software-factory-philosophy.md)).
+
+Review judges whether a comment contains a decision that belongs in an ADR.
+The comment cap checks length only; `pnpm check:adr` requires a record only
+for a new dependency. A general decision-record check remains a target.
 
 ## Simplicity Mode
 
