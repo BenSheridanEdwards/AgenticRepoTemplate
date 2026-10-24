@@ -29,6 +29,10 @@ absent from this repository.
   states. StyleProof captures forced hover, focus and active states too.
 - Keep route traversal off. `defineCrawlCapture` and `styleproof crawl` belong
   to the future direction below. The capture spec names only gallery surfaces.
+- Type-check the root config with `satisfies StyleProofConfig` and a type-only
+  import. Loading both revisions' configs then leaves Playwright runtime loading
+  to the capture process; the runtime helper imports a second Playwright copy
+  in StyleProof 8.0.1's pnpm cold-base path.
 - One `pull_request` workflow captures the base and head with
   `styleproof-ci --no-store`. It runs on UI-kit, token, harness, Vite config,
   manifest, lockfile, StyleProof config and workflow changes. On first adoption,

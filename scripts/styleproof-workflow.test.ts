@@ -24,3 +24,9 @@ test('captures only the gallery and reports advisory diffs without a persistent 
   expect(capture).toContain('data-component');
   expect(capture).toContain('toBeVisible');
 });
+
+test('loads the config without importing another Playwright runtime in the base checkout', () => {
+  expect(styleproof).toContain("import type { StyleProofConfig } from 'styleproof'");
+  expect(styleproof).toContain('satisfies StyleProofConfig');
+  expect(styleproof).not.toContain('defineConfig');
+});
