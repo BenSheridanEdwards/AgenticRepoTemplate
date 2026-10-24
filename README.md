@@ -16,9 +16,10 @@ Press **Use this template** and the method is live from your first commit.
 ## Why this exists
 
 Agents write code faster than humans can review it. Left alone, that speed
-produces inconsistency and slop. The fix is not to slow the agent down. The fix
-is to make the standards executable and the context explicit, so the correct
-way to write code is also the only way that passes.
+produces slop: code more complex than the change needs, or code that breaks
+the conventions the repository agreed. The fix is not to slow the agent down.
+The fix is to make the standards executable and the context explicit, so the
+correct way to write code is also the only way that passes.
 
 Four beliefs shape every file in this repository:
 
@@ -55,6 +56,33 @@ software factory —
 the hook, script, or workflow runs on a clean checkout; a target is labelled as
 one.
 
+**The factory's three rules** (detail and status in
+[`.agents/NORTH_STAR.md`](.agents/NORTH_STAR.md)):
+
+1. **The toolchain refuses slop.** Lint rules, type rules and architecture
+   tests hold the agreed conventions. Typecheck, staged Biome lint and
+   format, Fallow (including complexity) and staged gitleaks run in
+   pre-commit. Each step must finish in under 30 seconds; review examines a
+   slower step for a likely move to pre-push. The up-to-date-with-main check,
+   ESLint policy, the architecture gate, the tests and the build run in
+   pre-push; CI re-runs all of them. Git skips pre-commit on a conflict-free
+   merge, and Fallow's audit needs a base branch. A hook refuses common
+   bypasses in Claude Code and trusted Codex Bash sessions, with the gaps in
+   [ADR 0027](.agents/decisions/0027-block-common-hook-bypasses.md). Warnings
+   fail Biome, ESLint and React Doctor; Fallow warnings remain nonblocking.
+   ESLint ignores inline disable comments and fails on each one. Other
+   engines accept reasoned suppressions outside `apps/` and showcase results.
+2. **Declarative over imperative.** Transform data with `map`, `filter`,
+   `flatMap` and `reduce` over `const`, in place of loops and mutation. Partly
+   enforced (Biome `style/useConst`, the React Hooks immutability rules); a
+   general loop and mutation rule is a target.
+3. **Layers import downward, slices stand alone, decisions live in ADRs.**
+   Fallow fails a value import against the role table; type-only imports may
+   cross roles. ESLint `policy/slice-isolation` checks static relative
+   imports between features, and ESLint `policy/no-large-comments` keeps
+   comments in package TypeScript source short so the reasoning moves to an
+   ADR. Whether a comment holds a decision is review's call.
+
 **What we have today (installed guidance and enforced gates):**
 
 - **Monorepo on one role table.** `apps/web` (Vite + React), `apps/api` (tRPC),
@@ -77,6 +105,11 @@ one.
 - **Mirrored gates.** Husky `pre-commit`/`commit-msg`/`pre-push` mirror CI; a
   [PreToolUse hook](.claude/hooks/block-gate-bypass.sh) refuses the common hook
   bypasses; CI re-runs every gate on a clean checkout.
+- **Anti-slop lint.** `policy/no-large-comments`, `max-depth` 4 and
+  `policy/use-ui-primitives`
+  ([ADR 0050](.agents/decisions/0050-anti-slop-lint-policies.md)); Biome,
+  ESLint and React Doctor fail on a warning
+  ([ADR 0046](.agents/decisions/0046-fail-lint-on-warnings.md)).
 - **Enforcement sign-off.** A change that loosens a gate stays red until Ben
   ticks one head-commit-bound checkbox
   ([`enforcement-approval.yml`](.github/workflows/enforcement-approval.yml)).
@@ -99,9 +132,11 @@ one.
 
 **What is missing / in flight:**
 
-- **Sarah's anti-slop lint rules** that apply here — `no-large-comments` and
-  `max-depth`
-  ([#114](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/114)).
+- **A declarative-code rule** for loops, reassignment and mutation outside
+  React render; today Biome `style/useConst` and the React Hooks immutability
+  rules hold part of it.
+- **A decision-record check** beyond new dependencies, and the comment cap
+  outside package TypeScript source.
 - **Merge-confidence labels** on every PR
   ([#69](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/69)).
 - **Re-running the interactive architecture audits** against current `HEAD`;
@@ -176,7 +211,7 @@ mean the same thing. A green PR means "this change introduced nothing new".
 
 | Stage | What it enforces | Where |
 | --- | --- | --- |
-| **On commit** | The branch contains main, type safety, consistent style and imports, code intelligence (dead code, cycles, complexity), no secrets committed, and the commit-message standard | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
+| **On commit** | Typecheck, staged Biome lint and format, Fallow audit (including complexity), and staged gitleaks, with a review-held budget of under 30 seconds per pre-commit step; commitlint checks the commit message | [`.husky/pre-commit`](.husky/pre-commit), [`.husky/commit-msg`](.husky/commit-msg) |
 | **On push** | The branch contains the latest main, then everything `pnpm verify` checks (types, lint, policy, architecture, logic tested with a coverage floor, a production build, bundle size), the behaviour map (E2E), and accessibility. Nothing leaves the machine until these are green, including a clean merge from main | [`.husky/pre-push`](.husky/pre-push) |
 | **In CI** | Everything before, re-run on a clean checkout, plus dependency, secret, and license audits, static security analysis, a bundle-size budget, performance and accessibility budgets, and PR-body validation | [`.github/workflows/`](.github/workflows) |
 
@@ -283,8 +318,10 @@ Non-functionals are held continuously, not only at audit time: Lighthouse keeps
 an accessibility floor of 0.9 and a performance target of 0.8 (median of three
 runs) in [`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
 [`.size-limit.json`](.size-limit.json), and Fallow checks dead code, cycles,
-and complexity drift on every commit. Fallow also owns the architecture graph,
-gate, the architecture contract's rule pack, and role diagram, all read from
+and complexity drift in pre-commit when a base branch exists. The full
+pre-push suite covers conflict-free merges that skip pre-commit. Fallow also
+owns the architecture graph, gate, the architecture contract's rule pack,
+and role diagram, all read from
 `.fallowrc.jsonc`, and API Extractor keeps a committed report of each public
 module's exports, per package.
 

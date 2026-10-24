@@ -236,13 +236,10 @@ describe('require-up-to-date-main.sh --pushed-refs (pre-push)', () => {
 describe('gate wiring', () => {
   const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
-  it('runs the check first in both hooks: offline-tolerant on HEAD at commit, strict on pushed refs at push', () => {
+  it('runs the strict check on pushed refs before any pnpm step at push, and none at commit', () => {
     const preCommit = read('.husky/pre-commit');
     const prePush = read('.husky/pre-push');
-    expect(preCommit).toContain('sh scripts/require-up-to-date-main.sh --allow-offline');
-    expect(preCommit.indexOf('require-up-to-date-main.sh')).toBeLessThan(
-      preCommit.indexOf('pnpm typecheck'),
-    );
+    expect(preCommit).not.toContain('require-up-to-date-main.sh');
     expect(prePush).toMatch(/sh scripts\/require-up-to-date-main\.sh --pushed-refs\n/);
     expect(prePush.indexOf('require-up-to-date-main.sh')).toBeLessThan(prePush.indexOf('pnpm '));
   });

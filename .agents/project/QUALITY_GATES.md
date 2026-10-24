@@ -9,8 +9,8 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | --- | --- | --- |
 | Agent commands | `.claude/hooks/block-gate-bypass.sh` | Refuses the common hook bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and writes to `core.hooksPath`, git aliases, or config includes) before Claude Code runs them. CI is the backstop for the gaps listed in ADR 0027. |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
-| Pre-commit | `.husky/pre-commit` | Branch contains origin/main (last known copy when offline), `pnpm typecheck`, staged Biome, Fallow, staged gitleaks scan. |
-| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main, then `pnpm verify` (the full local gate suite) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. |
+| Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome (lint + format + imports), `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). |
+| Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main (the one local up-to-date check), then `pnpm verify` (the full local gate suite, including the production build) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression reasons, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | `AGENTS.md` and `CLAUDE.md` are short pointers to `.agents/START_HERE.md`, and `CLAUDE.md` imports it; the start-here guide, manifest, project docs, ledgers, house skills, and the review rules (`REVIEW.md`, referenced from `.agents/START_HERE.md` and from `.cursor/BUGBOT.md`) exist as real files. Each ADR is named `NNNN-slug.md`, uses its number once, and opens with a matching `# N.` title. No context doc has the same section twice under one parent. |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression reasons, positive doc phrasing, PRD links, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. |
@@ -23,6 +23,13 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)). |
 
+The pre-commit Biome command is
+`pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .`.
+Only Biome and gitleaks are staged-scoped: typecheck covers the project, and
+Fallow audits touched files against the last fetched `origin/main` (or local
+`main` when the remote ref is absent). Pre-push refreshes that base before
+`pnpm verify` audits again.
+
 ## Anti-slop policies
 
 `pnpm lint:policy` enforces `policy/no-large-comments` (four physical lines
@@ -32,6 +39,14 @@ checkbox/radio controls allowed). The existing source globs cover every result.
 `scripts/eslint-policy.test.ts` proves seeded failures and clean boundaries;
 [ADR 0050](../decisions/0050-anti-slop-lint-policies.md) records the audit,
 exemptions and comment threshold. These run in `pnpm verify`, pre-push and CI.
+
+Slop is code more complex than the change needs, or code that breaks an
+agreed convention ([North Star](../NORTH_STAR.md)). Biome, ESLint and React
+Doctor fail on any warning
+([ADR 0046](../decisions/0046-fail-lint-on-warnings.md)). Declarative code is
+partly gated by Biome `style/useConst` and the React Hooks rules
+`react-hooks/immutability`, `react-hooks/globals` and `react-hooks/purity`; a
+general loop and mutation rule is a target with no owner yet.
 
 ## Tool ownership
 
@@ -94,8 +109,9 @@ the behaviour is observable.
   whose findings report as `contract/<id>` and fail as errors
   (`policy-violation: error`).
 - `require-suppression-reason`: every `fallow-ignore` names its reason.
-- `audit.gate: "all"`: `pnpm fallow:audit` fails every finding in a file the
-  change touches, inherited ones included.
+- `audit.gate: "all"`: `pnpm fallow:audit` fails error findings in a file the
+  change touches, inherited ones included; warning-level findings remain
+  nonblocking. `scripts/fallow-audit.sh` needs a base branch to run the audit.
 - `ignoreExports`: only `RouterInputs` and `RouterOutputs` in each api-client
   barrel are exempt from unused export findings. The structure check pins
   those exports to the reference ([ADR 0054](../decisions/0054-domain-rules-in-application-and-a-fixed-api-client-surface.md)).
@@ -255,19 +271,22 @@ Every other PR passes with no comment.
 
 ## Placement rules
 
-- Put the fastest deterministic checks in pre-commit.
+- Put the fastest deterministic checks in pre-commit. Keep each pre-commit
+  step under 30 seconds on a realistic staged change; record per-step timings
+  in the PR. Examine a slower check carefully for a likely move to pre-push,
+  with its placement decided in review. This budget is documentation only
+  ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)).
 - Put expensive behaviour checks in pre-push and CI.
 - Run security and dependency checks in CI, with staged secret scanning locally.
 - Keep CI as the clean-checkout backstop. CI runs every gate, whatever happened
   locally.
 - Every branch must contain the latest origin/main
   (`scripts/require-up-to-date-main.sh`). The fix is
-  `git fetch origin && git merge origin/main`. This is the one networked
-  pre-commit check: the fetch is quiet, capped at 10 seconds, and falls back to
-  the last known origin/main when offline. Pre-push and CI require a fresh fetch.
-  Pre-commit and CI check HEAD. Pre-push checks every pushed branch from git's
-  pre-push stdin, whichever branch is checked out. Deletions, tags, and pushes
-  to main are exempt.
+  `git fetch origin && git merge origin/main`. The check needs a fresh fetch,
+  so it runs on pre-push and in CI, and pre-commit stays local and fast. A
+  failed fetch fails closed. CI checks the PR head. Pre-push checks every
+  pushed branch from git's pre-push stdin, whichever branch is checked out.
+  Deletions, tags, and pushes to main are exempt.
 - If a hook runs tests that create or inspect other Git repos, clear Git-local
   hook variables first: `unset $(git rev-parse --local-env-vars)`.
 - If a check mutates files, it must be explicit and reviewable. Gates should

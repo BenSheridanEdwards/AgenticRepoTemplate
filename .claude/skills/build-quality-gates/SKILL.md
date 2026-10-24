@@ -31,10 +31,14 @@ point: commit, push, CI, or PR review.
    one lint owner, one type checker, one unit runner, one E2E runner, one visual
    gate, one security scanner per class.
 3. **Place gates by feedback speed.**
-   - Pre-commit: fast correctness, staged formatting, dead code/cycles, secrets.
+   - Pre-commit: typecheck, staged Biome lint and format, Fallow audit including
+     complexity, and staged gitleaks; each step under 30 seconds on a realistic
+     staged change. Record timings and review slower steps for a likely move
+     to pre-push. Networked checks, such as branch-contains-main, run on pre-push.
    - Commit-msg: Conventional Commits.
-   - Pre-push: the full local gate suite and E2E. Git skips pre-commit for a
-     merge with no conflicts, so pre-push is the one local gate a clean merge
+   - Pre-push: branch-contains-main, the full local gate suite (including the
+     build), and E2E. Git skips pre-commit for a merge with no conflicts, so
+     pre-push is the one local gate a clean merge
      from main passes through.
    - CI: clean-checkout rerun plus dependency, license, SAST, performance,
      accessibility, and visual gates.

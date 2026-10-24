@@ -7,8 +7,9 @@ feature.
 
 ## Enforced conventions
 
-The ESLint rules and the Biome naming override run on every package source:
-`{apps,packages}/*/src/**` and `showcase/*/*/src/**`.
+The ESLint rules and the Biome naming override run on package source:
+`{apps,packages}/*/src/**` and `showcase/*/*/src/**`. The package ESLint policy
+and React rules cover `.ts` and `.tsx` files.
 
 | Convention | Enforced by |
 | --- | --- |
@@ -20,6 +21,8 @@ The ESLint rules and the Biome naming override run on every package source:
 | A component or hook lives in the file of the same name (`GreetingForm.tsx`, `useGreeting.ts`). | ESLint `policy/file-matches-export` |
 | Keep each comment group to four physical lines; write longer rationale in a doc or ADR. Adjacent mixed comment syntaxes count together. | ESLint `policy/no-large-comments` |
 | Keep block nesting to four levels. | ESLint `max-depth` |
+| Bind with `const` unless the name is reassigned. | Biome `style/useConst` |
+| Components and hooks leave props, state, hook values and globals unchanged during render. | ESLint `react-hooks/immutability`, `react-hooks/globals`, `react-hooks/purity` |
 | Use `@repo/ui` Button and TextField for native buttons and inputs; checkbox/radio inputs use native elements until dedicated primitives exist. UI definitions and test harnesses may use native controls. | ESLint `policy/use-ui-primitives` |
 | One React component per file. | ESLint `policy/one-component-per-file` |
 | Function components only. | ESLint `react-doctor/prefer-function-component` |
@@ -30,13 +33,13 @@ The ESLint rules and the Biome naming override run on every package source:
 | Functions defined inside a component start with `handle` (`handleGreet`). | ESLint `policy/handler-names` |
 | Callback props start with `on` (`onGreet`). | ESLint `policy/callback-prop-names` |
 | Page components (`<Name>Page`) live in `src/routes/<route-name>/`. | ESLint `policy/pages-in-routes`, Fallow `web-routes` zone |
-| Each file under `src/routes/` or `src/features/` sits in a slice folder, and a slice imports no sibling slice. | ESLint `policy/slice-isolation`, Fallow child zones for `apps/web` |
+| Each file under `src/routes/` or `src/features/` sits in a slice folder, and a slice imports no sibling slice. | ESLint `policy/slice-isolation` for static relative module references; Fallow child zones for `apps/web` routes. Computed specifiers and non-relative aliases remain a gap in the ESLint rule. |
 | A relative import stays inside its package; other packages are imported by name (`@repo/ui`). | ESLint `policy/slice-isolation` |
 | Another module imports a route, feature or api feature only through its `index.ts`: `./routes/greeting` in the web, `./features/greeting/index.ts` in the api. | ESLint `no-restricted-imports` |
 | Every relative import in an api package names its `.ts` extension (`./application.ts`). | `pnpm typecheck` (`tsconfig.api.json`, `NodeNext`) and Node at runtime |
 | Api code uses only erasable TypeScript syntax and sees no DOM; web code has the DOM and no Node globals. | `pnpm typecheck` (`tsconfig.api.json` with `erasableSyntaxOnly`; `tsconfig.json` with the DOM libs and no Node types) |
 | Every source file belongs to one architecture role. | Fallow `coverage.requireAllFiles` (`pnpm arch:gate`) |
-| Imports follow the role table in [`ARCHITECTURE.md`](ARCHITECTURE.md). | Fallow boundaries (`pnpm arch:gate`) |
+| Value imports between roles follow the table in [`ARCHITECTURE.md`](ARCHITECTURE.md); type-only imports may cross roles. | Fallow boundaries (`pnpm arch:gate`, [ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)); imports within a role remain subject to slice isolation. |
 | Banned imports, calls and effects per role. | Fallow rule pack, reported as `contract/<id>` (`pnpm arch:gate`, `pnpm fallow:audit`) |
 | `strict` TypeScript with `noUncheckedIndexedAccess` and `noUnusedLocals`. | `pnpm typecheck`; review of the diff catches a loosened `tsconfig.base.json` ([ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)) |
 | `unknown` and narrowing in place of `any`. | Biome `suspicious/noExplicitAny` |
@@ -45,8 +48,8 @@ The ESLint rules and the Biome naming override run on every package source:
 | Import order. | Biome `organizeImports` |
 | Every block has a body; a handled error does something observable. | Biome `suspicious/noEmptyBlockStatements` |
 | An ESLint exception lives in `eslint.config.js` with its reason. | ESLint `noInlineConfig` on every source file ([ADR 0039](../decisions/0039-block-inline-lint-disable-comments.md)) |
-| Every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore` |
-| Every `fallow-ignore` comment names its reason. | Fallow `require-suppression-reason` |
+| Outside result roots, every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore`; the structure check rejects these directives in `apps/` and `showcase/<id>/`. |
+| Outside result roots, every `fallow-ignore` comment names its reason. | Fallow `require-suppression-reason`; the structure check rejects this directive in `apps/` and `showcase/<id>/`. |
 | Accessible, labelled controls and status regions. | Biome `a11y/*`, jest-axe, `@axe-core/playwright`, Lighthouse |
 
 ## Contract rules
@@ -105,6 +108,14 @@ greeting reference.
   data before trusting its type, as `server.ts` decodes `PORT` with Effect
   Schema. A type assertion is a claim, and validation is proof.
 - **Fail loudly at boundaries.** `main.tsx` throws when `#root` is missing.
+- **Declarative transforms.** Build arrays and objects with `map`, `filter`,
+  `flatMap`, `reduce` and `Object.fromEntries` in place of `for` and `while`
+  loops, `push` and in-place mutation. The `style/useConst` and React Hooks
+  rows enforce part of this; the rest is not enforced yet
+  ([North Star §9](../NORTH_STAR.md#9-declarative-over-imperative)).
+- **Decisions in ADRs.** A comment states the local reason for a line. A
+  decision, its alternatives and its trade-offs go in an ADR in
+  [`../decisions/`](../decisions).
 
 ## Enforced commit and branch conventions
 

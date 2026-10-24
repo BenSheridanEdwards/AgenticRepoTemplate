@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # Refuse to continue when a branch does not contain origin/main, so every branch
-# is tested against the main it will merge into. Shared by .husky/pre-commit,
-# .husky/pre-push, and CI.
+# is tested against the main it will merge into. Shared by .husky/pre-push and
+# CI.
 #
 # Usage: sh scripts/require-up-to-date-main.sh [--allow-offline | --pushed-refs]
 #

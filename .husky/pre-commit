@@ -1,12 +1,9 @@
 #!/usr/bin/env sh
 set -e
 
-# Pre-commit = the FAST gates, scoped to staged files, so the commit loop stays
-# tight. The slower behaviour suite runs on pre-push. See
+# Pre-commit = the FAST gates; each step finishes in under 30 seconds (ADR 0062).
+# The up-to-date-with-main check runs on pre-push with the slower suite. See
 # `.agents/decisions/0002-quality-gates-as-code.md`.
-
-echo "› up to date with origin/main (last known copy when offline)"
-sh scripts/require-up-to-date-main.sh --allow-offline
 
 echo "› typecheck"
 pnpm typecheck
