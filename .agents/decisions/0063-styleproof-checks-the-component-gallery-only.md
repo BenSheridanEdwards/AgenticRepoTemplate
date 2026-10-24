@@ -83,7 +83,10 @@ The machine's `uptime` load averages (1, 5 and 15 minutes) were
 intentional Button background change completed in **60.51 seconds** and
 produced side-by-side crops with four findings across the two Button widths.
 The temporary style change was removed after saving the screenshot proof.
-CI job timing is pending and will be recorded in the PR evidence. When
-rendering a report from explicit capture directories, pass
+The first [PR #143 CI run](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/40095618012)
+passed in **96 wall seconds** at `499c08f`: 55 seconds for the base/head capture
+and 14 seconds for the report Action. The artifact binds both revisions and
+contains four gallery maps per side. When rendering a report from explicit
+capture directories, pass
 `--expected-before-sha` and `--expected-after-sha` to bind the comparison to
 those revisions.
