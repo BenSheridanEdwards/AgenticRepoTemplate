@@ -193,7 +193,7 @@ describe('checkContract', () => {
 
   it('fails when the aggregate no longer runs on cancellation or failure', () => {
     const errors = contractErrors((files) => ({
-      'ci.yml': files['ci.yml'].replace('if: always()', 'if: !cancelled()'),
+      'ci.yml': files['ci.yml'].replace(/^ {4}if: always\(\)$/m, '    if: !cancelled()'),
     }));
     expect(errors.join('\n')).toMatch(/always\(\)/);
   });

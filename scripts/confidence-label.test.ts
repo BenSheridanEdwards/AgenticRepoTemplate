@@ -11,6 +11,10 @@ import {
   collectSlices,
   coverageGaps,
   decideConfidence,
+  isCoveredSource,
+  lineCoverage,
+  lineCoverageGaps,
+  parseCoverage,
   prdGaps,
   renderSummary,
   requiredCheckNames,
@@ -28,7 +32,111 @@ const greetingPrd = {
   text: '# Greeting\n\n[Greeting](../../apps/web/e2e/greeting.spec.ts)',
 };
 
+const coveredSource = 'apps/web/src/routes/fixture-covered/Page.tsx';
+const coverageEntry = (path = coveredSource, counts = [1, 1, 1, 1, 0]) => ({
+  path: `/home/runner/work/R/R/${path}`,
+  statementMap: Object.fromEntries(counts.map((_, id) => [id, { start: { line: id + 1 } }])),
+  s: Object.fromEntries(counts.map((count, id) => [id, count])),
+});
+const coverageMap = (...entries: ReturnType<typeof coverageEntry>[]) =>
+  Object.fromEntries(entries.map((entry) => [entry.path, entry]));
+
+describe('changed source line coverage', () => {
+  it('uses Jest coverage selection across results and excludes non-source files', () => {
+    expect(
+      [
+        'apps/web/src/routes/greeting/useGreeting.ts',
+        'packages/ui/src/Button.tsx',
+        'showcase/todo-01/api/src/router.ts',
+      ].every(isCoveredSource),
+    ).toBe(true);
+    expect(
+      [
+        'apps/web/src/routes/greeting/useGreeting.test.ts',
+        'apps/web/e2e/greeting.spec.ts',
+        'apps/web/vite.config.ts',
+        'jest.config.ts',
+        'docs/prd/greeting.md',
+        'README.md',
+        'apps/web/src/main.tsx',
+        'apps/web/src/App.tsx',
+        'apps/api/src/server.ts',
+        'apps/api/src/features/greeting/index.ts',
+        'packages/ui/src/types.d.ts',
+        'scripts/x.mjs',
+      ].some(isCoveredSource),
+    ).toBe(false);
+  });
+
+  it.each([
+    '',
+    'not json',
+    '[]',
+    'null',
+    '{}',
+    JSON.stringify({ x: { path: 'x', s: {} } }),
+    ...[-1, '3'].map((count) =>
+      JSON.stringify({ x: { ...coverageEntry(coveredSource, [1]), s: { 0: count } } }),
+    ),
+    JSON.stringify({ x: { ...coverageEntry(), statementMap: { 0: { start: { line: 0 } } } } }),
+  ])('rejects malformed coverage: %s', (text) => {
+    expect(parseCoverage(text)).toBeUndefined();
+  });
+
+  it('accepts a valid two-file artifact', () => {
+    const coverage = coverageMap(coverageEntry(), coverageEntry('packages/ui/src/Button.tsx'));
+    expect(parseCoverage(JSON.stringify(coverage))).toEqual(coverage);
+  });
+
+  it('counts covered lines, combines same-line statements, and floors percentages', () => {
+    expect(lineCoverage(coverageEntry())).toBe(80);
+    expect(lineCoverage(coverageEntry(coveredSource, [1, 1, 1, 0]))).toBe(75);
+    expect(lineCoverage(coverageEntry(coveredSource, [1, 1, 0]))).toBe(66.66);
+    expect(lineCoverage(coverageEntry(coveredSource, []))).toBe(100);
+    expect(
+      lineCoverage({
+        ...coverageEntry(coveredSource, [0, 2]),
+        statementMap: { 0: { start: { line: 1 } }, 1: { start: { line: 1 } } },
+      }),
+    ).toBe(100);
+  });
+
+  it('reports low and absent files in changed order without crossing results', () => {
+    const missing = 'showcase/todo-01/web/src/routes/fixture-covered/Page.tsx';
+    const coverage = coverageMap(coverageEntry(coveredSource, [1, 1, 1, 0]));
+    expect(lineCoverageGaps([coveredSource], coverageMap(coverageEntry()))).toEqual([]);
+    const gaps = lineCoverageGaps([missing, coveredSource], coverage);
+    expect(gaps).toHaveLength(2);
+    expect(gaps[0]).toContain(`\`${missing}\` has no entry`);
+    expect(gaps[1]).toContain(`\`${coveredSource}\` has 75%`);
+    expect(lineCoverageGaps([coveredSource], coverageMap(coverageEntry(missing)))[0]).toContain(
+      `\`${coveredSource}\` has no entry`,
+    );
+  });
+});
+
 describe('confidence workflow', () => {
+  it('uploads CI coverage on every result and consumes it only as data', () => {
+    const ci = readFileSync('.github/workflows/ci.yml', 'utf8')
+      .split('  test:')[1]
+      ?.split('  build:')[0];
+    expect(ci).toMatch(
+      /upload-artifact@v7\n\s+if: always\(\)(?:(?!- uses:)[\s\S])*name: coverage-final\n\s+path: coverage\/coverage-final.json/,
+    );
+    const workflow = readFileSync('.github/workflows/confidence.yml', 'utf8');
+    expect(workflow).toContain('actions: read');
+    expect(workflow).toContain('            jest.config.ts');
+    expect(workflow).toMatch(/--name coverage-final --dir "\$\{RUNNER_TEMP\}\/coverage"/);
+    expect(workflow).toMatch(
+      /COVERAGE_FILE: \$\{\{ runner.temp \}\}\/coverage\/coverage-final.json/,
+    );
+    const runs = [...workflow.matchAll(/ {8}run: \|\n((?: {10}.*\n|\n)*)/g)];
+    expect(runs.length).toBeGreaterThan(0);
+    expect(runs.map((match) => match[1]).join('\n')).not.toMatch(
+      /\b(?:pnpm|npm|npx|yarn)\b|node\s+pr\//,
+    );
+  });
+
   it('regrades when any required-check workflow completes', () => {
     const workflow = readFileSync('.github/workflows/confidence.yml', 'utf8');
     const watched = workflow.match(/^ {4}workflows: \[(.+)\]$/m)?.[1]?.split(', ');
@@ -264,6 +372,12 @@ describe('CLI', () => {
       env: { ...process.env, PR_ROOT: root, ...env },
     });
 
+  const writeCoverage = (coverage = coverageMap(coverageEntry())) => {
+    const path = join(root, 'coverage.json');
+    writeFileSync(path, JSON.stringify(coverage));
+    return path;
+  };
+
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'confidence-label-'));
   });
@@ -284,6 +398,7 @@ describe('CLI', () => {
       CHANGED:
         'apps/web/src/routes/fixture-covered/Page.tsx\napps/web/src/features/page-header/PageHeader.tsx',
       CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: writeCoverage(),
       GITHUB_OUTPUT: output,
       GITHUB_STEP_SUMMARY: summary,
     });
@@ -296,6 +411,66 @@ describe('CLI', () => {
     expect(reasons).toContain('no E2E spec');
     expect(reasons).toContain('no PRD');
     expect(reasons).not.toContain('`fixture-covered`');
+  });
+
+  it.each([
+    ['threshold', 'green', [1, 1, 1, 1, 0], true, coveredSource, 'meets the line-coverage'],
+    ['low', 'amber', [1, 1, 1, 0], true, coveredSource, '75%'],
+    ['absent', 'amber', [1], true, 'packages/ui/src/Other.tsx', 'has no entry'],
+    ['deleted', 'green', [1], false, 'packages/ui/src/Other.tsx', 'meets the line-coverage'],
+    ['excluded', 'green', [1], true, 'jest.config.ts', 'meets the line-coverage'],
+  ])('grades %s coverage through workflow outputs', (_, level, counts, exists, changed, reason) => {
+    [greetingSpec, greetingPrd].forEach((file) => {
+      const path = join(root, file.path.replaceAll('greeting', 'fixture-covered'));
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(
+        path,
+        file.text.replaceAll('greeting', 'fixture-covered').replace('Greeting', 'Fixture Covered'),
+      );
+    });
+    if (exists) {
+      const path = join(root, changed);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, 'throw new Error("PR code must never execute");');
+    }
+    const output = join(root, 'output');
+    const summary = join(root, 'summary');
+    const result = run('--decide', {
+      CHANGED: [changed, 'apps/web/src/x.test.ts', 'apps/web/e2e/x.spec.ts', 'README.md'].join(
+        '\n',
+      ),
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: writeCoverage(coverageMap(coverageEntry(coveredSource, counts))),
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: summary,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe(`level=${level}\nlabel=confidence: ${level}\n`);
+    const reasons = readFileSync(summary, 'utf8');
+    expect(reasons).toContain(reason);
+    if (level === 'amber') expect(reasons).toContain(`\`${changed}\``);
+  });
+
+  it.each([
+    'unset',
+    'missing',
+    'malformed',
+    'unreadable',
+  ])('fails closed for %s coverage', (kind) => {
+    const path = join(root, 'coverage.json');
+    if (kind === 'malformed') writeFileSync(path, 'not json');
+    const output = join(root, 'output');
+    const summary = join(root, 'summary');
+    const result = run('--decide', {
+      CHANGED: '',
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: kind === 'unset' ? undefined : kind === 'unreadable' ? root : path,
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: summary,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
+    expect(readFileSync(summary, 'utf8')).toContain('coverage unavailable');
   });
 
   it.each([undefined, '', 'not json', '{}', 'null'])('rejects invalid CHECK_RUNS: %s', (value) => {
@@ -311,7 +486,11 @@ describe('CLI', () => {
   });
 
   it('accepts an empty changed-file list', () => {
-    const result = run('--decide', { CHANGED: '', CHECK_RUNS: passingRuns() });
+    const result = run('--decide', {
+      CHANGED: '',
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: writeCoverage(),
+    });
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('confidence: green');
   });
@@ -338,6 +517,20 @@ describe('CLI', () => {
 
 describe('decideConfidence', () => {
   const allPassing = [{ name: 'Required gates', conclusion: 'success' }];
+
+  it.each([
+    'success',
+    'failure',
+  ])('grades unavailable coverage red alongside %s checks', (conclusion) => {
+    const decision = decideConfidence({
+      requiredChecks: [{ name: 'Required gates', conclusion }],
+      gaps: [],
+      coverageUnavailable: true,
+    });
+    expect(decision.level).toBe('red');
+    expect(decision.reasons.at(-1)).toContain('coverage unavailable');
+    expect(decision.reasons).toHaveLength(conclusion === 'success' ? 1 : 2);
+  });
 
   it('grades red when a required check is not success', () => {
     const decision = decideConfidence({
@@ -382,6 +575,7 @@ describe('labels', () => {
       expect(def.name).toBe(CONFIDENCE_LABELS[level as keyof typeof CONFIDENCE_LABELS]);
       expect(def.color).toMatch(/^[0-9a-f]{6}$/);
       expect(def.description.length).toBeGreaterThan(0);
+      expect(def.description.length).toBeLessThanOrEqual(100);
     }
   });
 });
