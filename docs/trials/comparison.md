@@ -7,7 +7,7 @@ This report compares the Todo trial results under ADR 0035 and ADR 0037: the ful
 ## Verdict
 
 - Full pass count 6/6
-- Consistency: `consistent`. 0 aspects sit outside the spec, 0 with an author's note; 12 sit inside a spec freedom, 12 by the script's rules and 0 by an author's ruling.
+- Consistency: `inconsistent`. 4 aspects sit outside the spec, 0 with an author's note; 8 sit inside a spec freedom, 8 by the script's rules and 0 by an author's ruling.
 - Baseline: shared. All 17 baseline checks hold.
 
 ## Structure
@@ -40,7 +40,7 @@ This report compares the Todo trial results under ADR 0035 and ADR 0037: the ful
 | `edge web-routes --> web-api-client` | `present` | `present` | `present` | `present` | `present` | `present` | identical |
 | `files web-app` | `3` | `3` | `3` | `3` | `3` | `3` | identical |
 | `files web-api-client` | `6` | `6` | `6` | `6` | `6` | `6` | identical |
-| `files web-routes` | `10` | `6` | `9` | `6` | `9` | `6` | spec freedom 2 |
+| `files web-routes` | `10` | `6` | `9` | `6` | `9` | `6` | outside the spec |
 | `files web-features` | `0` | `0` | `0` | `0` | `0` | `0` | identical |
 | `files ui` | `0` | `0` | `0` | `0` | `0` | `0` | identical |
 | `files api-app` | `2` | `2` | `2` | `2` | `2` | `2` | identical |
@@ -93,9 +93,9 @@ Written forms where the runs differ:
 | `create input` | `{ title: string }` | `{ title: string }` | `{ title: string }` | `{ title: string }` | `{ title: string }` | `{ title: string }` | identical |
 | `create output` | `Item` | `Item` | `Item` | `Item` | `Item` | `Item` | identical |
 | `toggle input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `toggle output` | `Item` | `Item \| undefined` | `Item` | `Item \| null` | `Item` | `Item \| null` | spec freedom 4 |
+| `toggle output` | `Item` | `Item \| undefined` | `Item` | `Item \| null` | `Item` | `Item \| null` | outside the spec |
 | `delete input` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | `{ id: Id }` | identical |
-| `delete output` | `Item` | `{ id: Id }` | `{ id: Id }` | `null` | `Item` | `null` | spec freedom 4 |
+| `delete output` | `Item` | `{ id: Id }` | `{ id: Id }` | `null` | `Item` | `null` | outside the spec |
 | `exports api:api-app` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | `AppRouter type, appRouter value` | identical |
 | `exports api:api-procedures` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | `value 1 · type 0` | identical |
 | `exports web:web-api-client` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | `ApiProvider value, RouterInputs type, RouterOutputs type, TestApiHandlers type, TestApiProvider value, useTrpc value` | identical |
@@ -142,7 +142,7 @@ Written forms where the runs differ:
 | `feature component roles` | holds | holds | holds | holds | holds | holds | identical |
 | `components web-api-client` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | `props(value) ui() raw() calls() ; props(value,value) ui() raw() calls(use*)` | identical |
 | `components web-app` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | `props() ui() raw() calls()` | identical |
-| `components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(fn/2) ui(Button,TextField) raw() calls(use*) ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1,value) ui(Button,TextField) raw() calls(use*)` | spec freedom 2 |
+| `components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(fn/2) ui(Button,TextField) raw() calls(use*) ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1,value) ui(Button,TextField) raw() calls(use*)` | outside the spec |
 
 Written forms where the runs differ:
 
@@ -232,20 +232,28 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 | Freedom | Text | Cited by |
 | --- | --- | --- |
 | 1 | Identifier and file names inside a role, including component, hook, procedure and router key names. |  |
-| 2 | How a role splits into files, components, hooks and functions. | `structure · files web-routes`, `component-boundaries · components web-routes` |
+| 2 | How a role splits into files, components, hooks and functions. | Revoked by ADR 0069 |
 | 3 | The type and generation of `id`. |  |
-| 4 | What a mutation returns. | `public-api · toggle output`, `public-api · delete output` |
+| 4 | What a mutation returns. | Revoked by ADR 0069 |
 | 5 | Copy text and styling outside the UI contract names. | `structure · file web/index.html` |
 | 6 | Test names and the number of tests beyond what the gates require. | `structure · tests web-api-client`, `structure · tests web-routes`, `structure · tests api-app`, `structure · tests api-application`, `structure · tests api-domain`, `structure · tests api-integrations`, `structure · tests e2e` |
 | 7 | Optional roles left empty, when all three agree. |  |
 | 8 | A type-only import between roles, along any direction, which the comparison reads as a dashed edge. |  |
 | 9 | Dropping a re-export that a gate flagged, such as an unused export Fallow reports. |  |
 
+## Outside the spec
+
+| Aspect | `todo-01` | `todo-codex-01` | `todo-02` | `todo-codex-02` | `todo-03` | `todo-codex-03` | Why | By |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `structure · files web-routes` | `10` | `6` | `9` | `6` | `9` | `6` | ADR 0069 fixes file layout and component and hook boundaries within each role | script rule |
+| `public-api · toggle output` | `Item` | `Item \| undefined` | `Item` | `Item \| null` | `Item` | `Item \| null` | ADR 0069 fixes mutation output shapes | script rule |
+| `public-api · delete output` | `Item` | `{ id: Id }` | `{ id: Id }` | `null` | `Item` | `null` | ADR 0069 fixes mutation output shapes | script rule |
+| `component-boundaries · components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(fn/2) ui(Button,TextField) raw() calls(use*) ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1,value) ui(Button,TextField) raw() calls(use*)` | ADR 0069 fixes file layout and component and hook boundaries within each role | script rule |
+
 ## Inside a spec freedom
 
 | Aspect | `todo-01` | `todo-codex-01` | `todo-02` | `todo-codex-02` | `todo-03` | `todo-codex-03` | Freedom | By | Why |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `structure · files web-routes` | `10` | `6` | `9` | `6` | `9` | `6` | 2 | script rule | how a role splits into files |
 | `structure · tests web-api-client` | `2` | `1` | `2` | `2` | `2` | `2` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `structure · tests web-routes` | `3` | `1` | `4` | `1` | `3` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `structure · tests api-app` | `1` | `0` | `1` | `0` | `1` | `0` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
@@ -254,9 +262,6 @@ The scaffold roles, `web-app`, `web-api-client`, `api-app` and `api-trpc`, hold 
 | `structure · tests api-integrations` | `1` | `0` | `1` | `0` | `1` | `0` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `structure · tests e2e` | `2` | `1` | `2` | `1` | `2` | `1` | 6 | script rule | the test count beyond the gates; every run's `verify` check exited `0` |
 | `structure · file web/index.html` | `3c4143801c2a` | `3c4143801c2a` | `b6b27106721a` | `3c4143801c2a` | `3c4143801c2a` | `3c4143801c2a` | 5 | script rule | copy text: only the `<title>` differs |
-| `public-api · toggle output` | `Item` | `Item \| undefined` | `Item` | `Item \| null` | `Item` | `Item \| null` | 4 | script rule | what a mutation returns |
-| `public-api · delete output` | `Item` | `{ id: Id }` | `{ id: Id }` | `null` | `Item` | `null` | 4 | script rule | what a mutation returns |
-| `component-boundaries · components web-routes` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1) ui(Button,TextField) raw() calls(use*)` | `props() ui() raw() calls(use*) ; props(fn/1,fn/1,value) ui() raw() calls() ; props(fn/1,fn/1,value) ui(Button) raw(input:checkbox) calls() ; props(fn/2) ui(Button,TextField) raw() calls(use*) ; props(value,value) ui() raw() calls()` | `props() ui(Button) raw(input:checkbox) calls(use*) ; props(fn/1,value) ui(Button,TextField) raw() calls(use*)` | 2 | script rule | how a role splits into components; the role-wide primitives, raw controls and calls match |
 
 ## Diagrams
 

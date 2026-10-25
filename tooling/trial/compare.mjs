@@ -29,7 +29,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { listResults } from '../results.mjs';
-import { andList, compareResults, SCAFFOLD_ROLES } from './dimensions.mjs';
+import { andList, compareResults, REVOKED_FREEDOMS, SCAFFOLD_ROLES } from './dimensions.mjs';
 import { validateEvidence } from './evidence.mjs';
 import { readContract, readResultFacts, sortText, treeFromPatch } from './result-facts.mjs';
 import { renderPrompt } from './run-trial.mjs';
@@ -461,7 +461,11 @@ function renderMethod(comparison) {
     '### Spec freedoms',
     table(
       ['Freedom', 'Text', 'Cited by'],
-      comparison.freedoms.map((f) => [String(f.number), f.text, f.cited.map(code).join(', ')]),
+      comparison.freedoms.map((f) => [
+        String(f.number),
+        f.text,
+        REVOKED_FREEDOMS.includes(f.number) ? 'Revoked by ADR 0069' : f.cited.map(code).join(', '),
+      ]),
     ),
   ];
 }
@@ -797,13 +801,8 @@ export function checkRunEvidence(evidence, files, streamText) {
   }
 }
 
-/**
- * The report for the repository at `root`, from committed files only.
- *
- * @param {string} root
- * @returns {string}
- */
-export function comparisonReport(root) {
+/** Read the comparison inputs from committed files only. */
+function readComparison(root) {
   const readText = (path) => readFileSync(join(root, path), 'utf8');
   const contract = readContract(readText('.fallowrc.jsonc'));
   const runs = readRuns(root, readText).map(
@@ -821,14 +820,56 @@ export function comparisonReport(root) {
       }),
     }),
   );
+  return { runs, readText };
+}
+
+/** The report for the repository at `root`, from committed files only. */
+export function comparisonReport(root) {
+  const { runs, readText } = readComparison(root);
   return renderComparison(runs, readText);
+}
+
+/**
+ * Reasons the trial proof fails, independently of report formatting.
+ * @param {readonly Run[]} runs
+ * @param {(path: string) => string} readText
+ * @returns {string[]}
+ */
+export function comparisonFailures(runs, readText) {
+  const compared = runs.filter(
+    ({ evidence }) => evidence.schema === 1 || evidence.task.name === 'todo',
+  );
+  const comparison = compareResults(
+    compared.map((run) => run.facts),
+    AUTHOR_NOTES,
+  );
+  return [
+    ...comparison.differences
+      .filter((difference) => difference.classification === 'outside-spec')
+      .map((difference) => `Outside spec: ${difference.key}`),
+    ...proveBaseline(
+      compared.map((run) => run.evidence),
+      readText,
+    )
+      .filter((check) => !check.holds)
+      .map((check) => `Baseline differs: ${check.label}`),
+    ...compared
+      .filter(({ evidence }) => evidence.result.status !== 'passed')
+      .map(({ evidence }) => `Failed run: ${evidence.trial.id}`),
+  ];
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = resolve(import.meta.dirname, '../..');
   if (hasTrialEvidence(root)) {
-    writeFileSync(join(root, REPORT_PATH), comparisonReport(root));
+    const { runs, readText } = readComparison(root);
+    writeFileSync(join(root, REPORT_PATH), renderComparison(runs, readText));
     console.log(`Wrote ${REPORT_PATH}`);
+    const failures = comparisonFailures(runs, readText);
+    if (failures.length > 0) {
+      console.error(failures.join('\n'));
+      process.exitCode = 1;
+    }
   } else {
     console.log(`No trial records in ${TRIALS}; nothing to compare.`);
   }

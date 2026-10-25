@@ -71,6 +71,9 @@ full pass count, the shared baseline and each difference between the runs,
 classified against the spec freedoms of
 [ADR 0035](decisions/0035-trial-comparison.md) and
 [ADR 0037](decisions/0037-type-only-edges-and-flagged-re-exports.md).
+Read the report when compare exits non-zero for an inconsistent verdict,
+a split baseline or failed runs
+([ADR 0069](decisions/0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md)).
 
 ## The golden rules
 

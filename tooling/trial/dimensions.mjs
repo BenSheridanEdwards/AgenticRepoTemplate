@@ -65,6 +65,8 @@ export const FREEDOMS = [
   'Dropping a re-export that a gate flagged, such as an unused export Fallow reports.',
 ];
 
+export const REVOKED_FREEDOMS = [2, 4];
+
 /** Intrinsic control to the `@repo/ui` primitive that replaces it. */
 export const UI_PRIMITIVE_FOR = {
   button: 'Button',
@@ -99,8 +101,8 @@ const SCAFFOLD = SCAFFOLD_ROLES.join('|');
 const featureRole = (prefix) => new RegExp(`^${prefix} (?!(?:${SCAFFOLD}|outside-roles)$)`);
 const scaffoldRole = (prefix) => new RegExp(`^${prefix} (?:\\w+:)?(?:${SCAFFOLD})$`);
 const SCAFFOLD_FIXED = 'the reference fixes the scaffold roles';
-const SPLIT_DIFFERS = (parts) =>
-  `the role-wide ${parts} differ, and freedom 2 covers only where they sit`;
+const LAYOUT_FIXED =
+  'ADR 0069 fixes file layout and component and hook boundaries within each role';
 const shortHash = (text) => createHash('sha256').update(text).digest('hex').slice(0, 12);
 
 /** @returns {Aspect} */
@@ -232,31 +234,6 @@ const callsOf = (facts, calls) => {
 const byRole = (entries) =>
   [...Map.groupBy(entries, (entry) => entry.role)].sort(([a], [b]) => (a < b ? -1 : 1));
 
-const isFeatureRole = (role) => !SCAFFOLD_ROLES.includes(role) && role !== 'outside-roles';
-
-/** Calls other than to the result's own hooks: calling one is placement, as its body is compared too. */
-const foreignCalls = (facts, calls) => {
-  const own = new Set(facts.hooks.map((hook) => hook.name));
-  return calls.filter((call) => !own.has(call));
-};
-
-/**
- * The `within` of a feature role's split: the role-wide multiset of `parts`,
- * so the role sits in freedom 2 when only their placement differs.
- *
- * @returns {{ within?: Within }}
- */
-const splitOf = (role, entries, parts, into, named) =>
-  isFeatureRole(role)
-    ? {
-        within: {
-          value: entries.flatMap(parts).sort().join(','),
-          freedom: /** @type {Freedom} */ (2),
-          why: `how a role splits into ${into}; the role-wide ${named} match`,
-        },
-      }
-    : {};
-
 /** @param {ResultFacts} facts */
 function componentAspects(facts) {
   const features = facts.components.filter((c) => !SCAFFOLD_ROLES.includes(c.role));
@@ -290,17 +267,6 @@ function componentAspects(facts) {
           .sort()
           .join(' ; '),
         listed(components.map((c) => c.name)),
-      ),
-      ...splitOf(
-        role,
-        components,
-        (c) => [
-          ...c.uiPrimitives.map((name) => `ui:${name}`),
-          ...c.rawControls.map((name) => `raw:${name}`),
-          ...foreignCalls(facts, c.calls).map((name) => `call:${name}`),
-        ],
-        'components',
-        'primitives, raw controls and calls',
       ),
     })),
   ];
@@ -345,7 +311,6 @@ function conventionAspects(facts) {
           .join(' ; '),
         listed(hooks.map((hook) => hook.name)),
       ),
-      ...splitOf(role, hooks, (hook) => foreignCalls(facts, hook.calls), 'hooks', 'calls'),
     })),
     form('id generation', facts.storage.idSource),
   ];
@@ -374,7 +339,6 @@ const DIMENSIONS = [
         why: "a type-only import between roles; every run's `verify` check exited `0`",
         when: (results) => results.every((facts) => facts.verified),
       },
-      { key: featureRole('files'), freedom: 2, why: 'how a role splits into files' },
       {
         key: /^tests /,
         freedom: 6,
@@ -390,6 +354,7 @@ const DIMENSIONS = [
       { key: /^edge /, why: 'the spec freedoms leave role edges fixed' },
       { key: /^role /, why: 'the spec freedoms leave the role set fixed' },
       { key: scaffoldRole('files'), why: SCAFFOLD_FIXED },
+      { key: featureRole('files'), why: LAYOUT_FIXED },
       {
         key: /^tests /,
         why: "freedom 6 counts tests beyond the gates, which holds when every run's `verify` check exited `0`",
@@ -405,11 +370,11 @@ const DIMENSIONS = [
     mustBeIdentical:
       'One list query and three mutations for create, toggle and delete; create takes `title: string`; toggle and delete take `id`; the item has exactly `id`, `title: string` and `completed: boolean`',
     aspects: publicApiAspects,
-    freedoms: [
-      { key: /^(create|toggle|delete) output$/, freedom: 4, why: 'what a mutation returns' },
-      { key: /^item id type$/, freedom: 3, why: 'the type of `id`' },
+    freedoms: [{ key: /^item id type$/, freedom: 3, why: 'the type of `id`' }],
+    fixed: [
+      { key: scaffoldRole('exports'), why: SCAFFOLD_FIXED },
+      { key: /^(create|toggle|delete) output$/, why: 'ADR 0069 fixes mutation output shapes' },
     ],
-    fixed: [{ key: scaffoldRole('exports'), why: SCAFFOLD_FIXED }],
   },
   {
     id: 'dependencies',
@@ -431,7 +396,7 @@ const DIMENSIONS = [
     freedoms: [],
     fixed: [
       { key: scaffoldRole('components'), why: SCAFFOLD_FIXED },
-      { key: featureRole('components'), why: SPLIT_DIFFERS('primitives, raw controls or calls') },
+      { key: featureRole('components'), why: LAYOUT_FIXED },
     ],
   },
   {
@@ -445,7 +410,7 @@ const DIMENSIONS = [
     freedoms: [{ key: /^id generation$/, freedom: 3, why: 'the generation of `id`' }],
     fixed: [
       { key: scaffoldRole('hooks'), why: SCAFFOLD_FIXED },
-      { key: featureRole('hooks'), why: SPLIT_DIFFERS('calls') },
+      { key: featureRole('hooks'), why: LAYOUT_FIXED },
     ],
   },
 ];
@@ -546,6 +511,11 @@ const isFreedom = (freedom) =>
 function applyNotes(differences, notes) {
   const noted = new Map(differences.map((difference) => [difference.key, difference]));
   for (const note of notes) {
+    if (REVOKED_FREEDOMS.includes(note.freedom)) {
+      throw new Error(
+        `compare: the author ruling on "${note.key}" names freedom ${note.freedom}, revoked by ADR 0069.`,
+      );
+    }
     if (!isFreedom(note.freedom)) {
       throw new Error(
         `compare: the author ruling on "${note.key}" names freedom ${note.freedom}; a ruling names one from 1 to ${FREEDOMS.length}.`,
