@@ -133,6 +133,7 @@ jobs:
 
   e2e:
     name: End-to-end behaviour map
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
