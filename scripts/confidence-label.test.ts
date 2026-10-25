@@ -1,6 +1,10 @@
 /**
  * @jest-environment node
  */
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import {
   CONFIDENCE_LABEL_DEFS,
   CONFIDENCE_LABELS,
@@ -23,6 +27,18 @@ const greetingPrd = {
   path: 'docs/prd/greeting.md',
   text: '# Greeting\n\n[Greeting](../../apps/web/e2e/greeting.spec.ts)',
 };
+
+describe('confidence workflow', () => {
+  it('regrades when any required-check workflow completes', () => {
+    const workflow = readFileSync('.github/workflows/confidence.yml', 'utf8');
+    const watched = workflow.match(/^ {4}workflows: \[(.+)\]$/m)?.[1]?.split(', ');
+    for (const file of new Set(REQUIRED_GATES.map((gate) => gate.workflow))) {
+      const name = readFileSync(`.github/workflows/${file}`, 'utf8').match(/^name: (.+)$/m)?.[1];
+      expect(watched).toContain(name);
+    }
+    expect(workflow).toContain('    types: [completed]');
+  });
+});
 
 describe('sliceOf', () => {
   it('reads a route slice in the reference result', () => {
@@ -227,6 +243,96 @@ describe('requiredCheckResults', () => {
         names,
       ),
     ).toEqual([{ name: 'Required gates', conclusion: 'failure' }]);
+  });
+});
+
+describe('CLI', () => {
+  let root: string;
+  const passingRuns = () =>
+    JSON.stringify(
+      requiredCheckNames().map((name, id) => ({
+        id,
+        name,
+        started_at: '2026-10-22T10:00:00Z',
+        status: 'completed',
+        conclusion: 'success',
+      })),
+    );
+  const run = (mode: string, env: NodeJS.ProcessEnv = {}) =>
+    spawnSync(process.execPath, ['scripts/confidence-label.mjs', mode], {
+      encoding: 'utf8',
+      env: { ...process.env, PR_ROOT: root, ...env },
+    });
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'confidence-label-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('reads the PR checkout as data and writes the amber label and gap summary', () => {
+    for (const file of [greetingSpec, greetingPrd]) {
+      const path = join(root, file.path.replaceAll('greeting', 'fixture-covered'));
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(
+        path,
+        file.text.replaceAll('greeting', 'fixture-covered').replace('Greeting', 'Fixture Covered'),
+      );
+    }
+    const output = join(root, 'output');
+    const summary = join(root, 'summary');
+    const result = run('--decide', {
+      CHANGED:
+        'apps/web/src/routes/fixture-covered/Page.tsx\napps/web/src/features/page-header/PageHeader.tsx',
+      CHECK_RUNS: passingRuns(),
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: summary,
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('confidence: amber');
+    expect(readFileSync(output, 'utf8')).toBe('level=amber\nlabel=confidence: amber\n');
+    const reasons = readFileSync(summary, 'utf8');
+    expect(reasons).toContain('## Merge confidence: Amber');
+    expect(reasons).toContain('`page-header`');
+    expect(reasons).toContain('no E2E spec');
+    expect(reasons).toContain('no PRD');
+    expect(reasons).not.toContain('`fixture-covered`');
+  });
+
+  it.each([undefined, '', 'not json', '{}', 'null'])('rejects invalid CHECK_RUNS: %s', (value) => {
+    const result = run('--decide', { CHECK_RUNS: value });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/CHECK_RUNS.*JSON array/);
+  });
+
+  it('rejects a missing PR_ROOT', () => {
+    const result = run('--decide', { CHECK_RUNS: '[]', PR_ROOT: join(root, 'missing') });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/PR_ROOT.*exist/);
+  });
+
+  it('accepts an empty changed-file list', () => {
+    const result = run('--decide', { CHANGED: '', CHECK_RUNS: passingRuns() });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('confidence: green');
+  });
+
+  it('prints three label definitions', () => {
+    const result = run('--labels');
+    expect(result.status).toBe(0);
+    const labels = JSON.parse(result.stdout);
+    expect(labels).toHaveLength(3);
+    expect(labels.map((label: { name: string }) => label.name)).toEqual([
+      'confidence: green',
+      'confidence: amber',
+      'confidence: red',
+    ]);
+    for (const label of labels) {
+      expect(label).toEqual({
+        name: expect.any(String),
+        color: expect.stringMatching(/^[0-9a-f]{6}$/),
+        description: expect.any(String),
+      });
+    }
   });
 });
 

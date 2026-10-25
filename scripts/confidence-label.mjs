@@ -18,8 +18,6 @@
  * with one or more named gaps. The label grades a PR that is already green; the
  * gates themselves stay the fail-closed merge bar (ADR 0017).
  *
- * Rollout: these pieces expose tested helpers; the CLI modes below describe
- * the target interface delivered with the final workflow piece.
  * CLI modes:
  *   --decide   Grade the PR. Reads `CHECK_RUNS` (the head commit's check runs as
  *              JSON) and `CHANGED` (its changed files, one per line), reads the
@@ -31,7 +29,20 @@
  *              JSON, so the workflow can create any that the repository lacks.
  */
 
+import {
+  appendFileSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
+import { matchesGlob, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
+
+const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
+const PRD_GLOB = 'docs/prd/*.md';
 
 /** A changed source file in `<result>/web/src/routes/<name>/` or `.../features/<name>/`. */
 const SLICE_PATH = /^((?:apps|showcase\/[^/]+))\/web\/src\/(routes|features)\/([^/]+)\//;
@@ -206,4 +217,90 @@ export function renderSummary({ level, reasons }) {
     ...reasons.map((reason) => `- ${reason}`),
     '',
   ].join('\n');
+}
+
+/** Read only spec and PRD text from the PR checkout; execute no code from it. */
+function createNodeFilesystem(rootDirectory) {
+  if (!existsSync(rootDirectory) || !statSync(rootDirectory).isDirectory()) {
+    throw new Error('PR_ROOT must name an existing directory.');
+  }
+  const walk = (directory) =>
+    existsSync(resolve(rootDirectory, directory))
+      ? readdirSync(resolve(rootDirectory, directory), { recursive: true, withFileTypes: true })
+          .filter((entry) => entry.isFile())
+          .map((entry) => relative(rootDirectory, resolve(entry.parentPath, entry.name)))
+      : [];
+  const showcase = resolve(rootDirectory, 'showcase');
+  const results = existsSync(showcase)
+    ? readdirSync(showcase, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => `showcase/${entry.name}/web/e2e`)
+    : [];
+  return {
+    listFiles: () => ['docs/prd', 'apps/web/e2e', ...results].flatMap(walk),
+    readText: (path) => readFileSync(resolve(rootDirectory, path), 'utf8'),
+  };
+}
+
+function readJsonEnv(name) {
+  let value;
+  try {
+    value = JSON.parse(process.env[name] ?? '');
+  } catch {
+    throw new Error(`${name} must be set to a valid JSON array.`);
+  }
+  if (!Array.isArray(value)) throw new Error(`${name} must be set to a valid JSON array.`);
+  return value;
+}
+
+/** Write `key=value` to `GITHUB_OUTPUT` when the workflow set it. */
+function writeOutput(key, value) {
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
+  }
+}
+
+function runDecide() {
+  const checkRuns = readJsonEnv('CHECK_RUNS');
+  const changed = (process.env.CHANGED ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const filesystem = createNodeFilesystem(resolve(process.env.PR_ROOT ?? process.cwd()));
+  const candidates = filesystem.listFiles();
+  const read = (glob) =>
+    candidates
+      .filter((path) => matchesGlob(path, glob))
+      .map((path) => ({ path, text: filesystem.readText(path) }));
+  const slices = collectSlices(changed);
+  const gaps = [...coverageGaps(slices, read(SPEC_GLOB)), ...prdGaps(slices, read(PRD_GLOB))];
+  const decision = decideConfidence({
+    requiredChecks: requiredCheckResults(checkRuns),
+    gaps,
+  });
+
+  console.log(`confidence: ${decision.level}`);
+  for (const reason of decision.reasons) {
+    console.log(`  - ${reason}`);
+  }
+  writeOutput('level', decision.level);
+  writeOutput('label', CONFIDENCE_LABELS[decision.level]);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, renderSummary(decision));
+  }
+}
+
+function runCli(mode) {
+  if (mode === '--decide') {
+    runDecide();
+  } else if (mode === '--labels') {
+    console.log(JSON.stringify(Object.values(CONFIDENCE_LABEL_DEFS)));
+  } else {
+    console.error('Usage: confidence-label.mjs --decide | --labels');
+    process.exitCode = 1;
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  runCli(process.argv[2]);
 }

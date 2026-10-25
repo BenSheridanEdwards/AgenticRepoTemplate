@@ -1,0 +1,126 @@
+name: Merge confidence
+
+# Grade PRs from required checks, slice E2E coverage and PRDs (issue #69, ADR 0064).
+# Run main's trusted script; read the PR head only as data, with no credentials
+# persisted in either checkout. Skip stale heads. The label is advisory and the
+# required gates stay the merge bar. Like every workflow_run workflow, this
+# grades PRs only once it is on main; the PR that adds it cannot grade itself.
+
+on:
+  workflow_run:
+    workflows: [CI, CodeQL, Lighthouse, Visual regression, PR quality]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  confidence:
+    name: Label merge confidence
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: confidence-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: true
+    # The label REST endpoints accept pull-requests: write, including creation.
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Find the open pull request for the head commit
+        id: pr
+        env:
+          EVENT_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          number="${EVENT_NUMBER}"
+          if [ -z "${number}" ]; then
+            number=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/pulls" --paginate \
+              --jq '[.[] | select(.state == "open")][0].number // empty' | head -n 1)
+          fi
+          if [ -z "${number}" ]; then
+            echo "No open pull request for ${HEAD_SHA}; nothing to label."
+            exit 0
+          fi
+          current=$(gh api "repos/${REPO}/pulls/${number}")
+          if [ "$(jq -r '.state' <<< "$current")" != "open" ] || \
+             [ "$(jq -r '.head.sha' <<< "$current")" != "${HEAD_SHA}" ]; then
+            echo "PR ${number} is closed or has moved past ${HEAD_SHA}; skipping."
+            exit 0
+          fi
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the trusted default-branch script
+        if: steps.pr.outputs.number != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/confidence-label.mjs
+            scripts/required-gates.mjs
+            .nvmrc
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v6
+        if: steps.pr.outputs.number != ''
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check out the PR head as data
+        if: steps.pr.outputs.number != ''
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          path: pr
+          persist-credentials: false
+
+      - name: Ensure the confidence labels exist
+        if: steps.pr.outputs.number != ''
+        run: |
+          node scripts/confidence-label.mjs --labels | jq -c '.[]' | while read -r label; do
+            gh label create "$(jq -r '.name' <<< "$label")" --repo "$REPO" \
+              --color "$(jq -r '.color' <<< "$label")" \
+              --description "$(jq -r '.description' <<< "$label")" \
+              --force
+          done
+
+      - name: Grade the pull request
+        id: grade
+        if: steps.pr.outputs.number != ''
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+          PR_ROOT: pr
+        run: |
+          CHANGED=$(gh api "repos/${REPO}/pulls/${NUMBER}/files" --paginate --jq '.[].filename')
+          CHECK_RUNS=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs" --paginate \
+            --jq '.check_runs[] | {id, name, status, conclusion, started_at}' | jq -sc .)
+          export CHANGED CHECK_RUNS
+          node scripts/confidence-label.mjs --decide
+
+      - name: Apply the label
+        if: steps.pr.outputs.number != ''
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+          LABEL: ${{ steps.grade.outputs.label }}
+        run: |
+          current_head=$(gh api "repos/${REPO}/pulls/${NUMBER}" --jq '.head.sha')
+          if [ "$current_head" != "$HEAD_SHA" ]; then
+            echo "PR ${NUMBER} moved while grading ${HEAD_SHA}; skipping."
+            exit 0
+          fi
+          labels=$(gh api "repos/${REPO}/issues/${NUMBER}/labels" --paginate --jq '.[].name')
+          while IFS= read -r current; do
+            if [[ "$current" == "confidence: "* && "$current" != "$LABEL" ]]; then
+              encoded=$(jq -rn --arg name "$current" '$name | @uri')
+              gh api --method DELETE "repos/${REPO}/issues/${NUMBER}/labels/${encoded}"
+            fi
+          done <<< "$labels"
+          gh api "repos/${REPO}/issues/${NUMBER}/labels" -f "labels[]=$LABEL"
