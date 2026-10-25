@@ -1,4 +1,4 @@
-# 59. Label every pull request with a merge confidence level
+# 64. Label every pull request with a merge confidence level
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-22

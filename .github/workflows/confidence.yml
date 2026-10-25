@@ -1,6 +1,6 @@
 name: Merge confidence
 
-# Grade PRs from required checks, slice E2E coverage and PRDs (issue #69, ADR 0059).
+# Grade PRs from required checks, slice E2E coverage and PRDs (issue #69, ADR 0064).
 # Run main's trusted script; read the PR head only as data, with no credentials
 # persisted in either checkout. Skip stale heads. The label is advisory and the
 # required gates stay the merge bar. Like every workflow_run workflow, this
