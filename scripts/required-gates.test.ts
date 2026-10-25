@@ -66,6 +66,14 @@ function contractErrors(
   });
 }
 
+describe('the committed CI order', () => {
+  it('starts the E2E lane only after unit tests succeed', () => {
+    const e2e = REAL_FILES['ci.yml'].split('\n  e2e:\n')[1]?.split(/\n {2}[\w-]+:\n/)[0];
+    expect(e2e).toMatch(/^ {4}needs: \[test\]$/m);
+    expect(e2e).not.toMatch(/^ {4}if:/m);
+  });
+});
+
 describe('decideRequiredGates', () => {
   it('passes when every required lane succeeded', () => {
     const decision = decideRequiredGates({ needs: needsWith(), run: PR_INTO_MAIN });
@@ -133,6 +141,15 @@ describe('the --decide CLI that the Required gates job runs', () => {
 
   it('exits 0 when every lane passed', () => {
     expect(decide(needsWith()).status).toBe(0);
+  });
+
+  it('exits 1 and names both lanes when unit tests fail and E2E is skipped', () => {
+    const result = decide(needsWith({ test: 'failure', e2e: 'skipped' }));
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain('Unit + component tests: failure');
+    expect(result.stdout + result.stderr).toContain(
+      'End-to-end behaviour map: skipped although it applies to this run',
+    );
   });
 
   it('exits 1 and names the lane when one was cancelled', () => {
