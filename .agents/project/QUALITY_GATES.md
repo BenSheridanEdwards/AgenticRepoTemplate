@@ -22,6 +22,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | Each dependency name new since the merge base with the PR's base branch is named by an ADR added in the same change ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)). |
+| Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Grades every pull request `confidence: green`, `confidence: amber` or `confidence: red` from its gate results, the E2E coverage of its changed slices and its PRD status. Advisory: it grades an already-green PR and gates nothing ([ADR 0064](../decisions/0064-merge-confidence-label.md)). |
 
 The pre-commit Biome command is
 `pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .`.
@@ -277,6 +278,47 @@ Every other PR passes with no comment.
   branch protection to make it blocking.
 - **Dry run** against any two commits:
   `node scripts/enforcement-approval.mjs --git origin/main HEAD`.
+
+## Merge confidence
+
+Use the advisory label and job summary from
+[`.github/workflows/confidence.yml`](../../.github/workflows/confidence.yml)
+to see the merge-confidence reasons ([ADR 0064](../decisions/0064-merge-confidence-label.md)).
+Keep the required gates as the merge bar.
+
+- Assign `confidence: red` when a required check is failing, pending or
+  missing. Read the aggregate and stand-alone checks from
+  `scripts/required-gates.mjs`. Judge the latest run per name by the highest
+  `started_at`, breaking ties with the highest `id`. Count `skipped` as passing
+  only for a stand-alone gate with a declared `if` in that contract; treat
+  every other non-success result as red.
+- Assign `confidence: amber` when every required check passes and at least
+  one named gap remains. Assign `confidence: green` when every required check
+  passes and every changed slice has both an E2E spec and a PRD.
+- Collect each changed slice from files under
+  `<result>/web/src/routes/<name>/` or `<result>/web/src/features/<name>/`,
+  where a result is `apps` or `showcase/<id>`.
+- Count an E2E spec in `<result>/web/e2e/` when its path or text names the slice
+  as a whole hyphenated slug: lowercase both sides, join runs of punctuation
+  and spaces with hyphens, and match with hyphens on both ends. Match
+  `page-header` with `Page Header`; keep `greet` distinct from `greeting`.
+  Report a gap for a slice with no matching spec in its own result.
+- Count a PRD in `docs/prd/` when it names the slice with the same whole-slug
+  rule and links a spec in the slice's result (its text contains
+  `<result>/web/e2e/`). Report a gap when that PRD is missing. Use these two
+  gap measures alone; keep browser code coverage outside this measure.
+- Run main's script and gate contract, read the PR checkout only as data, and
+  skip a completed run whose SHA differs from the live PR head. Expect the
+  workflow to start grading subsequent PRs after it lands on main.
+- Dry-run locally with an explicit check-run array; set `PR_ROOT` to read a
+  separate checkout, or use its default of the current directory:
+
+  ```bash
+  CHANGED="$(git diff --name-only origin/main...HEAD)" CHECK_RUNS='[]' node scripts/confidence-label.mjs --decide
+  ```
+
+  Expect red with this empty check-run array, because required results are
+  missing. Supply the head's check runs to grade its actual results.
 
 ## Placement rules
 
