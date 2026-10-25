@@ -34,11 +34,13 @@ else. CI fails when a push moves the PR head past it; re-check the body against
 the new head, then update it.
 PRDs checked: comma-separated tracked docs/prd/<feature>.md paths at this head,
 or None: <reason> with at least two words.
+PRD impact: None, or No behaviour change: <reason> with at least two words.
 North Star commit: one SHA (7-40 hex characters, backticks allowed) from
 git log -1 --format=%H <head> -- .agents/NORTH_STAR.md. -->
 
 - Head commit:
 - PRDs checked:
+- PRD impact:
 - North Star commit:
 - Commands run (e.g. `pnpm verify`, `pnpm e2e`):
 - Results:

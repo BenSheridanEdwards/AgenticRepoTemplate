@@ -533,6 +533,22 @@ function collectReferenceErrors(verificationBody, headSha, listPrdFiles, northSt
   ];
 }
 
+function hasNoBehaviourChangeReason(value) {
+  const reason = /^No behaviour change:\s*(.*)$/i.exec(value)?.[1];
+  return reason !== undefined && countWords(reason) >= NOT_APPLICABLE_REASON_WORDS;
+}
+
+function collectPrdImpactErrors(verificationBody, headSha) {
+  if (verificationBody === undefined || headShaErrors(headSha).length > 0) return [];
+  const impact = readReferenceField(verificationBody, 'PRD impact');
+  if (impact.errors) return impact.errors;
+  if (/^None$/i.test(impact.value) || hasNoBehaviourChangeReason(impact.value)) return [];
+  return [
+    '`- PRD impact:` must be `None` or `No behaviour change: <reason>` ' +
+      `with at least two words; got ${quoteValue(impact.value)}.`,
+  ];
+}
+
 /**
  * Validate a PR title, body, head SHA, and head branch (`branch` is optional).
  * `headSha` is required: a full 40-character SHA, or `null` to check only the
@@ -559,6 +575,7 @@ export function validatePullRequest({
     ...collectContentErrors(sections, located.foundIndexBySection),
     ...collectHeadCommitErrors(verificationBody, headSha),
     ...collectReferenceErrors(verificationBody, headSha, listPrdFiles, northStarCommit),
+    ...collectPrdImpactErrors(verificationBody, headSha),
     ...collectImageErrors(typeof body === 'string' ? body : ''),
     ...collectLocalPathErrors(typeof body === 'string' ? body : ''),
   ];
