@@ -88,6 +88,19 @@ jobs:
         run: pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd
       - name: API reports match the public module entries
         run: pnpm api:check
+      - name: Blast-radius evidence (ADR 0068)
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          changed="$(git -c core.quotePath=false diff --name-only HEAD^1..."$HEAD_SHA")"
+          CHANGED="$changed" node scripts/blast-radius.mjs --collect
+      - uses: actions/upload-artifact@v7
+        continue-on-error: true
+        with:
+          name: blast-radius
+          path: blast-radius.json
+          if-no-files-found: warn
+          retention-days: 7
 
   test:
     name: Unit + component tests
