@@ -21,7 +21,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | PRD links | `scripts/check-prd-conflicts.mjs` (`pnpm check:docs`) | Each PRD in `docs/prd/` lists behaviours, and each behaviour links an E2E spec and the title of a test in it that runs ([ADR 0045](../decisions/0045-prds-state-intent-and-link-their-specs.md)). |
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | Each dependency name new since the merge base with the PR's base branch is named by an ADR added in the same change ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
-| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)). |
+| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement, or adds, edits, deletes or renames product intent in `docs/prd/**` or `.agents/NORTH_STAR.md`, until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md), [ADR 0060](../decisions/0060-product-intent-needs-sign-off.md)). |
 | Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Grades every pull request `confidence: green`, `confidence: amber` or `confidence: red` from its gate results, the E2E coverage of its changed slices and its PRD status. Advisory: it grades an already-green PR and gates nothing ([ADR 0064](../decisions/0064-merge-confidence-label.md)). |
 
 The pre-commit Biome command is
@@ -239,7 +239,9 @@ stand-alone checks in the generated inventory.
 [`enforcement-approval.yml`](../../.github/workflows/enforcement-approval.yml)
 applies [ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md)
 to the files [ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)
-protects. A PR that loosens or rewrites one of them waits for Ben's sign-off.
+protects, with the product-intent paths added by
+[ADR 0060](../decisions/0060-product-intent-needs-sign-off.md). A PR that loosens
+or rewrites enforcement, or changes product intent, waits for Ben's sign-off.
 Every other PR passes with no comment.
 
 - **What asks.** `GUARDS` in
@@ -253,10 +255,13 @@ Every other PR passes with no comment.
   merge base and at the head. Any edit to a hook, a workflow, the gate's script
   or test, or a lint file other than `biome.json` asks. In `biome.json`, a
   lowered rule, an added ignore entry, a removed or newly created include list,
-  or a strictness flag turned off asks, and raising a rule passes. Everything
-  else, including `package.json`, the lockfile, the agent docs, the rest of
-  `scripts/`, and `tsconfig.json`, needs no sign-off. A rename counts when
-  either side is guarded. The ADR lists every rule.
+  or a strictness flag turned off asks, and raising a rule passes.
+- **Product intent.** The Product intent guard covers `docs/prd/**` and
+  `.agents/NORTH_STAR.md`. Every addition, edit, deletion or rename needs
+  Ben's sign-off, including wording-only edits: intent has no tighten/loosen
+  direction. A rename counts when either side is guarded. Other docs, such as
+  `.agents/PROGRESS.md`, stay outside the guard, as do `package.json`, the
+  lockfile, the rest of `scripts/`, and `tsconfig.json`.
 - **One comment, one box, one approver.** The comment lists each change and
   names the head commit, and its box reads `Approve these enforcement changes
   at <sha>`. The status turns green only on the edit in which the GitHub user
@@ -275,7 +280,10 @@ Every other PR passes with no comment.
 - **Main's copy judges the PR.** The workflow uses `pull_request_target`,
   checks out only the default branch's script, and reads file contents through
   the API. It runs no PR code. Require the `enforcement-approval` status in
-  branch protection to make it blocking.
+  branch protection to make it blocking. A new guard takes effect after its
+  implementation merges. The first subsequent PR touching a PRD provides the
+  live check: record its red status, Ben's head-specific tick and the resulting
+  green status in a follow-up comment on the implementation PR.
 - **Dry run** against any two commits:
   `node scripts/enforcement-approval.mjs --git origin/main HEAD`.
 

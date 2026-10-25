@@ -48,6 +48,12 @@ Move the rule to the layer that owns it.
 - Document only commands that pass in a clean checkout.
 - Describe current architecture as fact, and mark future architecture as a
   target or an ADR.
+- Treat `docs/prd/**` and `.agents/NORTH_STAR.md` as product intent: every
+  addition, edit, deletion or rename waits for BenSheridanEdwards's sign-off
+  on the PR head through `enforcement-approval`. Intent changes are judged
+  independently of enforcement tightening or loosening
+  ([ADR 0060](../decisions/0060-product-intent-needs-sign-off.md)). Other agent
+  guidance, including `.agents/PROGRESS.md`, stays outside that guard.
 - Keep rules out of the root files. `CLAUDE.md` and `AGENTS.md` point in;
   `.agents/` carries everything else.
 - Keep private project facts out of this public template.
