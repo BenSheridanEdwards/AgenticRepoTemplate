@@ -1,7 +1,19 @@
 /**
  * @jest-environment node
  */
-import { collectSlices, coverageGaps, prdGaps, sliceOf } from './confidence-label.mjs';
+import {
+  CONFIDENCE_LABEL_DEFS,
+  CONFIDENCE_LABELS,
+  collectSlices,
+  coverageGaps,
+  decideConfidence,
+  prdGaps,
+  renderSummary,
+  requiredCheckNames,
+  requiredCheckResults,
+  sliceOf,
+} from './confidence-label.mjs';
+import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const greetingSpec = {
   path: 'apps/web/e2e/greeting.spec.ts',
@@ -114,5 +126,164 @@ describe('prdGaps', () => {
     expect(gaps).toHaveLength(1);
     expect(gaps[0]).toContain('page-header');
     expect(gaps[0]).toContain('docs/prd/');
+  });
+});
+
+describe('requiredCheckNames', () => {
+  it('includes the aggregate and the stand-alone checks', () => {
+    const names = requiredCheckNames();
+    expect(names).toEqual([
+      AGGREGATE.check,
+      ...REQUIRED_GATES.filter((gate) => gate.judgedBy === 'branch protection').map(
+        (gate) => gate.check,
+      ),
+    ]);
+  });
+});
+
+describe('requiredCheckResults', () => {
+  const names = ['Required gates'];
+
+  it('marks a name with no run as missing', () => {
+    expect(requiredCheckResults([], names)).toEqual([
+      { name: 'Required gates', conclusion: 'missing' },
+    ]);
+  });
+
+  it('marks a run still going as pending', () => {
+    expect(
+      requiredCheckResults([{ name: 'Required gates', status: 'in_progress' }], names),
+    ).toEqual([{ name: 'Required gates', conclusion: 'pending' }]);
+  });
+
+  it('takes a completed run’s conclusion', () => {
+    expect(
+      requiredCheckResults(
+        [{ name: 'Required gates', status: 'completed', conclusion: 'success' }],
+        names,
+      ),
+    ).toEqual([{ name: 'Required gates', conclusion: 'success' }]);
+  });
+
+  it.each([
+    ['failure', 'success'],
+    ['success', 'failure'],
+  ])('uses the latest run after %s then %s, independent of API order', (older, latest) => {
+    const runs = [
+      {
+        id: 20,
+        name: 'Required gates',
+        started_at: '2026-10-22T09:00:00Z',
+        status: 'completed',
+        conclusion: older,
+      },
+      {
+        id: 10,
+        name: 'Required gates',
+        started_at: '2026-10-22T10:00:00Z',
+        status: 'completed',
+        conclusion: latest,
+      },
+    ];
+    expect(requiredCheckResults(runs, names)).toEqual([
+      { name: 'Required gates', conclusion: latest },
+    ]);
+    expect(requiredCheckResults([...runs].reverse(), names)).toEqual([
+      { name: 'Required gates', conclusion: latest },
+    ]);
+  });
+
+  it('breaks equal start times by the highest run id', () => {
+    const run = { name: 'Required gates', started_at: '2026-10-22T10:00:00Z', status: 'completed' };
+    expect(
+      requiredCheckResults(
+        [
+          { ...run, id: 20, conclusion: 'success' },
+          { ...run, id: 10, conclusion: 'failure' },
+        ],
+        names,
+      ),
+    ).toEqual([{ name: 'Required gates', conclusion: 'success' }]);
+  });
+
+  it('allows skips only for stand-alone gates with a declared if', () => {
+    const results = requiredCheckResults([
+      { name: 'Validate PR body and title', status: 'completed', conclusion: 'skipped' },
+      { name: 'Required gates', status: 'completed', conclusion: 'skipped' },
+      { name: 'Lighthouse budgets', status: 'completed', conclusion: 'skipped' },
+    ]);
+    expect(results).toContainEqual({ name: 'Validate PR body and title', conclusion: 'success' });
+    expect(results).toContainEqual({ name: 'Required gates', conclusion: 'skipped' });
+    expect(results).toContainEqual({ name: 'Lighthouse budgets', conclusion: 'skipped' });
+  });
+
+  it('fails when the latest run for a name did not succeed', () => {
+    expect(
+      requiredCheckResults(
+        [
+          { id: 1, name: 'Required gates', status: 'completed', conclusion: 'success' },
+          { id: 2, name: 'Required gates', status: 'completed', conclusion: 'failure' },
+        ],
+        names,
+      ),
+    ).toEqual([{ name: 'Required gates', conclusion: 'failure' }]);
+  });
+});
+
+describe('decideConfidence', () => {
+  const allPassing = [{ name: 'Required gates', conclusion: 'success' }];
+
+  it('grades red when a required check is not success', () => {
+    const decision = decideConfidence({
+      requiredChecks: [
+        { name: 'Required gates', conclusion: 'failure' },
+        { name: 'Lighthouse budgets', conclusion: 'pending' },
+      ],
+      gaps: [],
+    });
+    expect(decision.level).toBe('red');
+    expect(decision.reasons).toHaveLength(2);
+    expect(decision.reasons[0]).toContain('Required gates');
+  });
+
+  it('grades amber when every check passes but a gap remains', () => {
+    const decision = decideConfidence({
+      requiredChecks: allPassing,
+      gaps: ['The feature slice `page-header` (apps) changed, and no E2E spec names it.'],
+    });
+    expect(decision.level).toBe('amber');
+    expect(decision.reasons).toHaveLength(1);
+  });
+
+  it('grades green when every check passes and no gap remains', () => {
+    const decision = decideConfidence({ requiredChecks: allPassing, gaps: [] });
+    expect(decision.level).toBe('green');
+  });
+});
+
+describe('labels', () => {
+  it('maps every level to its label', () => {
+    expect(CONFIDENCE_LABELS).toEqual({
+      green: 'confidence: green',
+      amber: 'confidence: amber',
+      red: 'confidence: red',
+    });
+  });
+
+  it('defines a colour and description for each label', () => {
+    for (const level of Object.keys(CONFIDENCE_LABELS)) {
+      const def = CONFIDENCE_LABEL_DEFS[level as keyof typeof CONFIDENCE_LABEL_DEFS];
+      expect(def.name).toBe(CONFIDENCE_LABELS[level as keyof typeof CONFIDENCE_LABELS]);
+      expect(def.color).toMatch(/^[0-9a-f]{6}$/);
+      expect(def.description.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('renderSummary', () => {
+  it('renders the level and its reasons as Markdown', () => {
+    const summary = renderSummary({ level: 'amber', reasons: ['A gap.'] });
+    expect(summary).toContain('## Merge confidence: Amber');
+    expect(summary).toContain('- A gap.');
   });
 });
