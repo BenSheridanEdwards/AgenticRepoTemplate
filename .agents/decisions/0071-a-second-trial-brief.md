@@ -1,4 +1,4 @@
-# 70. Add a second trial brief
+# 71. Add a second trial brief
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-26

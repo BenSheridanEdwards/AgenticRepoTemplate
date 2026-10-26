@@ -51,7 +51,7 @@ and can set an absolute `evidenceDir` to keep private evidence outside this repo
 See [ADR 0048](decisions/0048-trial-tasks-and-codex.md). Todo Codex ids are
 `todo-codex-01..03`. Notes ids are `notes-01..03` and
 `notes-codex-01..03`; select its task file as above
-([ADR 0070](decisions/0070-a-second-trial-brief.md)).
+([ADR 0071](decisions/0071-a-second-trial-brief.md)).
 Compare currently keeps Todo runs and proves baselines per agent; land the
 companion per-brief comparison before recording Notes trials.
 
