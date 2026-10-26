@@ -24,6 +24,13 @@ submitting this form. `scripts/issue-forms.test.ts`, run by `pnpm test` and
 Review checks that the path, diff, and outcome match the proposal
 ([ADR 0056](../decisions/0056-prd-changes-start-from-an-issue-form.md)).
 
+## PR size
+
+Plan and open each stacked migration piece at or under 400 changed lines.
+A self-contained single-idea change may exceed 400 lines when its PR body
+explains in one sentence why it is one idea. Keep the existing counting rules
+([ADR 0074](../decisions/0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md)).
+
 ## Required proof
 
 Every PR body must include:
