@@ -41,7 +41,8 @@ complete once `pnpm verify` and `pnpm e2e` are green.
       [`PR_QUALITY.md`](PR_QUALITY.md) and the
       [pull request template](../../.github/pull_request_template.md), with exact
       local commands, visual proof or `Not applicable` with a reason, CI status,
-      the PRDs and North Star commit checked, risk, rollback, and no private details.
+      the PRDs and North Star commit checked, PRD impact, risk, rollback, and
+      no private details.
 - [ ] **Patterns followed.** The change matches
       [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`CONVENTIONS.md`](CONVENTIONS.md);
       new files were created from [`../templates/`](../templates).
@@ -87,6 +88,9 @@ that names the fix unless:
 - the Verification Summary has exactly one `- PRDs checked:` line listing
   comma-separated Markdown paths tracked directly in `docs/prd/` at the PR
   head, or `None: <reason>` with a reason of at least two words;
+- the Verification Summary has exactly one `- PRD impact:` line containing
+  `None`, or `No behaviour change: <reason>` with a reason of at least two
+  words ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md));
 - the Verification Summary has exactly one `- North Star commit:` line naming
   one SHA of 7-40 hex characters, optionally in balanced backticks, that is a
   prefix of the last commit to change `.agents/NORTH_STAR.md` at the PR head

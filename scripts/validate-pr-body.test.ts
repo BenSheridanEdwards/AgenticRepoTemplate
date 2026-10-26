@@ -34,6 +34,7 @@ const VALID_BODY = [
   '',
   '- Head commit: 0a21f68',
   '- PRDs checked: docs/prd/greeting.md',
+  '- PRD impact: None',
   '- North Star commit: abcdef1',
   '- Commands run: `pnpm verify`, `pnpm e2e`.',
   '- Results: all green.',
@@ -933,6 +934,80 @@ describe('validatePullRequest', () => {
       'Behavioural Proof (with video and screenshots)',
       'Verification Summary',
     ]);
+  });
+});
+
+describe('PRD impact field', () => {
+  const withImpact = (field: string) => VALID_BODY.replace('- PRD impact: None', field);
+  const check = (body: string, headSha: string | null = HEAD) =>
+    validatePullRequest({ ...INTENT_PORTS, title: VALID_TITLE, body, headSha });
+
+  it.each([
+    ['missing', ''],
+    ['hidden in an HTML comment', '<!-- - PRD impact: None -->'],
+  ])('rejects a field that is %s', (_name, field) => {
+    expect(check(withImpact(field))).toEqual({
+      ok: false,
+      errors: [
+        'Section "Verification Summary" must have exactly one `- PRD impact:` line; found 0.',
+      ],
+    });
+  });
+
+  it('rejects duplicate fields', () => {
+    expect(check(`${VALID_BODY}\n- PRD impact: None`)).toEqual({
+      ok: false,
+      errors: [
+        'Section "Verification Summary" must have exactly one `- PRD impact:` line; found 2.',
+      ],
+    });
+  });
+
+  it('rejects a field outside the Verification Summary', () => {
+    const body = withImpact('').replace('# What changed?', '- PRD impact: None\n\n# What changed?');
+    expect(check(body)).toEqual({
+      ok: false,
+      errors: [
+        'Section "Verification Summary" must have exactly one `- PRD impact:` line; found 0.',
+      ],
+    });
+  });
+
+  it.each([
+    'None',
+    'none',
+    'No behaviour change: copy only',
+    'no BEHAVIOUR change: copy only',
+  ])('accepts %s', (value) => {
+    expect(check(withImpact(`- PRD impact: ${value}`))).toEqual({ ok: true, errors: [] });
+  });
+
+  it.each([
+    'No behaviour change: tidy',
+    'No behaviour change:',
+    'Maybe',
+    '',
+  ])('rejects and quotes the invalid value %j', (value) => {
+    expect(check(withImpact(`- PRD impact: ${value}`))).toEqual({
+      ok: false,
+      errors: [
+        '`- PRD impact:` must be `None` or `No behaviour change: <reason>` ' +
+          `with at least two words; got "${value}".`,
+      ],
+    });
+  });
+
+  it('still requires the field with a null head SHA', () => {
+    expect(check(withImpact(''), null)).toEqual({
+      ok: false,
+      errors: [
+        'Section "Verification Summary" must have exactly one `- PRD impact:` line; found 0.',
+      ],
+    });
+  });
+
+  it('accepts None with a null head SHA', () => {
+    expect(check(VALID_BODY, null)).toEqual({ ok: true, errors: [] });
   });
 });
 

@@ -32,7 +32,8 @@ Every PR body must include:
 - **What changed:** the smallest reviewable summary of the diff.
 - **Local verification:** exact commands run, with pass/fail status.
 - **Intent checked:** the PRDs and North Star commit checked against the PR
-  head, recorded in the Verification Summary fields below.
+  head, plus the PRD impact statement, recorded in the Verification Summary
+  fields below.
 - **Visual proof:** screenshots, video, or `Not applicable` with a reason. Any UI-visible
   or CSS change needs visual proof.
 - **CI status:** whether checks are green for the latest commit, still pending,
@@ -90,6 +91,9 @@ Beside that line, include exactly one of each:
 - `- PRDs checked:` lists one or more comma-separated `docs/prd/<feature>.md`
   paths tracked directly in `docs/prd/` at the PR head. For a change outside
   the PRDs, write `None: <reason>` with a reason of at least two words.
+- `- PRD impact:` is `None`, or `No behaviour change: <reason>` with a reason
+  of at least two words
+  ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md)).
 - `- North Star commit:` names the last commit that changed
   `.agents/NORTH_STAR.md` as the PR head sees it: one SHA of 7-40 hex characters,
   optionally in balanced backticks. Read it with
