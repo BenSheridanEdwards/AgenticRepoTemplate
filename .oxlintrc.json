@@ -1,0 +1,54 @@
+{
+  "plugins": [],
+  "categories": {
+    "correctness": "off",
+    "suspicious": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "jsPlugins": ["./vendor/anti-slop/index.ts", "./vendor/anti-slop/effect/index.ts"],
+  "ignorePatterns": [
+    ".agent/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".continue/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".roo/**",
+    ".windsurf/**",
+    ".architect-audits/**",
+    "vendor/**",
+    "showcase/todo-01/**",
+    "showcase/todo-02/**",
+    "showcase/todo-03/**",
+    "showcase/todo-codex-01/**",
+    "showcase/todo-codex-02/**",
+    "showcase/todo-codex-03/**"
+  ],
+  "rules": {
+    "oxc/no-accumulating-spread": "off",
+    "anti-slop/no-module-mocking": "error",
+    "anti-slop/no-reflect-apply": "error",
+    "anti-slop/no-reflect-get": "error",
+    "anti-slop/no-unknown-type-aliases": "error",
+    "anti-slop/no-widen-then-assert": "error",
+    "anti-slop/no-reduce-accumulator-copy": "error",
+    "anti-slop-effect/no-manual-effect-error-tag": "error",
+    "anti-slop-effect/no-manual-tag-comparison": "error",
+    "anti-slop-effect/no-manual-tagged-construction": "error"
+  },
+  "overrides": [
+    {
+      "files": ["apps/*/src/**", "packages/*/src/**", "showcase/*/*/src/**"],
+      "rules": {
+        "anti-slop/no-runtime-typeof": "error"
+      }
+    }
+  ]
+}

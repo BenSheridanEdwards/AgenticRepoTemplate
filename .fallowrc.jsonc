@@ -3,7 +3,7 @@
   // package.json at runtime, so @size-limit/file is never `import`ed in source.
   // It is genuinely used by the `size` script — tell Fallow so the dependency
   // audit stays honest rather than flagging a false positive on every run.
-  "ignoreDependencies": ["@size-limit/file"],
+  "ignoreDependencies": ["@size-limit/file", "@oxlint/plugins"],
 
   // The api-client scaffold keeps both router types (ADR 0054), even when a
   // route uses only one. The structure gate pins the reference export surface.
@@ -326,6 +326,7 @@
         "jest.setup.ts",
         "jest.style-stub.cjs",
         "eslint.config.js",
+        "anti-slop.advisory.mjs",
         ".agents/team-walkthrough.html",
         "{apps,showcase/*}/web/{index.html,vite.config.ts}",
         "{apps,showcase/*}/web/e2e/**",
