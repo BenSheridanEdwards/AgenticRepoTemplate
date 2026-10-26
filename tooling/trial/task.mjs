@@ -73,7 +73,8 @@ export function loadTask(path) {
     task,
     taskDir,
     promptFile:
-      !task.target && realpathSync(taskDir) === realpathSync(resolve(import.meta.dirname, 'tasks'))
+      !task.target &&
+      dirname(realpathSync(taskFile)) === realpathSync(resolve(import.meta.dirname, 'tasks'))
         ? undefined
         : resolve(taskDir, task.prompt),
   };

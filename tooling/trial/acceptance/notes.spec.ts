@@ -64,10 +64,11 @@ test('shows the Notes heading and labelled text fields', async ({ page }) => {
     await addNote(page, kept, 'Loaded marker');
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill(blank);
     await page.getByRole('textbox', { name: 'Body', exact: true }).fill(body);
+    const methods = new Set<string>();
     await page.route(
       (url) => url.pathname.startsWith('/trpc'),
       async (route) => {
-        expect(route.request().method()).not.toBe('POST');
+        methods.add(route.request().method());
         await route.continue();
       },
     );
@@ -77,6 +78,7 @@ test('shows the Notes heading and labelled text fields', async ({ page }) => {
     await page.reload();
     await expect(noteItem(page, kept)).toBeVisible();
     await expect(page.getByRole('list', { name: 'Notes' })).not.toContainText(body);
+    expect(methods.has('POST')).toBe(false);
   });
 });
 

@@ -14,13 +14,18 @@ describe('task boundary', () => {
     });
     expect(loaded.promptFile).toBeUndefined();
   });
-  it('keeps a built-in brief scaffold-pinned through a symlinked task directory', () => {
+  it.each([
+    'directory',
+    'file',
+  ])('keeps a built-in brief scaffold-pinned through a symlinked task %s', (kind) => {
     const folder = mkdtempSync(join(tmpdir(), 'task-alias-'));
     try {
       const alias = join(folder, 'tasks');
       symlinkSync(join(import.meta.dirname, 'tasks'), alias, 'dir');
-      expect(loadTask(join(alias, 'notes.json'))).toMatchObject({
-        taskDir: alias,
+      const taskAlias = join(folder, 'notes.json');
+      symlinkSync(join(import.meta.dirname, 'tasks/notes.json'), taskAlias);
+      expect(loadTask(kind === 'file' ? taskAlias : join(alias, 'notes.json'))).toMatchObject({
+        taskDir: kind === 'file' ? folder : alias,
         promptFile: undefined,
       });
     } finally {
