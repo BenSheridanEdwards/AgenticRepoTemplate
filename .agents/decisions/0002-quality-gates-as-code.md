@@ -2,6 +2,8 @@
 
 - **Status:** Accepted, amended by [0028](0028-pre-push-runs-the-full-local-gate-suite.md) and [0062](0062-pre-commit-steps-stay-under-30-seconds.md)
 - **Date:** 2026-06-17
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
 
 ## Context
 

@@ -5,6 +5,8 @@
 - **Follows:** [0010](0010-lint-engine-ownership.md),
   [0015](0015-eslint-policy-stack-wiring.md) and
   [0046](0046-fail-lint-on-warnings.md)
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
 
 ## Context
 
