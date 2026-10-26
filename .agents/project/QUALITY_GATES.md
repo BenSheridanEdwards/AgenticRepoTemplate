@@ -289,6 +289,9 @@ Every other PR passes with no comment.
 
 ## Merge confidence
 
+Collect and upload `blast-radius` evidence in the CI `fallow` job on every run;
+collection failures fail the lane ([ADR 0068](../decisions/0068-grade-merge-confidence-on-import-blast-radius.md)).
+
 Use the advisory label and job summary from
 [`.github/workflows/confidence.yml`](../../.github/workflows/confidence.yml)
 to see the merge-confidence reasons ([ADR 0064](../decisions/0064-merge-confidence-label.md), [ADR 0067](../decisions/0067-grade-merge-confidence-on-changed-file-line-coverage.md)).
