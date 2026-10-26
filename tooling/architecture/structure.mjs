@@ -12,8 +12,10 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join, matchesGlob } from 'node:path';
+import { join, matchesGlob, posix } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { routeInventory } from '../trial/briefs.mjs';
+import { componentSignatures, scanWebFile } from '../trial/result-facts.mjs';
 import { readRepository, runCli } from './graph.mjs';
 import { moduleReferences, resolveRelative } from './imports.mjs';
 
@@ -110,8 +112,7 @@ function singleRouteFeatures({ contract, results, files }) {
         )
         .map((file) => file.slice(routeRoot.length).split('/')[0]),
     );
-    if (routes.size !== 1) return [];
-    const [route] = routes;
+    const [route = '<route>'] = routes;
     return files
       .filter(
         (file) =>
@@ -119,6 +120,91 @@ function singleRouteFeatures({ contract, results, files }) {
           matchesGlob(file, `${result.web}/etc/features-*.api.md`),
       )
       .map((path) => ({ kind: 'single-route-features', result: result.root, route, path }));
+  });
+}
+
+function routeColocation({ results, files, readText, manifests, edges }) {
+  return results.flatMap((result) => {
+    const rootManifest = JSON.parse(readText('package.json') || '{}');
+    const dependencies = Object.assign(
+      {},
+      ...DEPENDENCY_FIELDS.flatMap((field) => [
+        rootManifest[field],
+        manifests.get(result.web)?.[field],
+      ]),
+    );
+    const external = Object.keys(dependencies).filter(
+      (name) => !dependencies[name].startsWith('workspace:'),
+    );
+    return files
+      .filter(
+        (path) => path.startsWith(`${result.web}/src/routes/`) && /\.[cm]?[jt]sx?$/.test(path),
+      )
+      .flatMap((path) => {
+        const route = path.slice(0, path.indexOf('/', `${result.web}/src/routes/`.length) + 1);
+        const allowed = (target) =>
+          target?.startsWith(route) || target === `${result.web}/src/api-client/index.ts`;
+        const references = moduleReferences(path, readText(path)).filter(({ specifier }) => {
+          if (specifier.startsWith('.')) {
+            const target =
+              resolveRelative(new Set(files), path, specifier) ??
+              posix.join(posix.dirname(path), specifier);
+            return !allowed(target);
+          }
+          return (
+            specifier !== '@repo/ui' &&
+            !external.some((name) => specifier === name || specifier.startsWith(`${name}/`))
+          );
+        });
+        const crossing = edges.some(
+          ({ from, to }) => from === path && !allowed(to) && !to.startsWith('packages/ui/'),
+        );
+        const rawServerState = scanWebFile(path, readText(path), 'web-routes').hooks.some(
+          ({ calls }) =>
+            calls.some((call) => /^use(?:Suspense)?(?:Infinite)?Query$|^useMutation$/.test(call)) &&
+            !calls.includes('useTrpc'),
+        );
+        return references.length || crossing || rawServerState
+          ? [{ kind: 'route-colocation', path }]
+          : [];
+      });
+  });
+}
+
+const signature = (props = []) =>
+  props
+    .map((prop) => prop.replace(/^readonly\s+|[\s;]/g, '').replaceAll('"', "'"))
+    .sort()
+    .join(';');
+function trialRouteInventory({ results, files, readText }) {
+  return results.flatMap((result) => {
+    const inventory = routeInventory(result.id);
+    if (!inventory) return [];
+    const root = `${result.web}/src/routes/`;
+    const sources = files.filter((file) => file.startsWith(root) && !/\.test\.tsx?$/.test(file));
+    const expected = inventory.files.map((file) => `${root}${inventory.folder}/${file}`).sort();
+    const actual = sources
+      .filter((file) => !file.endsWith('/index.ts'))
+      .flatMap((file) =>
+        componentSignatures(file, readText(file)).map(
+          ({ name, exported, parameters, props }) =>
+            `${file}:${name}:${exported}:${parameters}:${signature(props)}`,
+        ),
+      )
+      .sort();
+    const components = Object.entries(inventory.components)
+      .map(
+        ([name, props]) =>
+          `${root}${inventory.folder}/${name}.tsx:${name}:true:${props ? 1 : 0}:${signature(props ? props.split('; ') : [])}`,
+      )
+      .sort();
+    const barrel =
+      sameList(sources, expected) &&
+      readText(`${root}${inventory.folder}/index.ts`).replace(/\s/g, '').replaceAll('"', "'");
+    const page = Object.keys(inventory.components)[0];
+    return barrel === `export{${page}}from'./${page}';` && sameList(actual, components)
+      ? []
+      : [{ kind: 'trial-route-inventory', path: root, expected }];
   });
 }
 
@@ -368,7 +454,17 @@ const RULES = {
   'single-route-features': {
     find: singleRouteFeatures,
     describe: (violation) =>
-      `single-route-features ${violation.path}: ${violation.result} has only route "${violation.route}"; move feature code and tests into web/src/routes/${violation.route}/ and remove the feature barrel and API report (${ROLE_TABLE}).`,
+      `single-route-features ${violation.path}: ${violation.result} keeps all route code co-located; move feature code and tests into web/src/routes/${violation.route}/ and remove the feature barrel and API report (${ROLE_TABLE}).`,
+  },
+  'route-colocation': {
+    find: routeColocation,
+    describe: ({ path }) =>
+      `route-colocation ${path}: move route code and tests into their own route folder; import only that folder, @repo/ui, the api-client public surface and external npm packages. Server-state hooks use useTrpc (${ROLE_TABLE}).`,
+  },
+  'trial-route-inventory': {
+    find: trialRouteInventory,
+    describe: ({ path, expected }) =>
+      `trial-route-inventory ${path}: use exactly [${expected.join(', ')}] and the exported component props in .agents/templates/list-route.md; keep tests co-located.`,
   },
   'unexpected-file': {
     find: unexpectedFiles,

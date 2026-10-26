@@ -375,6 +375,20 @@ describe('a showcase result', () => {
     expect(Object.keys(summary)).toContain(join(copy, `showcase/x/${API_FILE}`));
   });
 
+  it('collects showcase importers of shared UI in blast-radius evidence', () => {
+    const collected = run([
+      'sh',
+      '-c',
+      'pnpm_config_verify_deps_before_run=false CHANGED=packages/ui/src/Button.tsx ' +
+        'HEAD_SHA=$(git rev-parse HEAD) OUT=.git/blast-radius.json node scripts/blast-radius.mjs --collect',
+    ]);
+    expect(collected).toMatchObject({ code: 0, output: '' });
+    const evidence = JSON.parse(readFileSync(join(copy, '.git/blast-radius.json'), 'utf8'));
+    expect(evidence.files[0].importers).toContain(
+      'showcase/x/web/src/routes/greeting/GreetingForm.tsx',
+    );
+  });
+
   it('passes the architecture gate as a copy of the reference', () => {
     const diagrams = script('arch:diagram');
     const gate = script('arch:gate');

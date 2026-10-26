@@ -721,6 +721,40 @@ function propsOf(fn, sourceFile) {
     .sort(sortText);
 }
 
+export function componentSignatures(path, text) {
+  const source = parse(path, text);
+  const types = new Map(source.statements.map(declarationOf).filter(Boolean));
+  const declarations = functionsOf(source)
+    .filter(({ name }) => /^[A-Z]/.test(name))
+    .map(({ name, node }) => ({
+      name,
+      exported: source.statements.some(
+        (statement) =>
+          statement.pos <= node.pos &&
+          statement.end >= node.end &&
+          isExported(statement) &&
+          !statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword),
+      ),
+      parameters: node.parameters.length,
+      props:
+        (node.parameters[0]?.type ? membersOf(node.parameters[0].type, { types }) : [])?.map(
+          oneLine,
+        ) ?? [],
+    }));
+  return [
+    ...declarations,
+    ...parseReportExports(source).filter(
+      ({ name, kind }) =>
+        kind === 'value' &&
+        /^[A-Z]/.test(name) &&
+        !declarations.some((entry) => entry.name === name),
+    ),
+    ...source.statements
+      .filter((node) => ts.isExportDeclaration(node) || ts.isExportAssignment(node))
+      .map((node) => ({ name: node.getText(), exported: true, parameters: 0, props: [] })),
+  ];
+}
+
 const unique = (values) => [...new Set(values)].sort(sortText);
 
 function scanComponent(name, fn, sourceFile, inner, uiImports) {
@@ -761,7 +795,7 @@ const holdsJsx = (nodes) =>
   );
 
 /** The hooks (`use*` functions) and components (PascalCase functions rendering JSX) of one file. */
-function scanWebFile(path, text, role) {
+export function scanWebFile(path, text, role) {
   const sourceFile = parse(path, text);
   const uiImports = uiImportsOf(sourceFile);
   const found = { components: [], hooks: [] };

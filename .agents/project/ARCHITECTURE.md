@@ -48,7 +48,6 @@ apps/
 │   │   │       ├── greetingFormSchema.ts  # Effect Schema for the form
 │   │   │       ├── *.test.ts(x)         # co-located tests
 │   │   │       └── index.ts             # public surface: GreetingPage
-│   │   └── features/<feature-name>/     # optional: shared by multiple routes
 │   ├── e2e/                             # the behaviour map: greeting.spec.ts, accessibility.spec.ts
 │   ├── etc/                             # generated API reports
 │   └── vite.config.ts                   # proxies /trpc to API_ORIGIN (default http://127.0.0.1:3001)
@@ -87,7 +86,7 @@ a Fallow zone, and its patterns match every result through the brace glob
 `{apps,showcase/*}`. Fallow fails any value import the table does not allow,
 and `coverage.requireAllFiles` fails any source file that sits in no role. A
 role may import types (`import type`, `export type … from`) from any other
-role ([ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)).
+role ([ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)), subject to route co-location below.
 Inline `type` specifiers count too, as in `import { type Greeting }`, when
 every specifier carries one. Fallow reads a plain `import { Greeting }` as a
 value import even when the file uses `Greeting` only as a type, so write
@@ -99,8 +98,8 @@ relative to a result root (`apps/` or `showcase/<id>/`).
 | --- | --- | --- |
 | `web-app` | `web/src/main.tsx`, `web/src/App.tsx`, `web/src/index.css` | `web-routes`, `web-api-client`, `ui` |
 | `web-api-client` | `web/src/api-client/**` | no other role |
-| `web-routes` | `web/src/routes/<route>/**` | `web-features`, `web-api-client`, `ui` |
-| `web-features` | `web/src/features/<feature>/**` | `web-api-client`, `ui` |
+| `web-routes` | `web/src/routes/<route>/**` | own route, api-client public surface, `@repo/ui`, external npm packages |
+| `web-features` | legacy Fallow zone; rejected in every result by structure | keep web feature code inside its route |
 | `ui` | `packages/ui/src/**` | no other role |
 | `api-app` | `api/src/server.ts`, `api/src/router.ts` | `api-trpc`, `api-procedures` |
 | `api-trpc` | `api/src/trpc.ts` | no other role |
@@ -134,11 +133,11 @@ included ([ADR 0033](../decisions/0033-result-diagrams-and-structure-validation.
   `web-routes`, and each api package in `api-app`, `api-trpc`,
   `api-procedures`, `api-application` and `api-domain`. A test file holds no
   role.
-- A result with one production route slice keeps its web feature code in that route.
-  `single-route-features` rejects `web/src/features/**` and
-  `web/etc/features-*.api.md`, including orphan reports. Only production
-  source establishes another route
-  ([ADR 0055](../decisions/0055-single-route-code-stays-in-its-route.md)).
+- Every route owns its components, hooks, state, schemas, types and tests.
+  `single-route-features` rejects web features and feature reports for every result.
+  `route-colocation` permits imports only from its own folder, `@repo/ui`, its api-client barrel and external npm packages.
+  Trial routes also follow the exact [list-route template](../templates/list-route.md),
+  enforced by `trial-route-inventory` ([ADR 0075](../decisions/0075-canonical-colocated-routes.md)).
 - In each api feature with application and domain source files, application
   imports or re-exports at least one value from that feature's domain.
   `application-without-domain-rule` checks Fallow's resolved edges and the
@@ -204,7 +203,7 @@ because Vite resolves it.
 A component calls its hooks and renders. It holds no state, effect, query,
 mutation or form of its own.
 
-Any web role may name an api type with `import type` from `@repo/api`. The api
+Routes obtain api types through `RouterInputs` and `RouterOutputs` from their api-client barrel. The api
 client is the only web module that wires the tRPC client and imports its
 packages, `@trpc/client` and `@trpc/tanstack-react-query`. Everything else
 reaches the api through `useTrpc()` from `../../api-client`:
@@ -252,7 +251,8 @@ The check's message names the fix.
 | Rule | Why | Enforced by | Proved by |
 | --- | --- | --- | --- |
 | Routes own page composition. | One place per page keeps navigation readable. | ESLint `policy/pages-in-routes`, Fallow `web-routes` | `pnpm lint:policy`, `pnpm arch:gate` |
-| A single-route result keeps web feature code in its route and removes unused feature reports. | One page has no cross-route sharing boundary. | Structure `single-route-features` | `pnpm arch:gate` |
+| Every route owns its code; global primitives are `@repo/ui` and the fixed api-client surface. | Route changes stay local; transport wiring stays shared. | Structure `single-route-features`, `route-colocation` | `pnpm arch:gate` |
+| Todo and Notes routes use the exact template files, components and props. | Independent builds share the same boundaries. | Structure `trial-route-inventory` | `pnpm arch:gate` |
 | Sibling slices stand alone: a route imports no other route, a feature no other feature. | Each slice changes without breaking its siblings. | ESLint `policy/slice-isolation` for every result; Fallow child zones for the `apps/web` routes | `pnpm lint:policy`, `pnpm arch:gate` |
 | Every file belongs to one role and one slice. | Extra layers and loose files hide structure. | Fallow `coverage.requireAllFiles`; `policy/slice-isolation` for a loose file under `src/routes/` or `src/features/` | `pnpm arch:gate`, `pnpm lint:policy` |
 | A package reaches another only by its package name. | Public exports are the only contract. | `policy/slice-isolation` (relative import out of the package) | `pnpm lint:policy` |
@@ -370,7 +370,8 @@ reference result; a trial result uses `showcase/<id>/` in place of `apps/`.
 ### Add a route
 
 1. Create `apps/web/src/routes/<route-name>/` with `<Name>Page.tsx` and an
-   `index.ts` that exports the page.
+   `index.ts` that exports the page. For Todo and Notes, copy the exact
+   [list-route inventory and signatures](../templates/list-route.md).
 2. Put server state in `use<Name>.ts` through `useTrpc()`, form state in
    `use<Name>Form.ts` and `<name>FormSchema.ts`, and each component in its own
    file built from `@repo/ui` primitives.
@@ -379,15 +380,10 @@ reference result; a trial result uses `showcase/<id>/` in place of `apps/`.
 5. Specify the behaviour in `apps/web/e2e/<route-name>.spec.ts`. Playwright
    runs every spec in that folder.
 
-### Add a web feature
-
-Create `apps/web/src/features/<feature-name>/` with an `index.ts` when web code
-is reused across routes. It may import the api client and `@repo/ui`; routes
-import it through its `index.ts`. A result with one production route slice
-keeps that code inside `routes/<route>/` and removes its old feature barrel
-and API report. The structure gate counts distinct route slices containing
-production source; it rejects feature paths and feature reports when that
-count is one. For multiple routes, review still establishes actual reuse.
+Keep route code and its tests in that route's folder, even with multiple routes.
+Share only `@repo/ui` primitives and the fixed api-client public surface;
+the latter is a global primitive because transport and test-provider wiring
+serve every route without owning feature state.
 
 ### Finish
 

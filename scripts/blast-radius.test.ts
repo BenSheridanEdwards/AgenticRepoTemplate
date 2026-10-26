@@ -288,7 +288,7 @@ describe('--collect', () => {
   afterAll(() => rmSync(directory, { recursive: true, force: true }));
   afterEach(() => rmSync(output, { force: true }));
 
-  it('writes every apps importer of Button plus showcase importers and its zone', () => {
+  it('writes every apps importer of Button and its zone', () => {
     const result = collect({ CHANGED: button, HEAD_SHA: head });
     expect(result.stderr).toBe('');
     expect(result.status).toBe(0);
@@ -296,9 +296,6 @@ describe('--collect', () => {
     expect(evidence.head).toBe(head);
     expect(evidence.files[0].importers.filter((path: string) => path.startsWith('apps/'))).toEqual(
       buttonImporters.toSorted(),
-    );
-    expect(evidence.files[0].importers.some((path: string) => path.startsWith('showcase/'))).toBe(
-      true,
     );
     expect(evidence.zones[button]).toBe('ui');
   }, 30_000);
