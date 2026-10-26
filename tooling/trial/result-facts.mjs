@@ -1,5 +1,5 @@
 /**
- * Reads one Todo result into the facts the trial comparison needs (ADR 0035).
+ * Reads one result into the facts the trial comparison needs (ADR 0035).
  * A result arrives as an in-memory tree, so a landed result (its tracked files)
  * and a failed one (its patch) take one path. Facts come from the committed
  * artifacts first: `architecture.mmd`, the `etc/*.api.md` reports and the
@@ -41,6 +41,7 @@
  * }} Manifest  dependencies keyed `<section> <name>`; the own id reads `{id}`
  * @typedef {{
  *   readonly id: string,
+ *   readonly brief: string,
  *   readonly passed: boolean,
  *   readonly verified: boolean,
  *   readonly sourceFiles: ReadonlyMap<string, readonly string[]>,
@@ -67,6 +68,7 @@ import ts from 'typescript';
 import { listPublicEntries } from '../../scripts/api-report.mjs';
 import { loadContract } from '../architecture/contract.mjs';
 import { descendants, moduleReferences, parse, resolveRelative } from '../architecture/imports.mjs';
+import { BRIEFS } from './briefs.mjs';
 import { streamEvents, unwrapCommand } from './stream.mjs';
 
 const OUTSIDE = 'outside-roles';
@@ -549,12 +551,12 @@ const pick = (candidates, hint) =>
 
 /**
  * Operations by shape: the query with no input and an array output is list;
- * the mutation that takes exactly `{ title: string }` is create; of the
+ * the mutation that takes the brief's create input is create; of the
  * mutations that take exactly `{ id }`, the one returning the item is toggle
  * and the other delete.
  * The key name only breaks a tie shape leaves; an open tie stays null.
  */
-function recognizeOperations(procedures, normalized) {
+function recognizeOperations(procedures, normalized, brief) {
   const operations = new Map();
   const queries = listCandidates(procedures, (p) => normalized.get(p).input);
   const mutations = procedures.filter((p) => p.kind === 'mutation');
@@ -566,13 +568,14 @@ function recognizeOperations(procedures, normalized) {
   const remove = split ? byId.find((p) => p !== toggle) : byHint(byId, HINTS.delete);
   for (const [operation, procedure] of [
     ['list', pick(queries, HINTS.list)],
-    ['create', pick(takes('{ title: string }'), HINTS.create)],
-    ...(toggle !== remove
+    ['create', pick(takes(brief.createInput), HINTS.create)],
+    ...(brief.operations.includes('toggle') && toggle !== remove
       ? [
           ['toggle', toggle],
           ['delete', remove],
         ]
       : []),
+    ...(brief.operations.includes('toggle') ? [] : [['delete', pick(byId, HINTS.delete)]]),
   ]) {
     if (procedure) {
       operations.set(procedure, operation);
@@ -603,7 +606,7 @@ function readItem(parsed, types) {
 }
 
 /** The procedures and the listed item of the api package's own report. */
-function readProcedures(tree) {
+function readProcedures(tree, brief) {
   const parsed = parseRouter(tree.get('api/etc/api.api.md'));
   const types = collectTypeDeclarations(tree);
   const item = readItem(parsed, types);
@@ -618,7 +621,7 @@ function readProcedures(tree) {
     parsed.map((p) => [p, { input: normalizedOf(p.input), output: normalizedOf(p.output) }]),
   );
   const written = (node) => (node ? oneLine(node) : UNKNOWN);
-  const operations = recognizeOperations(parsed, normalized);
+  const operations = recognizeOperations(parsed, normalized, brief);
   return {
     item: item ? { shape: item.shape, written: oneLine(item.element) } : null,
     procedures: parsed.map((p) => ({
@@ -1070,15 +1073,25 @@ function flaggedDrops(findings, reports) {
 }
 
 /**
- * @param {{ id: string, root: string, passed: boolean, verified: boolean, tree: ResultTree, contract: Contract, streamText?: string | null }} input
+ * @param {{ id: string, root: string, brief?: string, passed: boolean, verified: boolean, tree: ResultTree, contract: Contract, streamText?: string | null }} input
  *   `streamText`: the run's committed stream, or null when it has none
  * @returns {ResultFacts}
  */
-export function readResultFacts({ id, root, passed, verified, tree, contract, streamText = null }) {
+export function readResultFacts({
+  id,
+  root,
+  brief = 'todo',
+  passed,
+  verified,
+  tree,
+  contract,
+  streamText = null,
+}) {
   const roleOf = (path) => contract.roleOf(`${root}/${path}`);
   const apiReports = readApiReports(tree, root, roleOf);
   return {
     id,
+    brief,
     passed,
     verified,
     ...filesByRole(tree, roleOf, contract),
@@ -1087,7 +1100,7 @@ export function readResultFacts({ id, root, passed, verified, tree, contract, st
       web: readManifest(tree.get('web/package.json'), id),
       api: readManifest(tree.get('api/package.json'), id),
     },
-    ...readProcedures(tree),
+    ...readProcedures(tree, BRIEFS[brief]),
     apiReports,
     ...scanWeb(tree, roleOf),
     outsideFiles: readOutsideFiles(tree, roleOf, id),
