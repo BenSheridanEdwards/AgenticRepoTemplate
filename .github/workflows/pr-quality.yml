@@ -6,7 +6,8 @@ name: PR quality
 # image must be a renderable https URL; the title must be Conventional Commits;
 # the head branch must be `<type>/<short-kebab-summary>`; and the Verification
 # Summary names the PR head, tracked PRDs (or None with a reason), and the last
-# North Star commit at that head. Machine-local paths fail. A push (`synchronize`)
+# North Star commit at that head. Covered changes name their PRDs and update
+# them or explain unchanged behaviour. Machine-local paths fail. A push (`synchronize`)
 # that moves the head past the body fails until it is re-checked. It runs on
 # `edited` too, so fixing the body re-checks it without a new push.
 on:
@@ -32,18 +33,23 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
+          cache: pnpm
+      # The shared PRD parser imports the existing TypeScript dependency.
+      - run: pnpm install --frozen-lockfile
       # The PR body, title, and head branch are untrusted input. They are passed
       # through the environment via toJSON (never interpolated into the
       # run-script text), so a crafted body cannot break out into shell.
-      # PR_HEAD_SHA is passed raw on purpose: a SHA is plain hex, and the
+      # PR_HEAD_SHA and PR_BASE_SHA are passed raw on purpose: a SHA is plain hex, and the
       # validator rejects anything that is not 40 hex characters.
       - name: Validate
         env:
           PR_TITLE: ${{ toJSON(github.event.pull_request.title) }}
           PR_BODY: ${{ toJSON(github.event.pull_request.body) }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_REF: ${{ toJSON(github.event.pull_request.head.ref) }}
         run: node scripts/validate-pr-body.mjs
