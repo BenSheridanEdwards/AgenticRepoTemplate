@@ -810,21 +810,25 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     expect(existsSync(planned.patchPath)).toBe(true);
   });
 
-  it('fails a run that writes outside its showcase folder and names the path', async () => {
+  it.each([0, 7])('preserves scope exit %i and rejects outside writes', async (exitCode) => {
     const agent = fakeAgent(
       'out-of-scope',
       `${WRITES_RESULT}\nput('apps/web/src/App.tsx', 'export const App = 2;\\n');`,
     );
 
+    const command = ['sh', '-c', `echo scope; exit ${exitCode}`];
     const evidence = await runTrial(
       {
         ...plan({ agent }),
-        checks: [...passingChecks, { name: 'scope', argv: ['true', 'scope'] }],
+        checks: [...passingChecks, { name: 'scope', argv: command }],
       },
       quietDeps(),
     );
 
-    expect(evidence.checks.find(({ name }) => name === 'scope')).toMatchObject({ exitCode: 1 });
+    expect(evidence.checks.find(({ name }) => name === 'scope')).toMatchObject({
+      exitCode,
+      outputTail: 'scope\n',
+    });
     expect(evidence.result.status).toBe('failed');
     expect(evidence.result.outsideScope).toEqual(['apps/web/src/App.tsx']);
     expect(evidence.failures).toContain('changed outside showcase/todo-01/: apps/web/src/App.tsx');

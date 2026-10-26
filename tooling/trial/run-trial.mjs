@@ -1013,15 +1013,6 @@ async function checksStage(state) {
       ],
     },
   });
-  state.checks = state.checks.map((check) =>
-    check.name === 'scope' && result.outsideScope.length > 0
-      ? {
-          ...check,
-          exitCode: 1,
-          outputTail: `Restore changes outside scope: ${result.outsideScope.join(', ')}`,
-        }
-      : check,
-  );
   for (const check of state.checks.filter(({ exitCode }) => exitCode !== 0)) {
     failures.push(`check ${check.name} exited ${check.exitCode}`);
   }

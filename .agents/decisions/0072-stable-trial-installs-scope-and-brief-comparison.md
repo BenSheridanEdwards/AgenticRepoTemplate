@@ -6,28 +6,23 @@
 
 ## Context
 
-The trial on scaffold `88d5539` failed: 4/12 builds changed lockfile entries
-outside their importers. `@paulirish/trace_engine@0.0.53` declares two `latest`
-specs; adding importers resolved `legacy-javascript` from locked 0.0.3 to
-0.0.4, published 23 October at 20:11 UTC. Notes comparison needed a scratch edit.
+On scaffold `88d5539`, 4/12 builds changed unrelated lockfile entries because
+trace_engine's `latest` specs moved. Notes comparison required scratch edits.
 
 ## Decision
 
 Pin `legacy-javascript` and `third-party-web` to locked 0.0.3 and 0.30.0.
-`pnpm check:lockfile`, in verify and CI quality, installs a disposable copy,
-adds two reference-shaped showcase importers and installs again. Fail on drift
-outside those importers using the harness's unchanged filter; keep audit enabled.
-Both prompts require `node tooling/trial/check-scope.mjs --id <id>` during
-the session; both tasks run it after clean-checkout checks. Reuse `inspectChanges`
-against `origin/main` (or `--scaffold <rev>`). Preserve `outsideScope` and carry
-its failures into the named scope check, including files omitted from the commit.
-Compare accepts `--brief todo|notes`, default Todo, selecting records, facts,
-prompt and baseline. Notes writes `docs/trials/notes-comparison.md`; Todo retains
-its report path and rendering. Preserve historical evidence.
+Verify and CI quality run `pnpm check:lockfile`: install a disposable copy, add
+reference-shaped showcase importers, reinstall and reject unrelated drift using
+`withoutOwnImporters`. Keep audit enabled. Both prompts and clean-checkout tasks
+run `check-scope.mjs --id <id>`, reusing `inspectChanges` against `origin/main`
+(or `--scaffold <rev>`). Record real command exit/output; preserve the separate
+`outsideScope` failure, including files omitted from the result commit.
+Compare selects records, facts, prompt and baseline with `--brief todo|notes`;
+Todo keeps its rendering/path, Notes writes `docs/trials/notes-comparison.md`.
 
 ## Consequences
 
-Behavioural tests prove install drift, scope failures and both comparison CLIs.
-Verify/CI quality each cost two extra disposable installs. The changed prompt,
-harness and lockfile require a new shared trial baseline. No dependency or tool
-owner changes; reverting this PR restores prior behavior.
+Tests cover drift, scope and comparison. Keep historical evidence. Two disposable
+installs add cost; prompt, harness and lockfile changes require a shared new trial
+baseline. No dependency/tool owner changes; reverting this PR restores prior behavior.

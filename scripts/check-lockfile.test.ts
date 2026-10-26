@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 
 const script = resolve('scripts/check-lockfile.mjs');
 
-it('checks fresh installs without changing the checkout and reports stale lockfiles', () => {
+it.each(['fresh', 'stale', 'importers'])('checks %s drift without changing source', (phase) => {
   const root = mkdtempSync(join(tmpdir(), 'lockfile-test-'));
   const write = (path: string, content: string) => {
     mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -26,22 +26,31 @@ it('checks fresh installs without changing the checkout and reports stale lockfi
         JSON.stringify({ name: `@repo/${kind}`, dependencies: { shared: 'workspace:*' } }),
       );
     });
+    if (phase === 'importers') {
+      write('packages/extra/package.json', '{"name":"extra","version":"1.0.0"}');
+      write(
+        '.pnpmfile.cjs',
+        `module.exports = { hooks: { readPackage(pkg) {
+        return pkg.name === 'shared' && require('node:fs').existsSync('showcase')
+          ? { ...pkg, dependencies: { extra: 'workspace:*' } } : pkg;
+      } } };`,
+      );
+    }
     execFileSync('git', ['init', '-q', root]);
     execFileSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: root, stdio: 'pipe' });
     execFileSync('git', ['add', '.'], { cwd: root });
     const lockfile = join(root, 'pnpm-lock.yaml');
-    const before = readFileSync(lockfile, 'utf8');
-    const clean = spawnSync('node', [script], { cwd: root, encoding: 'utf8' });
-    expect(clean.stderr).toBe('');
-    expect(clean.status).toBe(0);
-    expect(clean.stdout).toContain('Lockfile is stable');
+    const before =
+      readFileSync(lockfile, 'utf8') + (phase === 'stale' ? '\n# stale generated content\n' : '');
+    writeFileSync(lockfile, before);
+    const result = spawnSync('node', [script], { cwd: root, encoding: 'utf8' });
+    expect(result.status).toBe(phase === 'fresh' ? 0 : 1);
+    const failure = expect.stringContaining(
+      'pnpm install changes pnpm-lock.yaml outside new importers; pin moving dependency specs',
+    );
+    expect(result.stderr).toEqual(phase === 'fresh' ? '' : failure);
+    if (phase === 'fresh') expect(result.stdout).toContain('Lockfile is stable');
     expect(readFileSync(lockfile, 'utf8')).toBe(before);
-    writeFileSync(lockfile, `${before}\n# stale generated content\n`);
-    const stale = spawnSync('node', [script], { cwd: root, encoding: 'utf8' });
-    expect(stale.status).toBe(1);
-    expect(stale.stderr).toContain('pnpm install changes pnpm-lock.yaml');
-    expect(stale.stderr).toContain('pin moving dependency specs');
-    expect(readFileSync(lockfile, 'utf8')).toBe(`${before}\n# stale generated content\n`);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
