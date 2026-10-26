@@ -2,7 +2,7 @@
 /**
  * The merge-confidence label: how much a reviewer can trust a green pull
  * request. CI grades every PR `confidence: green`, `confidence: amber` or
- * `confidence: red` from three inputs (issue #69, ADR 0064):
+ * `confidence: red` from four inputs (issues #69/#137, ADRs 0064/0067):
  *
  * - **Gate results.** The required checks a maintainer selects in branch
  *   protection: the `Required gates` aggregate (ADR 0017) and the stand-alone
@@ -14,16 +14,18 @@
  * - **PRD status.** Each changed slice maps to the PRD in `docs/prd/` that
  *   names it and links a spec in its result. A slice without that PRD is a gap.
  *
+ * - **Unit line coverage.** Each changed source meets Jest's line threshold.
+ *
  * A PR whose required checks all pass grades `green` with no gap, or `amber`
  * with one or more named gaps. The label grades a PR that is already green; the
  * gates themselves stay the fail-closed merge bar (ADR 0017).
  *
  * CLI modes:
  *   --decide   Grade the PR. Reads `CHECK_RUNS` (the head commit's check runs as
- *              JSON) and `CHANGED` (its changed files, one per line), reads the
- *              specs and PRDs as text from `PR_ROOT` (default: cwd), prints the
- *              level with its reasons, and
- *              writes `level` and `label` to `GITHUB_OUTPUT` and a summary to
+ *              JSON), `CHANGED` (one file per line), and CI JSON from
+ *              `COVERAGE_FILE`. Reads specs and PRDs as text from `PR_ROOT`
+ *              (default: cwd), prints the level and reasons, and writes
+ *              `level` and `label` to `GITHUB_OUTPUT` and a summary to
  *              `GITHUB_STEP_SUMMARY`.
  *   --labels   Print the three label definitions (name, colour, description) as
  *              JSON, so the workflow can create any that the repository lacks.
@@ -39,6 +41,7 @@ import {
 } from 'node:fs';
 import { matchesGlob, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import config from '../jest.config.ts';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
@@ -59,17 +62,19 @@ export const CONFIDENCE_LABEL_DEFS = {
   green: {
     name: CONFIDENCE_LABELS.green,
     color: '2ea44f',
-    description: 'Every required gate passed; every changed slice has an E2E spec and a PRD.',
+    description:
+      'Required gates, slice E2E/PRD coverage and changed-source unit line coverage passed.',
   },
   amber: {
     name: CONFIDENCE_LABELS.amber,
     color: 'dbab09',
-    description: 'Every required gate passed, with a named gap in E2E coverage or PRD status.',
+    description:
+      'Required gates passed, with a gap in E2E coverage, PRD status or unit line coverage.',
   },
   red: {
     name: CONFIDENCE_LABELS.red,
     color: 'd73a49',
-    description: 'A required gate is failing or pending.',
+    description: 'A required gate is failing or pending, or coverage is unavailable.',
   },
 };
 
@@ -149,6 +154,84 @@ export function prdGaps(slices, prds) {
     );
 }
 
+export const coverageThreshold = () => config.coverageThreshold.global.lines;
+
+export function isCoveredSource(path) {
+  const patterns = config.collectCoverageFrom;
+  const included = patterns.filter((pattern) => !pattern.startsWith('!'));
+  const excluded = patterns.filter((pattern) => pattern.startsWith('!')).map((p) => p.slice(1));
+  return (
+    included.some((pattern) => matchesGlob(path, pattern)) &&
+    !excluded.some((pattern) => matchesGlob(path, pattern))
+  );
+}
+
+const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const validFileCoverage = (entry) =>
+  isObject(entry) &&
+  typeof entry.path === 'string' &&
+  isObject(entry.statementMap) &&
+  isObject(entry.s) &&
+  Object.entries(entry.statementMap).every(
+    ([id, statement]) =>
+      Number.isInteger(statement?.start?.line) &&
+      statement.start.line > 0 &&
+      Number.isInteger(entry.s[id]) &&
+      entry.s[id] >= 0,
+  );
+
+export function parseCoverage(text) {
+  try {
+    const coverage = JSON.parse(text);
+    return isObject(coverage) &&
+      Object.keys(coverage).length > 0 &&
+      Object.values(coverage).every(validFileCoverage)
+      ? coverage
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function lineCoverage({ statementMap, s }) {
+  const lines = Object.groupBy(
+    Object.entries(statementMap),
+    ([, statement]) => statement.start.line,
+  );
+  const counts = Object.values(lines).map((statements) =>
+    Math.max(...statements.map(([id]) => s[id])),
+  );
+  return counts.length === 0
+    ? 100
+    : Math.floor((counts.filter((count) => count > 0).length / counts.length) * 10000) / 100;
+}
+
+export function lineCoverageGaps(changedSources, coverage) {
+  const entries = Object.values(coverage);
+  return changedSources.flatMap((file) => {
+    const entry = entries.find((candidate) => candidate.path.endsWith(`/${file}`));
+    if (!entry) {
+      return [
+        `The changed source \`${file}\` has no entry in the CI coverage. Add a unit test that imports it.`,
+      ];
+    }
+    const percent = lineCoverage(entry);
+    return percent < coverageThreshold()
+      ? [
+          `The changed source \`${file}\` has ${percent}% line coverage, below the ${coverageThreshold()}% threshold. Add unit tests that exercise it.`,
+        ]
+      : [];
+  });
+}
+
+function readCoverage() {
+  try {
+    return parseCoverage(readFileSync(process.env.COVERAGE_FILE, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * The required checks as `{ name, conclusion }`, from the head commit's check
  * runs. A name with no run is `missing`; a run still going is `pending`; a name
@@ -183,17 +266,22 @@ export function requiredCheckResults(checkRuns, checkNames = requiredCheckNames(
 }
 
 /**
- * Grade the PR. `red` when any required check is not `success`, otherwise
+ * Grade red when coverage is unavailable or a required check is not success;
  * `amber` when there is a gap and `green` when there is none. Pure.
  *
- * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[] }} input
+ * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], coverageUnavailable?: boolean }} input
  */
-export function decideConfidence({ requiredChecks, gaps }) {
+export function decideConfidence({ requiredChecks, gaps, coverageUnavailable = false }) {
   const failing = requiredChecks.filter((check) => check.conclusion !== 'success');
-  if (failing.length > 0) {
+  if (failing.length > 0 || coverageUnavailable) {
     return {
       level: 'red',
-      reasons: failing.map((check) => `Required check \`${check.name}\` is ${check.conclusion}.`),
+      reasons: [
+        ...failing.map((check) => `Required check \`${check.name}\` is ${check.conclusion}.`),
+        ...(coverageUnavailable
+          ? ["The head's CI coverage artifact is missing or malformed: `coverage unavailable`."]
+          : []),
+      ],
     };
   }
   if (gaps.length > 0) {
@@ -203,7 +291,7 @@ export function decideConfidence({ requiredChecks, gaps }) {
     level: 'green',
     reasons: [
       'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
-        'and a PRD.',
+        'and a PRD, and every changed source file meets the line-coverage threshold.',
     ],
   };
 }
@@ -266,7 +354,12 @@ function runDecide() {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
-  const filesystem = createNodeFilesystem(resolve(process.env.PR_ROOT ?? process.cwd()));
+  const root = resolve(process.env.PR_ROOT ?? process.cwd());
+  const filesystem = createNodeFilesystem(root);
+  const coverage = readCoverage();
+  const sources = changed.filter(
+    (file) => isCoveredSource(file) && existsSync(resolve(root, file)),
+  );
   const candidates = filesystem.listFiles();
   const read = (glob) =>
     candidates
@@ -276,7 +369,8 @@ function runDecide() {
   const gaps = [...coverageGaps(slices, read(SPEC_GLOB)), ...prdGaps(slices, read(PRD_GLOB))];
   const decision = decideConfidence({
     requiredChecks: requiredCheckResults(checkRuns),
-    gaps,
+    gaps: [...gaps, ...(coverage ? lineCoverageGaps(sources, coverage) : [])],
+    coverageUnavailable: !coverage,
   });
 
   console.log(`confidence: ${decision.level}`);
