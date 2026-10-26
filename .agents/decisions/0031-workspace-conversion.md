@@ -4,9 +4,6 @@
 - **Date:** 2026-10-17
 - **Implements:** [0009](0009-move-the-app-to-apps-web-first.md)
 
-- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
-  for Biome lint ownership; implementation follows in separate PRs.
-
 ## Context
 
 [0009](0009-move-the-app-to-apps-web-first.md) moves the app into a pnpm

@@ -8,7 +8,6 @@
   [0063](0063-advisory-declarative-style-lint.md)
 - **Amends:** [0046](0046-fail-lint-on-warnings.md) only for the separate
   report-only advisory command described below.
-
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md).
   The target enables Oxlint built-in rules and gives Oxlint general lint;
   Biome only formats, retaining import sorting. Both `oxlint` and

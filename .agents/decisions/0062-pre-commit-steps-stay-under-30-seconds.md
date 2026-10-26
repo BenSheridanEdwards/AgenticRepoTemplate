@@ -4,7 +4,6 @@
 - **Date:** 2026-10-24
 - **Amends:** [0002](0002-quality-gates-as-code.md),
   [0028](0028-pre-push-runs-the-full-local-gate-suite.md)
-
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
   for Biome lint ownership; implementation follows in separate PRs.
 
