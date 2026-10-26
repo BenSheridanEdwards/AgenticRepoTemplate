@@ -11,6 +11,117 @@ const unique = (paths) => [...new Set(paths)].toSorted();
 const isPath = (value) => typeof value === 'string' && value.length > 0;
 const isPaths = (value) => Array.isArray(value) && value.every(isPath);
 
+export const BLAST_RADIUS_THRESHOLD = 20;
+const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const safePath = (value) =>
+  isPath(value) &&
+  value.length <= 300 &&
+  !value.startsWith('/') &&
+  !value.split('/').includes('..') &&
+  !value.includes('`') &&
+  !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(value);
+const safePaths = (value) => Array.isArray(value) && value.every(safePath);
+const isSubset = (subset, values) => {
+  const paths = new Set(values);
+  return subset.every((path) => paths.has(path));
+};
+const validFile = (file) =>
+  safePath(file?.path) &&
+  typeof file.inGraph === 'boolean' &&
+  safePaths(file.importers) &&
+  safePaths(file.consumers) &&
+  isSubset(file.consumers, file.importers) &&
+  (file.inGraph || file.importers.length === 0);
+const validZones = (zones) =>
+  isObject(zones) &&
+  Object.entries(zones).every(
+    ([path, zone]) => safePath(path) && (zone === null || safePath(zone)),
+  );
+const validEvidence = (evidence) =>
+  evidence?.version === 1 &&
+  Array.isArray(evidence.files) &&
+  evidence.files.every(validFile) &&
+  validZones(evidence.zones);
+
+/** Validate untrusted JSON without loading anything from the PR checkout. */
+export function parseBlastRadius(text, { head, changed }) {
+  try {
+    const evidence = JSON.parse(text);
+    if (typeof head !== 'string' || !head || !validEvidence(evidence) || evidence.head !== head)
+      return undefined;
+    const paths = evidence.files.map((file) => file.path);
+    const complete =
+      isSubset(changed, paths) &&
+      new Set(paths).size === paths.length &&
+      evidence.files.every((file) =>
+        [file.path, ...file.importers].every((path) => Object.hasOwn(evidence.zones, path)),
+      );
+    const changedPaths = new Set(changed);
+    return complete
+      ? { ...evidence, files: evidence.files.filter((file) => changedPaths.has(file.path)) }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function unitOf(path) {
+  const [root, name] = path.split('/');
+  if (root === 'apps') return 'apps';
+  return (root === 'packages' || root === 'showcase') && name ? `${root}/${name}` : 'root';
+}
+
+export function blastRadiusGaps(evidence) {
+  const changed = new Set(evidence.files.map((file) => file.path));
+  const files = evidence.files.map((file) => ({
+    ...file,
+    importers: file.importers.filter((path) => !changed.has(path)),
+  }));
+  const importers = unique(files.flatMap((file) => file.importers));
+  const gaps = files.flatMap((file) => {
+    const others = unique(file.importers.map(unitOf).filter((unit) => unit !== unitOf(file.path)));
+    return others.length
+      ? [
+          `The changed file \`${file.path}\` reaches other units: ${others.map((unit) => `\`${unit}\``).join(', ')}.`,
+        ]
+      : [];
+  });
+  return {
+    gaps: [
+      ...gaps,
+      ...(importers.length > BLAST_RADIUS_THRESHOLD
+        ? [
+            `Blast radius reaches ${importers.length} distinct importers, above ${BLAST_RADIUS_THRESHOLD}.`,
+          ]
+        : []),
+    ],
+    summary: {
+      count: importers.length,
+      units: unique(importers.map(unitOf)),
+      zones: unique(importers.map((path) => evidence.zones[path] ?? '(none)')),
+      topImporters: unique(
+        files.flatMap((file) => {
+          const importers = new Set(file.importers);
+          return file.consumers.filter((path) => importers.has(path));
+        }),
+      ).slice(0, 10),
+    },
+  };
+}
+
+export function renderBlastRadius(summary) {
+  const list = (values) => values.map((value) => `\`${value}\``).join(', ') || '(none)';
+  return [
+    '### Import blast radius',
+    '',
+    `- Distinct importers: ${summary.count}`,
+    `- Units: ${list(summary.units)}`,
+    `- Fallow zones: ${list(summary.zones)}`,
+    `- Top importers: ${list(summary.topImporters)}`,
+    '',
+  ];
+}
+
 const isClosure = (value, path) =>
   value?.kind === 'trace' &&
   !value.error &&

@@ -366,10 +366,39 @@ describe('CLI', () => {
         conclusion: 'success',
       })),
     );
+  const head = 'a'.repeat(40);
+  const blastEvidence = (changed = '', importers: string[] = []) => ({
+    version: 1,
+    head,
+    files: changed
+      .split('\n')
+      .filter(Boolean)
+      .map((path) => ({
+        path,
+        inGraph: importers.length > 0,
+        importers,
+        consumers: importers,
+      })),
+    zones: Object.fromEntries(
+      [...changed.split('\n').filter(Boolean), ...importers].map((path) => [path, 'web-app']),
+    ),
+  });
+  const writeBlastRadius = (text: string) => {
+    const path = join(root, 'blast-radius.json');
+    writeFileSync(path, text);
+    return path;
+  };
   const run = (mode: string, env: NodeJS.ProcessEnv = {}) =>
     spawnSync(process.execPath, ['scripts/confidence-label.mjs', mode], {
       encoding: 'utf8',
-      env: { ...process.env, PR_ROOT: root, ...env },
+      env: {
+        ...process.env,
+        PR_ROOT: root,
+        HEAD_SHA: head,
+        BLAST_RADIUS_FILE:
+          env.BLAST_RADIUS_FILE ?? writeBlastRadius(JSON.stringify(blastEvidence(env.CHANGED))),
+        ...env,
+      },
     });
 
   const writeCoverage = (coverage = coverageMap(coverageEntry())) => {
@@ -471,6 +500,68 @@ describe('CLI', () => {
     expect(result.status).toBe(0);
     expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
     expect(readFileSync(summary, 'utf8')).toContain('coverage unavailable');
+  });
+
+  it.each([
+    'unset',
+    'missing',
+    'malformed',
+    'oversize',
+    'wrong head',
+    'partial',
+  ])('grades %s blast-radius evidence red', (kind) => {
+    const evidence = blastEvidence('README.md');
+    const text =
+      kind === 'malformed'
+        ? 'not JSON'
+        : JSON.stringify({
+            ...evidence,
+            head: kind === 'wrong head' ? 'b'.repeat(40) : head,
+            files: kind === 'partial' ? [] : evidence.files,
+          }) + (kind === 'oversize' ? ' '.repeat(5 * 1024 * 1024) : '');
+    const result = run('--decide', {
+      CHANGED: 'README.md',
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: writeCoverage(),
+      BLAST_RADIUS_FILE:
+        kind === 'unset'
+          ? undefined
+          : kind === 'missing'
+            ? join(root, 'absent')
+            : writeBlastRadius(text),
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('confidence: red');
+    expect(result.stdout).toContain('blast radius unavailable');
+  });
+
+  it.each([
+    'success',
+    'failure',
+  ])('grades Button reach with %s checks and reports its importers', (conclusion) => {
+    const button = 'packages/ui/src/Button.tsx';
+    const importer = 'apps/web/src/routes/greeting/GreetingForm.tsx';
+    const summary = join(root, 'summary');
+    const result = run('--decide', {
+      CHANGED: button,
+      COVERAGE_FILE: writeCoverage(),
+      CHECK_RUNS: passingRuns().replaceAll('"success"', JSON.stringify(conclusion)),
+      BLAST_RADIUS_FILE: writeBlastRadius(
+        JSON.stringify(blastEvidence(button, [importer, 'showcase/todo-01/web/src/App.tsx'])),
+      ),
+      GITHUB_STEP_SUMMARY: summary,
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(`confidence: ${conclusion === 'success' ? 'amber' : 'red'}`);
+    if (conclusion === 'success') {
+      expect(result.stdout).toContain(button);
+      expect(result.stdout).toContain('apps');
+      expect(result.stdout).toContain('showcase/todo-01');
+    }
+    const details = readFileSync(summary, 'utf8');
+    expect(details).toMatch(/[Ii]mporters[^\n]*2/);
+    expect(details).toContain('web-app');
+    expect(details).toContain(importer);
   });
 
   it.each([undefined, '', 'not json', '{}', 'null'])('rejects invalid CHECK_RUNS: %s', (value) => {
