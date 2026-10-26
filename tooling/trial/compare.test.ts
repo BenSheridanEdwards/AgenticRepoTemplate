@@ -1,12 +1,24 @@
 /**
  * @jest-environment node
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import {
   checkLandedRuns,
   checkRunEvidence,
+  comparisonFailures,
   comparisonReport,
   hasTrialEvidence,
   proveBaseline,
@@ -279,7 +291,7 @@ describe('compareResults', () => {
     ]);
   });
 
-  it('places a mutation output under freedom 4 and tells toggle from delete by name on a tie', () => {
+  it('rejects a different mutation output and tells toggle from delete by name on a tie', () => {
     const returnsItem = facts(
       'todo-02',
       replaceIn(API_REPORT, /output: \{\r?\nid: string;\r?\n\};/, 'output: Todo;'),
@@ -291,7 +303,7 @@ describe('compareResults', () => {
       'delete',
     ]);
     expect(departures(compareResults([facts('todo-01'), returnsItem]))).toEqual([
-      ['public-api · delete output', 'spec-freedom', 4],
+      ['public-api · delete output', 'outside-spec', null],
     ]);
   });
 
@@ -324,7 +336,7 @@ describe('compareResults', () => {
     ]);
   });
 
-  it('places another split of a role into files and components under freedom 2', () => {
+  it('rejects another split of a role into files and components', () => {
     const split = facts('todo-02', (tree) => {
       tree.set(
         `${ROUTES}/TodoEmpty.tsx`,
@@ -332,12 +344,12 @@ describe('compareResults', () => {
       );
     });
     expect(departures(compareResults([facts('todo-01'), split]))).toEqual([
-      ['structure · files web-routes', 'spec-freedom', 2],
-      ['component-boundaries · components web-routes', 'spec-freedom', 2],
+      ['structure · files web-routes', 'outside-spec', null],
+      ['component-boundaries · components web-routes', 'outside-spec', null],
     ]);
   });
 
-  it('keeps a split that moves a call into a new component of the role under freedom 2', () => {
+  it('rejects a split that moves the same call into a new component of the role', () => {
     const page = `${ROUTES}/TodosPage.tsx`;
     const withId = replaceIn(
       page,
@@ -355,9 +367,49 @@ describe('compareResults', () => {
       },
     );
     expect(departures(compareResults([facts('todo-01', withId), moved]))).toEqual([
-      ['structure · files web-routes', 'spec-freedom', 2],
-      ['component-boundaries · components web-routes', 'spec-freedom', 2],
+      ['structure · files web-routes', 'outside-spec', null],
+      ['component-boundaries · components web-routes', 'outside-spec', null],
     ]);
+  });
+
+  it('rejects a different hook split with the same role-wide calls', () => {
+    const withId = replaceIn(
+      `${ROUTES}/useTodos.ts`,
+      'const trpc = useTrpc();',
+      'const trpc = useTrpc(); useId();',
+    );
+    const split = facts(
+      'todo-02',
+      withId,
+      replaceIn(`${ROUTES}/useTodos.ts`, 'useId();', 'useTodoId();'),
+      (tree) =>
+        tree.set(`${ROUTES}/useTodoId.ts`, 'export function useTodoId() { return useId(); }'),
+    );
+    const comparison = compareResults([facts('todo-01', withId), split]);
+    expect(departures(comparison)).toEqual([
+      ['structure · files web-routes', 'outside-spec', null],
+      ['conventions · hooks web-routes', 'outside-spec', null],
+    ]);
+    expect(comparison.consistent).toBe(false);
+  });
+
+  it('rejects a nullable toggle output', () => {
+    const nullable = facts(
+      'todo-02',
+      replaceIn(API_REPORT, /(toggle:[\s\S]*?output: Todo);/, '$1 | null;'),
+    );
+    const comparison = compareResults([facts('todo-01'), nullable]);
+    expect(departures(comparison)).toEqual([['public-api · toggle output', 'outside-spec', null]]);
+    expect(comparison.consistent).toBe(false);
+  });
+
+  it.each([2, 4] as const)('rejects an author ruling reinstating revoked freedom %p', (freedom) => {
+    expect(() =>
+      compareResults(
+        [facts('todo-01'), facts('todo-02', addSolidEdge)],
+        [{ key: SOLID_EDGE, freedom, why: 'accept the difference' }],
+      ),
+    ).toThrow('revoked by ADR 0069');
   });
 
   it('marks another call in a feature hook outside the spec', () => {
@@ -486,7 +538,7 @@ describe('compareResults', () => {
     const comparison = compareResults([facts('todo-01', seed), facts('todo-03', ...ownTodoType)]);
     expect(departures(comparison)).toEqual([
       [SOLID_INTEGRATIONS_EDGE, 'outside-spec', null],
-      ['structure · files api-integrations', 'spec-freedom', 2],
+      ['structure · files api-integrations', 'outside-spec', null],
     ]);
   });
 
@@ -1389,6 +1441,105 @@ describe('hasTrialEvidence', () => {
       () => undefined,
       (root) => expect(hasTrialEvidence(root)).toBe(false),
     );
+  });
+});
+
+describe('comparison exit status', () => {
+  const runs = ['todo-01', 'todo-02'].map((id) => ({
+    evidence: { ...evidence(id), result: { ...evidence(id).result, status: 'passed' } },
+    source: `showcase/${id}`,
+    facts: facts(id),
+  }));
+
+  it('accepts identical passing runs on a shared baseline', () => {
+    expect(comparisonFailures(runs, read)).toEqual([]);
+  });
+
+  it('names both a failed run and a split baseline even when the builds match', () => {
+    const failed = runs.map((run) => ({ ...run, evidence: evidence(run.evidence.trial.id) }));
+    failed[1].evidence.agent.resolvedModel = 'another-model';
+    expect(comparisonFailures(failed, read)).toEqual([
+      'Baseline differs: Resolved model',
+      'Failed run: todo-01',
+    ]);
+  });
+
+  it.each([
+    false,
+    true,
+  ])('writes the report and exits according to mutation output differences: %p', (differs) => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'compare-cli-')));
+    const write = (path: string, text: string) => {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    };
+    try {
+      cpSync(join(ROOT, 'tooling'), join(root, 'tooling'), { recursive: true });
+      symlinkSync(join(ROOT, 'scripts'), join(root, 'scripts'), 'dir');
+      symlinkSync(join(ROOT, 'node_modules'), join(root, 'node_modules'), 'dir');
+      write('.fallowrc.jsonc', read('.fallowrc.jsonc'));
+      write(
+        'tooling/trial/todo-prompt.md',
+        read('tooling/trial/todo-prompt.md').split('\n## Shared machine\n')[0],
+      );
+      runs.forEach((run, index) => {
+        const id = run.evidence.trial.id;
+        const tree = variant(
+          id,
+          ...(differs && index === 1
+            ? [replaceIn(API_REPORT, /output: \{\r?\nid: string;\r?\n\};/, 'output: Todo;')]
+            : []),
+        );
+        tree.forEach((text, path) => {
+          write(`showcase/${id}/${path}`, text);
+        });
+        write(
+          `docs/trials/${id}.json`,
+          JSON.stringify({
+            ...run.evidence,
+            schema: 2,
+            task: {
+              name: 'todo',
+              definitionSha256: 'b'.repeat(64),
+              target: null,
+              checks: ['install', 'verify', 'e2e', 'structure'],
+              land: 'showcase',
+            },
+            agent: {
+              ...run.evidence.agent,
+              name: 'claude',
+              modelSource: 'stream',
+              reasoningEffort: null,
+            },
+            run: { ...run.evidence.run, tokenUsage: null },
+            failures: [],
+            result: {
+              ...run.evidence.result,
+              patch: null,
+              outsideReads: [],
+              changedPaths: [...tree.keys()].map((path) => `showcase/${id}/${path}`),
+            },
+          }),
+        );
+        write(run.evidence.stream.path, read(run.evidence.stream.path));
+      });
+      execFileSync('git', ['init', '--quiet', root]);
+      execFileSync('git', ['add', 'showcase'], { cwd: root });
+      const result = spawnSync(process.execPath, [join(root, 'tooling/trial/compare.mjs')], {
+        cwd: root,
+        encoding: 'utf8',
+        env: process.env,
+      });
+      expect(result.stderr).toEqual(
+        differs ? expect.stringContaining('public-api · delete output') : '',
+      );
+      expect(result.status).toBe(differs ? 1 : 0);
+      expect(readFileSync(join(root, REPORT_PATH), 'utf8')).toContain(
+        `Consistency: \`${differs ? 'inconsistent' : 'consistent'}\``,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
