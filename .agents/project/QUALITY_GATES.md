@@ -9,11 +9,12 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | --- | --- | --- |
 | Agent commands | `.claude/hooks/block-gate-bypass.sh` | Refuses the common hook bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and writes to `core.hooksPath`, git aliases, or config includes) before Claude Code runs them. CI is the backstop for the gaps listed in ADR 0027. |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. |
-| Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome (lint + format + imports), `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). |
+| Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome (lint + format + imports), `pnpm lint:anti-slop`, `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main (the one local up-to-date check), then `pnpm verify` (the full local gate suite, including the production build) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. |
-| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression reasons, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
+| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression policy, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
+| Vendored anti-slop | `.oxlintrc.json` (`pnpm lint:anti-slop`) | Clean generic and Effect tag rules at `error`, with `--deny-warnings`, in pre-commit, `pnpm verify` and the existing CI quality job. `pnpm check:suppressions` rejects inline Oxlint rule directives. |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | `AGENTS.md` and `CLAUDE.md` are short pointers to `.agents/START_HERE.md`, and `CLAUDE.md` imports it; the start-here guide, manifest, project docs, ledgers, house skills, and the review rules (`REVIEW.md`, referenced from `.agents/START_HERE.md` and from `.cursor/BUGBOT.md`) exist as real files. Each ADR is named `NNNN-slug.md`, uses its number once, and opens with a matching `# N.` title. No context doc has the same section twice under one parent. |
-| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression reasons, positive doc phrasing, PRD links, dependency ADR check, typecheck, Biome, ESLint policy lint, React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. The E2E lane starts after unit tests pass ([ADR 0065](../decisions/0065-e2e-waits-for-unit-tests.md)). |
+| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression policy, positive doc phrasing, PRD links, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. The E2E lane starts after unit tests pass ([ADR 0065](../decisions/0065-e2e-waits-for-unit-tests.md)). |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files, as decided by the tested `scripts/lighthouse-scope.mjs`; other PRs report the same check green with audits skipped. |
 | PR contract | `.github/workflows/pr-quality.yml` (`scripts/validate-pr-body.mjs`) | Template sections in order, inline proof or `Not applicable` with a reason, renderable https images, Conventional title, `<type>/<short-kebab-summary>` branch, no machine-local paths ([ADR 0020](../decisions/0020-pr-process-checks.md), [ADR 0051](../decisions/0051-pr-body-names-no-machine-local-path.md)). |
@@ -26,8 +27,8 @@ only when a hook, script, workflow, or review checklist actually owns it.
 
 The pre-commit Biome command is
 `pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .`.
-Only Biome and gitleaks are staged-scoped: typecheck covers the project, and
-Fallow audits touched files against the last fetched `origin/main` (or local
+Only Biome and gitleaks are staged-scoped: typecheck covers the project,
+anti-slop covers its configured source scope, and Fallow audits touched files against the last fetched `origin/main` (or local
 `main` when the remote ref is absent). Pre-push refreshes that base before
 `pnpm verify` audits again.
 
@@ -49,6 +50,25 @@ partly gated by Biome `style/useConst` and the React Hooks rules
 `react-hooks/immutability`, `react-hooks/globals` and `react-hooks/purity`; a
 general loop and mutation rule is a target with no owner yet.
 
+## Vendored anti-slop rules (Oxlint)
+
+`pnpm lint:anti-slop` runs the generic and Effect plugins in `vendor/anti-slop/`
+using `.oxlintrc.json`, with clean rules at `error` and `--deny-warnings`.
+It runs in pre-commit, `pnpm verify` (and therefore pre-push), and the existing
+CI `quality` job. Keep the per-step pre-commit timings in the PR as required
+by [ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md).
+
+`pnpm lint:anti-slop:advisory` explicitly selects `anti-slop.advisory.mjs`.
+Keep its noisy rules outside hooks, `pnpm verify` and CI gates. Promote a rule
+to `.oxlintrc.json` at `error` in the PR that clears its last finding.
+The config excludes named agent directories, vendored code and the six recorded
+trial folders; future trial IDs remain in scope. `pnpm check:suppressions`
+rejects inline Oxlint disable and enable directives in tracked source comments.
+
+[ADR 0070](../decisions/0070-vendored-anti-slop-oxlint-rules.md) records the
+pins, provenance and rule split. The existing ESLint
+[anti-slop policies](#anti-slop-policies) keep their separate ownership.
+
 ## Advisory declarative-style lint
 
 `pnpm lint:declarative` reports loops, parameter reassignment, `var`, `++`/`--`,
@@ -66,6 +86,8 @@ gates fail on any warning
   Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
   The repository's own rules live in `tooling/eslint-plugin-policy.js`
   ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
+- **Oxlint** (`pnpm lint:anti-slop`) runs only the vendored generic and Effect
+  anti-slop plugins; every built-in Oxlint rule stays off.
 - **React Doctor** (`pnpm react-doctor`) owns the project-level checks the
   ESLint plugin leaves out, such as duplicated JSX across files.
 - **TypeScript** owns type semantics through `tsc --noEmit` over four programs:
