@@ -36,6 +36,7 @@
     "secret-scan": "bash scripts/secret-scan.sh",
     "license:check": "node scripts/license-check.mjs",
     "check:context": "node scripts/check-context-layer.mjs",
+    "check:anti-slop-vendor": "node scripts/check-anti-slop-vendor.mjs",
     "check:suppressions": "node scripts/check-suppressions.mjs",
     "check:adr": "node scripts/check-dependency-adr.mjs",
     "check:docs": "node scripts/check-doc-phrasing.mjs && node scripts/check-sign-off-docs.mjs && node scripts/check-prd-conflicts.mjs",
