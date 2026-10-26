@@ -1,0 +1,4 @@
+597e4faa7efd12846bdb425c7f7ae738272215ff0333d447ff41fdece470acae  370  vendor/anti-slop/rules/no-known-value-widening.ts
+4a8e0b5859e1dfa63c6f833b9c5e27a9f2358cab255747bace3cb8c966a51428  370  vendor/anti-slop/shared/dictionary-types.ts
+c51522c005c573a6fca3655784b31b9de12a0ae7d91511c3a47d943209f40446  370  vendor/anti-slop/vendor/eslint-stylistic/padding-line-between-statements.ts
+7edf5277d303efab150e9fed808d86057dc874176e92c9de7758792ac8db8a79  740  vendor/anti-slop/vendor/eslint-stylistic/padding-line-between-statements.ts
