@@ -10,14 +10,15 @@ matching feature file as the recipe.
   `V=.claude/skills/verify-agentic-template/scripts/verify.mjs`.
 - Require `PASS` on every line of `node $V doctor --run <id>`.
 - The app is at the printed `url`, on `127.0.0.1` and a free port. The page is
-  `/`. It has no auth or stored data.
+  `/` for Greeting or `/todos` for Todos. Todos use api-process memory.
 - The api runs beside it, and `GET /trpc/greeting.greet` with the input
   `{"name":"Ada"}` answers `Hello, Ada!` through the web server's proxy.
 - Drive only an instance that this run launched.
 
 ## Driving conventions
 
-- Every recipe starts from a fresh page load. A reload resets all state.
+- Every recipe starts from a fresh page load. A reload resets the greeting;
+  todos persist while the api runs.
 - Locate by ARIA role and accessible name: the `Name` textbox, the `Greet`
   button, the `status` greeting and the `alert` error.
 - Each bullet in a recipe names one step of the journey. `drive` prints that
@@ -47,3 +48,4 @@ and `Gotchas`.
   validation, and the request error.
 - [Accessibility](./accessibility.md) covers the axe WCAG scan and keyboard
   reach on the whole page.
+- [Todos](./todos.md) covers validation, creation, completion, reload and deletion.

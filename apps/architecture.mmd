@@ -11,6 +11,7 @@ flowchart LR
     api_procedures["api-procedures"]
     api_application["api-application"]
     api_domain["api-domain"]
+    api_integrations["api-integrations"]
   end
   subgraph kind_ui["ui"]
     ui["ui"]
@@ -18,6 +19,8 @@ flowchart LR
   api_app --> api_procedures
   api_app --> api_trpc
   api_application --> api_domain
+  api_application --> api_integrations
+  api_integrations -.-> api_domain
   api_procedures --> api_application
   api_procedures --> api_trpc
   web_api_client -.-> api_app

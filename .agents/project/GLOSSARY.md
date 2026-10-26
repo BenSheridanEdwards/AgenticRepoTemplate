@@ -19,6 +19,7 @@ domain term appears, add it here in the same change.
 | **Quality gate** | An automated check that can block a commit, a push, or a merge. Gates are code, not guidelines. |
 | **Health check** | Running the ArchitectPlaybook audits against this repo to grade its architecture and agentic setup (showcase #1). |
 | **Definition of Done** | The checklist in `DEFINITION_OF_DONE.md`; "done" means the gates that enforce it are green. |
+| **Todo** | A task with exactly `id`, `title` and `completed`, stored in api-process memory. The Todos route creates, lists, toggles and deletes tasks. |
 | **Greeting** | The reference feature: the user submits a name and the api answers `Hello, <name>!` through `greeting.greet`. |
 | **Slop** | Code more complex than the change needs, or code that breaks a convention the repository agreed in `.agents/`. Gates refuse the violations they enforce; review holds the rest. |
 | **Software factory** | A repository any agent, on any model or harness, can work in, with executable standards and explicit review-held targets. See `NORTH_STAR.md`. |

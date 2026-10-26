@@ -241,3 +241,19 @@ ships, leave its block here as history and open the next one above it.
   add fallow boundary zones, grow a second feature) went to `TODO.md`. The
   boundary zones have since landed (ADR 0014, ADR 0032), and the greeting
   feature with its api replaced the demos (ADR 0032).
+
+## Todo research run 01
+
+- **Branch:** `feat/todo-research/run-01-codex-gpt-6.1-sol`
+- **Scope:** Add `/todos` alongside the unchanged greeting route, using the
+  template's tRPC, TanStack Query and Effect Schema form conventions.
+- **Completed:** Route-owned components, hooks, schema and styles; api feature
+  with pure domain rules and in-process memory; unit and browser behaviour tests;
+  PRD and a reproducible verification journey.
+- **Verification:** Targeted api and web suites pass. Full local gates, real
+  browser evidence and latest-head CI results are recorded in the PR body.
+- **Blockers:** The inclusion fixture assumes greeting is the reference
+  result's only api domain. Its two assertions fail after adding Todo; the task
+  forbids editing `tooling/trial/`. Product intent also awaits Ben's enforcement
+  approval. GitNexus is unindexed here; CLI attempts, direct caller inspection
+  and the Fallow impact collector cover scope.

@@ -4,6 +4,7 @@
  * every `step` captures a screenshot and an ARIA snapshot after its body passes.
  */
 import AxeBuilder from '@axe-core/playwright';
+import todos from './todos.mjs';
 
 /** Counts the requests the page sends to the api, so a step can prove none left. */
 function watchApiCalls(page) {
@@ -119,7 +120,7 @@ const accessibility = {
 };
 
 export const JOURNEYS = Object.fromEntries(
-  [greeting, greetingValidation, greetingError, accessibility].map((journey) => [
+  [greeting, greetingValidation, greetingError, accessibility, todos].map((journey) => [
     journey.id,
     journey,
   ]),
