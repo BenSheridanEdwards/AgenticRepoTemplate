@@ -2,6 +2,7 @@ name: Merge confidence
 
 # Grade PRs from required checks, slice E2E coverage and PRDs (issue #69, ADR 0064).
 # Read the head's CI coverage artifact as JSON data (issue #137, ADR 0067).
+# Read the head's Fallow blast-radius artifact as JSON data (issue #138, ADR 0068).
 # Run main's trusted script; read the PR head only as data, with no credentials
 # persisted in either checkout. Skip stale heads. The label is advisory and the
 # required gates stay the merge bar. Like every workflow_run workflow, this
@@ -66,6 +67,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             scripts/confidence-label.mjs
+            scripts/blast-radius.mjs
             scripts/required-gates.mjs
             jest.config.ts
             .nvmrc
@@ -97,6 +99,18 @@ jobs:
             echo "No coverage artifact for ${HEAD_SHA}; the grade reports coverage unavailable."
           fi
 
+      - name: Download the head's blast-radius evidence as data
+        if: steps.pr.outputs.number != ''
+        run: |
+          if run_id=$(gh api "repos/${REPO}/actions/workflows/ci.yml/runs?head_sha=${HEAD_SHA}&event=pull_request" \
+            --jq '.workflow_runs | sort_by(.created_at) | last | .id // empty') &&
+            [ -n "${run_id}" ] && gh run download "${run_id}" --repo "${REPO}" \
+              --name blast-radius --dir "${RUNNER_TEMP}/blast-radius"; then
+            echo "Downloaded blast radius from CI run ${run_id}."
+          else
+            echo "No blast-radius artifact for ${HEAD_SHA}; the grade reports blast radius unavailable."
+          fi
+
       - name: Ensure the confidence labels exist
         if: steps.pr.outputs.number != ''
         run: |
@@ -114,6 +128,7 @@ jobs:
           NUMBER: ${{ steps.pr.outputs.number }}
           PR_ROOT: pr
           COVERAGE_FILE: ${{ runner.temp }}/coverage/coverage-final.json
+          BLAST_RADIUS_FILE: ${{ runner.temp }}/blast-radius/blast-radius.json
         run: |
           CHANGED=$(gh api "repos/${REPO}/pulls/${NUMBER}/files" --paginate --jq '.[].filename')
           CHECK_RUNS=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs" --paginate \

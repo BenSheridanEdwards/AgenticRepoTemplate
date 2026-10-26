@@ -4,7 +4,7 @@
 - **Date:** 2026-10-25
 - **Builds on:** [0064](0064-merge-confidence-label.md), [0032](0032-api-ui-greeting-and-contract.md), [0017](0017-required-gates-aggregate.md)
 
-Delivery is staged for #138: piece 1 produces evidence; piece 2 grades it. Grading below is the proposed complete result.
+Both pieces of #138 are implemented: piece 1 produces evidence; piece 2 grades it.
 
 ## Context and spike
 

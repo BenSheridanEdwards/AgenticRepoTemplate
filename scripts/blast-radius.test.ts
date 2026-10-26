@@ -3,7 +3,13 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { shapeBlastRadius } from './blast-radius.mjs';
+import {
+  blastRadiusGaps,
+  parseBlastRadius,
+  renderBlastRadius,
+  shapeBlastRadius,
+  unitOf,
+} from './blast-radius.mjs';
 
 const head = 'a'.repeat(40);
 const button = 'packages/ui/src/Button.tsx';
@@ -38,6 +44,121 @@ const input = {
   guard,
   tracked: new Set([button, greeting, ...buttonImporters]),
 };
+
+describe('trusted blast-radius grading', () => {
+  const evidence = shapeBlastRadius(input);
+  const parse = (value: unknown, changed = [button]) =>
+    parseBlastRadius(JSON.stringify(value), { head, changed });
+
+  it('accepts complete evidence and assigns package, result and root units', () => {
+    expect(parse(evidence)).toEqual(evidence);
+    expect([button, greeting, 'showcase/todo/web/src/App.tsx', 'README.md'].map(unitOf)).toEqual([
+      'packages/ui',
+      'apps',
+      'showcase/todo',
+      'root',
+    ]);
+  });
+
+  it.each([
+    null,
+    { ...evidence, version: 2 },
+    { ...evidence, head: 'b'.repeat(40) },
+    { ...evidence, files: {} },
+    { ...evidence, files: [] },
+    { ...evidence, files: [{ ...evidence.files[0], inGraph: 'true' }] },
+    { ...evidence, files: [{ ...evidence.files[0], importers: {} }] },
+    { ...evidence, files: [{ ...evidence.files[0], consumers: [42] }] },
+    { ...evidence, zones: [] },
+    { ...evidence, zones: { [button]: 42 } },
+    { ...evidence, zones: {} },
+  ])('rejects malformed or incomplete evidence: %j', (value) => {
+    expect(parse(value)).toBeUndefined();
+  });
+
+  it.each([
+    '',
+    '/absolute',
+    '../escape',
+    'apps/../escape',
+    'tick`',
+    'line\nfeed',
+    '\u0000',
+    '\u0085',
+    '\u202e',
+    '\u2028',
+    'x'.repeat(301),
+  ])('rejects unsafe paths wherever they occur: %j', (path) => {
+    expect(parse({ ...evidence, files: [{ ...evidence.files[0], path }] })).toBeUndefined();
+    expect(
+      parse({ ...evidence, files: [{ ...evidence.files[0], importers: [path] }] }),
+    ).toBeUndefined();
+    expect(
+      parse({ ...evidence, files: [{ ...evidence.files[0], consumers: [path] }] }),
+    ).toBeUndefined();
+    expect(parse({ ...evidence, zones: { ...evidence.zones, [path]: null } })).toBeUndefined();
+  });
+
+  it('rejects non-JSON and evidence omitting any changed file', () => {
+    expect(parseBlastRadius('{', { head, changed: [button] })).toBeUndefined();
+    expect(parse(evidence, [button, greeting])).toBeUndefined();
+  });
+
+  it('ignores extra evidence seeds while requiring every API-listed changed file', () => {
+    const extra = { path: greeting, inGraph: false, importers: [], consumers: [] };
+    expect(
+      parse({
+        ...evidence,
+        files: [...evidence.files, extra],
+        zones: { ...evidence.zones, [greeting]: null },
+      }),
+    ).toMatchObject({ files: evidence.files });
+  });
+
+  it('names each unit reached across a boundary and renders importer evidence', () => {
+    const showcase = 'showcase/todo/web/src/App.tsx';
+    const file = { ...evidence.files[0], importers: [...buttonImporters, showcase] };
+    const { gaps, summary } = blastRadiusGaps({
+      ...evidence,
+      files: [file],
+      zones: { ...evidence.zones, [showcase]: 'todo-web' },
+    });
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]).toContain(button);
+    expect(gaps[0]).toContain('apps');
+    expect(gaps[0]).toContain('showcase/todo');
+    expect(summary.count).toBe(8);
+    const rendered = renderBlastRadius(summary).join('\n');
+    expect(rendered).toContain('8');
+    expect(rendered).toContain('todo-web');
+    expect(rendered).toContain('apps/web/src/routes/greeting/GreetingForm.tsx');
+  });
+
+  it('keeps composition roots in the same result and judges each seed separately', () => {
+    const files = [
+      { path: greeting, inGraph: true, importers: greetingImporters, consumers: [] },
+      { path: button, inGraph: true, importers: ['packages/ui/src/index.ts'], consumers: [] },
+    ];
+    expect(blastRadiusGaps({ ...evidence, files }).gaps).toEqual([]);
+  });
+
+  it.each([20, 21])('counts %i distinct importers once across overlapping closures', (count) => {
+    const importers = Array.from(
+      { length: count },
+      (_, index) => `packages/ui/src/file-${index}.ts`,
+    );
+    const files = [button, 'packages/ui/src/TextField.tsx'].map((path) => ({
+      path,
+      inGraph: true,
+      importers: [...importers, button],
+      consumers: importers,
+    }));
+    const { gaps, summary } = blastRadiusGaps({ ...evidence, files });
+    expect(summary.count).toBe(count);
+    expect(gaps).toHaveLength(count > 20 ? 1 : 0);
+    expect(summary.topImporters).toEqual(importers.toSorted().slice(0, 10));
+  });
+});
 
 describe('shapeBlastRadius', () => {
   it('keeps the transitive importers and Fallow zones in deterministic evidence', () => {

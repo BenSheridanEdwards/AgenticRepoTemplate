@@ -2,7 +2,7 @@
 /**
  * The merge-confidence label: how much a reviewer can trust a green pull
  * request. CI grades every PR `confidence: green`, `confidence: amber` or
- * `confidence: red` from four inputs (issues #69/#137, ADRs 0064/0067):
+ * `confidence: red` from five inputs (issues #69/#137/#138, ADRs 0064/0067/0068):
  *
  * - **Gate results.** The required checks a maintainer selects in branch
  *   protection: the `Required gates` aggregate (ADR 0017) and the stand-alone
@@ -15,6 +15,7 @@
  *   names it and links a spec in its result. A slice without that PRD is a gap.
  *
  * - **Unit line coverage.** Each changed source meets Jest's line threshold.
+ * - **Import blast radius.** Fallow importers stay within one unit and the count threshold.
  *
  * A PR whose required checks all pass grades `green` with no gap, or `amber`
  * with one or more named gaps. The label grades a PR that is already green; the
@@ -23,7 +24,8 @@
  * CLI modes:
  *   --decide   Grade the PR. Reads `CHECK_RUNS` (the head commit's check runs as
  *              JSON), `CHANGED` (one file per line), and CI JSON from
- *              `COVERAGE_FILE`. Reads specs and PRDs as text from `PR_ROOT`
+ *              `COVERAGE_FILE` and `BLAST_RADIUS_FILE` (matched to `HEAD_SHA`).
+ *              Reads specs and PRDs as text from `PR_ROOT`
  *              (default: cwd), prints the level and reasons, and writes
  *              `level` and `label` to `GITHUB_OUTPUT` and a summary to
  *              `GITHUB_STEP_SUMMARY`.
@@ -42,6 +44,7 @@ import {
 import { matchesGlob, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import config from '../jest.config.ts';
+import { blastRadiusGaps, parseBlastRadius, renderBlastRadius } from './blast-radius.mjs';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
@@ -63,18 +66,18 @@ export const CONFIDENCE_LABEL_DEFS = {
     name: CONFIDENCE_LABELS.green,
     color: '2ea44f',
     description:
-      'Required gates, slice E2E/PRD coverage and changed-source unit line coverage passed.',
+      'Required gates, slice E2E/PRDs, unit line coverage and import blast radius passed.',
   },
   amber: {
     name: CONFIDENCE_LABELS.amber,
     color: 'dbab09',
     description:
-      'Required gates passed, with a gap in E2E coverage, PRD status or unit line coverage.',
+      'Required gates passed, with an E2E, PRD, unit coverage or import blast-radius gap.',
   },
   red: {
     name: CONFIDENCE_LABELS.red,
     color: 'd73a49',
-    description: 'A required gate is failing or pending, or coverage is unavailable.',
+    description: 'A required gate is failing or pending, or evidence is unavailable.',
   },
 };
 
@@ -232,6 +235,20 @@ function readCoverage() {
   }
 }
 
+function readBlastRadius(changed) {
+  try {
+    const path = process.env.BLAST_RADIUS_FILE;
+    const limit = 5 * 1024 * 1024;
+    if (!path || statSync(path).size > limit) return undefined;
+    const text = readFileSync(path, 'utf8');
+    return Buffer.byteLength(text) <= limit
+      ? parseBlastRadius(text, { head: process.env.HEAD_SHA, changed })
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * The required checks as `{ name, conclusion }`, from the head commit's check
  * runs. A name with no run is `missing`; a run still going is `pending`; a name
@@ -266,20 +283,28 @@ export function requiredCheckResults(checkRuns, checkNames = requiredCheckNames(
 }
 
 /**
- * Grade red when coverage is unavailable or a required check is not success;
+ * Grade red when evidence is unavailable or a required check is not success;
  * `amber` when there is a gap and `green` when there is none. Pure.
  *
- * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], coverageUnavailable?: boolean }} input
+ * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], coverageUnavailable?: boolean, blastRadiusUnavailable?: boolean }} input
  */
-export function decideConfidence({ requiredChecks, gaps, coverageUnavailable = false }) {
+export function decideConfidence({
+  requiredChecks,
+  gaps,
+  coverageUnavailable = false,
+  blastRadiusUnavailable = false,
+}) {
   const failing = requiredChecks.filter((check) => check.conclusion !== 'success');
-  if (failing.length > 0 || coverageUnavailable) {
+  if (failing.length > 0 || coverageUnavailable || blastRadiusUnavailable) {
     return {
       level: 'red',
       reasons: [
         ...failing.map((check) => `Required check \`${check.name}\` is ${check.conclusion}.`),
         ...(coverageUnavailable
           ? ["The head's CI coverage artifact is missing or malformed: `coverage unavailable`."]
+          : []),
+        ...(blastRadiusUnavailable
+          ? ['Blast-radius evidence is missing or invalid: `blast radius unavailable`.']
           : []),
       ],
     };
@@ -291,19 +316,21 @@ export function decideConfidence({ requiredChecks, gaps, coverageUnavailable = f
     level: 'green',
     reasons: [
       'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
-        'and a PRD, and every changed source file meets the line-coverage threshold.',
+        'and a PRD, and every changed source file meets the line-coverage threshold. ' +
+        'Import blast radius stays within its unit and count threshold.',
     ],
   };
 }
 
 /** A Markdown summary of a decision, for the job summary and a reviewer. */
-export function renderSummary({ level, reasons }) {
+export function renderSummary({ level, reasons, details = [] }) {
   const heading = { green: 'Green', amber: 'Amber', red: 'Red' }[level];
   return [
     `## Merge confidence: ${heading}`,
     '',
     ...reasons.map((reason) => `- ${reason}`),
     '',
+    ...details,
   ].join('\n');
 }
 
@@ -350,13 +377,12 @@ function writeOutput(key, value) {
 
 function runDecide() {
   const checkRuns = readJsonEnv('CHECK_RUNS');
-  const changed = (process.env.CHANGED ?? '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const changed = (process.env.CHANGED ?? '').split('\n').filter(Boolean);
   const root = resolve(process.env.PR_ROOT ?? process.cwd());
   const filesystem = createNodeFilesystem(root);
   const coverage = readCoverage();
+  const evidence = readBlastRadius(changed);
+  const blastRadius = evidence ? blastRadiusGaps(evidence) : { gaps: [], summary: undefined };
   const sources = changed.filter(
     (file) => isCoveredSource(file) && existsSync(resolve(root, file)),
   );
@@ -369,8 +395,9 @@ function runDecide() {
   const gaps = [...coverageGaps(slices, read(SPEC_GLOB)), ...prdGaps(slices, read(PRD_GLOB))];
   const decision = decideConfidence({
     requiredChecks: requiredCheckResults(checkRuns),
-    gaps: [...gaps, ...(coverage ? lineCoverageGaps(sources, coverage) : [])],
+    gaps: [...gaps, ...(coverage ? lineCoverageGaps(sources, coverage) : []), ...blastRadius.gaps],
     coverageUnavailable: !coverage,
+    blastRadiusUnavailable: !evidence,
   });
 
   console.log(`confidence: ${decision.level}`);
@@ -380,7 +407,13 @@ function runDecide() {
   writeOutput('level', decision.level);
   writeOutput('label', CONFIDENCE_LABELS[decision.level]);
   if (process.env.GITHUB_STEP_SUMMARY) {
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, renderSummary(decision));
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      renderSummary({
+        ...decision,
+        details: blastRadius.summary ? renderBlastRadius(blastRadius.summary) : [],
+      }),
+    );
   }
 }
 
