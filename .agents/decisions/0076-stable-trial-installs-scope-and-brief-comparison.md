@@ -1,4 +1,4 @@
-# 72. Stabilize trial installs and check scope per brief
+# 76. Stabilize trial installs and check scope per brief
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
