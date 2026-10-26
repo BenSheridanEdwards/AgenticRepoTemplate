@@ -6,7 +6,7 @@ import { listResults } from './tooling/results.mjs';
  * (`apps/`, then every `showcase/<id>/`) gets one Chromium project that runs
  * every spec in `<result>/web/e2e/`, and two servers: its api on Node and its
  * web app on Vite, which proxies `/trpc` to that api. Each showcase result also
- * gets `<id>-acceptance`, which runs the fixed Todo acceptance spec in
+ * gets `<id>-acceptance`, which runs the fixed acceptance spec of its brief in
  * `tooling/trial/acceptance/` against the same servers (ADR 0034).
  *
  * The reference's web server runs the production build (`vite build` then
@@ -62,6 +62,7 @@ export default defineConfig({
       .map(({ id, ports }) => ({
         name: `${id}-acceptance`,
         testDir: './tooling/trial/acceptance',
+        testMatch: /^notes(?:-codex)?-\d+$/.test(id) ? 'notes.spec.ts' : 'todo.spec.ts',
         use: { ...devices['Desktop Chrome'], baseURL: webUrl(ports.web) },
       })),
   ],

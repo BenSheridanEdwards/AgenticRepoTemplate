@@ -29,9 +29,9 @@ pnpm verify           # the full local gate suite (typecheck → biome → eslin
 pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```
 
-## Run a Todo trial
+## Run the trials
 
-The orchestrator runs each Todo trial; an agent inside a trial builds its
+The orchestrator runs each trial; an agent inside a trial builds its
 result from the prompt alone. Run trials one at a time, from the checkout
 that keeps the evidence, at the scaffold revision every trial shares
 ([ADR 0034](decisions/0034-trial-harness-and-evidence.md)):
@@ -39,6 +39,7 @@ that keeps the evidence, at the scaffold revision every trial shares
 ```bash
 pnpm trial --trial 1 --scaffold <rev> --trials-root <dir> --dry-run   # print the plan and the exact claude argv
 pnpm trial --trial 1 --scaffold <rev> --trials-root <dir>             # clone, run one fresh session, check, record
+pnpm trial --task tooling/trial/tasks/notes.json --trial 1 --scaffold <rev> --trials-root <dir>  # Notes brief
 git fetch <dir>/todo-01-<stamp>/repo trial/todo-01:trial/todo-01         # keep the result branch
 ```
 
@@ -48,7 +49,11 @@ repository pins its own revision and needs no `--scaffold`. Task-local prompts
 and acceptance commands stay outside the clone. External tasks use `land: patch`
 and can set an absolute `evidenceDir` to keep private evidence outside this repo.
 See [ADR 0048](decisions/0048-trial-tasks-and-codex.md). Todo Codex ids are
-`todo-codex-01..03`; compare keeps Todo runs and proves baselines per agent.
+`todo-codex-01..03`. Notes ids are `notes-01..03` and
+`notes-codex-01..03`; select its task file as above
+([ADR 0070](decisions/0070-a-second-trial-brief.md)).
+Compare currently keeps Todo runs and proves baselines per agent; land the
+companion per-brief comparison before recording Notes trials.
 
 The run writes `docs/trials/todo-01.json`, the agent's stream as
 `todo-01.stream.jsonl` with secrets redacted (and `todo-01.patch` when it

@@ -1,7 +1,32 @@
 /** @jest-environment node */
-import { TODO_TASK, validateTask, withinPaths } from './task.mjs';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { loadTask, TODO_TASK, validateTask, withinPaths } from './task.mjs';
 
 describe('task boundary', () => {
+  it('loads the Notes brief with the Todo gates and a scaffold-relative prompt', () => {
+    const loaded = loadTask(join(import.meta.dirname, 'tasks/notes.json'));
+    expect(validateTask(loaded.task)).toEqual({
+      ...TODO_TASK,
+      name: 'notes',
+      prompt: 'tooling/trial/notes-prompt.md',
+    });
+    expect(loaded.promptFile).toBeUndefined();
+  });
+  it('keeps a built-in brief scaffold-pinned through a symlinked task directory', () => {
+    const folder = mkdtempSync(join(tmpdir(), 'task-alias-'));
+    try {
+      const alias = join(folder, 'tasks');
+      symlinkSync(join(import.meta.dirname, 'tasks'), alias, 'dir');
+      expect(loadTask(join(alias, 'notes.json'))).toMatchObject({
+        taskDir: alias,
+        promptFile: undefined,
+      });
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
   it('accepts the committed Todo task unchanged', () => {
     expect(validateTask(TODO_TASK)).toBe(TODO_TASK);
   });
