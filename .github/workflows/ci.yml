@@ -42,6 +42,7 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
       - name: Install leaves the tree clean
         run: git diff --exit-code
+      - run: pnpm check:lockfile
       - run: pnpm check:context
       - run: pnpm check:suppressions
       - run: pnpm check:docs

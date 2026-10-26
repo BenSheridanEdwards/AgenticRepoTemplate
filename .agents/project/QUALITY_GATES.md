@@ -230,6 +230,11 @@ list of required checks ([ADR 0017](../decisions/0017-required-gates-aggregate.m
 
 ## Showcase results and trials
 
+`pnpm check:lockfile` runs in verify and CI quality: fresh installation and two
+new showcase importers must leave unrelated lockfile entries unchanged.
+Both prompts and clean-checkout tasks run `node tooling/trial/check-scope.mjs --id <id>`;
+committed and working-tree changes must stay in that result and its two importers.
+
 Every gate reaches a showcase result by the globs it uses for the reference
 ([ADR 0034](../decisions/0034-trial-harness-and-evidence.md)).
 

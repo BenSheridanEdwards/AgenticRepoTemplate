@@ -25,6 +25,7 @@ import { loadTask, TODO_TASK } from './task.mjs';
 const REPOSITORY_ROOT = resolve(import.meta.dirname, '../..');
 const CLI = join(REPOSITORY_ROOT, 'tooling/trial/run-trial.mjs');
 const BIOME = join(REPOSITORY_ROOT, 'node_modules/.bin/biome');
+const SCOPE = join(REPOSITORY_ROOT, 'tooling/trial/check-scope.mjs');
 const SIGN_OFF = 'Signed-off-by: Ben Sheridan-Edwards <bensheridanedwards@gmail.com>';
 const TEMPLATE = '# Todo trial {{ID}}\n\nYou are running trial {{N}} of three.\n';
 const LOCKFILE = [
@@ -332,7 +333,7 @@ describe('planTrial', () => {
     }
   });
 
-  it('runs the four checks a passed run needs, on the committed result', () => {
+  it('runs the checks a passed run needs, including scope, on the committed result', () => {
     const planned = planTrial({
       trial: 1,
       scaffoldRev: 'c'.repeat(40),
@@ -349,6 +350,7 @@ describe('planTrial', () => {
       'pnpm verify',
       'pnpm e2e',
       'node tooling/architecture/structure.mjs',
+      'node tooling/trial/check-scope.mjs --id todo-01',
     ]);
   });
 
@@ -814,8 +816,15 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
       `${WRITES_RESULT}\nput('apps/web/src/App.tsx', 'export const App = 2;\\n');`,
     );
 
-    const evidence = await runTrial(plan({ agent }), quietDeps());
+    const evidence = await runTrial(
+      {
+        ...plan({ agent }),
+        checks: [...passingChecks, { name: 'scope', argv: ['true', 'scope'] }],
+      },
+      quietDeps(),
+    );
 
+    expect(evidence.checks.find(({ name }) => name === 'scope')).toMatchObject({ exitCode: 1 });
     expect(evidence.result.status).toBe('failed');
     expect(evidence.result.outsideScope).toEqual(['apps/web/src/App.tsx']);
     expect(evidence.failures).toContain('changed outside showcase/todo-01/: apps/web/src/App.tsx');
@@ -852,6 +861,43 @@ emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'token ' + 
     expect(inScope.result).toMatchObject({ status: 'passed', outsideScope: [] });
     expect(inScope.result.changedPaths).toContain('pnpm-lock.yaml');
     expect(outOfScope.result).toMatchObject({ status: 'failed', outsideScope: ['pnpm-lock.yaml'] });
+  });
+
+  it.each(['todo-01', 'notes-01'])('checks %s scope during a session and after commit', (id) => {
+    git(checkout, 'update-ref', 'refs/remotes/origin/main', scaffold);
+    const check = () =>
+      spawnSync('node', [SCOPE, '--id', id], { cwd: checkout, env: gitEnv, encoding: 'utf8' });
+    const ownImporter = LOCKFILE.replace(
+      'packages: {}',
+      `  showcase/${id}/web:\n    dependencies: {}\n\npackages: {}`,
+    );
+    write(checkout, 'pnpm-lock.yaml', ownImporter);
+    write(checkout, `showcase/${id}/web/result.txt`, 'result');
+    expect(check().status).toBe(0);
+    write(
+      checkout,
+      'pnpm-lock.yaml',
+      ownImporter.replace('packages: {}', 'packages:\n  foreign@1: {}'),
+    );
+    const failed = check();
+    expect(failed.status).toBe(1);
+    expect(failed.stderr).toContain('Restore changes outside showcase/');
+    expect(failed.stderr).toContain('pnpm-lock.yaml');
+    write(checkout, 'pnpm-lock.yaml', ownImporter);
+    write(checkout, 'outside.txt', 'outside');
+    expect(check().stderr).toContain('outside.txt');
+    git(checkout, 'add', '-A');
+    git(
+      checkout,
+      '-c',
+      'user.name=Ben Sheridan-Edwards',
+      '-c',
+      'user.email=bensheridanedwards@gmail.com',
+      'commit',
+      '-qm',
+      'scope fixture',
+    );
+    expect(check().stderr).toContain('outside.txt');
   });
 
   it('fails a run whose agent named a path outside its workdir, and only then', async () => {

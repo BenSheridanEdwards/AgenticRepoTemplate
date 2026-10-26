@@ -10,6 +10,7 @@ complete once `pnpm verify` and `pnpm e2e` are green.
 
 ## The checklist
 
+- [ ] **Installs stay stable.** `pnpm check:lockfile` passes fresh installation and addition of two showcase importers without unrelated lockfile drift.
 - [ ] **Behaviour is specified.** New or changed behaviour is covered by a
       spec in the result's `web/e2e/` folder (the behaviour map), such as
       `apps/web/e2e/greeting.spec.ts`. The product's contract is explicit.
