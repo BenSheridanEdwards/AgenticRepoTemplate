@@ -47,6 +47,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { BRIEFS } from './briefs.mjs';
 import { sortText } from './result-facts.mjs';
 
 /**
@@ -78,7 +79,6 @@ export const UI_PRIMITIVE_FOR = {
 /** The roles the reference fills with scaffold code. A result keeps them as the reference has them. */
 export const SCAFFOLD_ROLES = ['web-app', 'web-api-client', 'api-app', 'api-trpc'];
 const FEATURE_COMPONENT_ROLES = ['web-routes', 'ui'];
-const OPERATIONS = ['list', 'create', 'toggle', 'delete'];
 const SERVER_STATE = new Set([
   'useQuery',
   'useMutation',
@@ -145,10 +145,9 @@ function structureAspects(facts) {
   ];
 }
 
-const ITEM_FIELDS = 'completed,id,title';
-
 /** @param {ResultFacts} facts */
 function publicApiAspects(facts) {
+  const brief = BRIEFS[facts.brief];
   const operations = facts.procedures.map((procedure) => procedure.operation);
   const kindsHold = facts.procedures.every(
     (procedure) =>
@@ -156,21 +155,22 @@ function publicApiAspects(facts) {
       (procedure.operation === 'list') === (procedure.kind === 'query'),
   );
   const shape = new Map(facts.item?.shape ?? []);
-  const recognized = OPERATIONS.flatMap((operation) =>
+  const recognized = brief.operations.flatMap((operation) =>
     facts.procedures.filter((procedure) => procedure.operation === operation),
   );
   const unrecognized = facts.procedures.filter((procedure) => procedure.operation === null);
   return [
     invariant(
       'operations',
-      kindsHold && [...operations].sort().join() === [...OPERATIONS].sort().join(),
+      kindsHold && [...operations].sort().join() === [...brief.operations].sort().join(),
       listed(facts.procedures.map((p) => `${p.path} ${p.kind} ${p.operation ?? '(unrecognized)'}`)),
     ),
     invariant(
       'item shape',
-      [...shape.keys()].join() === ITEM_FIELDS &&
-        shape.get('title') === 'string' &&
-        shape.get('completed') === 'boolean',
+      [...shape.keys()].join() === Object.keys(brief.item).sort().join() &&
+        Object.entries(brief.item).every(
+          ([name, type]) => type === null || shape.get(name) === type,
+        ),
       facts.item
         ? `{ ${facts.item.shape.map(([name, type]) => `${name}: ${type}`).join('; ')} }`
         : '(none)',
@@ -367,8 +367,7 @@ const DIMENSIONS = [
     title: 'Public API',
     normalizedForm:
       'Procedures by kind and operation, inferred from their shapes, with normalized input and output; the item shape; export names and kinds per API report of a scaffold role, export kind counts per other API report, keyed by package and role',
-    mustBeIdentical:
-      'One list query and three mutations for create, toggle and delete; create takes `title: string`; toggle and delete take `id`; the item has exactly `id`, `title: string` and `completed: boolean`',
+    mustBeIdentical: '',
     aspects: publicApiAspects,
     freedoms: [{ key: /^item id type$/, freedom: 3, why: 'the type of `id`' }],
     fixed: [
@@ -446,6 +445,14 @@ const cellOf = (aspect) => {
 /** `a`, `a and b`, `a, b and c`. */
 export const andList = (items) =>
   items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+
+const publicApiContract = ({ operations, item, createInput }) =>
+  `One list query and ${operations.length === 4 ? 'three' : 'two'} mutations for ${andList(operations.slice(1))}; create takes ${andList(
+    createInput
+      .slice(2, -2)
+      .split('; ')
+      .map((field) => `\`${field}\``),
+  )}; ${operations.includes('toggle') ? 'toggle and delete take' : 'delete takes'} \`id\`; the item has exactly ${andList(Object.entries(item).map(([name, type]) => `\`${type === null ? name : `${name}: ${type}`}\``))}`;
 
 /** Which runs hold another value than the most common one (the earliest on a tie), for a Why cell. */
 function whoDiffers(results, aspects) {
@@ -574,7 +581,10 @@ export function compareResults(results, notes = []) {
       id,
       title,
       normalizedForm,
-      mustBeIdentical,
+      mustBeIdentical:
+        id === 'public-api'
+          ? publicApiContract(BRIEFS[results[0]?.brief ?? 'todo'])
+          : mustBeIdentical,
     })),
     freedoms: FREEDOMS.map((text, index) => ({
       number: /** @type {Freedom} */ (index + 1),
