@@ -252,8 +252,9 @@ ships, leave its block here as history and open the next one above it.
   PRD and a reproducible verification journey.
 - **Verification:** Targeted api and web suites pass. Full local gates, real
   browser evidence and latest-head CI results are recorded in the PR body.
-- **Blockers:** The inclusion fixture assumes greeting is the reference
-  result's only api domain. Its two assertions fail after adding Todo; the task
-  forbids editing `tooling/trial/`. Product intent also awaits Ben's enforcement
-  approval. GitNexus is unindexed here; CLI attempts, direct caller inspection
-  and the Fallow impact collector cover scope.
+- **Fixture update:** The harness owner authorised correcting greeting-only
+  assumptions. The inclusion test now expects both domain files and removes
+  both when proving a missing domain role; its assertions remain exact.
+- **Blockers:** Product intent awaits Ben's enforcement approval. GitNexus is
+  unindexed here; CLI attempts, direct caller inspection and the Fallow impact
+  collector cover scope.
