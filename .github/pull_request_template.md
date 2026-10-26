@@ -35,6 +35,9 @@ the new head, then update it.
 PRDs checked: comma-separated tracked docs/prd/<feature>.md paths at this head,
 or None: <reason> with at least two words.
 PRD impact: None, or No behaviour change: <reason> with at least two words.
+List every PRD whose Covers globs or linked specs match a changed path in PRDs
+checked, and update that PRD or explain unchanged behaviour. Both rename paths
+count; local validation compares origin/main...HEAD.
 North Star commit: one SHA (7-40 hex characters, backticks allowed) from
 git log -1 --format=%H <head> -- .agents/NORTH_STAR.md. -->
 

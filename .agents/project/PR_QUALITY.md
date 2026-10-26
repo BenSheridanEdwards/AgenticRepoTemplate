@@ -92,7 +92,11 @@ Beside that line, include exactly one of each:
   paths tracked directly in `docs/prd/` at the PR head. For a change outside
   the PRDs, write `None: <reason>` with a reason of at least two words.
 - `- PRD impact:` is `None`, or `No behaviour change: <reason>` with a reason
-  of at least two words
+  of at least two words. For every PRD whose `Covers` globs or linked specs
+  match a changed path, list it in `PRDs checked` and update that PRD in the
+  same PR or provide the explanation. `None` passes when all affected PRDs
+  change or no paths are covered. Both paths of a rename count; local
+  validation compares `origin/main...HEAD`
   ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md)).
 - `- North Star commit:` names the last commit that changed
   `.agents/NORTH_STAR.md` as the PR head sees it: one SHA of 7-40 hex characters,

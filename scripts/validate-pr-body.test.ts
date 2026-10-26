@@ -1,8 +1,13 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { coveredPaths, parseBehaviours } from './check-prd-conflicts.mjs';
 import {
   CONVENTIONAL_COMMIT_TYPES,
   REQUIRED_SECTIONS,
+  readChangedFiles,
+  resolveBaseSha,
   resolveHeadSha,
   validatePullRequest,
 } from './validate-pr-body.mjs';
@@ -13,6 +18,8 @@ const NORTH_STAR = 'abcdef1234567890abcdef1234567890abcdef12';
 const INTENT_PORTS = {
   listPrdFiles: () => ['docs/prd/greeting.md', 'docs/prd/todo.md'],
   northStarCommit: () => NORTH_STAR,
+  changedFiles: [] as string[],
+  prdCoverage: [] as { path: string; patterns: string[] }[],
 };
 
 // A body that satisfies every rule: all four sections in order, each with real
@@ -411,7 +418,11 @@ describe('validatePullRequest', () => {
       const unavailable = () => {
         throw new Error('unavailable');
       };
-      const result = check(VALID_BODY, { listPrdFiles: unavailable, northStarCommit: unavailable });
+      const result = check(VALID_BODY, {
+        ...INTENT_PORTS,
+        listPrdFiles: unavailable,
+        northStarCommit: unavailable,
+      });
       expect(result.ok).toBe(false);
       expect(result.errors).toHaveLength(2);
       expect(result.errors.every((error) => error.includes('unavailable'))).toBe(true);
@@ -1036,5 +1047,257 @@ describe('resolveHeadSha', () => {
 
   it('falls back to the local git HEAD when run by hand', () => {
     expect(resolveHeadSha({}, () => HEAD)).toBe(HEAD);
+  });
+});
+
+describe('PRD coverage impact', () => {
+  const prd = 'docs/prd/greeting.md';
+  const route = 'apps/web/src/routes/greeting/GreetingPage.tsx';
+  const coverage = (path = prd, glob = 'apps/web/src/routes/greeting/**') => ({
+    path,
+    patterns: coveredPaths(
+      parseBehaviours(
+        path,
+        [
+          '# Greeting',
+          `- **Covers:** \`${glob}\``,
+          '## Behaviours',
+          '- Greets a name.',
+          '  - Proved by [greets a name](../../apps/web/e2e/greeting.spec.ts#L10)',
+        ].join('\n'),
+      ),
+    ),
+  });
+  const check = (
+    changedFiles = [route],
+    impact = 'None',
+    checked = prd,
+    prdCoverage = [coverage()],
+  ) =>
+    validatePullRequest({
+      ...INTENT_PORTS,
+      title: VALID_TITLE,
+      headSha: HEAD,
+      changedFiles,
+      prdCoverage,
+      body: VALID_BODY.replace('- PRD impact: None', `- PRD impact: ${impact}`).replace(
+        `- PRDs checked: ${prd}`,
+        `- PRDs checked: ${checked}`,
+      ),
+    });
+
+  it.each([
+    route,
+    'apps/web/e2e/greeting.spec.ts',
+  ])('names the unchanged PRD and both fixes for %s', (path) => {
+    expect(check([path])).toEqual({
+      ok: false,
+      errors: [
+        `Changed files are covered by ${prd}, but that PRD is unchanged. ` +
+          `Update ${prd} in this PR or write \`- PRD impact: No behaviour change: <reason>\` ` +
+          'with at least two words.',
+      ],
+    });
+    expect(check([path, prd])).toEqual({ ok: true, errors: [] });
+  });
+  it('accepts a sufficient explanation and rejects a single word', () => {
+    expect(check([route], 'No behaviour change: rename internal helper')).toEqual({
+      ok: true,
+      errors: [],
+    });
+    expect(check([route], 'No behaviour change: tidy').ok).toBe(false);
+  });
+  it('accepts scripts-only changes without claiming a PRD', () => {
+    expect(check(['scripts/foo.mjs'], 'None', 'None: tooling only')).toEqual({
+      ok: true,
+      errors: [],
+    });
+  });
+  it.each([
+    'None: tooling only',
+    'docs/prd/greeting-old.md',
+  ])('requires the affected PRD to be checked despite %s', (checked) => {
+    expect(check([route, prd], 'None', checked).errors).toContain(
+      `Changed files are covered by ${prd}. Add it to \`- PRDs checked:\`.`,
+    );
+  });
+  it('matches native glob alternatives and zero nested folders', () => {
+    const result = check(['apps/web/src/GreetingPage.tsx'], 'None', prd, [
+      coverage(prd, '{apps,showcase/*}/web/src/**/GreetingPage.tsx'),
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain(`Update ${prd}`);
+  });
+  it('requires a fix for each PRD and accepts mixed updates and explanations', () => {
+    const todo = 'docs/prd/todo.md';
+    const both = [coverage(), coverage(todo)];
+    const checked = `\`${prd}\`, \`${todo}\``;
+    const result = check([route, prd], 'None', checked, both);
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(`Update ${todo}`);
+    expect(check([route, prd], 'No behaviour change: comments only', checked, both)).toEqual({
+      ok: true,
+      errors: [],
+    });
+  });
+  it.each([
+    { changedFiles: undefined },
+    { changedFiles: route },
+    { changedFiles: [''] },
+    { changedFiles: [42] },
+    { prdCoverage: undefined },
+    { prdCoverage: [null] },
+    { prdCoverage: [{ path: prd, patterns: 'apps/**' }] },
+    { prdCoverage: [{ patterns: ['apps/**'] }] },
+  ])('fails closed on malformed evidence: %j', (evidence) => {
+    const options = {
+      ...INTENT_PORTS,
+      title: VALID_TITLE,
+      body: VALID_BODY,
+      headSha: HEAD,
+      ...evidence,
+    };
+    const result = validatePullRequest(options);
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('Could not check PRD impact');
+    expect(validatePullRequest({ ...options, headSha: null })).toEqual({ ok: true, errors: [] });
+  });
+});
+
+describe('resolveBaseSha', () => {
+  it('uses a raw SHA both locally and in Actions, defaulting locally to origin/main', () => {
+    expect(resolveBaseSha({ PR_BASE_SHA: HEAD, GITHUB_ACTIONS: 'true' })).toBe(HEAD);
+    expect(resolveBaseSha({ PR_BASE_SHA: HEAD })).toBe(HEAD);
+    expect(resolveBaseSha({})).toBe('origin/main');
+  });
+  it.each([
+    '',
+    '0a21f68',
+    'g'.repeat(40),
+    'a'.repeat(41),
+    JSON.stringify(HEAD),
+    '$(echo bad)',
+  ])('rejects invalid base input %s', (PR_BASE_SHA) => {
+    expect(() => resolveBaseSha({ PR_BASE_SHA })).toThrow('PR_BASE_SHA must be');
+  });
+  it('fails closed when Actions omits the base SHA', () => {
+    expect(() => resolveBaseSha({ GITHUB_ACTIONS: 'true' })).toThrow('PR_BASE_SHA must be');
+  });
+});
+
+describe('PRD impact git and CLI', () => {
+  let directory: string;
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+  const prd = 'docs/prd/greeting.md';
+  const covered = 'apps/web/src/routes/greeting/renamed\npage.tsx';
+  const outside = 'scripts/renamed page.tsx';
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: directory, env, encoding: 'utf8' }).trim();
+  const write = (path: string, text: string) => {
+    mkdirSync(dirname(join(directory, path)), { recursive: true });
+    writeFileSync(join(directory, path), text);
+  };
+  const commit = () => {
+    git('add', '-A');
+    git(
+      '-c',
+      'user.name=Ben Sheridan-Edwards',
+      '-c',
+      'user.email=bensheridanedwards@gmail.com',
+      'commit',
+      '-qm',
+      'test: record fixture',
+    );
+    return git('rev-parse', 'HEAD');
+  };
+  const prepare = () => {
+    write('.agents/NORTH_STAR.md', '# Software factory\n');
+    write(prd, '# Greeting\n- **Covers:** `apps/web/src/routes/greeting/**`\n');
+    write(covered, 'original\n');
+    const base = commit();
+    write(covered, 'changed\n');
+    return { base, head: commit() };
+  };
+  const runCli = (base: string, head: string, body = VALID_BODY) => {
+    const result = spawnSync(
+      process.execPath,
+      [resolve(import.meta.dirname, 'validate-pr-body.mjs')],
+      {
+        cwd: directory,
+        encoding: 'utf8',
+        env: {
+          ...env,
+          GITHUB_ACTIONS: 'true',
+          PR_BASE_SHA: base,
+          PR_HEAD_SHA: head,
+          PR_TITLE: VALID_TITLE,
+          PR_BODY: body.replace('0a21f68', head).replace('abcdef1', base),
+        },
+      },
+    );
+    return { status: result.status, output: result.stdout + result.stderr };
+  };
+  beforeEach(() => {
+    directory = mkdtempSync(join(tmpdir(), 'prd-impact-'));
+    git('init', '-q', '-b', 'main');
+  });
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  it.each([
+    [covered, outside],
+    [outside, covered],
+  ])('preserves both rename paths and whitespace: %s to %s', (source, destination) => {
+    write(source, 'original\n');
+    const base = commit();
+    mkdirSync(dirname(join(directory, destination)), { recursive: true });
+    renameSync(join(directory, source), join(directory, destination));
+    expect(readChangedFiles(base, commit(), directory).sort()).toEqual(
+      [source, destination].sort(),
+    );
+  });
+  it('includes deleted covered files', () => {
+    const { base } = prepare();
+    git('rm', covered);
+    expect(readChangedFiles(base, commit(), directory)).toEqual([covered]);
+  });
+  it('reads event-head coverage despite a different checkout and dirty PRD', () => {
+    const { base, head } = prepare();
+    write(prd, '# Greeting\n- **Covers:** `scripts/**`\n');
+    commit();
+    write(prd, '# Invalid dirty PRD\n');
+    const rejected = runCli(base, head);
+    expect(rejected.status).toBe(1);
+    expect(rejected.output).toContain(`${prd}, but that PRD is unchanged`);
+    const accepted = runCli(
+      base,
+      head,
+      VALID_BODY.replace('- PRD impact: None', '- PRD impact: No behaviour change: comments only'),
+    );
+    expect(accepted.status).toBe(0);
+    expect(accepted.output).toContain('satisfy the quality contract');
+  });
+  it.each([
+    ['# Greeting without coverage\n', 'has no `Covers` line'],
+    [
+      '# Greeting\n- **Covers:** `apps/**`\n## Behaviours\n+ Unparsed behaviour\n',
+      'unread behaviour lines',
+    ],
+  ])('fails closed with a concise error for malformed head coverage: %s', (text, message) => {
+    const { base } = prepare();
+    write(prd, text);
+    const result = runCli(base, commit());
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(message);
+    expect(result.output).not.toMatch(/\n\s+at /);
+  });
+  it('fails closed when the base commit is unavailable', () => {
+    const { head } = prepare();
+    const result = runCli('f'.repeat(40), head);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('PR quality contract failed');
+    expect(result.output).toContain('git diff');
   });
 });

@@ -53,16 +53,16 @@ and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited by
 ## Consequences
 
 - Piece 1 of issue #134 adds the field and validates its shape. Coverage
-  matching and the workflow input land in the follow-up PR for #134,
+  matching and the workflow input arrive in piece 2 of #134,
   completing ADR 0045's PRD-impact follow-up. PRDs for showcase results and
   approval for changes to product intent remain separate work.
-- Every open PR needs the new field on its next body validation. Once the
-  follow-up lands, a code or spec change covered by a PRD has an explicit
+- Every open PR needs the new field on its next body validation. A code
+  or spec change covered by a PRD has an explicit
   reviewable explanation or a paired PRD update. Re-check the fields after
   every push.
-- The check proves that the declaration exists and, after the follow-up,
-  the relevant PRD changes are present. Review still judges the explanation,
+- The check proves that the declaration exists and the relevant
+  PRD changes are present. Review still judges the explanation,
   coverage declarations, and whether a PRD update reflects the behaviour change.
-- The follow-up's workflow edit requires Ben's head-commit enforcement
+- Piece 2's workflow edit requires Ben's head-commit enforcement
   sign-off under ADRs 0023 and 0024. Ben accepts this ADR by approving the PR.
   Product behaviour and the E2E behaviour map stay unchanged.

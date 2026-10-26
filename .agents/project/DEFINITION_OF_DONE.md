@@ -90,7 +90,10 @@ that names the fix unless:
   head, or `None: <reason>` with a reason of at least two words;
 - the Verification Summary has exactly one `- PRD impact:` line containing
   `None`, or `No behaviour change: <reason>` with a reason of at least two
-  words ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md));
+  words; every PRD covering a changed path through its `Covers` globs or
+  linked specs is listed in `PRDs checked` and either changes in the PR or
+  has that explanation. Both paths of a rename count, and local validation
+  compares `origin/main...HEAD` ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md));
 - the Verification Summary has exactly one `- North Star commit:` line naming
   one SHA of 7-40 hex characters, optionally in balanced backticks, that is a
   prefix of the last commit to change `.agents/NORTH_STAR.md` at the PR head
