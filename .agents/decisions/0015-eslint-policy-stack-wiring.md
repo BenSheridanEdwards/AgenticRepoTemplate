@@ -3,6 +3,9 @@
 - **Status:** Accepted
 - **Date:** 2026-10-15
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 [0010](0010-lint-engine-ownership.md) gives Biome formatting and general lint,

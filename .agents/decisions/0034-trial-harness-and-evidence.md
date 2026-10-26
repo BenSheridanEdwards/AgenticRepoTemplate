@@ -7,6 +7,9 @@
 - **Implements:** [0008](0008-convert-template-into-the-monorepo.md),
   [0032](0032-api-ui-greeting-and-contract.md)
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 The brief asks for three independent agent runs that each build the same Todo

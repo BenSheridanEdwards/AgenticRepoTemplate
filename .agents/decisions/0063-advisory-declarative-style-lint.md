@@ -6,6 +6,9 @@
   [0015](0015-eslint-policy-stack-wiring.md) and
   [0046](0046-fail-lint-on-warnings.md)
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 Ben wants a measure of how far the code is from a declarative style: loops

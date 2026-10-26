@@ -3,6 +3,9 @@
 - **Status:** Accepted
 - **Date:** 2026-10-15
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 The guardrails need policy rules (component shape, handler naming, loop and

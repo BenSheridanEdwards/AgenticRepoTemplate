@@ -10,6 +10,9 @@
   [0039](0039-block-inline-lint-disable-comments.md), which keep each gate red
   until the code is clean
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 Every Biome rule carries a severity. A rule set to `warn`

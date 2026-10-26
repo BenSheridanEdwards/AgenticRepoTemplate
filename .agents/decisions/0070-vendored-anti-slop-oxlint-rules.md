@@ -9,6 +9,14 @@
 - **Amends:** [0046](0046-fail-lint-on-warnings.md) only for the separate
   report-only advisory command described below.
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md).
+  The target enables Oxlint built-in rules and gives Oxlint general lint;
+  Biome only formats, retaining import sorting. Both `oxlint` and
+  `@oxlint/plugins` are pinned to exactly `1.89.0`, superseding the
+  `1.78.0` pins and binding-version references below. The new versions
+  need fresh Security clearance; provenance and installation safeguards
+  remain. Separate PRs implement this target; this ADR stays Proposed.
+
 ## Context
 
 Ben requested an anti-slop rollout for TypeScript projects on 25 October 2026.

@@ -8,6 +8,9 @@
   [0046](0046-fail-lint-on-warnings.md),
   [0050](0050-anti-slop-lint-policies.md)
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 On 24 October 2026 Ben refined the software factory philosophy: slop is

@@ -8,6 +8,9 @@
   [0013](0013-one-role-table-for-structure.md),
   [0014](0014-fallow-owns-architecture-checks.md)
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 [0031](0031-workspace-conversion.md) moved the app to `apps/web`. The brief

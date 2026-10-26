@@ -5,6 +5,9 @@
 - **Builds on:** [0019](0019-local-eslint-policy-plugin.md),
   [0015](0015-eslint-policy-stack-wiring.md)
 
+- **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
+  for Biome lint ownership; implementation follows in separate PRs.
+
 ## Context
 
 Sarah Fim's [video](https://x.com/sarahfim/status/2108298553823203613)
