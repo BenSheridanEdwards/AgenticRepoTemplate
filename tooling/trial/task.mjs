@@ -1,5 +1,5 @@
 /** Task files are boundary data; reject typos before creating a workdir. */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { validators } from './evidence.mjs';
 
@@ -62,7 +62,7 @@ export const TODO_TASK = validateTask(
   JSON.parse(readFileSync(new URL('./tasks/todo.json', import.meta.url), 'utf8')),
 );
 
-/** Relative prompt and local target paths belong to the task file's directory. */
+/** Built-in briefs read prompts at the scaffold; external tasks resolve their local paths. */
 export function loadTask(path) {
   const taskFile = resolve(path);
   const task = validateTask(JSON.parse(readFileSync(taskFile, 'utf8')));
@@ -73,7 +73,8 @@ export function loadTask(path) {
     task,
     taskDir,
     promptFile:
-      taskFile === new URL('./tasks/todo.json', import.meta.url).pathname
+      !task.target &&
+      dirname(realpathSync(taskFile)) === realpathSync(resolve(import.meta.dirname, 'tasks'))
         ? undefined
         : resolve(taskDir, task.prompt),
   };

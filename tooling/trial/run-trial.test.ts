@@ -448,6 +448,40 @@ describe('runTrial', () => {
   });
 
   it.each([
+    false,
+    true,
+  ])('keeps Notes lockfile edits in scope only for its own importers (foreign: %s)', async (foreign) => {
+    const lockfile = LOCKFILE.replace(
+      'packages: {}',
+      '  showcase/notes-01/web:\n    dependencies: {}\n\npackages: {}',
+    ).replace('apps/web:', foreign ? 'apps/changed:' : 'apps/web:');
+    const agent = fakeAgent(
+      'notes-lockfile',
+      `put('showcase/notes-01/web/src/main.tsx', 'export {};\\n');\nput('pnpm-lock.yaml', ${JSON.stringify(lockfile)});`,
+    );
+    const base = plan({ agent });
+    const planned = {
+      ...planTrial({
+        ...base,
+        now: new Date(),
+        agentCommand: agent,
+        task: { ...TODO_TASK, name: 'notes' },
+        corepackHome: base.privateEnv.COREPACK_HOME,
+        browsersPath: base.privateEnv.PLAYWRIGHT_BROWSERS_PATH,
+      }),
+      setup: base.setup,
+      checks: base.checks,
+    };
+    const evidence = await runTrial(planned, quietDeps());
+    expect(evidence.result).toMatchObject({
+      status: foreign ? 'failed' : 'passed',
+      outsideScope: foreign ? ['pnpm-lock.yaml'] : [],
+    });
+    if (!foreign)
+      expect(git(planned.clone, 'show', 'HEAD:pnpm-lock.yaml')).toContain('showcase/notes-01/web:');
+  });
+
+  it.each([
     [false, false, false],
     [true, false, false],
     [true, true, false],
@@ -1711,6 +1745,46 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
 });
 
 describe('the run-trial CLI', () => {
+  it('pins the Notes prompt to the scaffold and names its Codex plan', () => {
+    const folder = join(sandbox, 'notes-dry-run');
+    git(sandbox, 'clone', '-q', '--shared', source, folder);
+    const taskPath = join(REPOSITORY_ROOT, 'tooling/trial/tasks/notes.json');
+    const { task } = loadTask(taskPath);
+    const template = readFileSync(join(REPOSITORY_ROOT, task.prompt), 'utf8');
+    write(folder, task.prompt, template);
+    git(folder, 'add', task.prompt);
+    git(folder, 'commit', '-qm', 'Notes prompt fixture');
+    const rev = git(folder, 'rev-parse', 'HEAD');
+    write(folder, task.prompt, 'working tree prompt must not be read');
+    const run = spawnSync(
+      process.execPath,
+      [
+        CLI,
+        '--trial',
+        '2',
+        '--agent',
+        'codex',
+        '--task',
+        taskPath,
+        '--scaffold',
+        rev,
+        '--trials-root',
+        join(folder, 'trials'),
+        '--dry-run',
+      ],
+      { cwd: folder, env: gitEnv, encoding: 'utf8' },
+    );
+    expect(run.stderr).toBe('');
+    expect(run.status).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject({
+      id: 'notes-codex-02',
+      branch: 'trial/notes-codex-02',
+      scaffoldRev: rev,
+      promptSha256: sha256(renderPrompt(template, { id: 'notes-codex-02', trial: 2 })),
+      harness: { matchesScaffold: false },
+    });
+    expect(existsSync(join(folder, 'trials'))).toBe(false);
+  });
   it('accepts an absolute task path and Codex fake-agent flags without a scaffold argument', () => {
     const folder = mkdtempSync(join(sandbox, 'cli-task-'));
     const target = join(folder, 'target.json');

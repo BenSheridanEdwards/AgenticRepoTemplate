@@ -1,0 +1,54 @@
+{
+  "name": "notes",
+  "prompt": "tooling/trial/notes-prompt.md",
+  "target": null,
+  "allowedPaths": ["showcase/{{ID}}/"],
+  "setup": [
+    {
+      "name": "install",
+      "argv": ["pnpm", "install", "--frozen-lockfile"]
+    }
+  ],
+  "checks": [
+    {
+      "name": "install",
+      "argv": ["pnpm", "install", "--frozen-lockfile"]
+    },
+    {
+      "name": "verify",
+      "argv": ["pnpm", "verify"]
+    },
+    {
+      "name": "e2e",
+      "argv": ["pnpm", "e2e"]
+    },
+    {
+      "name": "structure",
+      "argv": ["node", "tooling/architecture/structure.mjs"]
+    }
+  ],
+  "ports": [5173, 3001, 5183, 3011],
+  "enforcementPaths": [
+    ".husky",
+    ".github/workflows",
+    ".claude",
+    ".codex",
+    ".fallowrc.jsonc",
+    ".mcp.json",
+    ".npmrc",
+    ".size-limit.json",
+    "biome.json",
+    "commitlint.config.ts",
+    "eslint.config.js",
+    "jest.config.ts",
+    "jest.setup.ts",
+    "lighthouserc.json",
+    "package.json",
+    "playwright.config.ts",
+    "pnpm-workspace.yaml",
+    "scripts",
+    "tooling",
+    ":(glob)tsconfig*.json"
+  ],
+  "land": "showcase"
+}

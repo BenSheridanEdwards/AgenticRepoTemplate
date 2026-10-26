@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Runs one Todo trial end to end and records its evidence (ADR 0034).
+ * Runs one brief's trial end to end and records its evidence (ADR 0034).
  *
  *   node tooling/trial/run-trial.mjs --trial <1|2|3> --scaffold <rev>
  *     [--agent claude|codex] [--task <file>] [--trials-root <dir>]
@@ -41,7 +41,6 @@ import { agentEnv, checkEnv, stopAll, systemDeps, trialEnv } from './system.mjs'
 import { loadTask, TODO_TASK, validateTask, withinPaths } from './task.mjs';
 
 const HARNESS_ROOT = resolve(import.meta.dirname, '../..');
-const TEMPLATE_PATH = 'tooling/trial/todo-prompt.md';
 const LOCKFILE = 'pnpm-lock.yaml';
 const SIGN_OFF = 'Signed-off-by: Ben Sheridan-Edwards <bensheridanedwards@gmail.com>';
 const MIN_FREE_DISK_BYTES = 5e9;
@@ -54,6 +53,7 @@ const HARNESS_FILES = [
   'system.mjs',
   'task.mjs',
   'tasks/todo.json',
+  'tasks/notes.json',
 ];
 
 /** The brief's command, plus the flags that make the session recordable. Never `--resume` or `--continue`. */
@@ -392,9 +392,9 @@ async function scaffoldInputs(plan, deps) {
     : await atScaffold(plan, deps, plan.task.prompt);
   const lockfile =
     (await atScaffold(plan, deps, LOCKFILE)) ??
-    (plan.task.name !== 'todo' || plan.task.target ? '' : null);
+    (plan.task.target || plan.task.land !== 'showcase' ? '' : null);
   for (const [path, text] of [
-    [TEMPLATE_PATH, template],
+    [plan.task.prompt, template],
     [LOCKFILE, lockfile],
   ]) {
     if (text === null) {
@@ -638,7 +638,7 @@ async function inspectChanges(plan, scaffoldLockfile, deps) {
     withoutOwnImporters(readFileSync(lockfilePath, 'utf8'), plan.id) ===
       withoutOwnImporters(scaffoldLockfile, plan.id);
   const outsideScope = changedPaths.filter((path) =>
-    plan.task.name === 'todo' && !plan.task.target && path === LOCKFILE
+    !plan.task.target && plan.task.land === 'showcase' && path === LOCKFILE
       ? !lockfileInScope
       : !withinPaths(
           path,
@@ -681,7 +681,7 @@ async function commitResult(plan, deps) {
           path,
           plan.task.allowedPaths.map((prefix) => renderPrompt(prefix, plan)),
         )) ||
-      (plan.task.name === 'todo' && !plan.task.target && path === LOCKFILE),
+      (!plan.task.target && plan.task.land === 'showcase' && path === LOCKFILE),
   );
   if (paths.length > 0) {
     await git(deps, plan.clone, 'add', '-A', '--', ...paths);
@@ -707,7 +707,7 @@ async function commitResult(plan, deps) {
       '-m',
       renderPrompt(plan.task.commitMessage ?? 'feat(showcase): add {{ID}} trial result', plan),
       '-m',
-      `Trial ${plan.trial} of the ${plan.task.name === 'todo' ? 'Todo' : plan.task.name} trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
+      `Trial ${plan.trial} of the ${plan.task.land === 'showcase' ? plan.task.name.replace(/^./, (letter) => letter.toUpperCase()) : plan.task.name} trials at scaffold ${plan.scaffoldRev}.\n\n${SIGN_OFF}`,
     ],
     { cwd: plan.clone, ...confined(plan, trialEnv(plan.privateEnv), plan.privateEnv) },
   );
