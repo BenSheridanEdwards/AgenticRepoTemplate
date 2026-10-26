@@ -56,6 +56,8 @@ describe('GUARDS', () => {
   it('checks the guarded areas in a fixed order, first match wins', () => {
     expect(GUARDS.map((guard: { area: string }) => guard.area)).toEqual([
       'Enforcement-approval gate',
+      'Vendored lint rules',
+      'Oxlint config',
       'CI workflows',
       'Git hooks',
       'Lint config',
@@ -68,6 +70,11 @@ describe('GUARDS', () => {
     ['.github/workflows/enforcement-approval.yml', 'Enforcement-approval gate'],
     ['scripts/enforcement-approval.mjs', 'Enforcement-approval gate'],
     ['scripts/enforcement-approval.test.ts', 'Enforcement-approval gate'],
+    ['.oxlintrc.json', 'Oxlint config'],
+    ['apps/web/.oxlintrc.json', 'Oxlint config'],
+    ['vendor/anti-slop/index.ts', 'Vendored lint rules'],
+    ['oxlint.config.ts', 'Vendored lint rules'],
+    ['apps/web/oxlint.config.json', 'Vendored lint rules'],
     ['.github/workflows/ci.yml', 'CI workflows'],
     ['.husky/pre-commit', 'Git hooks'],
     ['eslint.config.js', 'Lint config'],
@@ -100,6 +107,10 @@ describe('GUARDS', () => {
     'scripts/required-gates.mjs',
     'docs/required-gates.md',
     'tooling/anything.json',
+    'tooling/anti-slop/advisory.json',
+    'vendor/anti-slop-other/index.ts',
+    '.oxlintrc.json.bak',
+    'oxlint.config.ts/unrelated.ts',
     'apps/web/eslint.config.mts',
     'apps/web/biome.jsonc',
     '.fallowrc.jsonc',
@@ -152,6 +163,59 @@ describe('rewrite judge', () => {
     'scripts/enforcement-approval.test.ts',
   ])('names an edit to the gate itself in %s', (path) => {
     expect(reasons(path, 'a', 'b')).toEqual(['edits the enforcement-approval gate']);
+  });
+});
+
+describe('anti-slop enforcement', () => {
+  it.each([
+    'vendor/anti-slop/rules/no-module-mocking.ts',
+    'vendor/anti-slop/.oxlintrc.json',
+    'oxlint.config.ts',
+    'apps/web/oxlint.config.mjs',
+    'oxlint.config.json',
+  ])('requires sign-off for every addition, edit and deletion of %s', (path) => {
+    expect(reasons(path, null, '{}')).toEqual(['adds enforcement code']);
+    expect(reasons(path, '{}', '{"$schema":"new"}')).toEqual(['edits enforcement code']);
+    expect(reasons(path, '{}', null)).toEqual(['deletes the file']);
+  });
+
+  it.each([
+    '.oxlintrc.json',
+    'apps/web/.oxlintrc.json',
+  ])('judges JSON loosening and tightening in %s', (path) => {
+    const rule = (level: string) => ({ rules: { 'anti-slop/no-module-mocking': level } });
+    expect(reasons(path, json(rule('warn')), json(rule('error')))).toEqual([]);
+    expect(reasons(path, '{}', json(rule('error')))).toEqual([]);
+    expect(reasons(path, json(rule('error')), json(rule('warn')))).toEqual([
+      'lowers `rules.anti-slop/no-module-mocking` from `error` to `warn`',
+    ]);
+    expect(reasons(path, json(rule('error')), json(rule('off')))).toEqual([
+      'lowers `rules.anti-slop/no-module-mocking` from `error` to `off`',
+    ]);
+    expect(reasons(path, json(rule('error')), '{}')).toEqual([
+      'removes rule `rules.anti-slop/no-module-mocking`',
+    ]);
+    expect(reasons(path, '{}', json({ ignorePatterns: ['src/**'] }))).toEqual([
+      'adds `src/**` to `ignorePatterns`',
+    ]);
+    expect(reasons(path, json({ jsPlugins: ['anti-slop'] }), json({ jsPlugins: [] }))).toEqual([
+      'removes `anti-slop` from `jsPlugins`',
+    ]);
+    expect(reasons(path, json({ plugins: ['react'] }), json({ plugins: [] }))).toEqual([
+      'removes `react` from `plugins`',
+    ]);
+    expect(
+      reasons(
+        path,
+        json({ overrides: [{ files: ['src/**'] }] }),
+        json({ overrides: [{ files: ['src/safe/**'] }] }),
+      ),
+    ).toEqual(['changes the files an override covers']);
+    expect(reasons(path, '{"$schema":"old"}', '{"$schema":"new"}')).toEqual([]);
+    expect(reasons(path, '{}', 'invalid json')).toEqual([
+      'is not valid JSON, so the gate cannot rank the change',
+    ]);
+    expect(reasons(path, '{}', null)).toEqual(['deletes the file']);
   });
 });
 

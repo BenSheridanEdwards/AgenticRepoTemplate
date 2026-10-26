@@ -300,6 +300,16 @@ export const GUARDS = [
     ],
     judge: rewrite('edits the enforcement-approval gate'),
   },
+  {
+    area: 'Vendored lint rules',
+    paths: [/^vendor\/anti-slop\//, /(^|\/)oxlint\.config\.[^/]+$/],
+    judge: rewrite(),
+  },
+  {
+    area: 'Oxlint config',
+    paths: [/(^|\/)\.oxlintrc\.json$/],
+    judge: byJson(['$schema']),
+  },
   { area: 'CI workflows', paths: [/^\.github\/workflows\//], judge: rewrite() },
   { area: 'Git hooks', paths: [/^\.husky\//], judge: rewrite() },
   {
