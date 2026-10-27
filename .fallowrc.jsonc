@@ -23,7 +23,13 @@
       "showcase/todo-03/**",
       "showcase/todo-codex-01/**",
       "showcase/todo-codex-02/**",
-      "showcase/todo-codex-03/**"
+      "showcase/todo-codex-03/**",
+      "showcase/notes-01/**",
+      "showcase/notes-02/**",
+      "showcase/notes-03/**",
+      "showcase/notes-codex-01/**",
+      "showcase/notes-codex-02/**",
+      "showcase/notes-codex-03/**"
     ]
   },
 
@@ -36,7 +42,13 @@
       "showcase/todo-03/**",
       "showcase/todo-codex-01/**",
       "showcase/todo-codex-02/**",
-      "showcase/todo-codex-03/**"
+      "showcase/todo-codex-03/**",
+      "showcase/notes-01/**",
+      "showcase/notes-02/**",
+      "showcase/notes-03/**",
+      "showcase/notes-codex-01/**",
+      "showcase/notes-codex-02/**",
+      "showcase/notes-codex-03/**"
     ]
   },
 

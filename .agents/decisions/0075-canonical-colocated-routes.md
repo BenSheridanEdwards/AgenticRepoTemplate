@@ -1,0 +1,8 @@
+# 75. Pin canonical routes and keep their code co-located
+
+- **Status:** Proposed, 2026-10-26 (Ben accepts it by approving the PR)
+- **Amends:** [0055](0055-single-route-code-stays-in-its-route.md), [0033](0033-result-diagrams-and-structure-validation.md), [0069](0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md), [0037](0037-type-only-edges-and-flagged-re-exports.md)
+
+- **Context:** On scaffold `88d5539` (main `9646c85`), Claude made 9–10 route files and 5–6 components; Codex made 6 files and 2 components. `structure · files web-routes` and `component-boundaries · components web-routes` remained outside the spec. Ben approved tighter rules and co-location.
+- **Decision:** Every route owns its components, hooks, state, API calls, schemas, types and tests. Value and type imports stay there except external npm packages, `@repo/ui` and the fixed ADR 0054 api-client surface. That surface is a global primitive because transport wiring, router types and test providers serve every route without sharing feature state; server-state hooks use `useTrpc`. Extend `single-route-features` to every result; `route-colocation` checks imports. `trial-route-inventory` maps ids through the brief registry and pins the [template](../templates/list-route.md)'s eight production files, four exported components and props, reusing the comparison reader. Tests retain their name/count freedom.
+- **Consequences:** These rules run through `arch:gate`, `verify` and trial checks; greeting gets co-location only. Duplicate ESLint enforcement is deferred to keep this change within 400 lines. Prompt changes start a new ADR 0034 baseline; preserve earlier evidence. Request/response contracts and lockfile protection belong to the other approved PRs.

@@ -39,7 +39,7 @@ and React rules cover `.ts` and `.tsx` files.
 | Every relative import in an api package names its `.ts` extension (`./application.ts`). | `pnpm typecheck` (`tsconfig.api.json`, `NodeNext`) and Node at runtime |
 | Api code uses only erasable TypeScript syntax and sees no DOM; web code has the DOM and no Node globals. | `pnpm typecheck` (`tsconfig.api.json` with `erasableSyntaxOnly`; `tsconfig.json` with the DOM libs and no Node types) |
 | Every source file belongs to one architecture role. | Fallow `coverage.requireAllFiles` (`pnpm arch:gate`) |
-| Value imports between roles follow the table in [`ARCHITECTURE.md`](ARCHITECTURE.md); type-only imports may cross roles. | Fallow boundaries (`pnpm arch:gate`, [ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)); imports within a role remain subject to slice isolation. |
+| Value imports between roles follow the table in [`ARCHITECTURE.md`](ARCHITECTURE.md); type-only imports may cross roles subject to slice isolation and route co-location. | Fallow boundaries and `route-colocation` (`pnpm arch:gate`, [ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)); imports within a role remain subject to slice isolation. |
 | Banned imports, calls and effects per role. | Fallow rule pack, reported as `contract/<id>` (`pnpm arch:gate`, `pnpm fallow:audit`) |
 | `strict` TypeScript with `noUncheckedIndexedAccess` and `noUnusedLocals`. | `pnpm typecheck`; review of the diff catches a loosened `tsconfig.base.json` ([ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)) |
 | `unknown` and narrowing in place of `any`. | Biome `suspicious/noExplicitAny` |

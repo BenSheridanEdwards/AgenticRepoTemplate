@@ -17,7 +17,8 @@ const resultAt = (id: string, root: string, scope: string) => ({
   ports: { web: 0, api: 0 },
 });
 const reference = resultAt('reference', 'apps', 'repo');
-const todo = resultAt('todo-01', 'showcase/todo-01', 'todo-01');
+// Generic greeting fixture; canonical brief identities are exercised separately below.
+const todo = resultAt('example', 'showcase/todo-01', 'todo-01');
 
 const CLEAN_TREE: Record<string, string> = {
   ...resultFiles('apps', 'repo'),
@@ -54,7 +55,7 @@ function validate(
     results,
     files,
     edges: [
-      ...[reference, todo].map((result) => ({
+      ...results.map((result) => ({
         from: `${result.api}/src/features/greeting/application.ts`,
         to: `${result.api}/src/features/greeting/domain.ts`,
       })),
@@ -620,6 +621,117 @@ describe('validateStructure', () => {
   });
 });
 
+function canonicalRoute(brief: 'todo' | 'notes') {
+  const id = `${brief}-codex-02`;
+  const result = resultAt(id, `showcase/${id}`, id);
+  const entity = brief === 'todo' ? 'Todo' : 'Note';
+  const plural = `${entity}s`;
+  const route = `${result.web}/src/routes/${plural.toLowerCase()}`;
+  const callbacks = `${brief === 'todo' ? `onToggle: (id: ${entity}['id']) => void;` : ''} onDelete: (id: ${entity}['id']) => void`;
+  const props = {
+    [`${plural}Page`]: '',
+    [`${entity}Form`]: `props: { onCreate: (input: Create${entity}) => void; pending: boolean }`,
+    [`${entity}List`]: `props: { ${plural.toLowerCase()}: readonly ${entity}[]; ${callbacks} }`,
+    [`${entity}Item`]: `props: { ${entity.toLowerCase()}: ${entity}; ${callbacks} }`,
+  };
+  const files: Record<string, string | null> = {
+    ...resultFiles(result.root, id),
+    [`${result.web}/src/routes/greeting/index.ts`]: null,
+    [`${route}/index.ts`]: `export { ${plural}Page } from './${plural}Page';`,
+    [`${route}/use${plural}.ts`]: `export type ${entity} = RouterOutputs['${brief}']['list'][number]; export type Create${entity} = RouterInputs['${brief}']['create'];`,
+    [`${route}/use${entity}Form.ts`]: `export const use${entity}Form = () => 1;`,
+    [`${route}/${entity.toLowerCase()}FormSchema.ts`]: 'export const schema = 1;',
+    [`${route}/${plural}Page.test.tsx`]: 'export {};',
+    ...Object.fromEntries(
+      Object.entries(props).map(([name, parameters]) => [
+        `${route}/${name}.tsx`,
+        `import type { ${entity}, Create${entity} } from './use${plural}'; export function ${name}(${parameters}) { return <div />; }`,
+      ]),
+    ),
+  };
+  const options = { results: [reference, todo, result] };
+  return { files, route, options, entity, plural };
+}
+
+describe.each(['todo', 'notes'] as const)('%s canonical route inventory', (brief) => {
+  const { files, route, options, entity, plural } = canonicalRoute(brief);
+  const component = `${route}/${entity}Form.tsx`;
+  const form = files[component] ?? '';
+  const page = `${route}/${plural}Page.tsx`;
+  const changes = {
+    'missing barrel': { [`${route}/index.ts`]: null },
+    'missing file': { [`${route}/use${entity}Form.ts`]: null },
+    'extra file': { [`${route}/extra.ts`]: 'export const extra = 1;' },
+    'wrong barrel': { [`${route}/index.ts`]: 'export const page = 1;' },
+    'aliased export': {
+      [`${route}/index.ts`]: `${files[`${route}/index.ts`]} export { ${entity}Form as Extra } from './${entity}Form';`,
+    },
+    'extra component': { [page]: `${files[page]} export function Extra() { return <div />; }` },
+    'null component': { [page]: `${files[page]} export function Extra() { return null; }` },
+    'component value alias': { [component]: `${form} export const Extra = ${entity}Form;` },
+    'default component': {
+      [component]: form.replace('export function', 'export default function'),
+    },
+    'different props': { [component]: form.replace('pending: boolean', 'pending: string') },
+    'unresolved props': { [component]: form.replace(/props: \{[^}]+\}/, 'props: Unknown') },
+    'optional prop': { [component]: form.replace('pending: boolean', 'pending?: boolean') },
+    'callback type': { [component]: form.replace(`Create${entity})`, 'string)') },
+    'non-exported component': { [component]: form.replace('export function', 'function') },
+  };
+  it('passes the reference, generic greeting and canonical brief with co-located tests', () => {
+    expect(validate(files, options)).toEqual([]);
+  });
+
+  it.each(
+    Object.entries(changes),
+  )('rejects %s with a repair instruction in the CLI', (_, edits) => {
+    const repository = createMonorepo({ ...files, ...edits });
+    try {
+      const run = runTool('structure.mjs', repository.directory);
+      expect(run.status).toBe(1);
+      expect(run.output).toContain('trial-route-inventory');
+      expect(run.output).toContain('.agents/templates/list-route');
+      expect(validate({ ...files, ...edits }, options)).toEqual(
+        expect.arrayContaining([expect.objectContaining({ kind: 'trial-route-inventory' })]),
+      );
+    } finally {
+      repository.cleanup();
+    }
+  });
+});
+
+describe('route co-location', () => {
+  it.each([
+    "import { other } from '../other';",
+    "export type { App } from '../../App';",
+    "const other = import('../other');",
+    "import { useTrpc } from '../../api-client/trpc';",
+    "import type { AppRouter } from '@repo/api';",
+    "import { readFile } from 'node:fs';",
+    "import { App } from '/apps/web/src/App';",
+    "import { data } from '@/data';",
+    'export function useGreeting() { return useQuery({}); }',
+  ])('rejects a non-primitive outside the route: %s', (source) => {
+    expect(
+      validate({
+        'apps/web/src/routes/greeting/index.ts': source,
+        'apps/web/src/routes/other/index.ts': 'export const other = 1;',
+      }),
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'route-colocation' })]));
+  });
+
+  it('accepts route-local code, UI primitives, the api-client surface and npm packages', () => {
+    expect(
+      validate({
+        'apps/web/src/routes/greeting/index.ts':
+          "import './useGreeting'; import { Button } from '@repo/ui'; import { useTrpc } from '../../api-client'; import { useMemo } from 'react';",
+        'apps/web/src/routes/greeting/useGreeting.ts':
+          "import { useTrpc } from '../../api-client'; export function useGreeting() { const trpc = useTrpc(); return useQuery(trpc.greeting.queryOptions()); }",
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe('single-route feature placement', () => {
   const feature = `${todo.web}/src/features/page-header/PageHeader.tsx`;
   const report = `${todo.web}/etc/features-page-header.api.md`;
@@ -674,14 +786,19 @@ describe('single-route feature placement', () => {
     ]);
   });
 
-  it('retains web features and their reports when two production route slices exist', () => {
+  it('rejects web features and reports even with two production route slices', () => {
     expect(
       validate({
         [feature]: '',
         [report]: '',
         [`${todo.web}/src/routes/other/index.ts`]: 'export const other = 1;',
       }),
-    ).toEqual([]);
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'single-route-features', path: feature }),
+        expect.objectContaining({ kind: 'single-route-features', path: report }),
+      ]),
+    );
   });
 
   it('counts routes separately for each result', () => {
@@ -697,9 +814,12 @@ describe('single-route feature placement', () => {
     expect(validate({ [report]: '' })).toEqual([violation(report)]);
   });
 
-  it('leaves a missing production route to the missing-role check', () => {
+  it('rejects features even when the production route is missing', () => {
     expect(validate({ [feature]: '', [`${todo.web}/src/routes/greeting/index.ts`]: null })).toEqual(
-      [{ kind: 'missing-role', result: todo.root, role: 'web-routes' }],
+      [
+        { kind: 'missing-role', result: todo.root, role: 'web-routes' },
+        { ...violation(feature), route: '<route>' },
+      ],
     );
   });
 });
@@ -728,6 +848,7 @@ describe('node tooling/architecture/structure.mjs', () => {
       );
       expect(run.output).toContain('web/src/routes/greeting/');
       expect(run.output).toContain('remove the feature barrel and API report');
+      expect(run.output).toContain('route-colocation');
     } finally {
       repository.cleanup();
     }

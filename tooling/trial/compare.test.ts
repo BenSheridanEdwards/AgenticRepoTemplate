@@ -48,6 +48,10 @@ const FIXTURE_FOR: Record<string, string> = {
   'showcase/todo-02/architecture.mmd': 'todo-02.architecture.mmd',
 };
 const read = (path: string) => {
+  if (path === 'tooling/trial/todo-prompt.md') {
+    const { prompt } = JSON.parse(readFileSync(join(FIXTURES, 'todo-01.json'), 'utf8'));
+    return prompt.text.replaceAll('todo-01', '{{ID}}').replace('trial 1 of', 'trial {{N}} of');
+  }
   const fixture = FIXTURE_FOR[path];
   return readFileSync(fixture ? join(FIXTURES, fixture) : resolve(ROOT, path), 'utf8');
 };
