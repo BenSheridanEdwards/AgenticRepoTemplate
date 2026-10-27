@@ -7,6 +7,8 @@ technical terms. Replace this comment with real content in sentences. -->
 
 # What changed?
 
+<!-- Above 400 changed lines, explain in one sentence why this is one idea; keep stacked migration pieces at or under 400. -->
+
 <!-- The smallest reviewable summary of the diff. Call out new configuration,
 migrations, permissions, dependencies, or public API changes. -->
 

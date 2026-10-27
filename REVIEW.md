@@ -53,6 +53,11 @@ which the root `AGENTS.md` and `CLAUDE.md` point to, sends Codex and Claude here
 - Prefer deletion, an existing pattern, and a stdlib or platform feature over a
   new abstraction or dependency (the repo's Ponytail discipline).
 - Confirm one logical change per PR, so a reviewer holds the whole change in mind.
+- Hold each stacked migration piece to the 400-changed-line limit. Accept a
+  self-contained single-idea PR above 400 lines when its body explains in one
+  sentence why it is one idea, without requesting a split solely for size.
+  Flag an over-400 PR that combines several ideas or lacks that sentence
+  ([ADR 0074](.agents/decisions/0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md)).
 - Flag a loop, a `let` accumulator or an in-place mutation where `map`,
   `filter`, `flatMap` or `reduce` expresses the transform. Lint holds only
   part of this rule (see the North Star's declarative principle).

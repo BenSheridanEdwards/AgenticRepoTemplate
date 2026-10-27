@@ -5,6 +5,7 @@
 - **Supersedes in part:** [0070](0070-vendored-anti-slop-oxlint-rules.md)
   for lint ownership, built-in Oxlint rules and version pins; earlier Biome
   lint assignments are marked with links to this record.
+- **Amended by:** [0074](0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md)
 
 ## Context
 

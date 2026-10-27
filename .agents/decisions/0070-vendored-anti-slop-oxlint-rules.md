@@ -15,6 +15,7 @@
   `1.78.0` pins and binding-version references below. The new versions
   need fresh Security clearance; provenance and installation safeguards
   remain. Separate PRs implement this target; this ADR stays Proposed.
+- **Amended by:** [0074](0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md)
 
 ## Context
 
