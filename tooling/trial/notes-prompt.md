@@ -38,6 +38,27 @@ The fixed acceptance test `tooling/trial/acceptance/notes.spec.ts` drives your p
 - Notes survive a page reload while the api runs.
 - The page reaches the api through `/trpc`, as the reference does.
 
+## Public API
+
+Mount exactly these procedures under the `notes` router key. The contract in
+`tooling/trial/briefs.mjs` uses these literal Effect Schema shapes (`Schema`
+from `effect`); validate inputs with `.input(Schema.toStandardSchemaV1(schema))`.
+Define `Note = Schema.Struct({ id: Schema.String, title: Schema.String, body: Schema.String })`.
+
+| Procedure | Kind | Input schema | Output schema |
+| --- | --- | --- | --- |
+| notes.list | query | `Schema.Undefined` | `Schema.Array(Note)` |
+| notes.create | mutation | `Schema.Struct({ title: Schema.Trim.check(Schema.isNonEmpty()), body: Schema.String })` | `Note` |
+| notes.delete | mutation | `Schema.Struct({ id: Schema.String })` | `Schema.Struct({ id: Schema.String })` |
+
+`list` takes no input and returns the array directly. `create` takes exactly
+`{ title: string, body: string }`, trims the title, rejects blank titles and
+returns the stored `{ id, title, body }`; body is a required string that may
+be empty and is preserved unchanged. `delete` takes only `{ id: string }` and
+returns only `{ id: string }`, containing the deleted id. Keep these exact
+fields, names and kinds, using the reference's default JSON tRPC transport
+through `/trpc`. The fixed acceptance spec checks these responses over HTTP.
+
 ## Done
 
 Run `node tooling/trial/check-scope.mjs --id {{ID}}` after installing and after the checks below. Fix every reported path or lockfile change before finishing.

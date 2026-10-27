@@ -38,6 +38,29 @@ The fixed acceptance test `tooling/trial/acceptance/todo.spec.ts` drives your pa
 - Todos survive a page reload while the api runs.
 - The page reaches the api through `/trpc`, as the reference does.
 
+## Public API
+
+Mount exactly these procedures under the `todos` router key. The contract in
+`tooling/trial/briefs.mjs` uses these literal Effect Schema shapes (`Schema`
+from `effect`); validate inputs with `.input(Schema.toStandardSchemaV1(schema))`.
+Define `Todo = Schema.Struct({ id: Schema.String, title: Schema.String, completed: Schema.Boolean })`.
+
+| Procedure | Kind | Input schema | Output schema |
+| --- | --- | --- | --- |
+| todos.list | query | `Schema.Undefined` | `Schema.Array(Todo)` |
+| todos.create | mutation | `Schema.Struct({ title: Schema.Trim.check(Schema.isNonEmpty()) })` | `Todo` |
+| todos.toggle | mutation | `Schema.Struct({ id: Schema.String })` | `Todo` |
+| todos.delete | mutation | `Schema.Struct({ id: Schema.String })` | `Schema.Struct({ id: Schema.String })` |
+
+`list` takes no input and returns the array directly. `create` takes only
+`{ title: string }`, trims the title, rejects blank titles and returns the
+stored `{ id, title, completed: false }`. `toggle` takes only `{ id: string }`,
+inverts `completed` on the server and returns the updated `{ id, title, completed }`;
+a second toggle restores the prior value. `delete` takes only `{ id: string }`
+and returns only `{ id: string }`, containing the deleted id. Keep these exact
+fields, names and kinds, using the reference's default JSON tRPC transport
+through `/trpc`. The fixed acceptance spec checks these responses over HTTP.
+
 ## Done
 
 Run `node tooling/trial/check-scope.mjs --id {{ID}}` after installing and after the checks below. Fix every reported path or lockfile change before finishing.

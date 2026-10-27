@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import { apiContract } from './api-contract';
 
 const noteItem = (page: Page, title: string) =>
   page
@@ -26,11 +27,10 @@ async function addNote(page: Page, title: string, body: string) {
   await expect(noteItem(page, title)).toBeVisible();
 }
 
-test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-});
+apiContract('notes');
 
 test('shows the Notes heading and labelled text fields', async ({ page }) => {
+  await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Notes' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Title', exact: true })).toHaveJSProperty(
     'tagName',
@@ -45,6 +45,7 @@ test('shows the Notes heading and labelled text fields', async ({ page }) => {
 
 ['Remember this', ''].forEach((body) => {
   test(`creates and persists a note with body ${JSON.stringify(body)}`, async ({ page }) => {
+    await page.goto('/');
     const title = `Note ${randomUUID()}`;
     await addNote(page, title, body);
     await expect(noteItem(page, title)).toContainText(title);
@@ -59,6 +60,7 @@ test('shows the Notes heading and labelled text fields', async ({ page }) => {
   test(`rejects the title ${JSON.stringify(blank)} with an alert and no saved note`, async ({
     page,
   }) => {
+    await page.goto('/');
     const kept = `Kept ${randomUUID()}`;
     const body = `Rejected ${randomUUID()}`;
     await addNote(page, kept, 'Loaded marker');
@@ -83,6 +85,7 @@ test('shows the Notes heading and labelled text fields', async ({ page }) => {
 });
 
 test('deletes a note permanently and keeps the other note', async ({ page }) => {
+  await page.goto('/');
   const kept = `Kept ${randomUUID()}`;
   const title = `Deleted ${randomUUID()}`;
   await addNote(page, kept, 'Keep this');
@@ -95,6 +98,7 @@ test('deletes a note permanently and keeps the other note', async ({ page }) => 
 });
 
 test('has no detectable WCAG 2.1 A or AA violation with a note listed', async ({ page }) => {
+  await page.goto('/');
   await addNote(page, `Accessible ${randomUUID()}`, 'Read this');
   const scan = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

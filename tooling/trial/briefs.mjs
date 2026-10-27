@@ -5,12 +5,48 @@ export const BRIEFS = {
     operations: ['list', 'create', 'toggle', 'delete'],
     item: { id: null, title: 'string', completed: 'boolean' },
     createInput: '{ title: string }',
+    api: {
+      router: 'todos',
+      item: 'Schema.Struct({ id: Schema.String, title: Schema.String, completed: Schema.Boolean })',
+      procedures: {
+        list: { kind: 'query', input: 'Schema.Undefined', output: 'Schema.Array(Todo)' },
+        create: {
+          kind: 'mutation',
+          input: 'Schema.Struct({ title: Schema.Trim.check(Schema.isNonEmpty()) })',
+          output: 'Todo',
+        },
+        toggle: { kind: 'mutation', input: 'Schema.Struct({ id: Schema.String })', output: 'Todo' },
+        delete: {
+          kind: 'mutation',
+          input: 'Schema.Struct({ id: Schema.String })',
+          output: 'Schema.Struct({ id: Schema.String })',
+        },
+      },
+    },
   },
   notes: {
     route: { folder: 'notes', entity: 'Note' },
     operations: ['list', 'create', 'delete'],
     item: { id: null, title: 'string', body: 'string' },
     createInput: '{ body: string; title: string }',
+    api: {
+      router: 'notes',
+      item: 'Schema.Struct({ id: Schema.String, title: Schema.String, body: Schema.String })',
+      procedures: {
+        list: { kind: 'query', input: 'Schema.Undefined', output: 'Schema.Array(Note)' },
+        create: {
+          kind: 'mutation',
+          input:
+            'Schema.Struct({ title: Schema.Trim.check(Schema.isNonEmpty()), body: Schema.String })',
+          output: 'Note',
+        },
+        delete: {
+          kind: 'mutation',
+          input: 'Schema.Struct({ id: Schema.String })',
+          output: 'Schema.Struct({ id: Schema.String })',
+        },
+      },
+    },
   },
 };
 
