@@ -22,5 +22,5 @@ behaviour unchanged. The nine enforcement PRs then target `apps/web`.
 - The move PR is mechanical, so the existing behaviour map proves it: the same
   tests pass before and after.
 - The move happens ahead of the protected-path detector
-  ([0007](0007-protect-enforcement-paths-by-default.md)), so it is reviewed by
+  (ADR 0007; superseded by ADRs 0023 and 0024), so it is reviewed by
   hand.

@@ -60,5 +60,5 @@ hook returns.
   module-scope PascalCase function in a `.tsx` file, the same heuristic the
   React hooks rules use.
 - Changes to the plugin are enforcement changes under
-  [ADR 0007](0007-protect-enforcement-paths-by-default.md), because `tooling/`
+  ADR 0007 (superseded by ADRs 0023 and 0024), because `tooling/`
   is a protected path.

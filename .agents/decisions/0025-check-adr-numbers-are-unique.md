@@ -13,7 +13,7 @@ with one number. On 2026-10-16 this happened three times:
 
 - `chore/remove-styleproof` added `0015-pause-styleproof-…` while main took
   `0015-eslint-policy-stack-wiring` (#61). An agent spotted it and renumbered
-  the pause ADR to 0016 in the merge.
+  the pause ADR to 0016 in the merge (since superseded by ADR 0052).
 - A local head-commit branch's `0016-pr-body-names-its-head-commit` now
   clashes with main's `0016-pause-styleproof-…` (#63).
 - A local hook-bypass branch's `0017-block-common-hook-bypasses` clashes with

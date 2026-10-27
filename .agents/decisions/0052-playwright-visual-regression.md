@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-22
-- **Supersedes:** [0016](0016-pause-styleproof-until-it-is-fixed.md)
+- **Supersedes:** ADR 0016 (superseded by ADR 0052)
 
 ## Context
 
