@@ -22,7 +22,7 @@ a dependency or a claim that StyleProof's upstream bugs have been fixed.
   comparison command, with no update flag. Playwright stabilizes screenshots
   and disables animations by default; its default pixel comparison applies.
 - Approve intended changes by running `pnpm visual:update` in that environment,
-  inspecting the changed PNGs in `docs/proof/visual-regression/`, committing
+  inspecting the changed PNGs in `apps/web/e2e/__screenshots__/`, committing
   them for human review with the change, and rerunning `pnpm visual`.
 - The `Visual regression` workflow uses the existing tested Lighthouse scope
   script. Its inputs include baseline PNGs, the visual spec, Playwright config
@@ -42,3 +42,10 @@ CI environment before approving. Coverage is limited to the six reference
 screens, so reviewers still judge unrepresented states and screenshot proof.
 API-only changes do not trigger comparison, even though the success-state
 screenshot includes the API's greeting text.
+
+## Location update, 2026-10-27
+
+The six approved PNGs now live beside the visual spec in
+`apps/web/e2e/__screenshots__/`. Playwright and the shared Lighthouse/visual
+scope rule use that location. File names and baseline bytes are unchanged;
+`docs/proof/` remains the location for new PR evidence.

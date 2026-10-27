@@ -249,7 +249,7 @@ symptom. A reviewer reads exactly what was verified.
 Playwright screenshot comparisons gate UI-relevant pull requests through the
 `Visual regression` check. `pnpm visual` compares the reference greeting at
 desktop and mobile sizes in its initial, validation and success states against
-committed PNGs in `docs/proof/visual-regression/`. The gate uses Lighthouse's
+committed PNGs in `apps/web/e2e/__screenshots__/`. The gate uses Lighthouse's
 UI-change scope and leaves showcase results to their existing behaviour maps.
 
 Run on Linux with the lockfile's Chromium (`pnpm e2e:install`). For an intended
