@@ -65,6 +65,14 @@ The config excludes named agent directories, vendored code and the six recorded
 trial folders; future trial IDs remain in scope. `pnpm check:suppressions`
 rejects inline Oxlint disable and enable directives in tracked source comments.
 
+Builders run `pnpm lint:anti-slop` and `pnpm lint:anti-slop:changed` before
+every push and clear every finding on changed lines. The changed-lines check
+reads committed changes against `origin/main`; run it on a clean tracked tree.
+Reviewers run it on the PR head and raise each finding as a change request
+([review checklist](../../REVIEW.md#anti-slop-findings)). Keep this agent check
+outside hooks and CI gates; existing advisory findings on untouched lines
+belong to their rollout PRs.
+
 [ADR 0070](../decisions/0070-vendored-anti-slop-oxlint-rules.md) records the
 pins, provenance and rule split. The existing ESLint
 [anti-slop policies](#anti-slop-policies) keep their separate ownership.

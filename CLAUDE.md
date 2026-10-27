@@ -5,3 +5,5 @@ Every agent doc for this repo lives in [`.agents/`](.agents/). Start here:
 loads it at launch.
 
 @.agents/START_HERE.md
+
+Review workflow: [anti-slop findings](REVIEW.md#anti-slop-findings).

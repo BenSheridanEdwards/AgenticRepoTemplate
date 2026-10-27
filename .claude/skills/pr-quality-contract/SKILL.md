@@ -25,6 +25,9 @@ asking for proof, or decide whether work is ready to report complete.
    changed files. Keep unrelated local changes out of the PR.
 2. **Run local proof.** Prefer `pnpm verify` and `pnpm e2e`. If a narrower
    command is appropriate, name why it is enough and list what remains unproven.
+   Before every push, run `pnpm lint:anti-slop` and
+   `pnpm lint:anti-slop:changed` on the committed branch and clear every
+   finding. List both exact commands and their results in the PR body.
 3. **Collect visual proof.** For UI-visible or CSS changes, attach screenshots
    or video. For non-UI changes, write `Not applicable` with the reason instead of
    pretending visual proof exists.

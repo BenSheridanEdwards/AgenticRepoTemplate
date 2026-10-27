@@ -6,7 +6,7 @@
 interface:
   display_name: "Agentic Repo Template"
   short_description: "Reference scaffold: the files, gates, and context that make agent-written code enterprise-grade."
-  default_prompt: "Read .agents/START_HERE.md before writing. Follow the gates; done means `pnpm verify` and `pnpm e2e` are green."
+  default_prompt: "Read .agents/START_HERE.md before writing. Before every push, run pnpm lint:anti-slop and pnpm lint:anti-slop:changed on the committed branch and clear every finding. Follow the gates; done means `pnpm verify` and `pnpm e2e` are green."
 
 context:
   # Read these before writing any code.
@@ -25,5 +25,8 @@ context:
 
 commands:
   verify: "pnpm verify"
+  anti_slop: "pnpm lint:anti-slop"
+  anti_slop_advisory: "pnpm lint:anti-slop:advisory"
+  anti_slop_changed: "pnpm lint:anti-slop:changed"
   e2e: "pnpm e2e"
   validate_pr_body: "node scripts/validate-pr-body.mjs"

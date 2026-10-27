@@ -36,6 +36,8 @@ because they assert what a **user perceives**, through the public surface.
   state. The real hooks and providers run; leave hooks unmocked. Models:
   `apps/web/src/routes/greeting/GreetingPage.test.tsx` and
   `useGreeting.test.tsx` (`renderHook` with a `TestApiProvider` wrapper).
+- **Replace a dependency through its seam.** `jest.mock` fails
+  `pnpm lint:anti-slop`.
 
 ## Process
 
