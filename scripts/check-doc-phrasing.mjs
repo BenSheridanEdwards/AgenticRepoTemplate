@@ -4,9 +4,8 @@
  * skip ("do not", "never", "avoid", a leading "No") fails, and the message asks
  * for the positive form.
  *
- * Code spans, fenced code, link targets, and the generated GitNexus block are
- * ignored. ADRs are records that are superseded, not edited, so they are out of
- * scope, as are generated reports and generated or vendored skills.
+ * Code spans, fenced code, and link targets are ignored. ADRs are records that
+ * are superseded, not edited, so they are out of scope, as are generated reports and generated or vendored skills.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -18,11 +17,7 @@ const NEGATIVE_PHRASE =
 const LEADING_NO = /^\s*(?:(?:[-*+]|\d+\.)\s+)?(?:\*\*)?(No)\s/;
 const GUIDANCE_PREFIXES = ['.agents/', '.github/', 'docs/', '.claude/skills/'];
 // The show-me skill is vendored and pinned by hash in skills-lock.json.
-const EXCLUDED_PREFIXES = [
-  '.agents/decisions/',
-  '.claude/skills/gitnexus/',
-  '.claude/skills/show-me/SKILL.md',
-];
+const EXCLUDED_PREFIXES = ['.agents/decisions/', '.claude/skills/show-me/SKILL.md'];
 
 /** True for the Markdown files that tell an agent or a person how to work here. */
 export function isGuidanceDoc(path) {
@@ -54,14 +49,11 @@ export function nextFence(fence, line) {
 export function findNegativePhrasing(text) {
   const findings = [];
   let fence = '';
-  let inGenerated = false;
   for (const [index, line] of text.split('\n').entries()) {
     fence = nextFence(fence, line);
-    inGenerated = /<!-- gitnexus:(start|end) -->/.test(line) ? !inGenerated : inGenerated;
-    const phrase =
-      fence || inGenerated
-        ? undefined
-        : (proseOf(line).match(NEGATIVE_PHRASE) ?? line.match(LEADING_NO))?.[1];
+    const phrase = fence
+      ? undefined
+      : (proseOf(line).match(NEGATIVE_PHRASE) ?? line.match(LEADING_NO))?.[1];
     if (phrase) {
       findings.push({ line: index + 1, phrase });
     }

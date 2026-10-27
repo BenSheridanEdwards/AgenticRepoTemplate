@@ -41,7 +41,6 @@ each owner runs locally and in CI.
 | Automated PR review rules | **`REVIEW.md`** | The judgment rules Cursor Bugbot, Codex, and Claude read after lint; `.agents/START_HERE.md` and `.cursor/BUGBOT.md` point every reviewer at the one file, and `pnpm check:context` holds the wiring ([ADR 0049](../decisions/0049-review-rules-for-bot-reviewers.md)). |
 | Repo health audits | **ArchitectPlaybook** | Claude Code skills; the health-check (showcase #1). |
 | Codebase knowledge graph | **graphify** | Powers ArchitectPlaybook's `/pre-audit-setup`. |
-| Execution-flow index | **GitNexus** | Local generated index for impact, trace, and context queries. |
 | Simplicity discipline | **Ponytail** | Prefer deletion, stdlib/native features, and existing patterns. |
 
 ## Why these choices
@@ -87,7 +86,7 @@ each owner runs locally and in CI.
   each need an ADR first. A result keeps its data in memory in the feature's
   `integrations.ts`.
 
-External tooling (Fallow, ArchitectPlaybook, graphify, GitNexus, Ponytail) is
-documented in the repo root `README.md` and installed via `pnpm setup:agents`. We reference
+External tooling (Fallow, ArchitectPlaybook, graphify, Ponytail) is
+documented in the repo root `README.md` with Fallow-skill and Ponytail installation hints. We reference
 these as living libraries rather than vendoring copies — see
 [`../decisions/0004-agent-context-lives-in-dot-agents.md`](../decisions/0004-agent-context-lives-in-dot-agents.md).

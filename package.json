@@ -45,7 +45,6 @@
     "gates:check": "node scripts/required-gates.mjs --check",
     "validate:pr": "node scripts/validate-pr-body.mjs",
     "verify": "pnpm check:lockfile && pnpm check:context && pnpm check:suppressions && pnpm check:docs && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm lint:anti-slop && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm build && pnpm size",
-    "setup:agents": "bash scripts/setup-agentic-toolkit.sh",
     "trial": "node tooling/trial/run-trial.mjs",
     "trial:scope": "node tooling/trial/check-scope.mjs",
     "prepare": "husky",

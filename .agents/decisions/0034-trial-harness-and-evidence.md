@@ -218,7 +218,7 @@ only with a commit, a kept stream, empty scope and read lists, the four checks `
 record names at least one failure.
 
 `enforcementRev` is the last scaffold commit touching `.husky`,
-`.github/workflows`, `.claude`, `.fallowrc.jsonc`, `.mcp.json`, `.npmrc`,
+`.github/workflows`, `.claude`, `.fallowrc.jsonc`, `.npmrc`,
 `.size-limit.json`, `biome.json`, `commitlint.config.ts`, `eslint.config.js`,
 `jest.config.ts`, `jest.setup.ts`, `lighthouserc.json`, the root
 `package.json`, `playwright.config.ts`, `pnpm-workspace.yaml`, `scripts`,

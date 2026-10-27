@@ -32,14 +32,13 @@ This repo commits its own skills under `.claude/skills/`:
 - **`verify-agentic-template`** — launch the app, drive it in Chromium like a
   user, and capture screenshots, ARIA snapshots, and video as PR proof.
 
-Install the external skill libraries once with `pnpm setup:agents`:
+Install external skill libraries separately; see the README for Fallow and Ponytail:
 
 - **ArchitectPlaybook** audits — `/pre-audit-setup`, then `/agentic-audit`,
   `/quality-gates-audit`, `/architecture-audit`, `/testing-audit`,
   `/security-audit`, … (the health-check).
 - **Fallow** skill — interpreting code-intelligence findings.
 - **graphify** — the codebase knowledge graph the audits build on.
-- **GitNexus** — local execution-flow and impact index for repo navigation.
 - **Ponytail** — shortest-working-diff discipline for coding and review tasks.
 
 ## Settings & hooks
@@ -80,15 +79,9 @@ and raises each finding as a change request under
 
 ## Agent tooling
 
-This repo is wired for Claude Code with four tools:
+This repo is wired for Claude Code with these tools:
 
 - **Ponytail** — default lazy-coding mode (global plugin). `/ponytail lite|full|ultra`.
-- **GitNexus** — code-intelligence graph. MCP server in `.mcp.json` (`npx -y gitnexus mcp`,
-  no global install needed); skills in `.claude/skills/gitnexus/`; index in `.gitnexus/`
-  (gitignored). (Re)index with `npx gitnexus analyze --skip-agents-md`. How to
-  use it is in [`GITNEXUS.md`](GITNEXUS.md).
-- **Graphify** — `/graphify` builds a navigable knowledge graph under `graphify-out/`
-  (gitignored). Use it for architecture and file-relationship questions.
 - **Show Me** — `/show-me` creates a concise visual explanation of a change.
   Use it selectively on non-trivial PRs. Ground every label in real files,
   symbols, states, or evidence. It supports the PR proof alongside tests,

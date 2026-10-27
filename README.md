@@ -305,7 +305,6 @@ module's exports, per package.
 
 ```bash
 pnpm install
-pnpm setup:agents     # one time: external agentic toolkit
 pnpm dev              # web at http://localhost:5173 and api at :3001
 pnpm lint:policy      # ESLint policy, React hooks, and React Compiler rules
 pnpm verify           # typecheck, biome, eslint, react doctor, fallow, architecture, tests with coverage, build, size
@@ -334,8 +333,7 @@ before claiming protection is installed:
 
 ## Adopt it
 
-For a new project, press **Use this template**, run `pnpm install` and
-`pnpm setup:agents`, then build routes in `apps/web/src/routes/*` and api
+For a new project, press **Use this template**, run `pnpm install`, then build routes in `apps/web/src/routes/*` and api
 features in `apps/api/src/features/*` using the templates in
 [`.agents/templates/`](.agents/templates) and the greeting feature as the model
 ([`.agents/project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md)). Local hooks and
@@ -360,7 +358,6 @@ AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports i
 .agents/                  Every agent doc (read before writing).
   START_HERE.md             Start here: commands, golden rules, and the map.
   CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
-  GITNEXUS.md               GitNexus impact analysis and change detection.
   NORTH_STAR.md             Where the repo is heading and why.
   openai.yaml               Vendor-neutral manifest of the same entry points.
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
@@ -379,7 +376,6 @@ AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports i
   skills/                   This repo's own packaged processes (some vendored).
     build-agent-guidance/           Create or update AGENTS.md, CLAUDE.md, and .agents guidance.
     build-quality-gates/            Create or update Husky, CI, and the lint/type/test gate matrix.
-    gitnexus/                       GitNexus impact analysis and change detection over the code graph.
     install-agentic-infrastructure/ Install or upgrade the guidance, gate, and PR-proof layers.
     pr-inline-screenshot-proof/     Render screenshots, video, and proof inline in the PR body.
     pr-quality-contract/            Turn the Definition of Done into a proof-backed PR body.
@@ -422,7 +418,6 @@ tooling/
   architecture/structure.mjs  Validates every result's structure against the contract.
   trial/                    The Todo trial harness: runs a trial, checks acceptance, records evidence, and compares results.
 scripts/
-  setup-agentic-toolkit.sh  Installs ArchitectPlaybook, Fallow skills, graphify, GitNexus, Ponytail.
   fallow-audit.sh           Base-aware Fallow audit (catches new issues).
   api-report.mjs            Writes and checks each package's etc/*.api.md API Extractor reports.
   secret-scan.sh            Staged secret scan (gitleaks, conditional).
@@ -457,9 +452,10 @@ apps/                       The reference result. Root configs own every gate.
     etc/                    Generated API Extractor reports.
 packages/ui/                @repo/ui: Button, TextField, and styles.css, with no business logic.
 showcase/<id>/              Six generated Todo results, each with the same web/ and api/ shape.
-graphify-out/               Generated knowledge-graph output (god nodes, communities). Ignored; rebuild with graphify or /pre-audit-setup.
-.gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.
 ```
+
+Install the Fallow skill in Claude Code with `/install fallow-rs/fallow-skills`.
+Install the Ponytail Codex plugin for the repo’s Simplicity Mode.
 
 ## The tools this builds on
 
@@ -468,7 +464,6 @@ graphify-out/               Generated knowledge-graph output (god nodes, communi
 | **Fallow** | Code intelligence: dead code, cycles, complexity, architecture gate and role diagram | <https://github.com/fallow-rs/fallow> |
 | **ArchitectPlaybook** | Repo health-check audits | <https://github.com/BenSheridanEdwards/ArchitectPlaybook> |
 | **graphify** | Token-efficient codebase context for the audits | <https://graphify.net> |
-| **GitNexus** | Local execution-flow and impact index | <https://github.com/abhigyanpatwari/GitNexus> |
 | **Ponytail** | Shortest-working-diff discipline for coding and review tasks | local Codex plugin |
 
 ## License

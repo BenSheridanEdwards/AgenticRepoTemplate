@@ -67,10 +67,8 @@ Layer the infrastructure so every instruction has one owner.
    stable enough for branch protection: type/lint/format, Fallow/code
    intelligence, tests, build, E2E, security, CodeQL, Lighthouse.
 6. **Install agentic tools deliberately.** Wire Fallow as a repo dependency or
-   action. Document Graphify, GitNexus, Ponytail, and ArchitectPlaybook setup as
+   action. Document Ponytail and ArchitectPlaybook setup as
    external tooling unless the target repo already vendors or pins those tools.
-   Generated analysis indexes (`graphify-out/`, `.gitnexus/`) must be ignored
-   by VCS and formatter/linter tools.
 7. **Set lint ownership.** Biome owns formatting, import ordering, and general
    lint. ESLint owns policy, React hooks, React Compiler, and React Doctor
    rules, and the React Doctor CLI owns its project-level checks. Each rule has

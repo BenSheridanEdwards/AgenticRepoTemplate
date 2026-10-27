@@ -19,7 +19,6 @@ just the runnable carrier. The scaffolding is the point (see the root
 
 ```bash
 pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
-pnpm setup:agents     # install the external agentic toolkit (one time)
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
@@ -198,7 +197,6 @@ stdlib or native platform features before adding abstractions or dependencies.
 | [`templates/`](templates/) | …when creating a new component, test, E2E flow, or PRD. Copy from here. |
 | [`NORTH_STAR.md`](NORTH_STAR.md) | …to see where the repo is heading and why. |
 | [`CLAUDE_CODE.md`](CLAUDE_CODE.md) | …if you are Claude Code: skills, settings, hooks, and tooling. |
-| [`GITNEXUS.md`](GITNEXUS.md) | …before editing a symbol: impact analysis and change detection. |
 | [`openai.yaml`](openai.yaml) | …if you are an OpenAI-family agent: the same entry points as a manifest. |
 | [`verify-agentic-template`](../.claude/skills/verify-agentic-template/SKILL.md) | …to drive the app and capture PR proof. |
 
@@ -209,5 +207,4 @@ stdlib or native platform features before adding abstractions or dependencies.
   policy and React rules, Jest and Playwright run tests. A new tool for an owned
   concern needs an ADR (see [`project/TECH_STACK.md`](project/TECH_STACK.md));
   `pnpm check:adr` fails a new dependency that no new ADR names.
-- Treat generated artefacts (`apps/web/dist/`, `.cache/`, `coverage/`, `graphify-out/`,
-  `.gitnexus/`) as disposable; regenerate them with their command.
+- Treat generated artefacts (`apps/web/dist/`, `.cache/`, `coverage/`) as disposable; regenerate them with their command.

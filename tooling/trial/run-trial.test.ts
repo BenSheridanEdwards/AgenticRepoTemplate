@@ -1441,7 +1441,6 @@ ${holdUntilReleased(agentHold)}`,
     'lighthouserc.json',
     'jest.setup.ts',
     '.npmrc',
-    '.mcp.json',
   ])('moves the enforcement revision on a scaffold commit to %s', async (path) => {
     write(checkout, path, `${JSON.stringify({ changed: path })}\n`);
     git(checkout, 'add', path);
