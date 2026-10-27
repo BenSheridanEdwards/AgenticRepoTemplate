@@ -5,7 +5,7 @@ description: Launch, drive, and prove the Agentic Project Template web app (Vite
 
 # Verify the Agentic Project Template app
 
-The app is one page at `/`: the `Greeting` page. A user types a name into the
+The app serves `Greeting` at `/` and `Todos` at `/todos`. A user types a name into the
 `Name` field and presses `Greet`, and the page asks the api for the greeting
 through tRPC (`GET /trpc/greeting.greet`). Vite proxies `/trpc` to the api
 process (`apps/api/src/server.ts`) in dev and preview, so a launched instance
@@ -105,6 +105,7 @@ Built-in journeys, one per recipe in [`features/`](features/README.md):
 
 | Journey | Proves |
 | --- | --- |
+| `todos` | A blank title shows an alert; create, complete, reload, reopen and delete a todo through the api. |
 | `greeting` | A blank name shows `Enter a name` and sends nothing, then `Ada` shows `Hello, Ada!` from one api call. |
 | `greeting-validation` | A whitespace name shows `Enter a name`, marks the field invalid, and sends nothing. |
 | `greeting-error` | A 500 from `/trpc` shows `Could not load the greeting`. |

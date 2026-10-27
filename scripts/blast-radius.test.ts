@@ -295,7 +295,14 @@ describe('--collect', () => {
     const evidence = JSON.parse(readFileSync(output, 'utf8'));
     expect(evidence.head).toBe(head);
     expect(evidence.files[0].importers.filter((path: string) => path.startsWith('apps/'))).toEqual(
-      buttonImporters.toSorted(),
+      [
+        ...buttonImporters,
+        'apps/web/src/routes/todos/TodoForm.tsx',
+        'apps/web/src/routes/todos/TodoItem.tsx',
+        'apps/web/src/routes/todos/TodosPage.test.tsx',
+        'apps/web/src/routes/todos/TodosPage.tsx',
+        'apps/web/src/routes/todos/index.ts',
+      ].toSorted(),
     );
     expect(evidence.files[0].importers.some((path: string) => path.startsWith('showcase/'))).toBe(
       true,
