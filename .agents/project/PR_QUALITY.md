@@ -118,5 +118,5 @@ Re-check these fields after each push along with the head commit.
 Commit screenshot proof on the branch, normally under
 `docs/proof/<short-scope>/` (see [`docs/proof/README.md`](../../docs/proof/README.md)),
 and embed it inline, as
-[`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md)
+[`.claude/skills/pr-quality-contract/SKILL.md`](../../.claude/skills/pr-quality-contract/SKILL.md)
 describes.

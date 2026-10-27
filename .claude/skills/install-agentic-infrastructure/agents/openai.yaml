@@ -1,4 +1,0 @@
-interface:
-  display_name: "Install Agentic Infrastructure"
-  short_description: "Install repo guidance, hooks, CI, and PR proof"
-  default_prompt: "Use $install-agentic-infrastructure to standardize this repository's agent guidance, quality gates, CI, and PR proof contract."

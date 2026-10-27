@@ -1,4 +1,0 @@
-interface:
-  display_name: "Build Agent Guidance"
-  short_description: "Create truthful AGENTS and CLAUDE guidance."
-  default_prompt: "Use $build-agent-guidance to update AGENTS.md, CLAUDE.md, and .agents."

@@ -833,7 +833,7 @@ describe('validatePullRequest', () => {
 
     it.each([
       [
-        '- [x] `python3 /Users/agents/.codex/skills/.system/skill-creator/scripts/quick_validate.py .claude/skills/build-quality-gates`',
+        '- [x] `python3 /Users/agents/.codex/skills/.system/skill-creator/scripts/quick_validate.py .claude/skills/adopt-the-factory`',
         '/Users/agents/.codex/skills/.system/skill-creator/scripts/quick_validate.py',
       ],
       [

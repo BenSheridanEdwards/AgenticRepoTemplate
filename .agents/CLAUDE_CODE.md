@@ -18,15 +18,12 @@ first.
 
 This repo commits its own skills under `.claude/skills/`:
 
-- **`install-agentic-infrastructure`** — install or upgrade the repo guidance,
-  local hooks, CI workflows, and PR proof contract in another repository.
-- **`build-quality-gates`** — create or audit pre-commit, pre-push, and CI gates.
-- **`build-agent-guidance`** — create or update `AGENTS.md`, `CLAUDE.md`,
-  `.agents/`, and agent-facing repo standards from current evidence.
+- **`adopt-the-factory`** — adopt or audit the repo guidance, local gates,
+  CI workflows, and PR proof contract in another repository.
 - **`run-e2e-tests`** — map a behaviour to a Playwright test and run it.
 - **`write-unit-tests`** — Jest + React Testing Library, behaviour-first.
 - **`pr-quality-contract`** — prepare proof-backed PRs with local checks,
-  visual evidence, latest-sha CI status, risk, and explicit gaps.
+  inline screenshots, latest-sha CI status, risk, and explicit gaps.
 - **`show-me`** — create the smallest grounded visual explanation that removes
   review ambiguity from a non-trivial PR.
 - **`verify-agentic-template`** — launch the app, drive it in Chromium like a

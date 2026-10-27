@@ -78,8 +78,8 @@ function buildPassingTree() {
     '.agents/project/QUALITY_GATES.md': 'gates',
     '.agents/project/PR_QUALITY.md': 'pr quality',
     '.agents/START_HERE.md': `${twentyLineBody}\nRead REVIEW.md.`,
+    '.claude/skills/adopt-the-factory/SKILL.md': skillFrontmatter,
     '.claude/skills/pr-quality-contract/SKILL.md': skillFrontmatter,
-    '.claude/skills/pr-inline-screenshot-proof/SKILL.md': skillFrontmatter,
     '.agents/decisions/0001-record-decisions.md': '# 1. Record decisions\n',
     '.agents/decisions/0002-gates-as-code.md': '# 2. Gates as code\n',
   };
@@ -255,11 +255,39 @@ describe('checkContextLayer', () => {
     expect(result.errors.join('\n')).toContain('`.cursor/BUGBOT.md` must reference `REVIEW.md`');
   });
 
-  it('fails when a house skill is missing its frontmatter description', () => {
+  it('passes with the merged skills and without the retired skill folders', () => {
     const files = buildPassingTree();
-    files['.claude/skills/pr-quality-contract/SKILL.md'] = ['---', 'name: a-skill', '---'].join(
-      '\n',
+    const skillPaths = Object.keys(files).filter((path) => path.startsWith('.claude/skills/'));
+    expect(skillPaths).toEqual([
+      '.claude/skills/adopt-the-factory/SKILL.md',
+      '.claude/skills/pr-quality-contract/SKILL.md',
+    ]);
+    expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it.each([
+    'adopt-the-factory',
+    'pr-quality-contract',
+  ])('fails when the merged %s skill is missing', (name) => {
+    const files = buildPassingTree();
+    const path = `.claude/skills/${name}/SKILL.md`;
+    delete files[path];
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      `Missing required file: \`${path}\`. The context layer requires it.`,
     );
+  });
+
+  it.each([
+    'adopt-the-factory',
+    'pr-quality-contract',
+  ])('fails when %s is missing its frontmatter description', (name) => {
+    const files = buildPassingTree();
+    files[`.claude/skills/${name}/SKILL.md`] = ['---', 'name: a-skill', '---'].join('\n');
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('description:');

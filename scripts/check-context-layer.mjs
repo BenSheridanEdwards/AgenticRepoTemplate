@@ -46,10 +46,10 @@ const REQUIRED_PROJECT_DOCS = [
   'PR_QUALITY.md',
 ];
 
-/** The two house skills that back the PR proof contract. */
+/** The house skills for factory adoption and the PR proof contract. */
 const REQUIRED_HOUSE_SKILLS = [
+  '.claude/skills/adopt-the-factory/SKILL.md',
   '.claude/skills/pr-quality-contract/SKILL.md',
-  '.claude/skills/pr-inline-screenshot-proof/SKILL.md',
 ];
 
 /** The human-written review rules and the Cursor Bugbot pointer to them. */
