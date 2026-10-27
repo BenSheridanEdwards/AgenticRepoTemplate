@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   cpSync,
   existsSync,
@@ -27,6 +28,7 @@ import {
 } from './compare.mjs';
 import { compareResults, FREEDOMS, UI_PRIMITIVE_FOR } from './dimensions.mjs';
 import { readContract, readGateFindings, readResultFacts, treeFromPatch } from './result-facts.mjs';
+import { renderPrompt } from './run-trial.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const FIXTURES = resolve(import.meta.dirname, 'fixtures');
@@ -1469,9 +1471,11 @@ describe('comparison exit status', () => {
   });
 
   it.each([
-    false,
-    true,
-  ])('writes the report and exits according to mutation output differences: %p', (differs) => {
+    ['todo', false],
+    ['todo', true],
+    ['notes', false],
+    ['notes', true],
+  ] as const)('compares %s records and exits according to mutation output differences: %p', (brief, differs) => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'compare-cli-')));
     const write = (path: string, text: string) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -1486,14 +1490,31 @@ describe('comparison exit status', () => {
         'tooling/trial/todo-prompt.md',
         read('tooling/trial/todo-prompt.md').split('\n## Shared machine\n')[0],
       );
+      const promptPath = `tooling/trial/${brief}-prompt.md`;
+      const template = readFileSync(join(root, promptPath), 'utf8');
+      const hash = (text: string) => createHash('sha256').update(text).digest('hex');
+      if (brief === 'notes') {
+        write(REPORT_PATH, 'Todo remains unchanged\n');
+        write('docs/trials/todo-03.json', JSON.stringify(evidence('todo-03')));
+        write('showcase/todo-03/web/package.json', '{}');
+        write('showcase/todo-03/api/package.json', '{}');
+      }
       runs.forEach((run, index) => {
-        const id = run.evidence.trial.id;
+        const id = run.evidence.trial.id.replace('todo', brief);
         const tree = variant(
           id,
           ...(differs && index === 1
             ? [replaceIn(API_REPORT, /output: \{\r?\nid: string;\r?\n\};/, 'output: Todo;')]
             : []),
         );
+        if (brief === 'notes') {
+          const api = readFileSync(join(FIXTURES, 'notes/api.api.md'), 'utf8');
+          tree.set(
+            API_REPORT,
+            differs && index === 1 ? api.replace('output: { id: string };', 'output: null;') : api,
+          );
+        }
+        const prompt = renderPrompt(template, { id, trial: run.evidence.trial.number });
         tree.forEach((text, path) => {
           write(`showcase/${id}/${path}`, text);
         });
@@ -1502,8 +1523,15 @@ describe('comparison exit status', () => {
           JSON.stringify({
             ...run.evidence,
             schema: 2,
+            trial: { ...run.evidence.trial, id, branch: `trial/${id}` },
+            prompt: {
+              path: promptPath,
+              templateSha256: hash(template),
+              sha256: hash(prompt),
+              text: prompt,
+            },
             task: {
-              name: 'todo',
+              name: brief,
               definitionSha256: 'b'.repeat(64),
               target: null,
               checks: ['install', 'verify', 'e2e', 'structure'],
@@ -1529,7 +1557,9 @@ describe('comparison exit status', () => {
       });
       execFileSync('git', ['init', '--quiet', root]);
       execFileSync('git', ['add', 'showcase'], { cwd: root });
-      const result = spawnSync(process.execPath, [join(root, 'tooling/trial/compare.mjs')], {
+      const cli = join(root, 'tooling/trial/compare.mjs');
+      const args = brief === 'todo' ? [] : ['--brief', brief];
+      const result = spawnSync(process.execPath, [cli, ...args], {
         cwd: root,
         encoding: 'utf8',
         env: process.env,
@@ -1538,9 +1568,19 @@ describe('comparison exit status', () => {
         differs ? expect.stringContaining('public-api · delete output') : '',
       );
       expect(result.status).toBe(differs ? 1 : 0);
-      expect(readFileSync(join(root, REPORT_PATH), 'utf8')).toContain(
-        `Consistency: \`${differs ? 'inconsistent' : 'consistent'}\``,
+      const report = readFileSync(
+        join(root, brief === 'todo' ? REPORT_PATH : 'docs/trials/notes-comparison.md'),
+        'utf8',
       );
+      expect(report).toContain(`Consistency: \`${differs ? 'inconsistent' : 'consistent'}\``);
+      expect(report).toContain(`\`${promptPath}\` as committed`);
+      expect(report).toContain('Baseline: shared');
+      if (brief === 'notes') {
+        expect(report).toContain('# Notes trial comparison');
+        expect(report).toContain('two mutations for create and delete');
+        expect(report).not.toContain('todo-03');
+        expect(readFileSync(join(root, REPORT_PATH), 'utf8')).toBe('Todo remains unchanged\n');
+      }
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -1556,6 +1596,12 @@ describe('the committed comparison', () => {
       expect(read(REPORT_PATH)).toBe(comparisonReport(ROOT));
     } else {
       expect(existsSync(resolve(ROOT, REPORT_PATH))).toBe(false);
+    }
+    const notesReport = 'docs/trials/notes-comparison.md';
+    if (hasTrialEvidence(ROOT, 'notes')) {
+      expect(read(notesReport)).toBe(comparisonReport(ROOT, 'notes'));
+    } else {
+      expect(existsSync(resolve(ROOT, notesReport))).toBe(false);
     }
   });
 

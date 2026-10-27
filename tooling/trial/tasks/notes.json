@@ -25,6 +25,10 @@
     {
       "name": "structure",
       "argv": ["node", "tooling/architecture/structure.mjs"]
+    },
+    {
+      "name": "scope",
+      "argv": ["node", "tooling/trial/check-scope.mjs", "--id", "{{ID}}"]
     }
   ],
   "ports": [5173, 3001, 5183, 3011],

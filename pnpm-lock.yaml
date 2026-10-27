@@ -5,6 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@paulirish/trace_engine>legacy-javascript': 0.0.3
+  '@paulirish/trace_engine>third-party-web': 0.30.0
   '@axe-core/playwright>playwright-core': 1.61.0
   body-parser@<1.20.9: 1.20.9
   brace-expansion@<1.1.16: ^1.1.16

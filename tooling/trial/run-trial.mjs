@@ -52,6 +52,7 @@ const HARNESS_FILES = [
   'stream.mjs',
   'system.mjs',
   'task.mjs',
+  'check-scope.mjs',
   'tasks/todo.json',
   'tasks/notes.json',
 ];
@@ -598,7 +599,7 @@ function userConfigSha256(plan) {
 }
 
 /** The lockfile without the importer entries of this trial's two packages. */
-function withoutOwnImporters(lockfile, id) {
+export function withoutOwnImporters(lockfile, id) {
   const own = new RegExp(`^  showcase/${id}/(web|api):$`);
   let dropping = false;
   return lockfile
@@ -618,11 +619,11 @@ function withoutOwnImporters(lockfile, id) {
  * two importers. Renames count as a deletion and an addition, so a file moved
  * out of `apps/` shows.
  *
- * @param {TrialPlan} plan
+ * @param {Pick<TrialPlan, 'id' | 'clone' | 'scaffoldRev' | 'task'>} plan
  * @param {string} scaffoldLockfile
  * @param {Deps} deps
  */
-async function inspectChanges(plan, scaffoldLockfile, deps) {
+export async function inspectChanges(plan, scaffoldLockfile, deps) {
   const lines = async (...args) =>
     (await git(deps, plan.clone, ...args)).split('\n').filter(Boolean);
   const changedPaths = [

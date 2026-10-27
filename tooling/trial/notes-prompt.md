@@ -40,6 +40,8 @@ The fixed acceptance test `tooling/trial/acceptance/notes.spec.ts` drives your p
 
 ## Done
 
+Run `node tooling/trial/check-scope.mjs --id {{ID}}` after installing and after the checks below. Fix every reported path or lockfile change before finishing.
+
 Done means `pnpm verify` and `pnpm e2e` pass with every gate as it is, per `.agents/project/DEFINITION_OF_DONE.md`. Run them, fix what they report, and run them again until they pass. Leave your work uncommitted. The harness commits it when you finish.
 
 ## Shared machine

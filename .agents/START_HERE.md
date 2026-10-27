@@ -52,8 +52,9 @@ See [ADR 0048](decisions/0048-trial-tasks-and-codex.md). Todo Codex ids are
 `todo-codex-01..03`. Notes ids are `notes-01..03` and
 `notes-codex-01..03`; select its task file as above
 ([ADR 0071](decisions/0071-a-second-trial-brief.md)).
-Compare currently keeps Todo runs and proves baselines per agent; land the
-companion per-brief comparison before recording Notes trials.
+Compare each brief separately: `node tooling/trial/compare.mjs --brief notes`
+writes `docs/trials/notes-comparison.md`; the default `--brief todo` keeps
+`docs/trials/comparison.md`. Both prove baselines per agent.
 
 The run writes `docs/trials/todo-01.json`, the agent's stream as
 `todo-01.stream.jsonl` with secrets redacted (and `todo-01.patch` when it

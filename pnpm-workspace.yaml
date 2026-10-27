@@ -57,6 +57,9 @@ minimumReleaseAgeExclude:
 # under vendor/ with bumped versions (3.0.4 / 2.0.2) and point overrides at them.
 # Remove the file: overrides once upstream publishes.
 overrides:
+  # trace_engine's moving latest tags otherwise rewrite unrelated trial lock entries.
+  '@paulirish/trace_engine>legacy-javascript': 0.0.3
+  '@paulirish/trace_engine>third-party-web': 0.30.0
   # react-doctor brings a newer playwright-core; this keeps axe's Page type on
   # the version @playwright/test uses. Bump it together with @playwright/test.
   '@axe-core/playwright>playwright-core': 1.61.0
