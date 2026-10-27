@@ -117,13 +117,13 @@ function moduleComponents(program, filename) {
 
   return ordered
     .flatMap((statement) => bindings(unwrapExport(statement)))
-    .map((binding) => {
+    .flatMap((binding) => {
       const fn = binding.fn ?? wrappedFunction(binding.init);
       const propsType = fn?.params[0]?.typeAnnotation?.typeAnnotation ?? declaredPropsType(binding);
+      const component = { name: binding.id.name, node: binding.id, fn, propsType };
 
-      return { name: binding.id.name, node: binding.id, fn, propsType };
-    })
-    .filter((component) => component.fn && PASCAL_CASE.test(component.name));
+      return component.fn && PASCAL_CASE.test(component.name) ? [component] : [];
+    });
 }
 
 const repositoryPath = (context) => relative(context.cwd, context.filename).split(sep).join('/');

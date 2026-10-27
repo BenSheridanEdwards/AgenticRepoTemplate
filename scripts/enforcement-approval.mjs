@@ -128,32 +128,30 @@ function leafChanges(before, after) {
   const afterLeaves = new Map(leaves(after).map((leaf) => [leaf.id, leaf]));
 
   const beforeLists = new Set(
-    [...beforeLeaves.values()]
-      .filter((leaf) => leaf.member)
-      .map((leaf) => JSON.stringify(leaf.path)),
+    [...beforeLeaves.values()].flatMap((leaf) => (leaf.member ? [JSON.stringify(leaf.path)] : [])),
   );
 
   /** @type {LeafChange[]} */
-  const removed = [...beforeLeaves.values()]
-    .filter((leaf) => !afterLeaves.has(leaf.id))
-    .map((leaf) => ({
-      ...leaf,
-      before: leaf.value,
-      after: undefined,
-      change: 'removed',
-      listIsNew: false,
-    }));
+  const removed = [...beforeLeaves.values()].flatMap((leaf) =>
+    !afterLeaves.has(leaf.id)
+      ? [{ ...leaf, before: leaf.value, after: undefined, change: 'removed', listIsNew: false }]
+      : [],
+  );
 
   /** @type {LeafChange[]} */
-  const added = [...afterLeaves.values()]
-    .filter((leaf) => !beforeLeaves.has(leaf.id))
-    .map((leaf) => ({
-      ...leaf,
-      before: undefined,
-      after: leaf.value,
-      change: 'added',
-      listIsNew: leaf.member && !beforeLists.has(JSON.stringify(leaf.path)),
-    }));
+  const added = [...afterLeaves.values()].flatMap((leaf) =>
+    !beforeLeaves.has(leaf.id)
+      ? [
+          {
+            ...leaf,
+            before: undefined,
+            after: leaf.value,
+            change: 'added',
+            listIsNew: leaf.member && !beforeLists.has(JSON.stringify(leaf.path)),
+          },
+        ]
+      : [],
+  );
 
   /** @type {LeafChange[]} */
   const changed = [...afterLeaves.values()].flatMap((leaf) => {

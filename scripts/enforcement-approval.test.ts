@@ -31,7 +31,9 @@ interface Editor {
   type: string;
 }
 
-const json = (value: unknown) => JSON.stringify(value, null, 2);
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+const json = (value: JsonValue) => JSON.stringify(value, null, 2);
 
 function reasons(path: string, before: string | null, after: string | null): string[] {
   return enforcementProblems([{ path, before, after }]).map((problem: Problem) => problem.reason);
@@ -285,7 +287,7 @@ describe('json judge', () => {
   };
 
   const biomeReasons = (change: (draft: Biome) => void) =>
-    reasons('biome.json', json(biome), json(edited(biome as Biome, change)));
+    reasons('biome.json', json(biome), json(edited<Biome>(biome, change)));
 
   it.each<[string, (draft: Biome) => void, string[]]>([
     [
@@ -616,9 +618,11 @@ describe('planApproval', () => {
   const edit = (from: string | null, to: string, sender: Sender = benUser) =>
     ({ kind: 'comment', sender, from, to, at: AT }) as const;
 
+  type GateEvent = typeof pull | ReturnType<typeof edit>;
+
   const plan = (
     live: string | undefined,
-    event: object,
+    event: GateEvent,
     { head = HEAD, signedOff = false, updatedAt = AT } = {},
   ) =>
     planApproval({
@@ -830,6 +834,34 @@ interface Comment {
   user: { login: string };
 }
 
+interface CommitStatusParameters {
+  owner: string;
+  repo: string;
+  sha: string;
+  context: string;
+  state: 'success' | 'failure';
+  description: string;
+}
+
+interface PaginationParameters {
+  owner: string;
+  repo: string;
+  per_page: number;
+  pull_number?: number;
+  issue_number?: number;
+}
+
+interface GitHubState {
+  head: string;
+  profiles: Record<string, string | null>;
+}
+
+interface GitHubCalls {
+  createComment: string[];
+  updateComment: number;
+  createCommitStatus: CommitStatusParameters[];
+}
+
 function fakeGitHub({
   files,
   contents,
@@ -839,12 +871,12 @@ function fakeGitHub({
   contents: Record<string, Record<string, string>>;
   comments?: Comment[];
 }) {
-  const state = { head: HEAD, profiles: { [APPROVER]: 'Ben' } as Record<string, string | null> };
+  const state: GitHubState = { head: HEAD, profiles: { [APPROVER]: 'Ben' } };
 
-  const calls = {
-    createComment: [] as string[],
+  const calls: GitHubCalls = {
+    createComment: [],
     updateComment: 0,
-    createCommitStatus: [] as Record<string, unknown>[],
+    createCommitStatus: [],
   };
 
   const notFound = () => Object.assign(new Error('Not Found'), { status: 404 });
@@ -888,7 +920,7 @@ function fakeGitHub({
 
         return { data: content };
       },
-      createCommitStatus: async (parameters: Record<string, unknown>) => {
+      createCommitStatus: async (parameters: CommitStatusParameters) => {
         calls.createCommitStatus.push(parameters);
 
         return { data: {} };
@@ -909,9 +941,9 @@ function fakeGitHub({
 
   const github = {
     rest,
-    paginate: async (
-      method: (parameters: unknown) => Promise<{ data: unknown[] }>,
-      parameters: unknown,
+    paginate: async <T>(
+      method: (parameters: PaginationParameters) => Promise<{ data: T[] }>,
+      parameters: PaginationParameters,
     ) => (await method(parameters)).data,
   };
 
