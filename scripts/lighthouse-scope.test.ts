@@ -31,8 +31,8 @@ describe('uiRelevantFiles', () => {
     'lighthouserc.json',
     '.github/workflows/lighthouse.yml',
     'scripts/lighthouse-scope.mjs',
-    'docs/proof/visual-regression/greeting-1280-initial.png',
-    'docs/proof/visual-regression/greeting-390-success.png',
+    'apps/web/e2e/__screenshots__/greeting-1280-initial.png',
+    'apps/web/e2e/__screenshots__/greeting-390-success.png',
     'apps/web/e2e/visual.spec.ts',
     'playwright.config.ts',
     '.github/workflows/visual.yml',
@@ -46,8 +46,8 @@ describe('uiRelevantFiles', () => {
     'apps/web/src/lib/format.test.ts',
     'README.md',
     'docs/required-gates.md',
-    'docs/proof/visual-regression/README.md',
-    'docs/proof/visual-regression/nested/screenshot.png',
+    'apps/web/e2e/__screenshots__/README.md',
+    'apps/web/e2e/__screenshots__/nested/screenshot.png',
     'scripts/required-gates.mjs',
     'scripts/lighthouse-scope.test.ts',
     '.github/workflows/ci.yml',
@@ -140,7 +140,7 @@ describe('lighthouse-scope CLI', () => {
   });
 
   it.each([
-    'docs/proof/visual-regression/greeting-1280-initial.png',
+    'apps/web/e2e/__screenshots__/greeting-1280-initial.png',
     'apps/web/e2e/visual.spec.ts',
     'playwright.config.ts',
     '.github/workflows/visual.yml',

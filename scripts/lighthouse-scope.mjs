@@ -56,7 +56,7 @@ function isUiRelevant(path) {
   return (
     UI_FILES.has(path) ||
     UI_DIRECTORIES.some((directory) => path.startsWith(directory)) ||
-    matchesGlob(path, 'docs/proof/visual-regression/*.png')
+    matchesGlob(path, 'apps/web/e2e/__screenshots__/*.png')
   );
 }
 

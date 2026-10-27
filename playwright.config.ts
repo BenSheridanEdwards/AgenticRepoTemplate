@@ -45,7 +45,7 @@ export default defineConfig({
   testMatch: visual ? '**/visual.spec.ts' : '**/*.spec.ts',
   testIgnore: visual ? [] : ['**/visual.spec.ts'],
   updateSnapshots: 'none',
-  snapshotPathTemplate: '{testDir}/../../../docs/proof/visual-regression/{arg}{ext}',
+  snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['github']] : 'list',

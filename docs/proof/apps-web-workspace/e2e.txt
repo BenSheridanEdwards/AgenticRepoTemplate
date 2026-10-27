@@ -1,7 +1,0 @@
-✓  3 [chromium] › apps/web/e2e/service-status.spec.ts:40:3 › Service status › shows an error message when the request fails (363ms)
-✓  2 [chromium] › apps/web/e2e/service-status.spec.ts:13:3 › Service status › shows loading, then lists each service when the request succeeds (441ms)
-✓  5 [chromium] › apps/web/e2e/service-status.spec.ts:48:3 › Service status › shows an empty message when no services are monitored (322ms)
-✓  1 [chromium] › apps/web/e2e/app.spec.ts:9:3 › Threshold counter › walks from healthy through warning to at-capacity, then resets (826ms)
-✓  6 [chromium] › apps/web/e2e/service-status.spec.ts:56:3 › Service status › recovers from error to success when the user refreshes (379ms)
-✓  4 [chromium] › apps/web/e2e/accessibility.spec.ts:11:3 › Accessibility › the landing page has no detectable WCAG A/AA violations (1.0s)
-6 passed (4.1s)

@@ -102,7 +102,7 @@ called it.
   Fallow pin protects the dot and config formats.
 - Each architecture CLI runs `fallow config` and `fallow viz` once. The median
   of five interleaved `pnpm arch:check` runs was 6.80 s on `main` and 7.76 s
-  with this change on the same box (`docs/proof/architecture/seeds.txt`). An
+  with this change on the same box (historical proof removed on 2026-10-27). An
   earlier run measured 7.43 s and 9.03 s.
 - ESLint still honours inline config outside a result, and an
   `e2e/**/*.spec.ts` with no test passes `missing-e2e`. Turning on ESLint's
