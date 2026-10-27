@@ -11,6 +11,9 @@ pnpm typecheck
 echo "› biome (lint + format + imports, staged only)"
 pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .
 
+echo "› anti-slop (vendored Oxlint rules)"
+pnpm lint:anti-slop
+
 echo "› fallow (code intelligence: dead code, cycles, complexity)"
 pnpm fallow:audit
 
