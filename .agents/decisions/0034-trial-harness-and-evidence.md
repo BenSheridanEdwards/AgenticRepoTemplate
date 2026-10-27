@@ -272,11 +272,6 @@ own packages on its own ports, so a reviewer can drive a showcase result.
   was not observed on a real session, so a fixed count could fail a clean
   trial. The kept stream is the proof of one prompt: a reader counts its user
   events and reads each one.
-- The project `.mcp.json` starts `npx -y gitnexus` with no version, so if
-  the agent loads project MCP servers under `-p` (not observed), that tool's
-  version comes from the registry at run time and no hash records it.
-  Pinning it changes every developer's MCP setup, so it is left to its own
-  change; `enforcementRev` moves when `.mcp.json` does.
 - The inclusion test adds about 35 seconds to `pnpm test`, because it runs
   each real tool. Its copy links `node_modules` into the checkout, so it
   runs pnpm with `verify-deps-before-run=false`; pnpm never reinstalls
