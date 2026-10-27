@@ -34,6 +34,7 @@ describe('findNegativePhrasing', () => {
     const text = ['````md', '```', 'do not run this', '```', '````', 'Never skip a gate.'].join(
       '\n',
     );
+
     expect(findNegativePhrasing(text)).toEqual([{ line: 6, phrase: 'Never' }]);
   });
 
@@ -45,6 +46,7 @@ describe('findNegativePhrasing', () => {
       '<!-- gitnexus:end -->',
       'Never skip a gate.',
     ].join('\n');
+
     expect(findNegativePhrasing(text)).toEqual([
       { line: 3, phrase: 'NEVER' },
       { line: 5, phrase: 'Never' },

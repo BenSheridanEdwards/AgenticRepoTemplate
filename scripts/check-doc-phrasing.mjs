@@ -5,7 +5,8 @@
  * for the positive form.
  *
  * Code spans, fenced code, and link targets are ignored. ADRs are records that
- * are superseded, not edited, so they are out of scope, as are generated reports and generated or vendored skills.
+ * are superseded, not edited, so they are out of scope, as are generated
+ * reports and generated or vendored skills.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -16,6 +17,7 @@ const NEGATIVE_PHRASE =
   /\b(do not|don't|never|must not|mustn't|should not|shouldn't|cannot|can't|won't|avoid)\b/i;
 const LEADING_NO = /^\s*(?:(?:[-*+]|\d+\.)\s+)?(?:\*\*)?(No)\s/;
 const GUIDANCE_PREFIXES = ['.agents/', '.github/', 'docs/', '.claude/skills/'];
+
 // The show-me skill is vendored and pinned by hash in skills-lock.json.
 const EXCLUDED_PREFIXES = ['.agents/decisions/', '.claude/skills/show-me/SKILL.md'];
 
@@ -51,9 +53,11 @@ export function findNegativePhrasing(text) {
   let fence = '';
   for (const [index, line] of text.split('\n').entries()) {
     fence = nextFence(fence, line);
+
     const phrase = fence
       ? undefined
       : (proseOf(line).match(NEGATIVE_PHRASE) ?? line.match(LEADING_NO))?.[1];
+
     if (phrase) {
       findings.push({ line: index + 1, phrase });
     }
