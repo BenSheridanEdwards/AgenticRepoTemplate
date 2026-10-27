@@ -63,4 +63,4 @@ git log -1 --format=%H <head> -- .agents/NORTH_STAR.md. -->
 
 # PR Proof Law
 
-- [ ] I followed `.agents/project/DEFINITION_OF_DONE.md` and `.claude/skills/pr-inline-screenshot-proof/SKILL.md`; the `PR quality` check verifies the proof format.
+- [ ] I followed `.agents/project/DEFINITION_OF_DONE.md` and `.claude/skills/pr-quality-contract/SKILL.md`; the `PR quality` check verifies the proof format.

@@ -19,5 +19,5 @@ under a `docs/proof/<short-scope>/` directory named for the change (for example
   that every image is an absolute `https://` URL GitHub can render.
 - Link videos as committed artifacts, alongside at least one inline screenshot.
 
-See `.claude/skills/pr-inline-screenshot-proof/SKILL.md` and
+See `.claude/skills/pr-quality-contract/SKILL.md` and
 `.agents/project/DEFINITION_OF_DONE.md` for the full contract.

@@ -372,11 +372,8 @@ AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports i
   settings.json             Permission allowlist and PreToolUse hook.
   hooks/block-gate-bypass.sh  Refuses common hook bypasses. CI is the backstop.
   skills/                   This repo's own packaged processes (some vendored).
-    build-agent-guidance/           Create or update AGENTS.md, CLAUDE.md, and .agents guidance.
-    build-quality-gates/            Create or update Husky, CI, and the lint/type/test gate matrix.
-    install-agentic-infrastructure/ Install or upgrade the guidance, gate, and PR-proof layers.
-    pr-inline-screenshot-proof/     Render screenshots, video, and proof inline in the PR body.
-    pr-quality-contract/            Turn the Definition of Done into a proof-backed PR body.
+    adopt-the-factory/             Adopt or audit agent guidance, local gates, CI, and PR proof.
+    pr-quality-contract/            Prepare a proof-backed PR body with inline screenshots.
     run-e2e-tests/                  Map a behaviour to a Playwright E2E test and run it against the app.
     show-me/                        Explain the current topic with diagrams and focused HTML artifacts.
     verify-agentic-template/        Drive the app in real Chromium and capture PR proof.

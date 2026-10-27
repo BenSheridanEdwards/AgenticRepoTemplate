@@ -162,7 +162,7 @@ Proof standards:
   calls a click caused.
 - For a PR, copy the screenshots that prove the claim into
   `docs/proof/<scope>/` and embed them per
-  `.claude/skills/pr-inline-screenshot-proof/SKILL.md`. Read the PNG before you
+  `.claude/skills/pr-quality-contract/SKILL.md`. Read the PNG before you
   cite it.
 
 ## Cleanup

@@ -119,7 +119,7 @@ These calls need a reviewer:
   replacement verification method.
 - Proof files live under `docs/proof/<short-scope>/` on the PR branch, unless
   the PR states a technical reason for another committed location. See
-  [`.claude/skills/pr-inline-screenshot-proof/SKILL.md`](../../.claude/skills/pr-inline-screenshot-proof/SKILL.md).
+  [`.claude/skills/pr-quality-contract/SKILL.md`](../../.claude/skills/pr-quality-contract/SKILL.md).
 - Each evidence link opens the rendered artifact once the branch is pushed.
 
 ## Verification

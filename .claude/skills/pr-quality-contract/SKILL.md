@@ -3,7 +3,7 @@ name: pr-quality-contract
 description: >-
   Use before opening, updating, or marking a pull request ready. It turns the
   repo Definition of Done into a proof-backed PR body with exact local checks,
-  visual evidence, CI status, and explicit unverified gaps.
+  inline screenshot proof, visual evidence, CI status, and explicit unverified gaps.
 ---
 
 # PR Quality Contract
@@ -44,6 +44,36 @@ asking for proof, or decide whether work is ready to report complete.
    the whole body against the new head, then update `- Head commit:`.
 6. **Gate completion.** Report the work complete once the latest-sha CI checks
    are green, or name the checks that are still pending or failing.
+
+## Inline visual proof
+
+Capture screenshots from the changed branch or runtime and inspect the images
+to confirm they show the changed behaviour. Use the current repo and server;
+replace stale images or mock-only evidence with captures of the real change.
+Save and commit proof on the PR branch, normally under
+`docs/proof/<short-scope>/`. Push that commit before publishing its proof URLs.
+
+Embed screenshots in `Behavioural Proof (with video and screenshots)` using
+Markdown image syntax and descriptive alt text:
+
+```md
+![Descriptive alt text](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)
+```
+
+Use `?raw=1` on GitHub blob URLs so screenshots render inline. Videos may be
+linked as committed artifacts. Use published HTTPS image URLs for screenshots
+and keep each image on the branch under review.
+
+After an authorized PR creation or edit, read the published body:
+
+```sh
+gh pr view <number> --json body --jq .body
+```
+
+Confirm the proof section contains inline images. The PR body validator checks
+for image Markdown or the exact text `Not applicable`; when the change has
+no rendered or behavioural proof surface, include that text with the technical
+reason. Bare screenshot links and local paths fail the proof contract.
 
 ## Failure Rules
 

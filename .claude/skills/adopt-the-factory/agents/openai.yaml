@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adopt the Factory"
+  short_description: "Adopt agent guidance, quality gates, CI, and PR proof."
+  default_prompt: "Use $adopt-the-factory to adopt this template's agent guidance, quality gates, CI, and PR proof contract in this repository."
