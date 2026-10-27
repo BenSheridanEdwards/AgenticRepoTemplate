@@ -17,7 +17,7 @@ The eight decisions each have their own ADR:
 
 | Decision | ADR |
 | --- | --- |
-| D1. Enforcement paths are protected by default | [0007](0007-protect-enforcement-paths-by-default.md) |
+| D1. Enforcement paths are protected by default | ADR 0007 (superseded by ADRs 0023 and 0024) |
 | D2. This template becomes the reference monorepo | [0008](0008-convert-template-into-the-monorepo.md) |
 | D3. The monorepo move lands first | [0009](0009-move-the-app-to-apps-web-first.md) |
 | D4. Lint engines own disjoint concerns | [0010](0010-lint-engine-ownership.md) |
@@ -45,7 +45,7 @@ These items sit outside the plan and need no further work:
 1. This decision set.
 2. The monorepo move to `apps/web` ([0009](0009-move-the-app-to-apps-web-first.md)).
 3. Plan PR 1, enforcement-change detection: the protected-path detector
-   from [0007](0007-protect-enforcement-paths-by-default.md). It is a
+   from ADR 0007 (superseded by ADRs 0023 and 0024). It is a
    blocking check, so every later PR is gated.
 4. Plan PRs 2 to 8 in their existing order, with the Effect PR ahead of PR 4
    (TanStack Query and React Hook Form,

@@ -53,4 +53,4 @@ ask for an ADR with each new dependency, and nothing checked that either.
   Recognising any other rule change stays with the reviewer.
 - Both scripts sit under `scripts/` and the workflows under `.github/`, so
   changes to them need the enforcement sign-off from
-  [ADR 0007](0007-protect-enforcement-paths-by-default.md).
+  ADR 0007 (superseded by ADRs 0023 and 0024).
