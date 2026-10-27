@@ -32,11 +32,13 @@ function typeScriptKind(directive, rest) {
   if (directive !== 'expect-error') {
     return `ts-${directive}`;
   }
+
   return rest.replace(/^[\s:-]+/, '').trim().length < MINIMUM_REASON_LENGTH ? 'reason' : undefined;
 }
 
 function kindOf(line) {
   const typeScript = line.match(TS_DIRECTIVE);
+
   return typeScript ? typeScriptKind(typeScript[1], typeScript[2]) : undefined;
 }
 
@@ -52,10 +54,12 @@ function commentPositions(node) {
 
 function oxlintSuppressions(text, fileName) {
   const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
+
   const ranges = [...new Set(commentPositions(source))].flatMap((position) => [
     ...(ts.getLeadingCommentRanges(text, position) ?? []),
     ...(ts.getTrailingCommentRanges(text, position) ?? []),
   ]);
+
   const comments = new Map(ranges.map((range) => [range.pos, range]));
 
   return [...comments.values()].flatMap(({ pos, end }) => {
@@ -85,17 +89,21 @@ function runCli() {
   const paths = execFileSync('git', ['ls-files', ...SOURCE_FILES], { encoding: 'utf8' })
     .split('\n')
     .filter((path) => path && !path.startsWith('vendor/'));
+
   const failures = paths.flatMap((path) =>
     findUnreasonedSuppressions(readFileSync(path, 'utf8'), path).map(
       ({ line, kind }) => `  ✗ ${path}:${line} ${MESSAGES[kind]}`,
     ),
   );
+
   if (failures.length === 0) {
     console.log(
       `OK: ${paths.length} source files have reasoned type suppressions and no inline Oxlint directives.`,
     );
+
     return;
   }
+
   console.error('Suppression policy violations:\n');
   console.error(failures.join('\n'));
   process.exitCode = 1;

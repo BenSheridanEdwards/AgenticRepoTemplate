@@ -64,6 +64,7 @@ const rewrite =
   (message = 'edits enforcement code') =>
   ({ before, after }) => {
     if (before === null) return ['adds enforcement code'];
+
     return [after === null ? 'deletes the file' : message];
   };
 
@@ -75,6 +76,7 @@ const rewrite =
 function parseJsonc(text) {
   const keepStrings = (/** @type {string} */ _match, /** @type {string | undefined} */ string) =>
     string ?? '';
+
   try {
     return JSON.parse(
       text
@@ -109,11 +111,14 @@ function leaves(value, path = []) {
         value: item,
       }));
     }
+
     return value.flatMap((item, index) => leaves(item, [...path, index]));
   }
+
   if (value !== null && typeof value === 'object') {
     return Object.entries(value).flatMap(([key, item]) => leaves(item, [...path, key]));
   }
+
   return [{ id: JSON.stringify(path), path, member: false, value }];
 }
 
@@ -121,11 +126,13 @@ function leaves(value, path = []) {
 function leafChanges(before, after) {
   const beforeLeaves = new Map(leaves(before).map((leaf) => [leaf.id, leaf]));
   const afterLeaves = new Map(leaves(after).map((leaf) => [leaf.id, leaf]));
+
   const beforeLists = new Set(
     [...beforeLeaves.values()]
       .filter((leaf) => leaf.member)
       .map((leaf) => JSON.stringify(leaf.path)),
   );
+
   /** @type {LeafChange[]} */
   const removed = [...beforeLeaves.values()]
     .filter((leaf) => !afterLeaves.has(leaf.id))
@@ -136,6 +143,7 @@ function leafChanges(before, after) {
       change: 'removed',
       listIsNew: false,
     }));
+
   /** @type {LeafChange[]} */
   const added = [...afterLeaves.values()]
     .filter((leaf) => !beforeLeaves.has(leaf.id))
@@ -146,13 +154,16 @@ function leafChanges(before, after) {
       change: 'added',
       listIsNew: leaf.member && !beforeLists.has(JSON.stringify(leaf.path)),
     }));
+
   /** @type {LeafChange[]} */
   const changed = [...afterLeaves.values()].flatMap((leaf) => {
     const was = beforeLeaves.get(leaf.id);
+
     return was && !Object.is(was.value, leaf.value)
       ? [{ ...leaf, before: was.value, after: leaf.value, change: 'changed', listIsNew: false }]
       : [];
   });
+
   return [...removed, ...added, ...changed];
 }
 
@@ -171,6 +182,7 @@ const isUnder = (path, prefix) =>
 /** Lists that name what a tool covers; an absent list means it covers everything. */
 const COVERAGE = new Set(['include', 'includes', 'files']);
 const PERMISSIVE = /ignore|exclude/i;
+
 /** @type {Record<string, number>} */
 const LEVELS = { off: 0, info: 1, warn: 2, on: 2, error: 3 };
 const STRICT_WHEN_TRUE = new Set(['enabled', 'recommended']);
@@ -188,6 +200,7 @@ const isFlag = (leaf) => typeof leaf.before === 'boolean' || typeof leaf.after =
 /** @param {LeafChange} leaf @param {boolean} loosening @param {string} at */
 function flagReason(leaf, loosening, at) {
   if (leaf.after === loosening) return `sets ${at} to ${inert(loosening)}`;
+
   // `null` reads as removing the flag, so it cannot turn a check off unasked.
   return leaf.before === !loosening && leaf.after == null ? `removes ${at}` : '';
 }
@@ -233,20 +246,26 @@ const LEAF_RULES = [
   (leaf, key, at) => {
     if (!leaf.member) return undefined;
     const restrictive = COVERAGE.has(key);
+
     if (restrictive && leaf.path.includes('overrides')) {
       return 'changes the files an override covers';
     }
+
     const permissive = PERMISSIVE.test(key);
+
     if (!permissive && !restrictive) return undefined;
     const added = leaf.change === 'added';
     const loosensWhenAdded = permissive || String(leaf.value).startsWith('!');
+
     if (added !== loosensWhenAdded) return '';
     const item = inert(leaf.value);
+
     return added ? `adds ${item} to ${at}` : `removes ${item} from ${at}`;
   },
   (leaf, key, at) => (isSeverity(leaf, key) ? SEVERITY_REASONS[leaf.change](leaf, at) : undefined),
   (leaf, key, at) => {
     const loosening = leaf.member ? undefined : LOOSENING_FLAG_VALUE.get(key);
+
     return loosening === undefined || !isFlag(leaf) ? undefined : flagReason(leaf, loosening, at);
   },
 ];
@@ -261,19 +280,25 @@ const byJson =
     if (after === null) return ['deletes the file'];
     const was = parseJsonc(before ?? '{}');
     const now = parseJsonc(after);
+
     if (was === undefined || now === undefined) {
       return ['is not valid JSON, so the gate cannot rank the change'];
     }
+
     return leafChanges(was, now).flatMap((leaf) => {
       const key = String(leaf.path.findLast((segment) => typeof segment === 'string') ?? '');
       const path = dotted(leaf.path);
       const at = inert(path);
+
       for (const rule of LEAF_RULES) {
         const reason = rule(leaf, key, at);
+
         if (reason !== undefined) return reason ? [reason] : [];
       }
+
       if (neutral.some((prefix) => isUnder(path, prefix))) return [];
       const verb = { added: 'adds', removed: 'removes', changed: 'changes' }[leaf.change];
+
       return [
         leaf.member
           ? `${verb} ${inert(leaf.value)} ${leaf.change === 'added' ? 'to' : 'from'} ${at}`
@@ -365,6 +390,7 @@ const guardFor = (path) =>
  */
 export function guardedPaths(files) {
   const paths = files.flatMap((file) => [file.filename, file.previous_filename ?? '']);
+
   return [...new Set(paths.filter((path) => path && guardFor(path)))].sort();
 }
 
@@ -376,12 +402,15 @@ export function enforcementProblems(changes) {
   return changes
     .flatMap((change) => {
       const guard = guardFor(change.path);
+
       if (!guard) return [];
       const reasons = [...new Set(guard.judge(change))];
+
       const shown =
         reasons.length > MAX_REASONS
           ? [...reasons.slice(0, MAX_REASONS), `and ${reasons.length - MAX_REASONS} more changes`]
           : reasons;
+
       return shown.map((reason) => ({ path: change.path, area: guard.area, reason }));
     })
     .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
@@ -416,6 +445,7 @@ export function londonTime(at) {
   const part = Object.fromEntries(LONDON.formatToParts(at).map(({ type, value }) => [type, value]));
   const day = Number(part.day);
   const minute = part.minute === '00' ? '' : `:${part.minute}`;
+
   return `${part.weekday}, the ${day}${ordinal(day)} of ${part.month}, at ${Number(part.hour)}${minute} ${String(part.dayPeriod).toLowerCase()}`;
 }
 
@@ -446,6 +476,7 @@ const plainText = (text) =>
 export function approvalLabel({ name, login, at }) {
   const handle = login.replace(/[^A-Za-z0-9-]/g, '');
   const shown = plainText(name ?? '') || handle;
+
   return `<sub><i>Approved by ${shown} @${handle} on ${londonTime(at)}</i></sub>`;
 }
 
@@ -468,6 +499,7 @@ export function signoffComment({ head, problems, approval, refusedBy }) {
   const box = approval
     ? `- [x] ${APPROVAL_TEXT}${inert(head)} ${approvalLabel(approval)}`
     : `- [ ] ${APPROVAL_TEXT}${inert(head)}`;
+
   return [
     COMMENT_MARKER,
     '## Enforcement sign-off',
@@ -509,9 +541,11 @@ const isApprover = (sender) => sender.type === 'User' && sender.login === APPROV
  */
 function isFreshTick({ event, unticked }) {
   const { sender, from, to } = event;
+
   if (!isApprover(sender) || from === null) return false;
   const before = normalise(from);
   const ticked = ['x', 'X'].map((box) => before.replace('\n- [ ] ', `\n- [${box}] `));
+
   return before.replace(REFUSAL_NOTE, '') === unticked && ticked.includes(normalise(to));
 }
 
@@ -526,6 +560,7 @@ function isFreshTick({ event, unticked }) {
 function isLabelled(body, unticked) {
   const box = /\n- \[x\] (.*) <sub><i>Approved by [^<\n]*<\/i><\/sub>\n/;
   const text = normalise(body);
+
   return box.test(`${text}\n`) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked;
 }
 
@@ -555,8 +590,10 @@ const WAITING = {
  */
 function planEdit({ head, problems, comment, event }) {
   const unticked = signoffComment({ head, problems });
+
   if (!isFreshTick({ event, unticked: normalise(unticked) })) {
     const refused = hasTick(event.to) && !isApprover(event.sender);
+
     return {
       commentBody: refused
         ? signoffComment({ head, problems, refusedBy: event.sender.login })
@@ -564,12 +601,15 @@ function planEdit({ head, problems, comment, event }) {
       status: WAITING,
     };
   }
+
   const unchanged =
     comment !== undefined &&
     normalise(comment.body) === normalise(event.to) &&
     comment.updatedAt === event.at;
+
   if (!unchanged) return undefined;
   const { login, name } = event.sender;
+
   return {
     commentBody: signoffComment({
       head,
@@ -600,12 +640,16 @@ export function planApproval({ head, problems, comment, signedOff, event }) {
       status: { state: 'success', description: 'Nothing in this PR loosens enforcement' },
     };
   }
+
   const edit = event.kind === 'comment' && planEdit({ head, problems, comment, event });
+
   if (edit) return edit;
   const unticked = signoffComment({ head, problems });
+
   if (signedOff && comment && isLabelled(comment.body, normalise(unticked))) {
     return { commentBody: comment.body, status: null };
   }
+
   return { commentBody: unticked, status: WAITING };
 }
 
@@ -622,6 +666,7 @@ async function readFile(github, repo, path, ref) {
       ref,
       mediaType: { format: 'raw' },
     });
+
     return String(data);
   } catch (error) {
     if (/** @type {{ status?: number }} */ (error)?.status === 404) return null;
@@ -644,6 +689,7 @@ function findSignoffComment(comments, event) {
     event.kind === 'comment' &&
     event.commentId === id &&
     Boolean(event.from?.startsWith(COMMENT_MARKER));
+
   const signoff = comments.filter(
     (comment) =>
       comment.user?.login === GATE_AUTHOR &&
@@ -651,9 +697,11 @@ function findSignoffComment(comments, event) {
         comment.body?.includes(APPROVAL_TEXT) ||
         hadMarker(comment.id)),
   );
+
   const existing =
     signoff.find((comment) => event.kind === 'comment' && comment.id === event.commentId) ??
     signoff[0];
+
   return (
     existing && { id: existing.id, body: String(existing.body), updatedAt: existing.updated_at }
   );
@@ -669,10 +717,12 @@ function findSignoffComment(comments, event) {
 async function gateEvent(github, context) {
   if (context.eventName !== 'issue_comment') return { kind: 'pull' };
   const { comment, changes, sender } = context.payload;
+
   const name =
     sender.login === APPROVER
       ? (await github.rest.users.getByUsername({ username: sender.login })).data.name
       : null;
+
   return {
     kind: 'comment',
     commentId: comment.id,
@@ -695,11 +745,14 @@ async function isSignedOff(github, repo, head) {
     ref: head,
     per_page: 100,
   });
+
   const latest = statuses.find(
     (/** @type {{ context: string, creator?: { login: string } }} */ status) =>
       status.context === STATUS_CONTEXT && status.creator?.login === GATE_AUTHOR,
   );
+
   const signed = signedOffStatus(head);
+
   return latest?.state === signed.state && latest?.description === signed.description;
 }
 
@@ -725,10 +778,12 @@ export async function run({ github, context, core }) {
   const number = context.payload.pull_request?.number ?? context.payload.issue?.number;
   const { data: pullRequest } = await github.rest.pulls.get({ ...repo, pull_number: number });
   const head = pullRequest.head.sha;
+
   const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
     ...repo,
     basehead: `${pullRequest.base.sha}...${head}`,
   });
+
   const mergeBase = comparison.merge_base_commit.sha;
 
   const files = await github.paginate(github.rest.pulls.listFiles, {
@@ -736,6 +791,7 @@ export async function run({ github, context, core }) {
     pull_number: number,
     per_page: 100,
   });
+
   const changes = await Promise.all(
     guardedPaths(files).map(async (path) => ({
       path,
@@ -743,6 +799,7 @@ export async function run({ github, context, core }) {
       after: await readFile(github, repo, path, head),
     })),
   );
+
   const problems = [
     ...(files.length >= LIST_FILES_LIMIT ? [TOO_MANY_FILES] : []),
     ...enforcementProblems(changes),
@@ -753,6 +810,7 @@ export async function run({ github, context, core }) {
     issue_number: number,
     per_page: 100,
   });
+
   const event = await gateEvent(github, context);
   const existing = findSignoffComment(comments, event);
 
@@ -763,12 +821,15 @@ export async function run({ github, context, core }) {
     signedOff: await isSignedOff(github, repo, head),
     event,
   });
+
   await writeComment({ github, repo, number, existing, body: plan.commentBody });
 
   if (!plan.status) {
     core.info(`${STATUS_CONTEXT}: left as it is for ${head}`);
+
     return;
   }
+
   await github.rest.repos.createCommitStatus({
     ...repo,
     sha: head,
@@ -782,15 +843,20 @@ export async function run({ github, context, core }) {
 /** @param {string[]} argv */
 function runCli(argv) {
   const index = argv.indexOf('--git');
+
   if (index === -1 || !argv[index + 1]) {
     console.error('Usage: node scripts/enforcement-approval.mjs --git <base> [<head>]');
     process.exitCode = 2;
+
     return;
   }
+
   const git = (/** @type {string[]} */ ...args) =>
     execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+
   const head = git('rev-parse', argv[index + 2] ?? 'HEAD').trim();
   const base = git('merge-base', String(argv[index + 1]), head).trim();
+
   /** @param {string} ref @param {string} path */
   const show = (ref, path) => {
     try {
@@ -799,11 +865,14 @@ function runCli(argv) {
       return null;
     }
   };
+
   const names = git('diff', '--name-only', '--no-renames', '-z', `${base}...${head}`).split('\0');
   const paths = guardedPaths(names.filter(Boolean).map((filename) => ({ filename })));
+
   const problems = enforcementProblems(
     paths.map((path) => ({ path, before: show(base, path), after: show(head, path) })),
   );
+
   console.log(JSON.stringify({ head, problems }, null, 2));
 }
 
