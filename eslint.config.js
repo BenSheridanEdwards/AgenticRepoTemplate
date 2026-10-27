@@ -109,7 +109,6 @@ export default [
       'vendor/**',
       'playwright-report/**',
       'test-results/**',
-      'graphify-out/**',
       '.cache/**',
     ],
   },
