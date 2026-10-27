@@ -177,8 +177,7 @@ without asking anyone anything.
 - [`.agents/START_HERE.md`](.agents/START_HERE.md) is the start-here guide: the
   tool-agnostic operating contract, with golden rules, commands, and a map of
   the rest. [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) adds the Claude Code
-  layer, and [`openai.yaml`](.agents/openai.yaml) lists the same entry points
-  for other vendors, so the method is not welded to one AI supplier.
+  layer.
 - [`.agents/`](.agents) is the single source of detail: the
   [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow,
   the [conventions](.agents/project/CONVENTIONS.md) for naming, imports,
@@ -359,7 +358,6 @@ AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports i
   START_HERE.md             Start here: commands, golden rules, and the map.
   CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
   NORTH_STAR.md             Where the repo is heading and why.
-  openai.yaml               Vendor-neutral manifest of the same entry points.
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.

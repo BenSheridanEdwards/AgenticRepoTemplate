@@ -8,7 +8,7 @@
 [ADR 0004](0004-agent-context-lives-in-dot-agents.md) put the detail in
 `.agents/` but kept the operating contract in `AGENTS.md` and the Claude layer
 in `CLAUDE.md`. Agent docs still sat at the root: `AGENTS.md`,
-`CLAUDE.md`, `NORTH_STAR.md` and `agents/openai.yaml`.
+`CLAUDE.md`, `NORTH_STAR.md` and an OpenAI manifest.
 GitNexus wrote the same 50-line block into both `AGENTS.md` and `CLAUDE.md`.
 An agent had to read two root files to find out where to start.
 
@@ -21,8 +21,7 @@ An agent had to read two root files to find out where to start.
    used to: what the repo is, the commands, the golden rules, and a map of
    everything else in `.agents/`.
 3. **Every other agent doc moves into `.agents/`:** `CLAUDE_CODE.md` (the
-   Claude Code notes), `GITNEXUS.md` (the GitNexus guidance), `NORTH_STAR.md`
-   and `openai.yaml`.
+   Claude Code notes), `GITNEXUS.md` (the GitNexus guidance) and `NORTH_STAR.md`.
 4. **GitNexus re-indexes with `--skip-agents-md`**, so it no longer rewrites
    the root pointers.
 

@@ -3,8 +3,8 @@
  * Enforce the repository's own context-layer invariants.
  *
  * Both root files point to `.agents/START_HERE.md`; Claude also imports it.
- * The context layer (the root pointers, the start-here guide, the multi-vendor
- * manifest, the project docs, the house skills) is the part of the standard that is otherwise
+ * The context layer (the root pointers, the start-here guide, the project docs,
+ * the house skills) is the part of the standard that is otherwise
  * pure documentation: nothing mechanical fails when a file is deleted, renamed,
  * emptied, or quietly turned into a symlink. This checker closes that gap. It
  * asserts the invariants the docs describe and fails closed with an actionable
@@ -33,7 +33,7 @@ const MINIMUM_NON_EMPTY_LINES = 20;
 const MAXIMUM_POINTER_NON_EMPTY_LINES = 10;
 
 /**
- * The seven project docs under `.agents/project/` that the multi-vendor manifest
+ * The seven project docs under `.agents/project/` that the start-here guide
  * and the Definition of Done both promise exist.
  */
 const REQUIRED_PROJECT_DOCS = [
@@ -408,9 +408,6 @@ export function checkContextLayer(filesystem) {
     checkClaudePointer(filesystem, errors);
   }
   checkStartHere(filesystem, errors);
-
-  // The multi-vendor manifest.
-  assertRegularFile(filesystem, '.agents/openai.yaml', errors);
 
   // The seven project docs.
   for (const documentName of REQUIRED_PROJECT_DOCS) {

@@ -22,6 +22,8 @@ import { listResults } from './tooling/results.mjs';
  * manage yourself (it wins over `E2E_BUILD`), with the api on :3001 that
  * Playwright starts.
  */
+// Set E2E_BASE_URL=http://localhost:3000 to use a web server you manage yourself,
+// for example the built preview from `pnpm preview`, instead of starting Vite.
 const externalBaseUrl = process.env.E2E_BASE_URL;
 const reuseExistingServer = !process.env.CI;
 const productionBuild =

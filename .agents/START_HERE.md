@@ -197,7 +197,6 @@ stdlib or native platform features before adding abstractions or dependencies.
 | [`templates/`](templates/) | …when creating a new component, test, E2E flow, or PRD. Copy from here. |
 | [`NORTH_STAR.md`](NORTH_STAR.md) | …to see where the repo is heading and why. |
 | [`CLAUDE_CODE.md`](CLAUDE_CODE.md) | …if you are Claude Code: skills, settings, hooks, and tooling. |
-| [`openai.yaml`](openai.yaml) | …if you are an OpenAI-family agent: the same entry points as a manifest. |
 | [`verify-agentic-template`](../.claude/skills/verify-agentic-template/SKILL.md) | …to drive the app and capture PR proof. |
 
 ## Safety
