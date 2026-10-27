@@ -22,7 +22,6 @@ test-results/
 # Local env + editor noise
 .env
 .env.*
-!.env.example
 .DS_Store
 *.log
 

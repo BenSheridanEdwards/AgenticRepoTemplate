@@ -339,7 +339,6 @@
         "jest.style-stub.cjs",
         "eslint.config.js",
         "anti-slop.advisory.mjs",
-        ".agents/team-walkthrough.html",
         "{apps,showcase/*}/web/{index.html,vite.config.ts}",
         "{apps,showcase/*}/web/e2e/**",
         ".claude/**",

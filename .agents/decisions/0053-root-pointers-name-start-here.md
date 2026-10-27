@@ -25,7 +25,7 @@ files exist, so `CLAUDE.md` must reach the guide itself.
    Cursor Bugbot there.
 4. **Keep tool-discovered files at the root.** `REVIEW.md` and
    `skills-lock.json` stay there because Claude Code Review and the skills CLI
-   read them there. Move `team-walkthrough.html` to `.agents/`.
+   read them there.
 5. **Enforce points 2 and 3 with `pnpm check:context`.**
 
 This record supersedes points 1 and 2 of ADR 0022 and the `AGENTS.md` wiring

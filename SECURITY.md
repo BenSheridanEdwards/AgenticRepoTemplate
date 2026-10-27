@@ -32,5 +32,5 @@ and merge enforcement, see [hosted security](docs/hosted-security.md):
 - **Dependency updates** — add `.github/dependabot.yml` to configure scheduled
   Dependabot version updates. The dependency audit above runs in CI.
 
-Secrets stay out of the repository; runtime configuration is documented in `.env.example`
-and real `.env` files are git-ignored.
+Secrets stay out of the repository; the optional `E2E_BASE_URL` override is
+documented in `playwright.config.ts`, and real `.env` files are git-ignored.

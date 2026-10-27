@@ -70,7 +70,6 @@ function buildPassingTree() {
     'CLAUDE.md': '# CLAUDE.md\n\nRead `.agents/START_HERE.md`.\n\n@.agents/START_HERE.md\n',
     'REVIEW.md': 'review rules for the bot reviewer',
     '.cursor/BUGBOT.md': 'See `REVIEW.md` at the repository root.',
-    '.agents/openai.yaml': 'interface: {}\n',
     '.agents/project/ARCHITECTURE.md': 'architecture',
     '.agents/project/CONVENTIONS.md': 'conventions',
     '.agents/project/TECH_STACK.md': 'tech stack',
@@ -96,6 +95,15 @@ describe('checkContextLayer', () => {
     const filesystem = createInMemoryFilesystem({ files: buildPassingTree() });
     const result = checkContextLayer(filesystem);
     expect(result).toEqual({ ok: true, errors: [] });
+  });
+
+  it('passes without a top-level OpenAI manifest', () => {
+    const files = buildPassingTree();
+    expect(files).not.toHaveProperty(['.agents/openai.yaml']);
+    expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
+      ok: true,
+      errors: [],
+    });
   });
 
   it('fails, listing the file, when a required file is missing', () => {
