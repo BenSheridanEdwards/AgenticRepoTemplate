@@ -23,6 +23,13 @@ Each layer has one job:
 If a rule appears in the wrong layer, agents either miss it or duplicate it.
 Move the rule to the layer that owns it.
 
+For anti-slop, `scripts/anti-slop-changed.mjs` is the agent-facing check of
+advisory findings on committed changed lines. The
+[push workflow](../START_HERE.md#before-you-push) and
+[review checklist](../../REVIEW.md#anti-slop-findings) own the responses to
+those findings. `vendor/anti-slop/UPSTREAM.md` is the provenance record for
+the pinned, hash-checked upstream source.
+
 ## Build order for a new repo
 
 1. **Inventory truth.** Read package scripts, workflows, hooks, tests, build

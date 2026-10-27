@@ -52,6 +52,7 @@ git log -1 --format=%H <head> -- .agents/NORTH_STAR.md. -->
 - Definition of Done (`.agents/project/DEFINITION_OF_DONE.md`) satisfied, or each gap named:
 - [ ] `pnpm verify`
 - [ ] `pnpm e2e`
+- [ ] `pnpm lint:anti-slop:changed` prints no finding for this branch.
 - [ ] Latest-sha GitHub Actions are green; any pending or failing checks are named with a fix plan.
 - [ ] Behaviour is covered by the E2E map when user-visible behaviour changed.
 - [ ] Logic is unit-tested where logic changed.

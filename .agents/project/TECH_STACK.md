@@ -24,6 +24,7 @@ each owner runs locally and in CI.
 | Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
 | Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `{apps,packages}/*/src/` and `showcase/*/*/src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. Every other source file is linted for inline config only (ADR 0039). |
 | React Doctor project checks | **React Doctor CLI** (`pnpm react-doctor`) | The cross-file and project checks outside the ESLint plugin. |
+| Low-evidence TypeScript patterns (anti-slop rules) | **Oxlint** with the vendored plugin in `vendor/anti-slop/` (`pnpm lint:anti-slop`) | Runs only that plugin; Biome and ESLint keep every other concern ([ADR 0070](../decisions/0070-vendored-anti-slop-oxlint-rules.md)). |
 | Commit format | **commitlint** | Conventional Commits on `commit-msg`. |
 | Code intelligence and architecture | **Fallow** | Dead code, cycles, complexity, the dependency graph, the architecture gate (`pnpm arch:gate`), the contract rule pack (`contract/<id>`), and the role diagram (`pnpm arch:diagram`). |
 | Exported API reports | **API Extractor** | One committed `<package>/etc/*.api.md` per public entry of each package (`pnpm api:report`, `pnpm api:check`). |

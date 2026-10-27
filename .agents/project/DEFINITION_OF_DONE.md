@@ -23,8 +23,10 @@ complete once `pnpm verify` and `pnpm e2e` are green.
       `tsconfig.api.json` (api) and `tsconfig.domain.json` (api domain, no
       Node), with no `any` and no weakened config.
 - [ ] **Lint + format clean.** `pnpm check` (Biome), `pnpm lint:policy`
-      (ESLint), and `pnpm react-doctor` pass; every disabled rule carries a
-      written reason.
+      (ESLint), `pnpm lint:anti-slop` (Oxlint anti-slop rules), and
+      `pnpm react-doctor` pass; every disabled rule carries a written reason.
+- [ ] **Changed lines clear of anti-slop findings.**
+      `pnpm lint:anti-slop:changed` prints no finding for the committed branch.
 - [ ] **Code intelligence clean.** `pnpm fallow:audit` reports no dead code,
       circular dependency, complexity, architecture or `contract/<id>` finding
       in any file the change touches.

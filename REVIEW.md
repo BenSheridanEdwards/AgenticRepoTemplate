@@ -79,6 +79,19 @@ which the root `AGENTS.md` and `CLAUDE.md` point to, sends Codex and Claude here
 - A new dependency arrives with an ADR that names it. Confirm the ADR exists and
   that the dependency earns its place against the Ponytail bar above.
 
+## Anti-slop findings
+
+- Reviewers, including Claude Opus, run `pnpm lint:anti-slop:changed` on the
+  clean, checked-out PR head. Raise each finding it prints as a change request
+  naming the file, line and rule: the change adds a pattern the anti-slop
+  rollout is removing.
+- Flag a new `// SAFETY:` comment whose invariant the nearby code does not check.
+- Flag a change that only hides a finding: a renamed symbol that still means
+  "shape", an assertion split across two bindings, a `typeof` moved into a
+  helper, or a value laundered through `unknown`.
+- Check `vendor/anti-slop/UPSTREAM.md` for provenance and flag any vendored
+  source edit that differs from the pinned upstream bytes.
+
 ## PR proof
 
 - Confirm the PR names the outcome it moves and states what evidence would

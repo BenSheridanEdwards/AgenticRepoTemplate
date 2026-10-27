@@ -66,10 +66,17 @@ change to its settings or hooks is caught in review of the diff.
 3. Read `.agents/project/ARCHITECTURE.md` + `CONVENTIONS.md`.
 4. Use the `run-e2e-tests` / `write-unit-tests` skills; copy from
    `.agents/templates/`.
-5. Run `pnpm verify` and `pnpm e2e` until green.
+5. Run `pnpm verify` and `pnpm e2e` until green. The anti-slop commands are
+   `pnpm lint:anti-slop`, `pnpm lint:anti-slop:advisory` and
+   `pnpm lint:anti-slop:changed`; follow the
+   [before-push workflow](START_HERE.md#before-you-push).
 6. Commit with a Conventional Commit message.
 7. Use `pr-quality-contract` before opening or marking the PR ready.
 8. For a health-check of the whole repo, run the ArchitectPlaybook audits.
+
+When reviewing, Claude Opus runs `pnpm lint:anti-slop:changed` on the PR head
+and raises each finding as a change request under
+[`REVIEW.md`](../REVIEW.md#anti-slop-findings).
 
 ## Agent tooling
 

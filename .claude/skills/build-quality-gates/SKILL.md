@@ -31,10 +31,11 @@ point: commit, push, CI, or PR review.
    one lint owner, one type checker, one unit runner, one E2E runner, one visual
    gate, one security scanner per class.
 3. **Place gates by feedback speed.**
-   - Pre-commit: typecheck, staged Biome lint and format, Fallow audit including
-     complexity, and staged gitleaks; each step under 30 seconds on a realistic
-     staged change. Record timings and review slower steps for a likely move
-     to pre-push. Networked checks, such as branch-contains-main, run on pre-push.
+   - Pre-commit: typecheck, staged Biome lint and format, `pnpm lint:anti-slop`,
+     Fallow audit including complexity, and staged gitleaks; each step under
+     30 seconds on a realistic staged change. Record timings and review slower
+     steps for a likely move to pre-push. Networked checks, such as
+     branch-contains-main, run on pre-push.
    - Commit-msg: Conventional Commits.
    - Pre-push: branch-contains-main, the full local gate suite (including the
      build), and E2E. Git skips pre-commit for a merge with no conflicts, so
@@ -63,6 +64,8 @@ name the owner beside it. Other plugin concerns belong to the gate that owns
 the behaviour:
 
 - Type semantics: `tsc --noEmit`
+- Anti-slop rules: Oxlint with the vendored `vendor/anti-slop/` plugin through
+  `pnpm lint:anti-slop`; every built-in Oxlint rule stays off (ADR 0070).
 - React behaviour: Jest + React Testing Library
 - Accessibility: `jest-axe`, `@axe-core/playwright`, and Lighthouse
 - Security patterns: CodeQL, gitleaks, `pnpm audit`
@@ -70,8 +73,12 @@ the behaviour:
 - Exported API reports: API Extractor
 
 Add a lint engine or plugin through an ADR when a concrete required rule has no
-owner among Biome, ESLint, React Doctor, TypeScript, tests, security gates, or
-review.
+owner among Biome, ESLint, Oxlint, React Doctor, TypeScript, tests, security
+gates, or review.
+
+Keep `pnpm lint:anti-slop:advisory` and `pnpm lint:anti-slop:changed` outside
+hooks and CI gates. Builders clear changed-line findings before every push;
+reviewers raise each one on the PR head as a change request.
 
 ## Done When
 

@@ -22,6 +22,9 @@ pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
 pnpm setup:agents     # install the external agentic toolkit (one time)
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
+pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
+pnpm lint:anti-slop:advisory  # gate rules plus noisy rules at warn; outside the gates
+pnpm lint:anti-slop:changed   # advisory findings on committed changed lines; run before every push
 pnpm arch:check       # architecture gate, structure check, diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd and each result's architecture.mmd
 pnpm api:report       # regenerate each package's etc/*.api.md after an intended export change
@@ -105,6 +108,24 @@ a split baseline or failed runs
 8. **Write declarative code.** Transform data with `map`, `filter`, `flatMap`
    and `reduce` over `const` bindings, in place of loops and mutation
    ([North Star §9](NORTH_STAR.md#9-declarative-over-imperative)).
+
+## Before you push
+
+Builders, including Codex, follow these steps before every push:
+
+1. Commit the final changes, then run `pnpm lint:anti-slop` and
+   `pnpm lint:anti-slop:changed` on the clean tracked tree. The changed-lines
+   check compares `origin/main...HEAD`. Fix every finding it prints, commit
+   the fixes and run both commands again.
+2. Fix the cause. Keep every anti-slop rule, severity and ignore as it is, and
+   add no `oxlint-disable` or `eslint-disable` comment.
+3. Write `// SAFETY: <the checked invariant>` above a type assertion only when
+   the code beside it checks that invariant; otherwise remove the assertion.
+4. Leave advisory findings on lines you did not change for their rollout PRs.
+5. Run `pnpm verify` and `pnpm e2e`; `pnpm verify` runs `pnpm lint:anti-slop`.
+
+Reviewers follow [Anti-slop findings](../REVIEW.md#anti-slop-findings) on the
+PR head, including the changed-lines check and a change request per finding.
 
 ## Rules and what enforces them
 

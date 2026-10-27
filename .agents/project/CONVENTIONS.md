@@ -13,6 +13,8 @@ and React rules cover `.ts` and `.tsx` files.
 
 | Convention | Enforced by |
 | --- | --- |
+| Replace a module through a dependency seam such as `TestApiProvider`; `jest.mock` fails the gate. | Oxlint `anti-slop/no-module-mocking` (`pnpm lint:anti-slop`) |
+| Parse a boundary value with Effect Schema before branching on it. | Oxlint `anti-slop/no-runtime-typeof` in package sources (`pnpm lint:anti-slop`) rejects runtime `typeof`; review checks the boundary parser. |
 | Folders under a package `src/` are kebab-case (`name-input`). | ESLint `policy/folder-names` |
 | Each folder under a package `src/` is named for its role (`name-input`, `api-client`). Code in a catch-all folder (`utils`, `helpers`, `lib`, `common`, `shared`, `misc`) moves into the slice that uses it, or into `@repo/ui` when it is a shared UI primitive. | ESLint `policy/role-named-folders` |
 | Each test sits beside its subject as `<Name>.test.ts(x)` or `<Name>.<kind>.test.ts(x)` (`GreetingPage.a11y.test.tsx` beside `GreetingPage.tsx`), outside any `__tests__/` folder. A source file with no test is fine; coverage thresholds decide what is tested. | ESLint `policy/test-beside-subject` |
