@@ -76,8 +76,8 @@ This change is about ESLint comments only, so `biome-ignore` and
   config, and asserts ESLint fails on each line. It asserts that a named,
   reasoned disable leaves its finding reported, and that `eslint .` lints every
   tracked source file. Each of these tests fails on the previous config.
-- ESLint's ignore list (build output, `coverage/`, `graphify-out/`,
-  `.architect-audits/` and the rest) gains `.cache/`, the gitignored output of
+- ESLint's ignore list (build output, `coverage/`, `graphify-out/` and the rest)
+  gains `.cache/`, the gitignored output of
   `pnpm typecheck`, `pnpm api:report` and `pnpm arch:diagram`, because the wider file globs would
   otherwise lint its generated `.d.ts` files. A source file committed under an
   ignored folder fails the tracked-files test in `pnpm test`.

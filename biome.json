@@ -13,7 +13,6 @@
       "!**/coverage",
       "!**/playwright-report",
       "!**/test-results",
-      "!**/.architect-audits",
       "!**/pnpm-lock.yaml",
       "!**/vendor"
     ]

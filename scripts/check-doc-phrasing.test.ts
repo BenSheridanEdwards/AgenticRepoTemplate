@@ -65,7 +65,6 @@ describe('isGuidanceDoc', () => {
     '.agents/decisions/0001-record-architecture-decisions.md',
     '.claude/skills/gitnexus/gitnexus-guide/SKILL.md',
     '.claude/skills/show-me/SKILL.md',
-    '.architect-audits/README.md',
     'graphify-out/GRAPH_REPORT.md',
     'src/features/threshold-counter/ThresholdCounter.tsx',
   ])('leaves %s alone', (path) => {

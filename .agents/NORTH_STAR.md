@@ -271,8 +271,7 @@ and the other common hook bypasses.
 **The plan.** PR0 landed as #89, and every row in the table below is installed
 except the rows marked partial or not enforced yet, and cloud agents, which
 the table marks as last. Each PR that changes a tool also updates
-`TECH_STACK.md` and `QUALITY_GATES.md` to match. Ticketed forward work with
-acceptance criteria lives in [`TODO.md`](TODO.md).
+`TECH_STACK.md` and `QUALITY_GATES.md` to match.
 
 | Target | What it adds | Status |
 | --- | --- | --- |
