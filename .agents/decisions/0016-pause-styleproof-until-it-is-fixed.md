@@ -1,6 +1,6 @@
 # 16. Pause StyleProof until it is fixed
 
-- **Status:** Superseded by [0052](0052-playwright-visual-regression.md)
+- **Status:** Superseded by [0052](0052-playwright-visual-regression.md) and [0063](0063-styleproof-checks-the-component-gallery-only.md)
 - **Date:** 2026-10-16
 
 ## Context

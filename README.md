@@ -266,6 +266,23 @@ approve those image diffs in the PR; CI compares only and fails on missing or
 different baselines. Failed CI runs upload actual, expected and diff images in
 `visual-differences`. See [ADR 0052](.agents/decisions/0052-playwright-visual-regression.md).
 
+StyleProof checks only the component gallery in `apps/web/e2e/styleproof/`,
+showing every shared UI component in its states and before/after style changes
+side by side in an advisory PR report. Route traversal stays a future direction.
+Run the gallery capture and local report in a clean, committed disposable
+checkout with independent Git metadata, because `styleproof-ci` prunes
+worktree registrations during cleanup:
+
+```bash
+BASE=$(git rev-parse origin/main)
+HEAD_SHA=$(git rev-parse HEAD)
+env pnpm_config_ignore_workspace_root_check=true pnpm_config_minimum_release_age=0 \
+  pnpm exec styleproof-ci --base "$BASE" --head "$HEAD_SHA" \
+  --spec-ref-if-missing "$HEAD_SHA" --base-dir .styleproof/maps --no-store --force
+pnpm exec styleproof report .styleproof/maps/base .styleproof/maps/head --out styleproof-report \
+  --expected-before-sha "$BASE" --expected-after-sha "$HEAD_SHA"
+```
+
 ### Skills: processes with exactly one job
 
 A skill is a documented, executable process with exactly one job; if two skills

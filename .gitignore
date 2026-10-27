@@ -38,3 +38,8 @@ graphify-out/
 
 # Verification runs from .claude/skills/verify-agentic-template (instance state + evidence)
 .verify/
+
+# StyleProof capture output and local reports (regenerated each run)
+.styleproof/
+__stylemaps__/
+styleproof-report/
