@@ -34,10 +34,11 @@ describe('findNegativePhrasing', () => {
     const text = ['````md', '```', 'do not run this', '```', '````', 'Never skip a gate.'].join(
       '\n',
     );
+
     expect(findNegativePhrasing(text)).toEqual([{ line: 6, phrase: 'Never' }]);
   });
 
-  it('skips the generated GitNexus block', () => {
+  it('checks prose inside former generated markers', () => {
     const text = [
       'Intro.',
       '<!-- gitnexus:start -->',
@@ -45,7 +46,11 @@ describe('findNegativePhrasing', () => {
       '<!-- gitnexus:end -->',
       'Never skip a gate.',
     ].join('\n');
-    expect(findNegativePhrasing(text)).toEqual([{ line: 5, phrase: 'Never' }]);
+
+    expect(findNegativePhrasing(text)).toEqual([
+      { line: 3, phrase: 'NEVER' },
+      { line: 5, phrase: 'Never' },
+    ]);
   });
 });
 
@@ -57,15 +62,14 @@ describe('isGuidanceDoc', () => {
     '.github/pull_request_template.md',
     'docs/proof/README.md',
     '.claude/skills/show-me/REPOSITORY.md',
+    '.claude/skills/gitnexus/gitnexus-guide/SKILL.md',
   ])('checks %s', (path) => {
     expect(isGuidanceDoc(path)).toBe(true);
   });
 
   it.each([
     '.agents/decisions/0001-record-architecture-decisions.md',
-    '.claude/skills/gitnexus/gitnexus-guide/SKILL.md',
     '.claude/skills/show-me/SKILL.md',
-    'graphify-out/GRAPH_REPORT.md',
     'src/features/threshold-counter/ThresholdCounter.tsx',
   ])('leaves %s alone', (path) => {
     expect(isGuidanceDoc(path)).toBe(false);

@@ -17,13 +17,6 @@ test-results/
 # Lighthouse CI output
 .lighthouseci/
 
-# graphify knowledge graph (generated and regenerable via graphify or
-# ArchitectPlaybook's /pre-audit-setup; the graph data, HTML, report, and cache
-# are all disposable output).
-graphify-out/
-
-# GitNexus local repo index (generated — rebuild with `gitnexus analyze`)
-.gitnexus/
 .show-me/
 
 # Local env + editor noise
