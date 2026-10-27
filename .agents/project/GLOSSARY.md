@@ -18,7 +18,6 @@ domain term appears, add it here in the same change.
 | **Behaviour map** | The end-to-end specs in each result's `web/e2e/*.spec.ts`, such as `apps/web/e2e/greeting.spec.ts`, that define what the product does. The product contract. |
 | **PRD** | A feature's product requirements doc, `docs/prd/<feature>.md`, such as `docs/prd/greeting.md`. It states the feature's intent and links each behaviour to the E2E test that proves it. The behaviour map stays the contract. |
 | **Quality gate** | An automated check that can block a commit, a push, or a merge. Gates are code, not guidelines. |
-| **Health check** | Running the ArchitectPlaybook audits against this repo to grade its architecture and agentic setup (showcase #1). |
 | **Definition of Done** | The checklist in `DEFINITION_OF_DONE.md`; "done" means the gates that enforce it are green. |
 | **Greeting** | The reference feature: the user submits a name and the api answers `Hello, <name>!` through `greeting.greet`. |
 | **Slop** | Code more complex than the change needs, or code that breaks a convention the repository agreed in `.agents/`. Gates refuse the violations they enforce; review holds the rest. |

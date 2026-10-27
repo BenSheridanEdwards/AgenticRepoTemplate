@@ -79,8 +79,6 @@ function buildPassingTree() {
     '.agents/project/QUALITY_GATES.md': 'gates',
     '.agents/project/PR_QUALITY.md': 'pr quality',
     '.agents/START_HERE.md': `${twentyLineBody}\nRead REVIEW.md.`,
-    '.agents/PROGRESS.md': 'progress',
-    '.agents/TODO.md': 'todo',
     '.claude/skills/pr-quality-contract/SKILL.md': skillFrontmatter,
     '.claude/skills/pr-inline-screenshot-proof/SKILL.md': skillFrontmatter,
     '.agents/decisions/0001-record-decisions.md': '# 1. Record decisions\n',
@@ -94,7 +92,7 @@ describe('checkContextLayer', () => {
     expect(result).toEqual({ ok: true, errors: [] });
   });
 
-  it('passes on a well-formed in-memory tree', () => {
+  it('passes on a well-formed in-memory tree without task ledgers', () => {
     const filesystem = createInMemoryFilesystem({ files: buildPassingTree() });
     const result = checkContextLayer(filesystem);
     expect(result).toEqual({ ok: true, errors: [] });

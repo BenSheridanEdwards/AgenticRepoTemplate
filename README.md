@@ -139,9 +139,6 @@ one.
   outside package TypeScript source.
 - **Merge-confidence labels** on every PR
   ([#69](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/69)).
-- **Re-running the interactive architecture audits** against current `HEAD`;
-  only the deterministic recheck is done so far
-  ([`.agents/TODO.md`](.agents/TODO.md)).
 
 ## The method
 
@@ -194,9 +191,6 @@ without asking anyone anything.
   [decision records](.agents/decisions) that mark the difference between a
   mistake and a deliberate act, and [templates](.agents/templates) so the
   correct pattern is the path of least resistance.
-- [`PROGRESS.md`](.agents/PROGRESS.md) and [`TODO.md`](.agents/TODO.md) are the memory layer:
-  checkpointed work with verification status, and forward handoffs with
-  acceptance criteria. They give agents audit-grade memory across sessions.
 
 The root files stay short and point inward, so there is exactly one place to
 update when the way you work changes. The standard ships as files, not written
@@ -296,24 +290,6 @@ non-functionals, in that order, because a weak floor makes everything above it
 shaky. The agentic infrastructure is not the headline; it is what locks each
 fix in so it stays fixed.
 
-This repo grades itself with the
-[ArchitectPlaybook](https://github.com/BenSheridanEdwards/ArchitectPlaybook)
-audits and commits the reports, including the imperfect ones, in
-[`.architect-audits/`](.architect-audits):
-
-```bash
-pnpm setup:agents      # installs the playbook and Fallow skills
-# then, in Claude Code:
-/pre-audit-setup
-/testing-audit  /architecture-audit  /security-audit  /quality-gates-audit  /agentic-audit
-```
-
-The committed history shows the loop working: the first run found real problems
-(missing static analysis, a live dependency advisory, weak test selectors) and
-each one being closed. Known deliberate trade-offs and open gaps are recorded
-in the reports themselves and in [`TODO.md`](.agents/TODO.md). Honest history is a
-feature; the loop is the point, not the passing grade at the end.
-
 Non-functionals are held continuously, not only at audit time: Lighthouse keeps
 an accessibility floor of 0.9 and a performance target of 0.8 (median of three
 runs) in [`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
@@ -375,8 +351,7 @@ biome.json  eslint.config.js  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
 
 Then run `/pre-audit-setup` and the audits to see where the repo falls short,
 and close the gaps one gate at a time, in the order above: behaviour map first,
-optimise last. This is the same find, fix, and re-audit loop the committed
-[`.architect-audits/`](.architect-audits) reports show on this repo.
+optimise last.
 
 ## Every file, and why it is here
 
@@ -387,7 +362,6 @@ AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports i
   CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
   GITNEXUS.md               GitNexus impact analysis and change detection.
   NORTH_STAR.md             Where the repo is heading and why.
-  PROGRESS.md / TODO.md     Checkpoint log and forward-handoff work with acceptance criteria.
   openai.yaml               Vendor-neutral manifest of the same entry points.
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
@@ -483,7 +457,6 @@ apps/                       The reference result. Root configs own every gate.
     etc/                    Generated API Extractor reports.
 packages/ui/                @repo/ui: Button, TextField, and styles.css, with no business logic.
 showcase/<id>/              Six generated Todo results, each with the same web/ and api/ shape.
-.architect-audits/          Committed ArchitectPlaybook reports (5 audits).
 graphify-out/               Generated knowledge-graph output (god nodes, communities). Ignored; rebuild with graphify or /pre-audit-setup.
 .gitnexus/                  Local execution-flow index. Rebuild with gitnexus analyze.
 ```

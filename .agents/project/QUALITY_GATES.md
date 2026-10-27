@@ -13,7 +13,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main (the one local up-to-date check), then `pnpm verify` (the full local gate suite, including the production build) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression policy, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. |
 | Vendored anti-slop | `.oxlintrc.json` (`pnpm lint:anti-slop`) | Clean generic and Effect tag rules at `error`, with `--deny-warnings`, in pre-commit, `pnpm verify` and the existing CI quality job. `pnpm check:suppressions` rejects inline Oxlint rule directives. |
-| Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | `AGENTS.md` and `CLAUDE.md` are short pointers to `.agents/START_HERE.md`, and `CLAUDE.md` imports it; the start-here guide, manifest, project docs, ledgers, house skills, and the review rules (`REVIEW.md`, referenced from `.agents/START_HERE.md` and from `.cursor/BUGBOT.md`) exist as real files. Each ADR is named `NNNN-slug.md`, uses its number once, and opens with a matching `# N.` title. No context doc has the same section twice under one parent. |
+| Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | `AGENTS.md` and `CLAUDE.md` are short pointers to `.agents/START_HERE.md`, and `CLAUDE.md` imports it; the start-here guide, manifest, project docs, house skills, and the review rules (`REVIEW.md`, referenced from `.agents/START_HERE.md` and from `.cursor/BUGBOT.md`) exist as real files. Each ADR is named `NNNN-slug.md`, uses its number once, and opens with a matching `# N.` title. No context doc has the same section twice under one parent. |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression policy, positive doc phrasing, PRD links, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. The E2E lane starts after unit tests pass ([ADR 0065](../decisions/0065-e2e-waits-for-unit-tests.md)). |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files, as decided by the tested `scripts/lighthouse-scope.mjs`; other PRs report the same check green with audits skipped. |
@@ -293,8 +293,8 @@ Every other PR passes with no comment.
 - **Product intent.** The Product intent guard covers `docs/prd/**` and
   `.agents/NORTH_STAR.md`. Every addition, edit, deletion or rename needs
   Ben's sign-off, including wording-only edits: intent has no tighten/loosen
-  direction. A rename counts when either side is guarded. Other docs, such as
-  `.agents/PROGRESS.md`, stay outside the guard, as do `package.json`, the
+  direction. A rename counts when either side is guarded. Other guidance docs
+  stay outside the guard, as do `package.json`, the
   lockfile, the rest of `scripts/`, and `tsconfig.json`.
 - **One comment, one box, one approver.** The comment lists each change and
   names the head commit, and its box reads `Approve these enforcement changes

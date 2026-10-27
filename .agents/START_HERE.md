@@ -109,6 +109,8 @@ a split baseline or failed runs
    and `reduce` over `const` bindings, in place of loops and mutation
    ([North Star §9](NORTH_STAR.md#9-declarative-over-imperative)).
 
+For tasks longer than three steps, checkpoint in the PR body.
+
 ## Before you push
 
 Builders, including Codex, follow these steps before every push:
@@ -195,8 +197,6 @@ stdlib or native platform features before adding abstractions or dependencies.
 | [`decisions/`](decisions/) | …to understand *why* a constraint exists before you challenge it. ADRs. |
 | [`templates/`](templates/) | …when creating a new component, test, E2E flow, or PRD. Copy from here. |
 | [`NORTH_STAR.md`](NORTH_STAR.md) | …to see where the repo is heading and why. |
-| [`PROGRESS.md`](PROGRESS.md) | …when picking up multi-step work, or to checkpoint a task longer than three steps. |
-| [`TODO.md`](TODO.md) | …to find handed-off work and its acceptance criteria. |
 | [`CLAUDE_CODE.md`](CLAUDE_CODE.md) | …if you are Claude Code: skills, settings, hooks, and tooling. |
 | [`GITNEXUS.md`](GITNEXUS.md) | …before editing a symbol: impact analysis and change detection. |
 | [`openai.yaml`](openai.yaml) | …if you are an OpenAI-family agent: the same entry points as a manifest. |

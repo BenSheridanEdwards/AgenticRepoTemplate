@@ -417,11 +417,6 @@ export function checkContextLayer(filesystem) {
     assertRegularFile(filesystem, `.agents/project/${documentName}`, errors);
   }
 
-  // The running-state ledgers.
-  for (const relativePath of ['.agents/PROGRESS.md', '.agents/TODO.md']) {
-    assertRegularFile(filesystem, relativePath, errors);
-  }
-
   // The two house skills, each with YAML frontmatter carrying name + description.
   for (const skillPath of REQUIRED_HOUSE_SKILLS) {
     if (!assertRegularFile(filesystem, skillPath, errors)) {

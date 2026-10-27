@@ -58,7 +58,7 @@ it.each`
 });
 
 it('skips agent, vendor and recorded trial directories in both configs', () => {
-  const ignored = `.agent .agents .claude .codex .continue .cursor .gemini .opencode .pi .roo .windsurf .architect-audits vendor
+  const ignored = `.agent .agents .claude .codex .continue .cursor .gemini .opencode .pi .roo .windsurf vendor
 showcase/todo-01 showcase/todo-02 showcase/todo-03 showcase/todo-codex-01 showcase/todo-codex-02 showcase/todo-codex-03`;
   ignored.split(/\s+/).forEach((path) => {
     write(`${path}/example.ts`, "Reflect.get(value, 'id');");

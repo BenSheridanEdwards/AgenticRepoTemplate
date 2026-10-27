@@ -94,7 +94,7 @@ describe('GUARDS', () => {
     'src/App.tsx',
     'AGENTS.md',
     '.agents/x.md',
-    '.agents/PROGRESS.md',
+    '.agents/START_HERE.md',
     '.agents/NORTH_STAR.md.bak',
     'docs/prd-other/feature.md',
     'package.json',

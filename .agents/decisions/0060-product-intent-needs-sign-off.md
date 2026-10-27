@@ -32,8 +32,8 @@ the repository asks an agent to build.
   that approval. The existing enforcement judges retain their behavior.
 - Supersede ADR 0023's path exclusion only for product intent. Supersede
   ADR 0024's rule that only enforcement loosening or rewriting asks for a
-  sign-off only for those product-intent paths. Other guidance, including
-  `.agents/PROGRESS.md`, remains outside the guard.
+  sign-off only for those product-intent paths. Other guidance remains
+  outside the guard.
 - Update the start-here rules and gate/infrastructure guidance alongside the
   guard. `check-sign-off-docs.mjs` already reads `GUARDS`, so its implementation
   stays unchanged.

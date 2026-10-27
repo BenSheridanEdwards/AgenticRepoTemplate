@@ -60,7 +60,7 @@ the pinned, hash-checked upstream source.
   on the PR head through `enforcement-approval`. Intent changes are judged
   independently of enforcement tightening or loosening
   ([ADR 0060](../decisions/0060-product-intent-needs-sign-off.md)). Other agent
-  guidance, including `.agents/PROGRESS.md`, stays outside that guard.
+  guidance stays outside that guard.
 - Keep rules out of the root files. `CLAUDE.md` and `AGENTS.md` point in;
   `.agents/` carries everything else.
 - Keep private project facts out of this public template.
