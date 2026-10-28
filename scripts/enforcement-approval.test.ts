@@ -673,6 +673,7 @@ describe('planApproval', () => {
 
         const from = configured.signoffComment({ head: HEAD, problems: PROBLEMS });
         const to = tick(from);
+
         const statusFor = (login: string) =>
           configured.planApproval({
             head: HEAD,
