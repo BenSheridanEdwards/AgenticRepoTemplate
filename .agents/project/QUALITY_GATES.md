@@ -298,8 +298,9 @@ Every other PR passes with no comment.
   lockfile, the rest of `scripts/`, and `tsconfig.json`.
 - **One comment, one box, one approver.** The comment lists each change and
   names the head commit, and its box reads `Approve these enforcement changes
-  at <sha>`. The status turns green only on the edit in which the GitHub user
-  `BenSheridanEdwards` turns that head's unticked box into a ticked one. The
+  at <sha>`. The status turns green only on the edit in which
+  the approver (repo variable `ENFORCEMENT_APPROVER`, default `BenSheridanEdwards`)
+  turns that head's unticked box into a ticked one. The
   gate reads that from the edit event alone, not from the comment text. Any other
   edit clears the box. When the gate clears a tick from any other account, the
   comment names that account in a one-line note.

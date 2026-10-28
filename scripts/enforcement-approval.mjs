@@ -9,7 +9,8 @@
  * guard that owns the path. When a change needs sign-off, it keeps one comment that
  * lists the changes and carries a checkbox bound to the head commit, and sets
  * the `enforcement-approval` commit status. The status turns green only on the
- * edit event in which APPROVER, as a GitHub user, turns this head's unticked box
+ * edit event in which the GitHub user from ENFORCEMENT_APPROVER (default
+ * BenSheridanEdwards) turns this head's unticked box
  * into a ticked one. The gate then labels the box with who ticked it and when.
  * Any other edit, and a new head, rewrites the comment unticked. See
  * `.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md`.
@@ -31,7 +32,7 @@ export const COMMENT_MARKER = '<!-- enforcement-approval -->';
 export const GATE_AUTHOR = 'github-actions[bot]';
 
 /** The one GitHub user whose tick signs off enforcement changes. */
-export const APPROVER = 'BenSheridanEdwards';
+export const APPROVER = process.env.ENFORCEMENT_APPROVER || 'BenSheridanEdwards';
 
 /**
  * @typedef {{ path: string, before: string | null, after: string | null }} FileChange  null = absent at that commit
