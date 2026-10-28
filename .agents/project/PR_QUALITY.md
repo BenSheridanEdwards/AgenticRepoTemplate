@@ -43,8 +43,6 @@ Every PR body must include:
   fields below.
 - **Visual proof:** screenshots, video, or `Not applicable` with a reason. Any UI-visible
   or CSS change needs visual proof.
-- **CI status:** whether checks are green for the latest commit, still pending,
-  or failing with the failure named.
 - **Risk and rollback:** the likely blast radius and how to back out.
 - **Definition of Done:** the checklist in
   [`DEFINITION_OF_DONE.md`](DEFINITION_OF_DONE.md) is satisfied or each gap is
@@ -63,9 +61,8 @@ Every label must trace to real files, symbols, states, or evidence in the PR.
 Keep warnings and uncertainty visible. The view explains the change; it does
 not replace behavioural tests, screenshots, command output, or exact-head CI.
 
-Open a ready PR when the work is reviewable and the body has proof. If a PR
-opens before CI finishes, name the pending checks, and report completion once
-the latest-sha checks are green.
+Report the work complete once the latest-sha checks are green. The checks
+panel, not the body, carries CI status.
 
 ## Evidence rules
 

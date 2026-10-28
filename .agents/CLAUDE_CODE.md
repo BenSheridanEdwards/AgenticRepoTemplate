@@ -23,7 +23,7 @@ This repo commits its own skills under `.claude/skills/`:
 - **`run-e2e-tests`** — map a behaviour to a Playwright test and run it.
 - **`write-unit-tests`** — Jest + React Testing Library, behaviour-first.
 - **`pr-quality-contract`** — prepare proof-backed PRs with local checks,
-  inline screenshots, latest-sha CI status, risk, and explicit gaps.
+  inline screenshots, risk, and explicit gaps.
 - **`show-me`** — create the smallest grounded visual explanation that removes
   review ambiguity from a non-trivial PR.
 - **`verify-agentic-template`** — launch the app, drive it in Chromium like a
