@@ -31,7 +31,9 @@ interface Editor {
   type: string;
 }
 
-const json = (value: unknown) => JSON.stringify(value, null, 2);
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+const json = (value: JsonValue) => JSON.stringify(value, null, 2);
 
 function reasons(path: string, before: string | null, after: string | null): string[] {
   return enforcementProblems([{ path, before, after }]).map((problem: Problem) => problem.reason);
@@ -40,6 +42,7 @@ function reasons(path: string, before: string | null, after: string | null): str
 function edited<T>(base: T, change: (draft: T) => void): T {
   const draft: T = JSON.parse(JSON.stringify(base));
   change(draft);
+
   return draft;
 }
 
@@ -144,6 +147,7 @@ describe('guardedPaths', () => {
     const [path = ''] = guardedPaths([
       { filename: 'docs/moved.yml', previous_filename: '.github/workflows/moved.yml' },
     ]);
+
     expect(reasons(path, 'on: push', null)).toEqual(['deletes the file']);
   });
 });
@@ -233,6 +237,7 @@ describe('product intent', () => {
         expect.objectContaining({ path, area: 'Product intent' }),
       ]);
     }
+
     expect(reasons(path, 'intent', 'updated intent')).toEqual(['edits product intent']);
   });
 
@@ -249,11 +254,13 @@ describe('product intent', () => {
   ])('requires sign-off for a rename from %s to %s', (previous, filename, expected) => {
     const paths = guardedPaths([{ filename, previous_filename: previous }]);
     expect(paths).toEqual(expected);
+
     const changes = paths.map((path: string) => ({
       path,
       before: path === previous ? 'intent' : null,
       after: path === filename ? 'intent' : null,
     }));
+
     expect(enforcementProblems(changes)).toEqual(
       paths.map((path: string) => expect.objectContaining({ path, area: 'Product intent' })),
     );
@@ -274,11 +281,13 @@ describe('json judge', () => {
     },
     overrides: [{ includes: ['src/**'], linter: { rules: { style: { useConst: 'error' } } } }],
   };
+
   type Biome = typeof biome & {
     linter: { rules: { style: Record<string, string>; suspicious: Record<string, string> } };
   };
+
   const biomeReasons = (change: (draft: Biome) => void) =>
-    reasons('biome.json', json(biome), json(edited(biome as Biome, change)));
+    reasons('biome.json', json(biome), json(edited<Biome>(biome, change)));
 
   it.each<[string, (draft: Biome) => void, string[]]>([
     [
@@ -383,6 +392,7 @@ describe('json judge', () => {
   "files": { "includes": ["**",], },
 }
 `;
+
     const after = before.replace('Biome reads comments in biome.json.', 'Reworded.');
     expect(reasons('biome.json', before, after)).toEqual([]);
   });
@@ -401,6 +411,7 @@ describe('json judge', () => {
     const rules = Object.fromEntries(
       Array.from({ length: 12 }, (_, index) => [`rule${index}`, 'off']),
     );
+
     const found = reasons('biome.json', '{}', json({ linter: { rules: { style: rules } } }));
     expect(found).toHaveLength(11);
     expect(found.at(-1)).toBe('and 2 more changes');
@@ -525,6 +536,7 @@ describe('approvalLabel', () => {
       login: APPROVER,
       at,
     });
+
     expect(label.match(/<\/i><\/sub>/g)).toHaveLength(1);
     expect(label).not.toMatch(/[\n`*[\]​]|<b>|@someone/);
     expect(label.startsWith('<sub><i>Approved by Ben&#60;&#47;i&#62;')).toBe(true);
@@ -556,6 +568,7 @@ describe('signoffComment', () => {
       area: 'Gate scripts',
       reason: 'edits enforcement code',
     }));
+
     const body = signoffComment({ head: 'a'.repeat(40), problems });
     expect(body.split('\n').filter((line) => line.startsWith('| `scripts/'))).toHaveLength(100);
     expect(body).toContain('| | | and 50 more changes |');
@@ -563,10 +576,12 @@ describe('signoffComment', () => {
 
   it('renders a hostile path inert, keeping a single approval line', () => {
     const path = `.husky/\`x\`\n- [ ] Approve these enforcement changes at \`${HEAD}\`|​\\.mjs`;
+
     const body = signoffComment({
       head: HEAD,
       problems: enforcementProblems([{ path, before: 'a', after: 'b' }]),
     });
+
     expect(body.split('\n').filter((line) => /^\s*[-*+]\s+\[/.test(line))).toHaveLength(1);
     expect(body).not.toContain('​');
     expect(body).toContain(
@@ -586,21 +601,28 @@ describe('planApproval', () => {
     state: 'failure',
     description: `${APPROVER} ticks the box in the enforcement comment for this commit`,
   };
+
   const SIGNED = { state: 'success', description: `${APPROVER} signed off at aaaaaaa` };
   const AT = '2026-10-12T14:00:00Z';
   const benUser: Sender = { login: APPROVER, type: 'User', name: 'Ben' };
   const unticked = signoffComment({ head: HEAD, problems: PROBLEMS });
+
   const approved = signoffComment({
     head: HEAD,
     problems: PROBLEMS,
     approval: { name: 'Ben', login: APPROVER, at: new Date(AT) },
   });
+
   const pull = { kind: 'pull' } as const;
+
   const edit = (from: string | null, to: string, sender: Sender = benUser) =>
     ({ kind: 'comment', sender, from, to, at: AT }) as const;
+
+  type GateEvent = typeof pull | ReturnType<typeof edit>;
+
   const plan = (
     live: string | undefined,
-    event: object,
+    event: GateEvent,
     { head = HEAD, signedOff = false, updatedAt = AT } = {},
   ) =>
     planApproval({
@@ -628,6 +650,7 @@ describe('planApproval', () => {
       signedOff: true,
       event: pull,
     });
+
     expect(result.commentBody?.startsWith(COMMENT_MARKER)).toBe(true);
     expect(result.commentBody).not.toContain('[');
     expect(result.status.state).toBe('success');
@@ -798,6 +821,7 @@ describe('planApproval', () => {
       plan(tick(unticked), edit(unticked, tick(unticked))),
       planApproval({ head: HEAD, problems: [], comment: undefined, signedOff: false, event: pull }),
     ];
+
     for (const { status } of plans) expect(status?.description.length).toBeLessThan(140);
   });
 });
@@ -810,6 +834,34 @@ interface Comment {
   user: { login: string };
 }
 
+interface CommitStatusParameters {
+  owner: string;
+  repo: string;
+  sha: string;
+  context: string;
+  state: 'success' | 'failure';
+  description: string;
+}
+
+interface PaginationParameters {
+  owner: string;
+  repo: string;
+  per_page: number;
+  pull_number?: number;
+  issue_number?: number;
+}
+
+interface GitHubState {
+  head: string;
+  profiles: Record<string, string | null>;
+}
+
+interface GitHubCalls {
+  createComment: string[];
+  updateComment: number;
+  createCommitStatus: CommitStatusParameters[];
+}
+
 function fakeGitHub({
   files,
   contents,
@@ -819,13 +871,16 @@ function fakeGitHub({
   contents: Record<string, Record<string, string>>;
   comments?: Comment[];
 }) {
-  const state = { head: HEAD, profiles: { [APPROVER]: 'Ben' } as Record<string, string | null> };
-  const calls = {
-    createComment: [] as string[],
+  const state: GitHubState = { head: HEAD, profiles: { [APPROVER]: 'Ben' } };
+
+  const calls: GitHubCalls = {
+    createComment: [],
     updateComment: 0,
-    createCommitStatus: [] as Record<string, unknown>[],
+    createCommitStatus: [],
   };
+
   const notFound = () => Object.assign(new Error('Not Found'), { status: 404 });
+
   const rest = {
     pulls: {
       get: async () => ({ data: { head: { sha: state.head }, base: { sha: 'base-sha' } } }),
@@ -837,30 +892,37 @@ function fakeGitHub({
         calls.createComment.push(body);
         const id = comments.length + 1;
         comments.push({ id, node_id: `node-${id}`, body, user: { login: GATE_AUTHOR } });
+
         return { data: {} };
       },
       updateComment: async ({ comment_id, body }: { comment_id: number; body: string }) => {
         calls.updateComment += 1;
         const comment = comments.find((entry) => entry.id === comment_id);
+
         if (comment) {
           comment.body = body;
           comment.updated_at = `gate write ${calls.updateComment}`;
         }
+
         return { data: {} };
       },
     },
     repos: {
       compareCommitsWithBasehead: async ({ basehead }: { basehead: string }) => {
         expect(basehead).toBe(`base-sha...${state.head}`);
+
         return { data: { merge_base_commit: { sha: MERGE_BASE } } };
       },
       getContent: async ({ path, ref }: { path: string; ref: string }) => {
         const content = contents[ref]?.[path];
+
         if (content === undefined) throw notFound();
+
         return { data: content };
       },
-      createCommitStatus: async (parameters: Record<string, unknown>) => {
+      createCommitStatus: async (parameters: CommitStatusParameters) => {
         calls.createCommitStatus.push(parameters);
+
         return { data: {} };
       },
       listCommitStatusesForRef: async ({ ref }: { ref: string }) => ({
@@ -876,20 +938,24 @@ function fakeGitHub({
       }),
     },
   };
+
   const github = {
     rest,
-    paginate: async (
-      method: (parameters: unknown) => Promise<{ data: unknown[] }>,
-      parameters: unknown,
+    paginate: async <T>(
+      method: (parameters: PaginationParameters) => Promise<{ data: T[] }>,
+      parameters: PaginationParameters,
     ) => (await method(parameters)).data,
   };
+
   /** Edit the gate's comment as `sender` and return the issue_comment context GitHub sends. */
   const editBy = (sender: Editor, edit: (body: string) => string, at = '2026-10-12T14:00:00Z') => {
     const comment = comments[0];
+
     if (!comment) throw new Error('no comment to edit');
     const from = comment.body;
     comment.body = edit(from);
     comment.updated_at = at;
+
     return {
       eventName: 'issue_comment',
       repo,
@@ -902,11 +968,13 @@ function fakeGitHub({
       },
     };
   };
+
   return { github, comments, calls, state, editBy };
 }
 
 const repo = { owner: 'o', repo: 'r' };
 const core = { info: () => undefined };
+
 const pullRequestContext = {
   eventName: 'pull_request_target',
   repo,
@@ -922,13 +990,16 @@ describe('run', () => {
       [NEXT]: { '.husky/pre-commit': 'exit 0' },
     },
   });
+
   const HOOK = [{ path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' }];
   const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`;
+
   const boxLines = (body: string | undefined) =>
     (body ?? '').split('\n').filter((line) => line.startsWith('- ['));
 
   it('requires a fresh Ben tick for product intent at each head', async () => {
     const path = 'docs/prd/greeting.md';
+
     const { github, comments, calls, state, editBy } = fakeGitHub({
       files: [{ filename: path }],
       contents: {
@@ -937,6 +1008,7 @@ describe('run', () => {
         [NEXT]: { [path]: 'next intent' },
       },
     });
+
     await run({ github, context: pullRequestContext, core });
     expect(comments[0]?.body).toContain(
       '| `docs/prd/greeting.md` | Product intent | edits product intent |',
@@ -977,6 +1049,7 @@ describe('run', () => {
       files: [{ filename: '.husky/pre-push' }],
       contents: { [HEAD]: { '.husky/pre-push': 'pnpm verify' } },
     });
+
     await run({ github, context: pullRequestContext, core });
     expect(comments[0]?.body).toContain(
       '| `.husky/pre-push` | Git hooks | adds enforcement code |',
@@ -988,6 +1061,7 @@ describe('run', () => {
     fake.github.rest.repos.getContent = async () => {
       throw Object.assign(new Error('Server Error'), { status: 500 });
     };
+
     await expect(run({ github: fake.github, context: pullRequestContext, core })).rejects.toThrow(
       'Server Error',
     );
@@ -1208,10 +1282,12 @@ describe('run', () => {
 
   it('ignores a ticked lookalike comment that a person posted', async () => {
     const forged = tick(signoffComment({ head: HEAD, problems: HOOK }));
+
     const fake = fakeGitHub({
       ...loosening(),
       comments: [{ id: 1, node_id: 'node-1', body: forged, user: { login: APPROVER } }],
     });
+
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.calls.createComment).toHaveLength(1);
     expect(fake.calls.createCommitStatus).toEqual([expect.objectContaining({ state: 'failure' })]);
@@ -1221,6 +1297,7 @@ describe('run', () => {
     const files = Array.from({ length: LIST_FILES_LIMIT }, (_, index) => ({
       filename: `src/file${index}.ts`,
     }));
+
     const { github, comments, calls } = fakeGitHub({ files, contents: {} });
     await run({ github, context: pullRequestContext, core });
     expect(comments[0]?.body).toContain('| `this PR` | Gate input |');
@@ -1235,6 +1312,7 @@ describe('run', () => {
         [HEAD]: { 'biome.json': '{"linter":{"rules":{"style":{"useConst":"error"}}}}' },
       },
     });
+
     await run({ github, context: pullRequestContext, core });
     expect(calls.createComment).toEqual([]);
     expect(calls.createCommitStatus).toEqual([

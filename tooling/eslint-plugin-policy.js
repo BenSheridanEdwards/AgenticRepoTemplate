@@ -6,15 +6,18 @@ import { basename, dirname, extname, join, posix, relative, sep } from 'node:pat
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/;
 const HOOK_NAME = /^use[A-Z0-9]/;
 const FOLDER_NAME = /^([a-z0-9]+(-[a-z0-9]+)*|__[a-z]+__)$/;
+
 // The first `src` folder on the path is the package's source root.
 const PACKAGE_ROUTES = /^(?:(?!src\/)[^/]+\/)*src\/routes\//;
 const UNPREFIXED_CALLBACK_PROPS = /^(render[A-Z].*|children)$/;
 const COMPONENT_WRAPPERS = new Set(['memo', 'forwardRef']);
+
 // The package source root is the first `src` folder on the path; `routes/` and
 // `features/` under it hold one folder per slice.
 const PACKAGE_SOURCE = /^((?:(?!src\/)[^/]+\/)*)src\/(.*)$/;
 const SLICE_KINDS = new Set(['routes', 'features']);
 const CATCH_ALL_FOLDERS = new Set(['utils', 'helpers', 'lib', 'common', 'shared', 'misc']);
+
 /** The hooks that hold state or effects, by the module that exports them (ADR 0012). */
 const STATE_AND_EFFECT_HOOKS = new Map([
   [
@@ -59,10 +62,13 @@ function wrappedFunction(init) {
   if (isFunctionNode(init)) {
     return init;
   }
+
   if (init?.type !== 'CallExpression') {
     return null;
   }
+
   const callee = init.callee.type === 'MemberExpression' ? init.callee.property : init.callee;
+
   return callee.type === 'Identifier' && COMPONENT_WRAPPERS.has(callee.name)
     ? (init.arguments.find(isFunctionNode) ?? null)
     : null;
@@ -78,9 +84,11 @@ function bindings(declaration) {
   if (declaration?.type === 'FunctionDeclaration' && declaration.id) {
     return [{ id: declaration.id, fn: declaration }];
   }
+
   if (declaration?.type !== 'VariableDeclaration') {
     return [];
   }
+
   return declaration.declarations
     .filter((declarator) => declarator.id.type === 'Identifier')
     .map((declarator) => ({ id: declarator.id, init: declarator.init }));
@@ -92,6 +100,7 @@ const isExport = (statement) => statement.type.startsWith('Export');
 /** The props type from `FC<Props>` on the binding, or `forwardRef<Element, Props>`. */
 function declaredPropsType({ id, init }) {
   const annotationArguments = id.typeAnnotation?.typeAnnotation?.typeArguments?.params;
+
   return annotationArguments?.[0] ?? init?.typeArguments?.params?.[1];
 }
 
@@ -103,15 +112,18 @@ function moduleComponents(program, filename) {
   if (extname(filename) !== '.tsx' || isTestFile(filename)) {
     return [];
   }
+
   const ordered = [...program.body.filter(isExport), ...program.body.filter((s) => !isExport(s))];
+
   return ordered
     .flatMap((statement) => bindings(unwrapExport(statement)))
-    .map((binding) => {
+    .flatMap((binding) => {
       const fn = binding.fn ?? wrappedFunction(binding.init);
       const propsType = fn?.params[0]?.typeAnnotation?.typeAnnotation ?? declaredPropsType(binding);
-      return { name: binding.id.name, node: binding.id, fn, propsType };
-    })
-    .filter((component) => component.fn && PASCAL_CASE.test(component.name));
+      const component = { name: binding.id.name, node: binding.id, fn, propsType };
+
+      return component.fn && PASCAL_CASE.test(component.name) ? [component] : [];
+    });
 }
 
 const repositoryPath = (context) => relative(context.cwd, context.filename).split(sep).join('/');
@@ -120,7 +132,9 @@ function functionName(fn) {
   if (fn.id) {
     return fn.id.name;
   }
+
   const parent = fn.parent;
+
   return parent?.type === 'VariableDeclarator' && parent.id.type === 'Identifier'
     ? parent.id.name
     : null;
@@ -166,12 +180,15 @@ const stateAndEffectsInHooks = {
     if (isTestFile(context.filename)) {
       return {};
     }
+
     const hookNames = new Map();
     const hookNamespaces = new Map();
+
     const restrictedHook = (callee) => {
       if (callee.type === 'Identifier') {
         return hookNames.get(callee.name);
       }
+
       if (
         callee.type === 'MemberExpression' &&
         callee.object.type === 'Identifier' &&
@@ -180,13 +197,17 @@ const stateAndEffectsInHooks = {
       ) {
         return callee.property.name;
       }
+
       return undefined;
     };
+
     return {
       ExportNamedDeclaration(node) {
         const hooks = STATE_AND_EFFECT_HOOKS.get(node.source?.value);
+
         for (const specifier of hooks ? node.specifiers : []) {
           const hook = specifier.local.name ?? specifier.local.value;
+
           if (hooks.has(hook)) {
             context.report({ node: specifier, messageId: 'reexport', data: { hook } });
           }
@@ -199,9 +220,11 @@ const stateAndEffectsInHooks = {
       },
       ImportDeclaration(node) {
         const hooks = STATE_AND_EFFECT_HOOKS.get(node.source.value);
+
         if (!hooks) {
           return;
         }
+
         for (const specifier of node.specifiers) {
           if (specifier.type !== 'ImportSpecifier') {
             hookNamespaces.set(specifier.local.name, hooks);
@@ -212,14 +235,19 @@ const stateAndEffectsInHooks = {
       },
       CallExpression(node) {
         const hook = restrictedHook(node.callee);
+
         if (!hook) {
           return;
         }
+
         let owner = node.parent;
+
         while (owner && !isFunctionNode(owner)) {
           owner = owner.parent;
         }
+
         const name = owner ? functionName(owner) : null;
+
         if (!(name && HOOK_NAME.test(name))) {
           context.report({ node, messageId: 'outsideHook', data: { hook } });
         }
@@ -230,6 +258,7 @@ const stateAndEffectsInHooks = {
 
 const isCallbackHook = (init) => {
   const callee = init?.type === 'CallExpression' ? init.callee : undefined;
+
   return (callee?.type === 'MemberExpression' ? callee.property : callee)?.name === 'useCallback';
 };
 
@@ -238,6 +267,7 @@ function localFunctions(body) {
   if (body.type !== 'BlockStatement') {
     return [];
   }
+
   return body.body
     .flatMap(bindings)
     .filter(({ fn, init }) => fn || isFunctionNode(init) || isCallbackHook(init))
@@ -286,11 +316,14 @@ function declaredMembers(program, declaration) {
     const inherited = (declaration.extends ?? []).flatMap((heritage) =>
       typeMembers(program, { type: 'TSTypeReference', typeName: heritage.expression }),
     );
+
     return [...declaration.body.body, ...inherited];
   }
+
   if (declaration?.type === 'TSTypeAliasDeclaration') {
     return typeMembers(program, declaration.typeAnnotation);
   }
+
   return [];
 }
 
@@ -299,13 +332,17 @@ function typeMembers(program, annotation) {
   if (annotation?.type === 'TSTypeLiteral') {
     return annotation.members;
   }
+
   if (annotation?.type === 'TSIntersectionType') {
     return annotation.types.flatMap((type) => typeMembers(program, type));
   }
+
   if (annotation?.type !== 'TSTypeReference' || annotation.typeName.type !== 'Identifier') {
     return [];
   }
+
   const statement = program.body.find(isNamed(annotation.typeName.name));
+
   return statement ? declaredMembers(program, unwrapExport(statement)) : [];
 }
 
@@ -335,6 +372,7 @@ const callbackPropNames = {
         const members = moduleComponents(program, context.filename).flatMap(({ propsType }) =>
           typeMembers(program, propsType),
         );
+
         for (const member of members.filter(isMisnamedCallback)) {
           const name = member.key.name;
           const suffix = name.charAt(0).toUpperCase() + name.slice(1);
@@ -361,6 +399,7 @@ const pagesInRoutes = {
         if (PACKAGE_ROUTES.test(repositoryPath(context))) {
           return;
         }
+
         for (const component of moduleComponents(program, context.filename)) {
           if (component.name.endsWith('Page')) {
             context.report({ node: component.node, messageId: 'location', data: component });
@@ -393,12 +432,15 @@ const fileMatchesExport = {
     return {
       Program(program) {
         const path = repositoryPath(context);
+
         if (isTestFile(path)) {
           return;
         }
+
         const extension = extname(path);
         const [component] = moduleComponents(program, context.filename);
         const named = [component?.node, ...exportedHooks(program)].filter(Boolean);
+
         for (const node of named.filter(({ name }) => name !== basename(path, extension))) {
           context.report({
             node,
@@ -423,6 +465,7 @@ const folderNames = {
     return {
       Program(program) {
         const folders = dirname(repositoryPath(context)).split('/').slice(1);
+
         for (const folder of folders) {
           if (!FOLDER_NAME.test(folder)) {
             context.report({ node: program, messageId: 'kebab', data: { folder } });
@@ -446,10 +489,13 @@ const roleNamedFolders = {
   },
   create(context) {
     const source = PACKAGE_SOURCE.exec(repositoryPath(context));
+
     if (!source) {
       return {};
     }
+
     const folders = posix.dirname(source[2]).split('/');
+
     return {
       Program(program) {
         folders.forEach((folder, index) => {
@@ -478,22 +524,27 @@ const testBesideSubject = {
   },
   create(context) {
     const path = repositoryPath(context);
+
     if (!isTestFile(path)) {
       return {};
     }
+
     // `Foo.a11y.test.tsx` tests `Foo`, and `todo.schema.test.ts` tests `todo.schema`.
     const parts = basename(path)
       .replace(/\.test\.tsx?$/, '')
       .split('.');
+
     const folders = posix.dirname(path).split('/');
     const subjectFolders = folders.filter((folder) => folder !== '__tests__');
     const subject = [...subjectFolders, parts[0]].join('/');
+
     const subjectFiles = parts.flatMap((_, index) =>
       ['.ts', '.tsx'].map(
         (extension) =>
           `${[...subjectFolders, parts.slice(0, index + 1).join('.')].join('/')}${extension}`,
       ),
     );
+
     return {
       Program(program) {
         if (subjectFolders.length < folders.length) {
@@ -513,6 +564,7 @@ const testBesideSubject = {
 /** The slice a path under a package's `src/` sits in: `{ kind, slice, rest }`, or null. */
 function sliceOf(pathInSource) {
   const [kind, slice, ...rest] = pathInSource.split('/');
+
   return SLICE_KINDS.has(kind) && slice ? { kind, slice, rest } : null;
 }
 
@@ -521,6 +573,7 @@ function staticText(node) {
   if (node?.type === 'Literal' && typeof node.value === 'string') {
     return node.value;
   }
+
   return node?.type === 'TemplateLiteral' && node.expressions.length === 0
     ? node.quasis[0].value.cooked
     : undefined;
@@ -533,11 +586,14 @@ function staticText(node) {
 function moduleSources(report) {
   const check = (node, source) => {
     const specifier = staticText(source);
+
     if (specifier !== undefined) {
       report(node, specifier);
     }
   };
+
   const checkSource = (node) => check(node, node.source);
+
   return {
     ImportDeclaration: checkSource,
     ExportNamedDeclaration: checkSource,
@@ -572,11 +628,14 @@ const sliceIsolation = {
   create(context) {
     const path = repositoryPath(context);
     const source = PACKAGE_SOURCE.exec(path);
+
     if (!source) {
       return {};
     }
+
     const [, packageRoot, pathInSource] = source;
     const own = sliceOf(pathInSource);
+
     return {
       Program(program) {
         if (own && own.rest.length === 0) {
@@ -591,18 +650,23 @@ const sliceIsolation = {
         if (!specifier.startsWith('.')) {
           return;
         }
+
         const target = posix.join(posix.dirname(path), specifier);
+
         if (!target.startsWith(packageRoot)) {
           context.report({
             node,
             messageId: 'leavesPackage',
             data: { source: specifier, packageRoot: packageRoot.replace(/\/$/, '') || '.' },
           });
+
           return;
         }
+
         const targetSlice = target.startsWith(`${packageRoot}src/`)
           ? sliceOf(target.slice(`${packageRoot}src/`.length))
           : null;
+
         if (own?.rest.length && targetSlice?.kind === own.kind && targetSlice.slice !== own.slice) {
           context.report({
             node,
@@ -619,11 +683,13 @@ const sliceIsolation = {
 function importTracker(source, name) {
   const locals = new Set();
   const namespaces = new Set();
+
   return {
     ImportDeclaration(node) {
       if (node.source.value !== source) {
         return;
       }
+
       for (const specifier of node.specifiers) {
         if (specifier.type !== 'ImportSpecifier') {
           namespaces.add(specifier.local.name);
@@ -637,6 +703,7 @@ function importTracker(source, name) {
       if (node?.type === 'Identifier') {
         return locals.has(node.name);
       }
+
       return (
         node?.type === 'MemberExpression' &&
         node.object.type === 'Identifier' &&
@@ -656,6 +723,7 @@ function importTracker(source, name) {
 function effectStandardSchema() {
   const schema = importTracker('effect', 'Schema');
   const schemaModule = importTracker('effect/Schema', 'toStandardSchemaV1');
+
   return {
     ImportDeclaration(node) {
       schema.ImportDeclaration(node);
@@ -691,11 +759,14 @@ const procedureInputSchema = {
     if (!API_SOURCE.test(repositoryPath(context)) || isTestFile(context.filename)) {
       return {};
     }
+
     const standardSchema = effectStandardSchema();
+
     return {
       ImportDeclaration: standardSchema.ImportDeclaration,
       CallExpression(node) {
         const { callee } = node;
+
         if (
           callee.type === 'MemberExpression' &&
           (callee.computed ? callee.property.value : callee.property.name) === 'input' &&
@@ -725,6 +796,7 @@ const formUsesEffectSchema = {
     const useForm = importTracker('react-hook-form', 'useForm');
     const resolver = importTracker('@hookform/resolvers/standard-schema', 'standardSchemaResolver');
     const standardSchema = effectStandardSchema();
+
     const isEffectResolver = (property) =>
       property.type === 'Property' &&
       !property.computed &&
@@ -733,6 +805,7 @@ const formUsesEffectSchema = {
       resolver.names(property.value.callee) &&
       property.value.arguments.length === 1 &&
       standardSchema.wraps(property.value.arguments[0]);
+
     return {
       ImportDeclaration(node) {
         useForm.ImportDeclaration(node);
@@ -743,11 +816,14 @@ const formUsesEffectSchema = {
         if (!useForm.names(node.callee)) {
           return;
         }
+
         const [options] = node.arguments;
+
         const valid =
           options?.type === 'ObjectExpression' &&
           options.properties.some(isEffectResolver) &&
           !options.properties.some((property) => property.type === 'SpreadElement');
+
         if (!valid) {
           context.report({ node, messageId: 'resolver' });
         }
@@ -776,23 +852,29 @@ const noLargeComments = {
   create(context) {
     const source = context.sourceCode;
     const span = (first, last) => last.loc.end.line - first.loc.start.line + 1;
+
     const report = (first, last) =>
       context.report({
         loc: { start: first.loc.start, end: last.loc.end },
         messageId: 'tooLong',
         data: { lines: span(first, last), max: MAX_COMMENT_LINES },
       });
+
     return {
       Program() {
         let run = [];
+
         const flushRun = () => {
           if (run.length > 0 && span(run[0], run[run.length - 1]) > MAX_COMMENT_LINES) {
             report(run[0], run[run.length - 1]);
           }
+
           run = [];
         };
+
         for (const comment of source.getAllComments()) {
           const previous = run.at(-1);
+
           if (
             previous &&
             (comment.loc.start.line > previous.loc.end.line + 1 ||
@@ -800,8 +882,10 @@ const noLargeComments = {
           ) {
             flushRun();
           }
+
           run.push(comment);
         }
+
         flushRun();
       },
     };
@@ -818,7 +902,9 @@ const useUiPrimitives = {
     if (repositoryPath(context).startsWith('packages/ui/') || isTestFile(context.filename)) {
       return {};
     }
+
     const element = importTracker('react', 'createElement');
+
     const check = (node, tag, type) => {
       if (tag === 'button' || (tag === 'input' && !['checkbox', 'radio'].includes(type))) {
         context.report({
@@ -828,12 +914,14 @@ const useUiPrimitives = {
         });
       }
     };
+
     return {
       ImportDeclaration: element.ImportDeclaration,
       JSXOpeningElement(node) {
         const type = node.attributes.findLast(
           (attribute) => attribute.type === 'JSXSpreadAttribute' || attribute.name.name === 'type',
         )?.value;
+
         check(node, node.name.name, type?.value ?? type?.expression?.value);
       },
       CallExpression(node) {
@@ -845,6 +933,7 @@ const useUiPrimitives = {
               property.key?.name === 'type' ||
               property.key?.value === 'type',
           );
+
           check(node, node.arguments[0]?.value, type?.computed ? undefined : type?.value?.value);
         }
       },
