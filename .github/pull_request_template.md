@@ -30,7 +30,7 @@ write `Not applicable` with the technical reason. -->
 # Verification Summary
 
 <!-- Exact commands and pass/fail results after the final code change. Keep local
-proof, GitHub Actions status, and unverified gaps in separate lines.
+proof and unverified gaps in separate lines; the PR's checks panel shows CI.
 Head commit: the one SHA the whole body was last checked against, and nothing
 else. CI fails when a push moves the PR head past it; re-check the body against
 the new head, then update it.
@@ -53,7 +53,6 @@ git log -1 --format=%H <head> -- .agents/NORTH_STAR.md. -->
 - [ ] `pnpm verify`
 - [ ] `pnpm e2e`
 - [ ] `pnpm lint:anti-slop:changed` prints no finding for this branch.
-- [ ] Latest-sha GitHub Actions are green; any pending or failing checks are named with a fix plan.
 - [ ] Behaviour is covered by the E2E map when user-visible behaviour changed.
 - [ ] Logic is unit-tested where logic changed.
 - [ ] Accessibility considered and verified for interactive/UI changes.

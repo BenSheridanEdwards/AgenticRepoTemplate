@@ -98,8 +98,8 @@ which the root `AGENTS.md` and `CLAUDE.md` point to, sends Codex and Claude here
   falsify the change, per [`.agents/project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md).
 - Confirm visual proof comes from the branch under review and shows the changed
   behaviour itself, committed under `docs/proof/<short-scope>/`.
-- Confirm the body separates what passed locally, what CI proved on the latest
-  commit, what a runtime verified, and what stays unverified.
+- Confirm the body separates what passed locally, what a runtime verified, and
+  what stays unverified.
 - Confirm secrets, tokens, and customer names stay out of the PR body and the
   diff, and local-only paths stay out of the diff. The `PR quality` check owns
   machine-local paths in the body.

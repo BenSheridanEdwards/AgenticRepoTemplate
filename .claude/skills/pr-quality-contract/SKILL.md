@@ -3,7 +3,7 @@ name: pr-quality-contract
 description: >-
   Use before opening, updating, or marking a pull request ready. It turns the
   repo Definition of Done into a proof-backed PR body with exact local checks,
-  inline screenshot proof, visual evidence, CI status, and explicit unverified gaps.
+  inline screenshot proof, visual evidence, and explicit unverified gaps.
 ---
 
 # PR Quality Contract
@@ -31,7 +31,7 @@ asking for proof, or decide whether work is ready to report complete.
 3. **Collect visual proof.** For UI-visible or CSS changes, attach screenshots
    or video. For non-UI changes, write `Not applicable` with the reason instead of
    pretending visual proof exists.
-4. **Separate proof layers.** Keep local command proof, GitHub Actions status,
+4. **Separate proof layers.** Keep local command proof,
    deploy/runtime proof, and pending gaps in separate sentences.
 5. **Fill the template.** Use `.github/pull_request_template.md` exactly. The
    body must contain, in order, `Why does this feature exist?`, `What changed?`,
@@ -43,7 +43,7 @@ asking for proof, or decide whether work is ready to report complete.
    names a `- Head commit:` other than the PR head. After every push, re-check
    the whole body against the new head, then update `- Head commit:`.
 6. **Gate completion.** Report the work complete once the latest-sha CI checks
-   are green, or name the checks that are still pending or failing.
+   are green; leave CI status out of the body.
 
 ## Inline visual proof
 

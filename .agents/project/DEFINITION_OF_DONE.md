@@ -43,7 +43,7 @@ complete once `pnpm verify` and `pnpm e2e` are green.
 - [ ] **PR proof is ready.** The pull request body follows
       [`PR_QUALITY.md`](PR_QUALITY.md) and the
       [pull request template](../../.github/pull_request_template.md), with exact
-      local commands, visual proof or `Not applicable` with a reason, CI status,
+      local commands, visual proof or `Not applicable` with a reason,
       the PRDs and North Star commit checked, PRD impact, risk, rollback, and
       no private details.
 - [ ] **Patterns followed.** The change matches
