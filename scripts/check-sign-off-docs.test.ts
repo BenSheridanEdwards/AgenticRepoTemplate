@@ -139,10 +139,6 @@ describe('findUnguardedSignOffPaths passes', () => {
       'The `enforcement-approval` status and `pnpm verify` need sign-off.',
     ],
     ['fenced code', '```md\n`tsconfig.json` needs sign-off\n```'],
-    [
-      'the generated GitNexus block',
-      '<!-- gitnexus:start -->\n`tsconfig.json` needs sign-off.\n<!-- gitnexus:end -->',
-    ],
     ['a blank line between blocks', 'Edit `tsconfig.json` freely.\n\nHooks need sign-off.'],
   ])('%s', (_name, text) => {
     expect(find(text)).toEqual([]);

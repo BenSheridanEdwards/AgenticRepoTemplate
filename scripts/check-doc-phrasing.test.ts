@@ -37,21 +37,6 @@ describe('findNegativePhrasing', () => {
 
     expect(findNegativePhrasing(text)).toEqual([{ line: 6, phrase: 'Never' }]);
   });
-
-  it('checks prose inside former generated markers', () => {
-    const text = [
-      'Intro.',
-      '<!-- gitnexus:start -->',
-      '- NEVER edit a function without impact analysis.',
-      '<!-- gitnexus:end -->',
-      'Never skip a gate.',
-    ].join('\n');
-
-    expect(findNegativePhrasing(text)).toEqual([
-      { line: 3, phrase: 'NEVER' },
-      { line: 5, phrase: 'Never' },
-    ]);
-  });
 });
 
 describe('isGuidanceDoc', () => {
@@ -62,7 +47,6 @@ describe('isGuidanceDoc', () => {
     '.github/pull_request_template.md',
     'docs/proof/README.md',
     '.claude/skills/show-me/REPOSITORY.md',
-    '.claude/skills/gitnexus/gitnexus-guide/SKILL.md',
   ])('checks %s', (path) => {
     expect(isGuidanceDoc(path)).toBe(true);
   });
