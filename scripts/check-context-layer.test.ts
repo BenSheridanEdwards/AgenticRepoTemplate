@@ -141,6 +141,7 @@ describe('checkContextLayer', () => {
       'x'.repeat((bytes - body.length) % 2);
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(bytes === 32768);
+
     if (bytes > 32768) {
       expect(result.errors.join('\n')).toContain('32769 bytes, expected at most 32768');
     }
@@ -169,12 +170,14 @@ describe('checkContextLayer', () => {
   it('fails when the Claude import is a symbolic link', () => {
     const files = buildPassingTree();
     delete files['.claude/CLAUDE.md'];
+
     const result = checkContextLayer(
       createInMemoryFilesystem({
         files,
         symlinks: { '.claude/CLAUDE.md': 'AGENTS.md' },
       }),
     );
+
     expect(result.errors.join('\n')).toContain('symbolic link');
   });
 

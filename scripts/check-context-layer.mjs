@@ -124,13 +124,16 @@ function checkStartHere(filesystem, errors) {
   if (!assertRegularFile(filesystem, START_HERE, errors)) {
     return;
   }
+
   const text = filesystem.readText(START_HERE);
   const bytes = Buffer.byteLength(text, 'utf8');
+
   if (bytes > MAXIMUM_CONTRACT_BYTES) {
     errors.push(
       `\`${START_HERE}\` has ${bytes} bytes, expected at most ${MAXIMUM_CONTRACT_BYTES}.`,
     );
   }
+
   const nonEmptyLineCount = countNonEmptyLines(text);
   if (nonEmptyLineCount < MINIMUM_NON_EMPTY_LINES) {
     errors.push(
@@ -143,9 +146,11 @@ function checkStartHere(filesystem, errors) {
 /** Assert the Claude entry point imports the contract outside fenced code. */
 function checkClaudePointer(filesystem, errors) {
   const path = '.claude/CLAUDE.md';
+
   if (!assertRegularFile(filesystem, path, errors)) {
     return;
   }
+
   if (!proseLines(filesystem.readText(path)).some((line) => line.trim() === '@../AGENTS.md')) {
     errors.push(
       '`.claude/CLAUDE.md` must import the operating contract on its own line, `@../AGENTS.md`, so Claude Code loads it at launch.',
