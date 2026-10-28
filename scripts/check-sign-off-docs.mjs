@@ -57,16 +57,13 @@ export function isGuardedPath(path, trackedFiles) {
   return gateGuards(path.endsWith('/') ? `${path}example` : path);
 }
 
-/** Each line of `markdown`, blanked inside fenced code and the generated GitNexus block. */
+/** Each line of `markdown`, blanked inside fenced code. */
 function proseLines(markdown) {
   let fence = '';
-  let inGenerated = false;
   return markdown.split('\n').map((line) => {
     const open = fence;
     fence = nextFence(fence, line);
-    const marker = /<!-- gitnexus:(start|end) -->/.test(line);
-    inGenerated = marker ? !inGenerated : inGenerated;
-    return open || fence || inGenerated || marker ? '' : line;
+    return open || fence ? '' : line;
   });
 }
 
