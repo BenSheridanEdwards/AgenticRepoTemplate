@@ -63,6 +63,7 @@ function proseLines(markdown) {
   return markdown.split('\n').map((line) => {
     const open = fence;
     fence = nextFence(fence, line);
+
     return open || fence ? '' : line;
   });
 }
