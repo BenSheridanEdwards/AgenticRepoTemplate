@@ -29,8 +29,8 @@ This template currently uses these paths; check the target before copying.
 
 | Layer | Current home |
 | --- | --- |
-| Entry pointers | `AGENTS.md` and `CLAUDE.md` point to `.agents/START_HERE.md`; Claude imports it with `@.agents/START_HERE.md`. |
-| Operating contract | `.agents/START_HERE.md` holds commands, rules, and the context map. |
+| Claude import | `.claude/CLAUDE.md` imports `AGENTS.md` with `@../AGENTS.md`. |
+| Operating contract | `AGENTS.md` holds commands, rules, and the context map. |
 | Tool adapter | `.agents/CLAUDE_CODE.md`, `.claude/settings.json`, and hooks hold Claude-specific setup. |
 | Project standards | `.agents/project/` holds architecture, conventions, tool ownership, and completion rules. |
 | Decisions and patterns | `.agents/decisions/` holds ADRs; `.agents/templates/` holds starting points. |

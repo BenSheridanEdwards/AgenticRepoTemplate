@@ -66,8 +66,8 @@ function buildPassingTree() {
   ].join('\n');
 
   return {
-    'AGENTS.md': '# AGENTS.md\n\nStart here: `.agents/START_HERE.md`.\n',
-    'CLAUDE.md': '# CLAUDE.md\n\nRead `.agents/START_HERE.md`.\n\n@.agents/START_HERE.md\n',
+    'AGENTS.md': `${twentyLineBody}\nRead REVIEW.md.`,
+    '.claude/CLAUDE.md': '@../AGENTS.md\n',
     'REVIEW.md': 'review rules for the bot reviewer',
     '.cursor/BUGBOT.md': 'See `REVIEW.md` at the repository root.',
     '.agents/project/ARCHITECTURE.md': 'architecture',
@@ -77,7 +77,6 @@ function buildPassingTree() {
     '.agents/project/DEFINITION_OF_DONE.md': 'done',
     '.agents/project/QUALITY_GATES.md': 'gates',
     '.agents/project/PR_QUALITY.md': 'pr quality',
-    '.agents/START_HERE.md': `${twentyLineBody}\nRead REVIEW.md.`,
     '.claude/skills/adopt-the-factory/SKILL.md': skillFrontmatter,
     '.claude/skills/pr-quality-contract/SKILL.md': skillFrontmatter,
     '.agents/decisions/0001-record-decisions.md': '# 1. Record decisions\n',
@@ -126,87 +125,57 @@ describe('checkContextLayer', () => {
     expect(result.errors.join('\n')).toContain('symbolic link');
   });
 
-  it('fails when AGENTS.md does not point to the start-here guide', () => {
+  it('fails when AGENTS.md has fewer than 20 non-empty lines', () => {
     const files = buildPassingTree();
-    files['AGENTS.md'] = '# AGENTS.md\n\nRead the docs.\n';
+    files['AGENTS.md'] = `${'line\n'.repeat(18)}Read REVIEW.md.\n   \n`;
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('must point to `.agents/START_HERE.md`');
+    expect(result.errors.join('\n')).toContain('too thin: 19 non-empty lines');
   });
 
-  it('fails when the start-here guide has too few non-empty lines', () => {
+  it.each([32768, 32769])('checks the AGENTS.md byte budget at %i bytes', (bytes) => {
     const files = buildPassingTree();
-    files['.agents/START_HERE.md'] = 'one line only';
+    const body = `${'line\n'.repeat(19)}Read REVIEW.md.\n`;
+    files['AGENTS.md'] =
+      body +
+      'é'.repeat(Math.floor((bytes - body.length) / 2)) +
+      'x'.repeat((bytes - body.length) % 2);
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('too thin');
-  });
-
-  it('fails when CLAUDE.md does not point to the guide', () => {
-    const files = buildPassingTree();
-    files['CLAUDE.md'] = '# CLAUDE.md\nRead the docs.\n';
-    const result = checkContextLayer(createInMemoryFilesystem({ files }));
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('`CLAUDE.md` must point to `.agents/START_HERE.md`');
+    expect(result.ok).toBe(bytes === 32768);
+    if (bytes > 32768) {
+      expect(result.errors.join('\n')).toContain('32769 bytes, expected at most 32768');
+    }
   });
 
   it.each([
-    ['lacks the import line', '# CLAUDE.md\nRead `.agents/START_HERE.md`.\n'],
-    [
-      'has the import line only inside a fence',
-      '# CLAUDE.md\n```md\n@.agents/START_HERE.md\n```\n',
-    ],
-  ])('fails when CLAUDE.md %s', (_description, text) => {
+    ['lacks the import line', 'Read AGENTS.md.'],
+    ['has the import inside a fence', '```md\n@../AGENTS.md\n```'],
+    ['has the import inside prose', 'Read @../AGENTS.md now.'],
+  ])('fails when .claude/CLAUDE.md %s', (_description, text) => {
     const files = buildPassingTree();
-    files['CLAUDE.md'] = text;
+    files['.claude/CLAUDE.md'] = text;
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
-    expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain(
-      '`CLAUDE.md` must import the start-here guide on its own line, `@.agents/START_HERE.md`, so Claude Code loads it at launch.',
+      '`.claude/CLAUDE.md` must import the operating contract on its own line, `@../AGENTS.md`',
     );
   });
 
-  it.each(['AGENTS.md', 'CLAUDE.md'])('fails when %s has more than 10 non-empty lines', (path) => {
+  it.each(['AGENTS.md', '.claude/CLAUDE.md'])('reports a missing %s once', (path) => {
     const files = buildPassingTree();
-    files[path] = `Read .agents/START_HERE.md\n@.agents/START_HERE.md\n${'line\n'.repeat(9)}`;
+    delete files[path];
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
-    expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain(`\`${path}\` has 11 non-empty lines`);
-    expect(result.errors.join('\n')).toContain('only a pointer');
+    expect(result.errors.filter((error) => error.includes(path))).toHaveLength(1);
   });
 
-  it.each([
-    // Two pointer lines plus eight padding lines make ten non-empty lines.
-    ['AGENTS.md', 'line\n'.repeat(8)],
-    // Three pointer lines plus seven padding lines make ten non-empty lines.
-    ['CLAUDE.md', 'line\n'.repeat(7)],
-  ])('passes when %s has 10 non-empty lines and whitespace', (path, padding) => {
+  it('fails when the Claude import is a symbolic link', () => {
     const files = buildPassingTree();
-    files[path] = `${files[path]}${padding}   \n`;
-    expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
-      ok: true,
-      errors: [],
-    });
-  });
-
-  it.each(['missing', 'symlinked'])('reports a %s CLAUDE.md only once', (kind) => {
-    const files = buildPassingTree();
-    delete files['CLAUDE.md'];
-    const symlinks = kind === 'symlinked' ? { 'CLAUDE.md': 'AGENTS.md' } : {};
-    const result = checkContextLayer(createInMemoryFilesystem({ files, symlinks }));
-    expect(result.errors.filter((error) => error.includes('CLAUDE.md'))).toHaveLength(1);
-  });
-
-  it('fails when CLAUDE.md is byte-identical to AGENTS.md', () => {
-    const files = buildPassingTree();
-    // Satisfy both pointer and import rules to isolate byte identity.
-    const identical = 'Read `.agents/START_HERE.md`.\n@.agents/START_HERE.md\n';
-    files['AGENTS.md'] = identical;
-    files['CLAUDE.md'] = identical;
-    const result = checkContextLayer(createInMemoryFilesystem({ files }));
-    expect(result.ok).toBe(false);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors.join('\n')).toContain('byte-identical');
+    delete files['.claude/CLAUDE.md'];
+    const result = checkContextLayer(
+      createInMemoryFilesystem({
+        files,
+        symlinks: { '.claude/CLAUDE.md': 'AGENTS.md' },
+      }),
+    );
+    expect(result.errors.join('\n')).toContain('symbolic link');
   });
 
   it('fails, listing the file, when the review-rules file is missing', () => {
@@ -217,25 +186,13 @@ describe('checkContextLayer', () => {
     expect(result.errors.join('\n')).toContain('Missing required file: `REVIEW.md`');
   });
 
-  it('passes when AGENTS.md does not reference REVIEW.md', () => {
-    const files = buildPassingTree();
-    expect(files['AGENTS.md']).not.toContain('REVIEW.md');
-    expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
-      ok: true,
-      errors: [],
-    });
-  });
-
   it('fails when the guide stops referencing REVIEW.md', () => {
     const files = buildPassingTree();
-    files['.agents/START_HERE.md'] = files['.agents/START_HERE.md'].replace(
-      'Read REVIEW.md.',
-      'Read the rules.',
-    );
+    files['AGENTS.md'] = files['AGENTS.md'].replace('Read REVIEW.md.', 'Read the rules.');
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain(
-      '`.agents/START_HERE.md` must reference `REVIEW.md` so Codex and Claude read the review rules on every PR.',
+      '`AGENTS.md` must reference `REVIEW.md` so Codex and Claude read the review rules on every PR.',
     );
   });
 

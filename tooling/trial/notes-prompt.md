@@ -14,7 +14,7 @@ Read it this way.
 - A user creates a note with a title that is not blank and body text, sees the list of notes, and deletes a note. A blank body is allowed.
 - The api keeps the notes in memory, inside the api process.
 - Leave out authentication, editing, searching, sorting, collaboration, external services and generic CRUD helpers.
-- "GUARDRAILS state+form conventions" means the rules in `.agents/README.md`, `.agents/project/ARCHITECTURE.md` and `.agents/project/CONVENTIONS.md`. Server state goes through TanStack Query and tRPC, forms through React Hook Form with the Effect Schema resolver, and local state only inside custom `use*` hooks.
+- "GUARDRAILS state+form conventions" means the rules in `AGENTS.md`, `.agents/project/ARCHITECTURE.md` and `.agents/project/CONVENTIONS.md`. Server state goes through TanStack Query and tRPC, forms through React Hook Form with the Effect Schema resolver, and local state only inside custom `use*` hooks.
 
 ## Where it goes
 

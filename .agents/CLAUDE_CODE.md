@@ -1,6 +1,6 @@
 # Claude Code
 
-The Claude Code layer on top of the [start-here guide](START_HERE.md). Read that
+The Claude Code layer on top of the [start-here guide](../AGENTS.md). Read that
 first.
 
 ## The two things this repo demonstrates
@@ -64,7 +64,7 @@ change to its settings or hooks is caught in review of the diff.
 5. Run `pnpm verify` and `pnpm e2e` until green. The anti-slop commands are
    `pnpm lint:anti-slop`, `pnpm lint:anti-slop:advisory` and
    `pnpm lint:anti-slop:changed`; follow the
-   [before-push workflow](START_HERE.md#before-you-push).
+   [before-push workflow](../AGENTS.md#before-you-push).
 6. Commit with a Conventional Commit message.
 7. Use `pr-quality-contract` before opening or marking the PR ready.
 8. For a health-check of the whole repo, run the ArchitectPlaybook audits.

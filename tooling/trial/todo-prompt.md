@@ -14,7 +14,7 @@ Read it this way.
 - A user creates a todo with a title that is not blank, sees the list of todos, toggles a todo between complete and not complete, and deletes a todo.
 - The api keeps the todos in memory, inside the api process.
 - Leave out authentication, filtering, sorting, collaboration, external services and generic CRUD helpers.
-- "GUARDRAILS state+form conventions" means the rules in `.agents/README.md`, `.agents/project/ARCHITECTURE.md` and `.agents/project/CONVENTIONS.md`. Server state goes through TanStack Query and tRPC, forms through React Hook Form with the Effect Schema resolver, and local state only inside custom `use*` hooks.
+- "GUARDRAILS state+form conventions" means the rules in `AGENTS.md`, `.agents/project/ARCHITECTURE.md` and `.agents/project/CONVENTIONS.md`. Server state goes through TanStack Query and tRPC, forms through React Hook Form with the Effect Schema resolver, and local state only inside custom `use*` hooks.
 
 ## Where it goes
 

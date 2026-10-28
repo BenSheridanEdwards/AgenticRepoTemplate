@@ -1,11 +1,10 @@
-# REVIEW.md
+@AGENTS.md
 
 Human-written rules for automated PR review. A bot reviewer — Cursor Bugbot,
 Codex, or Claude — reads this file **after** the linter and CI have run, and
 applies only the judgment rules below: the ones a gate leaves open.
 
-Discovery: the start-here guide [`.agents/START_HERE.md`](.agents/START_HERE.md),
-which the root `AGENTS.md` and `CLAUDE.md` point to, sends Codex and Claude here.
+Discovery: [`AGENTS.md`](AGENTS.md) sends Codex and Claude here.
 [`.cursor/BUGBOT.md`](.cursor/BUGBOT.md) sends Cursor Bugbot here.
 `pnpm check:context` keeps that wiring in place.
 

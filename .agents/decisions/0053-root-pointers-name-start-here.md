@@ -1,6 +1,6 @@
 # 53. The root pointers name `.agents/START_HERE.md`
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Proposed (Ben accepts it by approving the PR); superseded by [0078](0078-agents-md-is-the-root-contract.md)
 - **Date:** 2026-10-22
 - **Builds on:** [0022](0022-agent-docs-live-in-dot-agents.md), [0049](0049-review-rules-for-bot-reviewers.md)
 
