@@ -102,7 +102,7 @@ describe('findUnguardedSignOffPaths reports', () => {
     ],
     [
       'a linked file',
-      'The [`validator`](../scripts/validate-pr-body.mjs) needs sign-off.',
+      'The [`validator`](scripts/validate-pr-body.mjs) needs sign-off.',
       'scripts/validate-pr-body.mjs',
     ],
   ])('%s', (_name, text, path) => {
