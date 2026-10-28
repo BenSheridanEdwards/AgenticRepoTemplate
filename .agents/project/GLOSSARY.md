@@ -22,6 +22,3 @@ domain term appears, add it here in the same change.
 | **Greeting** | The reference feature: the user submits a name and the api answers `Hello, <name>!` through `greeting.greet`. |
 | **Slop** | Code more complex than the change needs, or code that breaks a convention the repository agreed in `.agents/`. Gates refuse the violations they enforce; review holds the rest. |
 | **Software factory** | A repository any agent, on any model or harness, can work in, with executable standards and explicit review-held targets. See `NORTH_STAR.md`. |
-
-This file pairs with **graphify**: the knowledge graph indexes the codebase, and
-this glossary names the concepts the graph connects.

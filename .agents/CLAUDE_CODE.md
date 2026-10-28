@@ -35,7 +35,6 @@ Install external skill libraries separately; see the README for Fallow and Ponyt
   `/quality-gates-audit`, `/architecture-audit`, `/testing-audit`,
   `/security-audit`, … (the health-check).
 - **Fallow** skill — interpreting code-intelligence findings.
-- **graphify** — the codebase knowledge graph the audits build on.
 - **Ponytail** — shortest-working-diff discipline for coding and review tasks.
 
 ## Settings & hooks
