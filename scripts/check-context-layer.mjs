@@ -2,8 +2,8 @@
 /**
  * Enforce the repository's own context-layer invariants.
  *
- * Both root files point to `.agents/START_HERE.md`; Claude also imports it.
- * The context layer (the root pointers, the start-here guide, the project docs,
+ * `AGENTS.md` owns the operating contract; `.claude/CLAUDE.md` imports it.
+ * The context layer (the operating contract, the Claude import, the project docs,
  * the house skills) is the part of the standard that is otherwise
  * pure documentation: nothing mechanical fails when a file is deleted, renamed,
  * emptied, or quietly turned into a symlink. This checker closes that gap. It
@@ -23,14 +23,14 @@ import { fileURLToPath } from 'node:url';
 /** The repository root: this file lives in `scripts/`, so the root is its parent. */
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The start-here guide under `.agents/`, where both root files point. */
-const START_HERE = '.agents/START_HERE.md';
+/** The root operating contract. */
+const START_HERE = 'AGENTS.md';
 
 /** A file is "non-trivial" when it has at least this many non-empty lines. */
 const MINIMUM_NON_EMPTY_LINES = 20;
 
-/** Keep root files short so the guide owns the operating contract. */
-const MAXIMUM_POINTER_NON_EMPTY_LINES = 10;
+/** Keep the operating contract within the agent instruction byte budget. */
+const MAXIMUM_CONTRACT_BYTES = 32 * 1024;
 
 /**
  * The seven project docs under `.agents/project/` that the start-here guide
@@ -119,37 +119,22 @@ function assertRegularFile(filesystem, relativePath, errors) {
   return true;
 }
 
-/**
- * Assert each root pointer is a short, regular file naming the start-here guide.
- * Returns true when the file is a regular file so the caller can run file-specific checks.
- */
-function checkRootPointer(filesystem, path, errors) {
-  if (!assertRegularFile(filesystem, path, errors)) {
-    return false;
-  }
-  const text = filesystem.readText(path);
-  if (!text.includes(START_HERE)) {
-    errors.push(
-      `\`${path}\` must point to \`${START_HERE}\`, the start-here guide. ` +
-        'Every agent doc lives under `.agents/`.',
-    );
-  }
-  const nonEmptyLineCount = countNonEmptyLines(text);
-  if (nonEmptyLineCount > MAXIMUM_POINTER_NON_EMPTY_LINES) {
-    errors.push(
-      `\`${path}\` has ${nonEmptyLineCount} non-empty lines, expected at most ${MAXIMUM_POINTER_NON_EMPTY_LINES}. ` +
-        'The root file is only a pointer: move its content into `.agents/` and link it from the guide.',
-    );
-  }
-  return true;
-}
-
 /** Assert the start-here guide: a non-trivial, regular, non-symlink file. */
 function checkStartHere(filesystem, errors) {
   if (!assertRegularFile(filesystem, START_HERE, errors)) {
     return;
   }
-  const nonEmptyLineCount = countNonEmptyLines(filesystem.readText(START_HERE));
+
+  const text = filesystem.readText(START_HERE);
+  const bytes = Buffer.byteLength(text, 'utf8');
+
+  if (bytes > MAXIMUM_CONTRACT_BYTES) {
+    errors.push(
+      `\`${START_HERE}\` has ${bytes} bytes, expected at most ${MAXIMUM_CONTRACT_BYTES}.`,
+    );
+  }
+
+  const nonEmptyLineCount = countNonEmptyLines(text);
   if (nonEmptyLineCount < MINIMUM_NON_EMPTY_LINES) {
     errors.push(
       `\`${START_HERE}\` is too thin: ${nonEmptyLineCount} non-empty lines, ` +
@@ -158,26 +143,17 @@ function checkStartHere(filesystem, errors) {
   }
 }
 
-/** Assert `CLAUDE.md` imports the guide outside fenced code and is not a byte copy of `AGENTS.md`. */
+/** Assert the Claude entry point imports the contract outside fenced code. */
 function checkClaudePointer(filesystem, errors) {
-  const claudeText = filesystem.readText('CLAUDE.md');
-  if (!proseLines(claudeText).some((line) => line.trim() === `@${START_HERE}`)) {
-    errors.push(
-      `\`CLAUDE.md\` must import the start-here guide on its own line, \`@${START_HERE}\`, so Claude Code loads it at launch.`,
-    );
-  }
+  const path = '.claude/CLAUDE.md';
 
-  // Keep the Claude entry point distinct from the generic pointer.
-  let agentsText = '';
-  try {
-    agentsText = filesystem.readText('AGENTS.md');
-  } catch {
+  if (!assertRegularFile(filesystem, path, errors)) {
     return;
   }
-  if (claudeText === agentsText) {
+
+  if (!proseLines(filesystem.readText(path)).some((line) => line.trim() === '@../AGENTS.md')) {
     errors.push(
-      '`CLAUDE.md` is byte-identical to `AGENTS.md`. Keep `CLAUDE.md` as its own pointer ' +
-        `that carries the \`@${START_HERE}\` import.`,
+      '`.claude/CLAUDE.md` must import the operating contract on its own line, `@../AGENTS.md`, so Claude Code loads it at launch.',
     );
   }
 }
@@ -403,10 +379,7 @@ function checkReviewRules(filesystem, errors) {
 export function checkContextLayer(filesystem) {
   const errors = [];
 
-  checkRootPointer(filesystem, 'AGENTS.md', errors);
-  if (checkRootPointer(filesystem, 'CLAUDE.md', errors)) {
-    checkClaudePointer(filesystem, errors);
-  }
+  checkClaudePointer(filesystem, errors);
   checkStartHere(filesystem, errors);
 
   // The seven project docs.

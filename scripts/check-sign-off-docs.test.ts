@@ -24,7 +24,7 @@ const TRACKED = [
   'scripts/validate-pr-body.mjs',
 ];
 
-const find = (markdown: string, doc = '.agents/START_HERE.md') =>
+const find = (markdown: string, doc = 'AGENTS.md') =>
   findUnguardedSignOffPaths(markdown, doc, TRACKED);
 
 describe('isGuardedPath', () => {
@@ -102,7 +102,7 @@ describe('findUnguardedSignOffPaths reports', () => {
     ],
     [
       'a linked file',
-      'The [`validator`](../scripts/validate-pr-body.mjs) needs sign-off.',
+      'The [`validator`](scripts/validate-pr-body.mjs) needs sign-off.',
       'scripts/validate-pr-body.mjs',
     ],
   ])('%s', (_name, text, path) => {

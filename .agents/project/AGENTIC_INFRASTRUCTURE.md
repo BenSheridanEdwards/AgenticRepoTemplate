@@ -10,8 +10,8 @@ Each layer has one job:
 
 | Layer | Artifact | Job |
 | --- | --- | --- |
-| Root pointers | `AGENTS.md`, `CLAUDE.md` (each points to the guide; `CLAUDE.md` imports it) | Send every agent to the start-here guide. No rules. |
-| Entry contract | `.agents/START_HERE.md` | Tool-agnostic rules every agent follows, and the map. |
+| Tool import | `.claude/CLAUDE.md` | Import `AGENTS.md` for Claude Code. |
+| Entry contract | `AGENTS.md` | Tool-agnostic rules every agent follows, and the map. |
 | Tool adapter | `.agents/CLAUDE_CODE.md` | Claude-specific skills, hooks, and workflow notes. |
 | Project context | `.agents/project/` | Durable standards and facts. |
 | Decisions | `.agents/decisions/` | Why the standards exist and when they changed. |
@@ -25,7 +25,7 @@ Move the rule to the layer that owns it.
 
 For anti-slop, `scripts/anti-slop-changed.mjs` is the agent-facing check of
 advisory findings on committed changed lines. The
-[push workflow](../START_HERE.md#before-you-push) and
+[push workflow](../../AGENTS.md#before-you-push) and
 [review checklist](../../REVIEW.md#anti-slop-findings) own the responses to
 those findings. `vendor/anti-slop/UPSTREAM.md` is the provenance record for
 the pinned, hash-checked upstream source.
@@ -34,10 +34,9 @@ the pinned, hash-checked upstream source.
 
 1. **Inventory truth.** Read package scripts, workflows, hooks, tests, build
    config, dependency tooling, and deployment surfaces before writing guidance.
-2. **Write the pointers and the start-here guide.** `AGENTS.md` and `CLAUDE.md`
-   each point to `.agents/START_HERE.md`; `CLAUDE.md` also imports it with
-   `@.agents/START_HERE.md` so Claude Code loads it. That guide says how to work
-   here, where to read next, what commands matter, and which gates always run.
+2. **Write the operating contract.** `AGENTS.md` says how to work here,
+   where to read next, what commands matter, and which gates always run.
+   `.claude/CLAUDE.md` imports it with `@../AGENTS.md`.
    `.agents/CLAUDE_CODE.md` adds only Claude-specific skills, permissions, and
    hooks.
 3. **Create project context.** Add architecture, conventions, tech stack,
@@ -62,8 +61,7 @@ the pinned, hash-checked upstream source.
   independently of enforcement tightening or loosening
   ([ADR 0060](../decisions/0060-product-intent-needs-sign-off.md)). Other agent
   guidance stays outside that guard.
-- Keep rules out of the root files. `CLAUDE.md` and `AGENTS.md` point in;
-  `.agents/` carries everything else.
+- Keep the operating contract in `AGENTS.md`; `.agents/` carries the detail.
 - Keep private project facts out of this public template.
 
 ## What makes it north-star quality

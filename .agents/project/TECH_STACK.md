@@ -37,7 +37,7 @@ each owner runs locally and in CI.
 | Secret scanning | **gitleaks** | Staged content on pre-commit; full history in CI. |
 | Static application security | **CodeQL** | SAST on every push and pull request. |
 | License compliance | **pnpm licenses + allow-list** | `pnpm --recursive licenses list` covers every workspace package; CI fails on a dependency license outside the permissive allow-list. |
-| Automated PR review rules | **`REVIEW.md`** | The judgment rules Cursor Bugbot, Codex, and Claude read after lint; `.agents/START_HERE.md` and `.cursor/BUGBOT.md` point every reviewer at the one file, and `pnpm check:context` holds the wiring ([ADR 0049](../decisions/0049-review-rules-for-bot-reviewers.md)). |
+| Automated PR review rules | **`REVIEW.md`** | The judgment rules Cursor Bugbot, Codex, and Claude read after lint; `AGENTS.md` and `.cursor/BUGBOT.md` point every reviewer at the one file, and `pnpm check:context` holds the wiring ([ADR 0049](../decisions/0049-review-rules-for-bot-reviewers.md)). |
 | Repo health audits | **ArchitectPlaybook** | Claude Code skills; the health-check (showcase #1). |
 | Simplicity discipline | **Ponytail** | Prefer deletion, stdlib/native features, and existing patterns. |
 

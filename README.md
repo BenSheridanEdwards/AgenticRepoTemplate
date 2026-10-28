@@ -170,14 +170,11 @@ modes are. One set of files serves both. The test of this layer: a new
 engineer, or a new agent, is productive and safe within minutes of cloning,
 without asking anyone anything.
 
-- [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) are the only agent
-  files at the root, and both are pointers to the start-here guide
-  ([agents.md](https://agents.md) convention). `CLAUDE.md` imports it so Claude
-  Code loads it.
-- [`.agents/START_HERE.md`](.agents/START_HERE.md) is the start-here guide: the
-  tool-agnostic operating contract, with golden rules, commands, and a map of
-  the rest. [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) adds the Claude Code
-  layer.
+- [`AGENTS.md`](AGENTS.md) is the root operating contract
+  ([agents.md](https://agents.md) convention), with golden rules, commands, and
+  a map of the rest. [`.claude/CLAUDE.md`](.claude/CLAUDE.md) imports it so
+  Claude Code loads it. [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) adds the
+  Claude Code layer.
 - [`.agents/`](.agents) is the single source of detail: the
   [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow,
   the [conventions](.agents/project/CONVENTIONS.md) for naming, imports,
@@ -342,7 +339,7 @@ still need the post-clone checks above.
 For a brownfield project, copy the scaffolding into the existing repo:
 
 ```
-AGENTS.md  CLAUDE.md  .agents/  .claude/  .husky/  .github/  (workflows and PR template)
+AGENTS.md  REVIEW.md  .agents/  .claude/  .husky/  .github/  (workflows and PR template)
 biome.json  eslint.config.js  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
 ```
 
@@ -353,9 +350,9 @@ optimise last.
 ## Every file, and why it is here
 
 ```
-AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports it).
+AGENTS.md                 Operating contract: commands, golden rules, and the map.
+.claude/CLAUDE.md          Imports AGENTS.md for Claude Code.
 .agents/                  Every agent doc (read before writing).
-  START_HERE.md             Start here: commands, golden rules, and the map.
   CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
   NORTH_STAR.md             Where the repo is heading and why.
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
