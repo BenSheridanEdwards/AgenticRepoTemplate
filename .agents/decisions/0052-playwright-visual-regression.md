@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-22
-- **Supersedes:** ADR 0016 (superseded by ADR 0052)
+- **Supersedes:** ADR 0016 (now deleted)
 
 ## Context
 

@@ -6,7 +6,7 @@
 
 ## Context
 
-ADR 0007 (superseded by ADRs 0023 and 0024) protected every path
+ADR 0007 (now deleted) protected every path
 that shapes enforcement: every root config file, `pnpm-lock.yaml`, `.github/**`,
 `.claude/**`, `.husky/**`, `scripts/**`, `tooling/**` and the agent docs. That
 put most pull requests behind the enforcement sign-off. Dependency updates
@@ -29,7 +29,7 @@ Everything else changes without the enforcement sign-off, including
 `.claude/`, the rest of `.github/`, `AGENTS.md`, `CLAUDE.md` and `.agents/`.
 
 This record supersedes the protected-path list in ADR 0007 and replaces
-ADR 0018 (superseded by ADRs 0023 and 0024).
+ADR 0018 (now deleted).
 
 ## Consequences
 

@@ -4,13 +4,12 @@
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md), which
   sets the guarded paths; this record adds the gate's own script and test
-- **Supersedes in part:** ADR 0007 (superseded by ADRs 0023 and 0024),
-  ADR 0018 (superseded by ADRs 0023 and 0024),
+- **Supersedes in part:** ADR 0007, ADR 0018 (both now deleted),
   [0023](0023-protect-only-the-files-that-run-the-gates.md)
 
 ## Context
 
-The `enforcement-approval` gate from ADR 0007 (superseded by ADRs 0023 and 0024)
+The `enforcement-approval` gate from ADR 0007
 asked for a sign-off on every change to a protected path.
 [ADR 0023](0023-protect-only-the-files-that-run-the-gates.md) narrowed those
 paths to the files that run the gates, but any change to one of them still waited
