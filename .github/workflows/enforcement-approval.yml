@@ -52,6 +52,8 @@ jobs:
           sparse-checkout: scripts/enforcement-approval.mjs
           sparse-checkout-cone-mode: false
       - uses: actions/github-script@v9
+        env:
+          ENFORCEMENT_APPROVER: ${{ vars.ENFORCEMENT_APPROVER || 'BenSheridanEdwards' }}
         with:
           script: |
             const { run } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/enforcement-approval.mjs`);

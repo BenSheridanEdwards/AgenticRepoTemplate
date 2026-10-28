@@ -663,6 +663,33 @@ describe('planApproval', () => {
     });
   });
 
+  it('accepts only the configured approver when ENFORCEMENT_APPROVER is set', () => {
+    const previous = process.env.ENFORCEMENT_APPROVER;
+    process.env.ENFORCEMENT_APPROVER = 'template-maintainer';
+    try {
+      jest.isolateModules(() => {
+        const configured: typeof import('./enforcement-approval.mjs') = require('./enforcement-approval.mjs');
+        const from = configured.signoffComment({ head: HEAD, problems: PROBLEMS });
+        const to = tick(from);
+        const statusFor = (login: string) =>
+          configured.planApproval({
+            head: HEAD,
+            problems: PROBLEMS,
+            comment: { body: to, updatedAt: AT },
+            signedOff: false,
+            event: edit(from, to, { login, type: 'User' }),
+          }).status.state;
+
+        expect(statusFor('template-maintainer')).toBe('success');
+        expect(statusFor('BenSheridanEdwards')).toBe('failure');
+        expect(statusFor('someone')).toBe('failure');
+      });
+    } finally {
+      if (previous === undefined) delete process.env.ENFORCEMENT_APPROVER;
+      else process.env.ENFORCEMENT_APPROVER = previous;
+    }
+  });
+
   it('approves a fresh tick by the approver and labels the box with who and when', () => {
     expect(plan(tick(unticked), edit(unticked, tick(unticked)))).toEqual({
       commentBody: approved,
