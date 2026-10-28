@@ -46,7 +46,6 @@
     "validate:pr": "node scripts/validate-pr-body.mjs",
     "verify": "pnpm check:lockfile && pnpm check:context && pnpm check:suppressions && pnpm check:docs && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm lint:anti-slop && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm build && pnpm size",
     "trial": "node tooling/trial/run-trial.mjs",
-    "trial:scope": "node tooling/trial/check-scope.mjs",
     "prepare": "husky",
     "visual": "VISUAL=1 E2E_BUILD=1 playwright test",
     "lint:anti-slop": "env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings",
