@@ -666,9 +666,11 @@ describe('planApproval', () => {
   it('accepts only the configured approver when ENFORCEMENT_APPROVER is set', () => {
     const previous = process.env.ENFORCEMENT_APPROVER;
     process.env.ENFORCEMENT_APPROVER = 'template-maintainer';
+
     try {
       jest.isolateModules(() => {
         const configured: typeof import('./enforcement-approval.mjs') = require('./enforcement-approval.mjs');
+
         const from = configured.signoffComment({ head: HEAD, problems: PROBLEMS });
         const to = tick(from);
         const statusFor = (login: string) =>
