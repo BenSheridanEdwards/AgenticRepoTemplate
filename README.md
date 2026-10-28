@@ -365,7 +365,7 @@ AGENTS.md / CLAUDE.md     Pointers to .agents/START_HERE.md (CLAUDE.md imports i
   project/QUALITY_GATES.md  Which gate runs where, and which tool owns it.
   project/PR_QUALITY.md     Proof required before a PR is ready.
   project/TECH_STACK.md     One tool per concern, and what not to add.
-  project/GLOSSARY.md       Shared language (pairs with graphify).
+  project/GLOSSARY.md       Shared language.
   decisions/                Decision records: why each constraint exists.
   templates/                Scaffolds for components, tests, and E2E.
 .claude/
@@ -458,7 +458,6 @@ Install the Ponytail Codex plugin for the repo’s Simplicity Mode.
 | --- | --- | --- |
 | **Fallow** | Code intelligence: dead code, cycles, complexity, architecture gate and role diagram | <https://github.com/fallow-rs/fallow> |
 | **ArchitectPlaybook** | Repo health-check audits | <https://github.com/BenSheridanEdwards/ArchitectPlaybook> |
-| **graphify** | Token-efficient codebase context for the audits | <https://graphify.net> |
 | **Ponytail** | Shortest-working-diff discipline for coding and review tasks | local Codex plugin |
 
 ## License
