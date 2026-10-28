@@ -237,7 +237,7 @@ names outside `<type>/<short-kebab-summary>`, and a `- Head commit:` that is
 not the PR head.
 
 Proof means committed evidence. Screenshots live under
-[`docs/proof/`](docs/proof) on the PR branch and are embedded inline in the PR
+`docs/proof/<short-scope>/` on the PR branch and are embedded inline in the PR
 body; bare links, local paths, and "see attached" are not proof. Flows with
 motion include video. If no rendered proof applies, the PR says `Not
 applicable` with the technical reason. And every bug fix ships, in the same
@@ -423,7 +423,7 @@ scripts/
   required-gates.mjs        The required-check contract and the Required gates decision.
 docs/architecture/roles.mmd  Generated canonical role diagram (pnpm arch:diagram).
 docs/required-gates.md      Generated required-check inventory (pnpm gates:inventory).
-docs/proof/                 Committed screenshot/video proof, embedded inline in PRs.
+docs/proof/<short-scope>/   Created on the PR branch for screenshot/video proof, embedded inline in PRs.
 docs/prd/                   Committed PRDs: each states a feature's intent and links every behaviour to its E2E test (ADR 0045).
 docs/trials/                Six confined Todo trial records and the generated comparison: 6/6 passed, consistent, shared baseline.
 apps/                       The reference result. Root configs own every gate.
