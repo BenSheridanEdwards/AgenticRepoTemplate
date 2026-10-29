@@ -50,7 +50,6 @@ Edit skills in `.agents/skills/`, run `pnpm skills:sync`; `pnpm check:context` f
 Install external skills separately. Fallow helps interpret code-intelligence
 findings. Ponytail is the global simplicity plugin (`/ponytail lite|full|ultra`);
 [AGENTS.md](../AGENTS.md) sets the default discipline.
-[ArchitectPlaybook](https://github.com/BenSheridanEdwards/ArchitectPlaybook) is an external audit toolkit.
 
 ## Layer model
 

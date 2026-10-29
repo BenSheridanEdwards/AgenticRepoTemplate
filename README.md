@@ -53,9 +53,6 @@ Follow the [hosted setup checklist](.github/SECURITY.md) to configure security a
 complexity and architecture. It also supplies the import graph for the role diagram.
 Install the Fallow skill in Claude Code with `/install fallow-rs/fallow-skills`.
 
-[ArchitectPlaybook](https://github.com/BenSheridanEdwards/ArchitectPlaybook)
-is an external repository audit toolkit.
-
 Ponytail is a local Codex plugin for coding and review. Its discipline is simple:
 prefer deletion, existing patterns and platform features before adding machinery.
 Install the Ponytail Codex plugin to use it with this repo.
