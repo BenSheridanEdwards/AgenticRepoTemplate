@@ -41,7 +41,7 @@ Every body includes why (problem, risk, or capability), what changed (the smalle
 
 Before review, give a non-trivial PR the smallest view that explains its changed behaviour or structure. Use `/show-me` when available: choose a control-flow sketch, component tree, state transition, sequence, or focused before-and-after diff. Keep trivial changes diagram-free.
 Every label must trace to real files, symbols, states, or evidence. Show warnings and uncertainty. The view supplements behavioural tests, screenshots, command output, and exact-head CI.
-Report completion once the latest-sha checks are green. The checks panel carries CI status.
+Report completion once the latest-sha checks are green. The checks panel, not the body, carries CI status.
 
 ## Evidence rules
 
@@ -73,7 +73,7 @@ Reviewers check these requirements:
 
 - Screenshots and video come from the branch under review and show the changed behaviour itself. Include video for motion or timing when practical.
 - E2E tests map to the user-visible behaviour the PR changes.
-- Every bug fix ships with a regression test that fails on the unfixed code and asserts the user-visible symptom.
+- Every bug fix ships, in the same change, with a regression test that fails on the unfixed code and asserts the user-visible symptom.
 - Missing visual proof or E2E coverage has a technical reason and a replacement verification method.
 - Commit proof on the PR branch under `docs/proof/<short-scope>/`, unless the PR gives a technical reason for another committed location. Embed screenshot proof inline as the [PR quality skill](../../.claude/skills/pr-quality-contract/SKILL.md) describes.
 - Each evidence link opens the rendered artifact once the branch is pushed.
