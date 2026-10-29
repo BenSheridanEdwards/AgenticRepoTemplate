@@ -1,7 +1,6 @@
 import type { AppRouter } from '@repo/api';
-import { TRPCClientError, type TRPCLink } from '@trpc/client';
+import { type Operation, TRPCClientError, type TRPCLink } from '@trpc/client';
 import { observable } from '@trpc/server/observable';
-import { Schema } from 'effect';
 import type { RouterInputs, RouterOutputs } from './trpc';
 
 type ProcedurePath = {
@@ -23,18 +22,28 @@ export type TestApiHandlers = {
   ) => Lookup<RouterOutputs, Path> | Promise<Lookup<RouterOutputs, Path>>;
 };
 
+// The typed tRPC client pairs each path with its input before the link erases it.
+// Method variance lets this dispatch interface accept each procedure's handler.
+interface TestApiHandler {
+  handle(
+    input: Operation['input'],
+  ): Lookup<RouterOutputs, ProcedurePath> | Promise<Lookup<RouterOutputs, ProcedurePath>>;
+}
+
 /** A tRPC link that answers each call from `handlers` instead of the network. */
 export function handlerLink(handlers: TestApiHandlers): TRPCLink<AppRouter> {
   return () =>
     ({ op }) =>
       observable((observer) => {
-        const handler = Object.entries(handlers).find(([path]) => path === op.path)?.[1];
+        const handler: TestApiHandler['handle'] | undefined = Object.entries(handlers).find(
+          ([path]) => path === op.path,
+        )?.[1];
         Promise.resolve(op.input)
           .then((input) => {
             if (!handler) {
               throw new Error(`TestApiProvider has no handler for ${op.path}`);
             }
-            return handler(Schema.decodeUnknownSync(Schema.Struct({ name: Schema.String }))(input));
+            return handler(input);
           })
           .then(
             (data) => {
