@@ -181,7 +181,7 @@ without asking anyone anything.
   errors, and state, the
   [tech stack](.agents/project/TECH_STACK.md) and what not to add to it, the
   [glossary](docs/GLOSSARY.md) of shared language, the
-  [Definition of Done](.agents/project/DEFINITION_OF_DONE.md), the
+  [Definition of Done](.agents/project/PR_QUALITY.md#definition-of-done), the
   [quality-gate matrix](.agents/project/QUALITY_GATES.md), the
   [PR quality contract](.agents/project/PR_QUALITY.md), the
   [decision records](.agents/decisions) that mark the difference between a
@@ -214,7 +214,7 @@ violation. Honest red beats dishonest green.
 
 ### The definition of done: done is mechanical
 
-The [Definition of Done](.agents/project/DEFINITION_OF_DONE.md) removes
+The [Definition of Done](.agents/project/PR_QUALITY.md#definition-of-done) removes
 judgment from the word "done". A task is finished when the gates are green and
 the proof is present, and at no other time. Every item on the list is
 mechanically checkable, so an agent honestly reports a task complete only
@@ -359,7 +359,6 @@ AGENTS.md                 Operating contract: commands, golden rules, and the ma
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.
-  project/DEFINITION_OF_DONE.md  "Done" means these gates are green.
   project/QUALITY_GATES.md  Which gate runs where, and which tool owns it.
   project/PR_QUALITY.md     Proof required before a PR is ready.
   project/TECH_STACK.md     One tool per concern, and what not to add.

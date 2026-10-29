@@ -14,7 +14,7 @@
 
 block() {
   echo "Blocked: $1 switches off the quality gates." >&2
-  echo "Fix what the gate reports instead; see .agents/project/DEFINITION_OF_DONE.md." >&2
+  echo "Fix what the gate reports instead; see .agents/project/PR_QUALITY.md#definition-of-done." >&2
   echo "If a commit message only names the flag, write it to a file and use git commit -F <file>." >&2
   exit 2
 }

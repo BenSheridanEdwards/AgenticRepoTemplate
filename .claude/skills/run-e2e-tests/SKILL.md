@@ -65,4 +65,4 @@ yourself, such as `pnpm preview` on :3000.
 ## Done when
 
 `pnpm e2e` is green and the new behaviour is covered. Cross-check
-`.agents/project/DEFINITION_OF_DONE.md`.
+`.agents/project/PR_QUALITY.md`.

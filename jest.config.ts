@@ -6,7 +6,7 @@ import type { Config } from 'jest';
  * (node) for every api package, and `tooling` for the gate scripts. Each result
  * in `apps/` or `showcase/<id>/` joins by path, with no per-result entry. The
  * transform is @swc/jest (fast, no Babel). Coverage is gated so a feature cannot
- * ship under-tested — see `.agents/project/DEFINITION_OF_DONE.md`.
+ * ship under-tested — see `.agents/project/PR_QUALITY.md`.
  */
 const existingRoots = (...folders: string[]) =>
   folders.filter((folder) => existsSync(folder)).map((folder) => `<rootDir>/${folder}`);

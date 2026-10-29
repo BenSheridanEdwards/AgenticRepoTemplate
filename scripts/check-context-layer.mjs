@@ -40,7 +40,6 @@ const REQUIRED_PROJECT_DOCS = [
   'ARCHITECTURE.md',
   'CONVENTIONS.md',
   'TECH_STACK.md',
-  'DEFINITION_OF_DONE.md',
   'QUALITY_GATES.md',
   'PR_QUALITY.md',
 ];

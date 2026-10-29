@@ -30,7 +30,7 @@ For the trial runbook, read [TRIALS.md](.agents/TRIALS.md).
 2. Copy new files from [templates](.agents/templates/).
 3. Define behaviour first in each result's `web/e2e/*.spec.ts` (for example `apps/web/e2e/greeting.spec.ts`). Each feature's PRD in `docs/prd/` states its intent and links each behaviour to its test.
 4. Fix the cause of a failed gate; keep the gate and its config in place.
-5. Report a task complete once `pnpm verify` and `pnpm e2e` pass; follow the [Definition of Done](.agents/project/DEFINITION_OF_DONE.md).
+5. Report a task complete once `pnpm verify` and `pnpm e2e` pass; follow the [Definition of Done](.agents/project/PR_QUALITY.md#definition-of-done).
 6. Complete the pull request template and follow [PR quality](.agents/project/PR_QUALITY.md) before opening a PR or marking it ready.
 7. Propose an ADR in [decisions](.agents/decisions/) when a constraint needs to change, and change the rule there. Record decisions in ADRs; keep code comments for the local reason behind a line.
 8. Write declarative transforms with `map`, `filter`, `flatMap` and `reduce` over `const` bindings ([North Star §9](docs/NORTH_STAR.md#9-declarative-over-imperative)). Review holds the remaining judgment under [REVIEW.md](REVIEW.md#scope-and-simplicity); see [ADR 0061](.agents/decisions/0061-refine-the-software-factory-philosophy.md) for the limits of lint.
@@ -99,9 +99,8 @@ Regenerate disposable output (`apps/web/dist/`, `.cache/`, `coverage/`) with its
 | [`project/AGENTIC_INFRASTRUCTURE.md`](.agents/project/AGENTIC_INFRASTRUCTURE.md) | before changing agent guidance, hooks, workflows, or skills. |
 | [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md) | before adding or moving any module: the role table, the api file roles, the state model, and how to add a route, a feature or a procedure. It is the pattern you must follow. |
 | [`project/CONVENTIONS.md`](.agents/project/CONVENTIONS.md) | while writing code: naming, structure, imports, errors, state. |
-| [`project/DEFINITION_OF_DONE.md`](.agents/project/DEFINITION_OF_DONE.md) | before you claim a task is finished. The gates enforce this list. |
 | [`project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md) | before changing hooks, scripts, CI, or tool ownership. |
-| [`project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md) | before opening, updating, or marking a pull request ready. |
+| [`project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md) | before claiming completion or opening, updating, or marking a pull request ready. |
 | [`REVIEW.md`](REVIEW.md) | before reviewing a pull request: the human-written rules every automated reviewer (Cursor Bugbot, Codex, Claude) applies after lint. |
 | [`project/TECH_STACK.md`](.agents/project/TECH_STACK.md) | to know which tool owns which concern (and what *not* to add). |
 | [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | when you meet a domain term. Use these words exactly, in code and prose. |

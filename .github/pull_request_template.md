@@ -49,7 +49,7 @@ git log -1 --format=%H <head> -- docs/NORTH_STAR.md. -->
 - North Star commit:
 - Commands run (e.g. `pnpm verify`, `pnpm e2e`):
 - Results:
-- Definition of Done (`.agents/project/DEFINITION_OF_DONE.md`) satisfied, or each gap named:
+- Definition of Done (`.agents/project/PR_QUALITY.md`) satisfied, or each gap named:
 - [ ] `pnpm verify`
 - [ ] `pnpm e2e`
 - [ ] `pnpm lint:anti-slop:changed` prints no finding for this branch.
@@ -62,4 +62,4 @@ git log -1 --format=%H <head> -- docs/NORTH_STAR.md. -->
 
 # PR Proof Law
 
-- [ ] I followed `.agents/project/DEFINITION_OF_DONE.md` and `.claude/skills/pr-quality-contract/SKILL.md`; the `PR quality` check verifies the proof format.
+- [ ] I followed `.agents/project/PR_QUALITY.md` and `.claude/skills/pr-quality-contract/SKILL.md`; the `PR quality` check verifies the proof format.

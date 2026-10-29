@@ -63,4 +63,4 @@ pnpm test --selectProjects api   # run one Jest project
 ## Done when
 
 `pnpm test:coverage` passes (no threshold failure) and each behaviour has a
-test. Cross-check `.agents/project/DEFINITION_OF_DONE.md`.
+test. Cross-check `.agents/project/PR_QUALITY.md`.

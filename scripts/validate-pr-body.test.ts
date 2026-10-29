@@ -1271,6 +1271,9 @@ describe('PRD impact git and CLI', () => {
     const rejected = runCli(base, head);
     expect(rejected.status).toBe(1);
     expect(rejected.output).toContain(`${prd}, but that PRD is unchanged`);
+    expect(rejected.output).toContain(
+      'See `.github/pull_request_template.md` and `.agents/project/PR_QUALITY.md`.',
+    );
     const accepted = runCli(
       base,
       head,

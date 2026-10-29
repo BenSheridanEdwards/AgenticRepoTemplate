@@ -18,8 +18,7 @@ Adapt the template to the target's stack and existing tools.
 - Inspect existing agent instructions, hooks, scripts, CI workflows, tests,
   deployment configuration, and the PR template.
 - In this template, read `.agents/project/AGENTIC_INFRASTRUCTURE.md`,
-  `QUALITY_GATES.md`, `TECH_STACK.md`, `DEFINITION_OF_DONE.md`, and
-  `PR_QUALITY.md` under `.agents/project/`.
+  `QUALITY_GATES.md`, `TECH_STACK.md`, and `PR_QUALITY.md` under `.agents/project/`.
 - Name the package manager, framework, CI provider, default branch, and
   commands that will prove the installation works.
 
