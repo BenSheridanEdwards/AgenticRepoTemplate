@@ -72,7 +72,7 @@ and E2E tests:
   within the 30-second budget. Review holds the budget through recorded
   measurements; timing enforcement is documentation only.
 - **Common skipping attempts are refused.** The PreToolUse hook
-  [`block-gate-bypass.sh`](../.claude/hooks/block-gate-bypass.sh) blocks
+  [`block-gate-bypass.sh`](../.agents/hooks/block-gate-bypass.sh) blocks
   `--no-verify`, `git commit -n`, `HUSKY=0` and rewrites of `core.hooksPath`,
   git aliases or config includes in Claude Code, and in Codex sessions that
   trust project hooks. It is a speed bump with known gaps

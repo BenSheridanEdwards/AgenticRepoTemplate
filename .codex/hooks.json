@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/block-gate-bypass.sh\""
+            "command": "sh \"$(git rev-parse --show-toplevel)/.agents/hooks/block-gate-bypass.sh\""
           }
         ]
       }
