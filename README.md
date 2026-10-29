@@ -313,7 +313,7 @@ picks an installed Node 22 older than 22.18, run `nvm install`.
 ### Post-clone setup checklist
 
 Workflow files report results; platform settings decide whether they block a
-merge. Follow [hosted security and merge enforcement](docs/hosted-security.md)
+merge. Follow [hosted security and merge enforcement](.github/SECURITY.md)
 before claiming protection is installed:
 
 - [ ] **Confirm hosted prerequisites for the destination repository.** Public
@@ -340,7 +340,7 @@ For a brownfield project, copy the scaffolding into the existing repo:
 
 ```
 AGENTS.md  REVIEW.md  .agents/  .claude/  .husky/  .github/  (workflows and PR template)
-biome.json  eslint.config.js  commitlint.config.ts  .fallowrc.jsonc  SECURITY.md
+biome.json  eslint.config.js  commitlint.config.ts  .fallowrc.jsonc  .github/SECURITY.md
 ```
 
 Then run `/pre-audit-setup` and the audits to see where the repo falls short,
@@ -384,7 +384,7 @@ AGENTS.md                 Operating contract: commands, golden rules, and the ma
     codeql.yml              CodeQL static analysis (security-events).
     lighthouse.yml          Performance and accessibility budget on UI-relevant PRs.
     enforcement-approval.yml  Ben's sign-off on changes that loosen enforcement (main's copy judges each PR).
-SECURITY.md                 Vulnerability disclosure policy.
+.github/SECURITY.md         Vulnerability disclosure policy and hosted security setup.
 biome.json                  Format, import order, and general lint.
 eslint.config.js            Policy, React hooks, React Compiler, and React Doctor rules.
 tooling/eslint-plugin-policy.js  The repository's own ESLint policy rules (ADR 0019).
