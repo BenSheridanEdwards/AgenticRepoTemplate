@@ -5,14 +5,12 @@ description: Launch, drive, and prove the Agentic Project Template web app (Vite
 
 # Verify the Agentic Project Template app
 
-The app is one page at `/`: the `Greeting` page. A user types a name into the
-`Name` field and presses `Greet`, and the page asks the api for the greeting
-through tRPC (`GET /trpc/greeting.greet`). Vite proxies `/trpc` to the api
-process (`apps/api/src/server.ts`) in dev and preview, so a launched instance
-answers with real data without mocks. The browser is the only user surface.
+At `/`, a user enters a `Name` and presses `Greet`. The `Greeting` page calls `GET /trpc/greeting.greet`;
+Vite proxies `/trpc` to `apps/api/src/server.ts` in dev and preview. Use real data without mocks.
+The browser is the only user surface.
 
-`scripts/verify.mjs` owns the whole loop. Every run lives in `.verify/<run-id>/`
-(gitignored): `instance/` is server state, `evidence/` is proof.
+`scripts/verify.mjs` owns the loop. Runs live in gitignored `.verify/<run-id>/`:
+`instance/` holds server state; `evidence/` holds proof.
 
 ```bash
 V=.agents/skills/verify-agentic-template/scripts/verify.mjs
@@ -27,19 +25,17 @@ pnpm install
 pnpm e2e:install
 ```
 
-`pnpm e2e:install` downloads the Chromium build that the pinned
-`@playwright/test` needs. A missing browser fails every drive with
-`Executable doesn't exist`.
+`pnpm e2e:install` downloads the pinned `@playwright/test` Chromium build. Missing browsers fail drives with `Executable doesn't exist`.
 
 ## Launch
 
-From the source (dev server, hot reload):
+From source, with hot reload:
 
 ```bash
 node $V launch --run pr-123
 ```
 
-From a CI-built bundle (the `dist` artifact of the `Production build` job):
+From the `dist` artifact of CI's `Production build` job:
 
 ```bash
 SHA=$(git rev-parse HEAD)
@@ -49,51 +45,40 @@ gh run download <run-id> -n dist -D "$DIST"
 node $V launch --run pr-123-ci --dist "$DIST" --sha "$SHA"
 ```
 
-`--sha` is required with `--dist`. It is the commit the CI run built, and
-`doctor` compares it to `HEAD`. A relative `--dist` resolves from `apps/web`,
-so `--dist dist` serves a local `apps/web/dist/` build; an absolute path works
-as is.
+`--dist` requires `--sha`, the built commit, which `doctor` compares to `HEAD`. Relative paths resolve
+from `apps/web`: `--dist dist` serves `apps/web/dist/`; absolute paths work as is. Keep downloads
+outside the repo: `pnpm verify` runs react-doctor, which flags minified bundles in the working tree.
 
-Keep the download outside the repo. `pnpm verify` runs react-doctor over the
-working tree, and it flags the minified bundle.
+`launch` chooses two free `127.0.0.1` ports. It starts `node apps/api/src/server.ts` with `PORT`,
+then Vite from `apps/web` (`apps/web/node_modules/.bin/vite`) with `--strictPort` and `API_ORIGIN`
+pointing `/trpc` to that api. It waits for page status 200, `Hello, Ada!` from `/trpc/greeting.greet`
+through the proxy, and the `Greeting` heading and `Name` field in Chromium, then prints
+`READY run=<id> mode=<dev|preview> url=<url> pid=<pid> api=<port> apiPid=<pid>`.
+Omit `--run` for a timestamped id; different ids can run side by side.
 
-`launch` picks two free ports on `127.0.0.1`. It starts the api on one
-(`node apps/api/src/server.ts` with `PORT`) and Vite from `apps/web`
-(`apps/web/node_modules/.bin/vite`) on the other with `--strictPort`, with
-`API_ORIGIN` pointing its `/trpc` proxy at that api. It returns only when the
-page answers 200, `/trpc/greeting.greet` through the proxy answers
-`Hello, Ada!`, and Chromium renders the `Greeting` heading and the `Name` field.
-It prints `READY run=<id> mode=<dev|preview> url=<url> pid=<pid> api=<port> apiPid=<pid>`.
-Omit `--run` to get a timestamped id. Two runs with different ids run side by
-side.
-
-To serve a showcase result instead of the reference, name it:
+To serve a showcase result:
 
 ```bash
 node $V launch --run todo-01 --result todo-01
 ```
 
-`--result <id>` takes any id from `tooling/results.mjs` (`reference` is the
-default). The api starts from `<result>/api/src/server.ts`, Vite from
-`<result>/web`, and the ports default to that result's own (5183 and 3011 for
-the first showcase result), so pass `--port` and `--api-port` to run it beside
-`pnpm e2e`. The launch is ready once the page answers 200, the api answers on
-its port, and Chromium renders a level-one heading. `doctor` and `cleanup` read the result from the run's
-`instance.json`.
+`--result <id>` accepts any `tooling/results.mjs` id; `reference` is the default. It starts
+`<result>/api/src/server.ts` and Vite from `<result>/web` on the result's ports (5183 and 3011 for the
+first showcase result). Pass `--port` and `--api-port` to run beside `pnpm e2e`. Ready means the page
+answers 200, the api answers on its port, and Chromium renders a level-one heading.
+`doctor` and `cleanup` read the result from the run's `instance.json`.
 
 ## Doctor
 
-Run it first, and again whenever a result looks wrong:
+Run before driving and whenever a result looks wrong:
 
 ```bash
 node $V doctor --run pr-123
 ```
 
-It is read-only and exits 1 on any `FAIL`. It checks that the Vite pid is alive
-and is this run's Vite on this run's port, that the api pid is alive and runs
-this checkout's `apps/api/src/server.ts`, that the page and the greeting api
-answer, and that the app renders in Chromium. It also checks that the build it serves matches `HEAD`:
-the launch commit in dev mode, or `--sha` in preview mode.
+This read-only command exits 1 on any `FAIL`. It checks both pids are alive: Vite belongs to this run
+and port; the api runs this checkout's `apps/api/src/server.ts`. It checks the page and greeting api
+answer and Chromium renders the app. The served build must match `HEAD`: launch commit in dev, `--sha` in preview.
 
 ## Drive
 
@@ -101,18 +86,17 @@ the launch commit in dev mode, or `--sha` in preview mode.
 node $V drive <journey> --run pr-123
 ```
 
-Built-in journeys, one per recipe in [`features/`](features/README.md):
+Built-in journeys have recipes in [`features/`](features/README.md):
 
 | Journey | Proves |
 | --- | --- |
-| `greeting` | A blank name shows `Enter a name` and sends nothing, then `Ada` shows `Hello, Ada!` from one api call. |
+| `greeting` | A blank name shows `Enter a name` and sends nothing; `Ada` shows `Hello, Ada!` from one api call. |
 | `greeting-validation` | A whitespace name shows `Enter a name`, marks the field invalid, and sends nothing. |
 | `greeting-error` | A 500 from `/trpc` shows `Could not load the greeting`. |
-| `accessibility` | axe finds no WCAG A or AA violations, with and without the error, and Tab reaches the field, then the button. |
+| `accessibility` | axe finds no WCAG A or AA violations, with and without the error; Tab reaches the field, then the button. |
 
-For behaviour a PR adds, write a journey module and pass its path. It default-exports
-`{ id, feature, run }`, where `run({ page, step, expect })` uses Playwright's
-`page` and `expect`. Copy the shape from `scripts/journeys.mjs`:
+For new behaviour, pass a journey module's path. Default-export `{ id, feature, run }`;
+`run({ page, step, expect })` uses Playwright's `page` and `expect`. Copy `scripts/journeys.mjs`:
 
 ```js
 export default {
@@ -133,37 +117,25 @@ export default {
 node $V drive ./path/to/journey.mjs --run pr-123
 ```
 
-Locate by role and accessible name: `textbox` by its label, `button` by label,
-`status` for the greeting, and `alert` for the validation or request error.
+Locate by role and accessible name: labelled `textbox` and `button`, `status` for the greeting, `alert` for errors.
 
 ## Evidence
 
 `drive` writes `.verify/<run-id>/evidence/<journey-id>/`:
 
-- `NN-<step>.png` and `NN-<step>.aria.yml` after each passing step, so the proof
-  shows each action and its result, not only the final screen.
-- `NN-<step>.failed.png` for the step that failed.
-- `video.webm` of the whole journey.
-- A re-run of the same journey in the same run replaces its folder. Use a new
-  `--run` to keep both.
-- `manifest.json` with the result, URL, mode, the build commit, the checkout
-  `HEAD`, each step, every
-  `/trpc/` response with its status, console errors, and uncaught page errors.
+- `NN-<step>.png` and `NN-<step>.aria.yml` after each passing step show each action and result.
+- `NN-<step>.failed.png` captures a failed step; `video.webm` records the whole journey.
+- A re-run of the same journey replaces its folder. Use a new `--run` to keep both.
+- `manifest.json` records result, URL, mode, build commit, checkout `HEAD`, steps,
+  every `/trpc/` response and status, console errors, and uncaught page errors.
 
-An uncaught page error fails the journey even when every assertion passes.
+Uncaught page errors fail journeys even if assertions pass. Drive real user paths with named buttons;
+leave hooks and component state to the app. Intercept only at `**/trpc/**`, the backend boundary
+and only way to reach the request error state. Check side effects as well as the screen:
+`manifest.json` lists the API calls caused by a click.
 
-Proof standards:
-
-- Drive the real user path. Click buttons by name, and leave hooks and component
-  state to the app.
-- Intercept the network only at `**/trpc/**`. That is the boundary to the
-  backend. It is the only way to reach the request error state.
-- Check the side effect, not only the screen. `manifest.json` lists the API
-  calls a click caused.
-- For a PR, copy the screenshots that prove the claim into
-  `docs/proof/<scope>/` and embed them per
-  `.agents/skills/pr-quality-contract/SKILL.md`. Read the PNG before you
-  cite it.
+For a PR, copy screenshots that prove the claim into `docs/proof/<scope>/`. Read each PNG before
+citing it; embed it per [`.agents/skills/pr-quality-contract/SKILL.md`](../pr-quality-contract/SKILL.md).
 
 ## Cleanup
 
@@ -171,17 +143,13 @@ Proof standards:
 node $V cleanup --run pr-123
 ```
 
-`cleanup` stops the process groups of the two pids in `instance.json`, only
-after it confirms that one is this run's Vite on this run's port and the other
-runs this checkout's api. It deletes
-`.verify/<run-id>/instance/` and keeps `.verify/<run-id>/evidence/`. Run it
-after every failed launch too. Stop Vite and the api only through those
-confirmed pids, because other agents and the user's `pnpm dev` on `:5173` and
-`:3001` may share the machine.
+`cleanup` stops only the two pid process groups in `instance.json`, after confirming this run's Vite
+and port and this checkout's api. It deletes `.verify/<run-id>/instance/` and keeps
+`.verify/<run-id>/evidence/`. Run it after failed launches too. Stop only confirmed Vite and api pids:
+other agents and the user's `pnpm dev` on `:5173` and `:3001` may share the machine.
 
 ## Keep the map current
 
-When a PR adds or changes a user-visible path, update the matching file in
-`features/` and its journey in `scripts/journeys.mjs` in the same PR. For a full pass, use the pstack
-`/maintain-verification-skill` skill when it is installed. The CI suite in `apps/web/e2e/` is the
-behaviour contract. This skill is the tool to drive the app and show proof.
+Update the matching `features/` file and `scripts/journeys.mjs` journey in the same PR as each user-visible path change.
+For a full pass, use pstack's `/maintain-verification-skill` when installed. `apps/web/e2e/` is the behaviour
+contract; this skill drives the app and captures proof.

@@ -5,50 +5,39 @@ description: Write Jest + React Testing Library unit/component tests that assert
 
 # Write unit tests
 
-Unit and component tests here verify *units* cheaply and survive refactors,
-because they assert what a **user perceives**, through the public surface.
+Test what users perceive through the public surface so tests survive refactors.
+Use this skill for new pure functions, hooks, or components; bug fixes (write
+the failing test first); and coverage below `jest.config.ts`'s 80% threshold.
 
-## When to use this skill
+## Principles
 
-- You added a pure function, a hook, or a component.
-- You are fixing a bug — write the failing test first, then make it pass.
-- Coverage dropped below the threshold in `jest.config.ts` (80%).
-
-## Principles (React Testing Library)
-
-- **Query the way a user finds things:** `getByRole`, `getByLabelText`,
-  `getByText`. Reach for `getByTestId` only when no accessible query fits.
-- **Assert observable behaviour**, not internal state, props, or class names.
-- **Drive with `userEvent`**, not `fireEvent` — it models real interaction.
-- **One behaviour per `it`.** The test name reads as a sentence about the
-  product.
-- **Test logic where it lives.** Api domain rules (`formatGreeting` in
-  `domain.ts`) and use cases (`greet` in `application.ts`) are tested as
-  functions. Procedures are tested through `createCallerFactory(<name>Router)({})`
-  from `trpc.ts`, covering valid input and the `BAD_REQUEST` rejection (see
-  `apps/api/src/features/greeting/procedures.test.ts`). Form schemas are tested
-  by decoding (`greetingFormSchema.test.ts`). Hooks and pages are tested
-  through rendered behaviour. See `.agents/project/ARCHITECTURE.md`.
-- **Reach the api through `TestApiProvider`.** A page or hook that calls the api
-  renders inside `TestApiProvider` from the api client, with one typed handler
-  per procedure path (`{ 'greeting.greet': greet }`). Use `jest.fn` handlers to
-  assert the input the api received, and a rejecting handler for the error
-  state. The real hooks and providers run; leave hooks unmocked. Models:
-  `apps/web/src/routes/greeting/GreetingPage.test.tsx` and
-  `useGreeting.test.tsx` (`renderHook` with a `TestApiProvider` wrapper).
-- **Replace a dependency through its seam.** `jest.mock` fails
-  `pnpm lint:anti-slop`.
+- Query by `getByRole`, `getByLabelText`, or `getByText`; use `getByTestId` only
+  when no accessible query fits. Assert observable behaviour, not state, props, or classes.
+- Drive with `userEvent` rather than `fireEvent` to model real interaction.
+- Use one behaviour per `it`, named as a sentence about the product.
+- Test logic where it lives. Test domain rules (`formatGreeting` in `domain.ts`)
+  and use cases (`greet` in `application.ts`) as functions. Test procedures
+  through `createCallerFactory(<name>Router)({})` from `trpc.ts`, with valid
+  input and `BAD_REQUEST` rejection; see `apps/api/src/features/greeting/procedures.test.ts`.
+  Test form schemas by decoding (`greetingFormSchema.test.ts`), and hooks and
+  pages through rendered behaviour. See `.agents/project/ARCHITECTURE.md`.
+- Render pages and hooks that call the api inside the api client's
+  `TestApiProvider`, with one typed handler per procedure path
+  (`{ 'greeting.greet': greet }`). Assert received input with `jest.fn` handlers;
+  use a rejecting handler for errors. Run real hooks and providers, leaving
+  hooks unmocked. Models: `apps/web/src/routes/greeting/GreetingPage.test.tsx`
+  and `useGreeting.test.tsx` (`renderHook` with a `TestApiProvider` wrapper).
+- Replace dependencies through their seams. `jest.mock` fails `pnpm lint:anti-slop`.
 
 ## Process
 
-1. Copy `.agents/templates/component.test.tsx.template` next to the unit under
-   test as `<Name>.test.tsx`. Jest runs three projects from the repo root:
-   `web` (jsdom) for `{apps,showcase/*}/web/src/**` and `packages/*/src/**`,
-   `api` (node) for `{apps,showcase/*}/api/src/**/*.test.ts`, and `tooling`
-   for `scripts/` and `tooling/`.
-2. Cover the default state, each user action, and the edge cases (empty or
-   blank input, api error, validation error).
-3. Run with coverage and close any gap the threshold reports.
+1. Copy `.agents/templates/component.test.tsx.template` beside the unit as
+   `<Name>.test.tsx`. Jest runs three root projects: `web` (jsdom) for
+   `{apps,showcase/*}/web/src/**` and `packages/*/src/**`, `api` (node) for
+   `{apps,showcase/*}/api/src/**/*.test.ts`, and `tooling` for `scripts/` and `tooling/`.
+2. Cover the default state, each user action, and edge cases: empty or blank
+   input, api error, validation error.
+3. Run coverage and close every gap the threshold reports.
 
 ## Commands
 
@@ -62,5 +51,5 @@ pnpm test --selectProjects api   # run one Jest project
 
 ## Done when
 
-`pnpm test:coverage` passes (no threshold failure) and each behaviour has a
-test. Cross-check `.agents/project/PR_QUALITY.md`.
+`pnpm test:coverage` passes without threshold failures and every behaviour has
+a test. Follow [`.agents/project/PR_QUALITY.md`](../../../.agents/project/PR_QUALITY.md).
