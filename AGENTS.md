@@ -96,7 +96,7 @@ Regenerate disposable output (`apps/web/dist/`, `.cache/`, `coverage/`) with its
 
 | Path | Read it when |
 | --- | --- |
-| [`project/AGENTIC_INFRASTRUCTURE.md`](.agents/project/AGENTIC_INFRASTRUCTURE.md) | before changing agent guidance, hooks, workflows, or skills. |
+| [`HARNESSES.md`](.agents/HARNESSES.md) | before changing agent guidance, harness settings, hooks, or skills. |
 | [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md) | before adding or moving any module: the role table, the api file roles, the state model, and how to add a route, a feature or a procedure. It is the pattern you must follow. |
 | [`project/CONVENTIONS.md`](.agents/project/CONVENTIONS.md) | while writing code: naming, structure, imports, errors, state. |
 | [`project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md) | before changing hooks, scripts, CI, or tool ownership. |
@@ -107,5 +107,4 @@ Regenerate disposable output (`apps/web/dist/`, `.cache/`, `coverage/`) with its
 | [`decisions/`](.agents/decisions/) | to understand *why* a constraint exists before you challenge it. ADRs. |
 | [`templates/`](.agents/templates/) | when creating a new component, test, E2E flow, or PRD. Copy from here. |
 | [`NORTH_STAR.md`](docs/NORTH_STAR.md) | to see where the repo is heading and why. |
-| [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) | if you are Claude Code: skills, settings, hooks, and tooling. |
 | [`verify-agentic-template`](.claude/skills/verify-agentic-template/SKILL.md) | to drive the app and capture PR proof. |
