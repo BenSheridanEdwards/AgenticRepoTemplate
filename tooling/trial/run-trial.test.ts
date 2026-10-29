@@ -331,9 +331,9 @@ describe('planTrial', () => {
       '--session-id',
       '0b7f6c1e-3f7a-4d2b-9c51-2f0e8f6b2a10',
     ]);
-    for (const flag of ['--resume', '-r', '--continue', '-c']) {
+    ['--resume', '-r', '--continue', '-c'].forEach((flag) => {
       expect(planned.agentArgv).not.toContain(flag);
-    }
+    });
   });
 
   it('runs the checks a passed run needs, including scope, on the committed result', () => {
@@ -1069,16 +1069,16 @@ emit({ type: 'assistant', message: { content: [
     try {
       const evidence = await runTrial(planned, quietDeps());
 
-      for (const who of ['setup', 'agent', 'check']) {
+      ['setup', 'agent', 'check'].forEach((who) => {
         const view = JSON.parse(readFileSync(join(views, `${who}.json`), 'utf8'));
         expect(view.tmpdir.startsWith(`${planned.workdir}/`)).toBe(true);
         expect(view.entries).not.toContain(basename(decoy));
-        for (const name of ['TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CODE_TMPDIR', 'XDG_RUNTIME_DIR']) {
+        ['TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CODE_TMPDIR', 'XDG_RUNTIME_DIR'].forEach((name) => {
           expect(view.env[name]).toBe(view.tmpdir);
-        }
+        });
         expect(view.env.XDG_CACHE_HOME.startsWith(`${planned.workdir}/`)).toBe(true);
         expect(view.env.npm_config_cache.startsWith(`${planned.workdir}/`)).toBe(true);
-      }
+      });
       const tmpOf = (who: string) =>
         JSON.parse(readFileSync(join(views, `${who}.json`), 'utf8')).tmpdir;
       expect(tmpOf('check')).not.toBe(tmpOf('agent'));
@@ -1105,12 +1105,12 @@ emit({ type: 'assistant', message: { content: [
       ...deps,
       exec: (argv, options) => {
         if (options.privateTmp) {
-          for (const name of ['TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CODE_TMPDIR', 'XDG_RUNTIME_DIR']) {
+          ['TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CODE_TMPDIR', 'XDG_RUNTIME_DIR'].forEach((name) => {
             expect(options.env?.[name]).toBe('/tmp');
             expect(
               Buffer.byteLength(join(options.env?.[name] ?? '', 's'.repeat(64))),
             ).toBeLessThanOrEqual(107);
-          }
+          });
         }
         calls.push({ argv, privateTmp: options.privateTmp });
         return deps.exec(argv, options);
@@ -1203,9 +1203,9 @@ emit({ type: 'assistant', message: { content: [
       if (hostConfines) {
         expect(evidence.failures).toEqual([]);
         expect(evidence.result.outsideReads).toEqual([]);
-        for (const who of ['setup', 'agent', 'check']) {
+        ['setup', 'agent', 'check'].forEach((who) => {
           expect(view(who)).not.toContain(basename(decoyFolder));
-        }
+        });
         expect(view('agent')).toContain(log);
         expect(view('check')).not.toContain(log);
         expect(existsSync(join('/tmp', log))).toBe(false);
@@ -1264,11 +1264,12 @@ ${holdUntilReleased(agentHold)}`,
     const hundredHours = 100 * 60 * 60 * 1000;
     let settled = false;
     const outlast = async ({ started, release }: { started: string; release: string }) => {
-      while (!existsSync(started)) {
+      if (!existsSync(started)) {
         if (settled) {
           throw new Error(`the run ended before ${started} appeared`);
         }
         await new Promise((done) => setImmediate(done));
+        return outlast({ started, release });
       }
       jest.advanceTimersByTime(hundredHours);
       writeFileSync(release, '');
@@ -1405,9 +1406,9 @@ ${holdUntilReleased(agentHold)}`,
         quietDeps(),
       );
     } finally {
-      for (const name of Object.keys(parent)) {
+      Object.keys(parent).forEach((name) => {
         delete process.env[name];
-      }
+      });
     }
     const env = JSON.parse(readFileSync(seen, 'utf8'));
 
@@ -1418,7 +1419,7 @@ ${holdUntilReleased(agentHold)}`,
       HOME: process.env.HOME,
     });
     expect(env.PATH).toContain('/');
-    for (const name of [
+    [
       'CLAUDECODE',
       'CLAUDE_CODE_SESSION_ID',
       'ANTHROPIC_MODEL',
@@ -1427,9 +1428,9 @@ ${holdUntilReleased(agentHold)}`,
       'GIT_AUTHOR_NAME',
       'npm_lifecycle_event',
       'INIT_CWD',
-    ]) {
+    ].forEach((name) => {
       expect(env[name]).toBeUndefined();
-    }
+    });
   });
 
   it.each([

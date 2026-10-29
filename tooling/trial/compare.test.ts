@@ -69,9 +69,9 @@ function variant(id: string, ...edits: Edit[]): Tree {
   const tree: Tree = new Map(
     [...BASE].map(([path, text]) => [path, text.replaceAll('todo-01', id)]),
   );
-  for (const edit of edits) {
+  edits.forEach((edit) => {
     edit(tree);
-  }
+  });
   return tree;
 }
 
@@ -112,9 +112,9 @@ const renameEverywhere =
       text.replace(from, to),
     ]);
     tree.clear();
-    for (const [path, text] of renamed) {
+    renamed.forEach(([path, text]) => {
       tree.set(path, text);
-    }
+    });
   };
 
 const remove =
@@ -1450,10 +1450,10 @@ describe('hasTrialEvidence', () => {
     withRoot(
       (root) => {
         mkdirSync(join(root, 'docs/trials'), { recursive: true });
-        for (const pkg of ['web', 'api']) {
+        ['web', 'api'].forEach((pkg) => {
           mkdirSync(join(root, `showcase/todo-01/${pkg}`), { recursive: true });
           writeFileSync(join(root, `showcase/todo-01/${pkg}/package.json`), '{}\n');
-        }
+        });
       },
       (root) => expect(hasTrialEvidence(root)).toBe(false),
     );

@@ -107,14 +107,14 @@ function withSeed<T>(files: Record<string, string | null>, check: () => T): T {
     ]),
   );
   try {
-    for (const [path, text] of Object.entries(files)) {
+    Object.entries(files).forEach(([path, text]) => {
       put(path, text);
-    }
+    });
     return check();
   } finally {
-    for (const [path, text] of Object.entries(before)) {
+    Object.entries(before).forEach(([path, text]) => {
       put(path, text);
-    }
+    });
   }
 }
 
@@ -122,9 +122,9 @@ function withSeed<T>(files: Record<string, string | null>, check: () => T): T {
 function withCommittedSeed<T>(name: string, files: Record<string, string>, check: () => T): T {
   git('switch', '-q', '-c', `seed/${name}`);
   try {
-    for (const [path, text] of Object.entries(files)) {
+    Object.entries(files).forEach(([path, text]) => {
       write(path, text);
-    }
+    });
     git('add', '-A');
     git('commit', '-q', '-m', `seed ${name}`);
     return check();
@@ -141,19 +141,21 @@ function withCommittedSeed<T>(name: string, files: Record<string, string>, check
 function linkWebModules(packagePath: string, workspace: Record<string, string>) {
   const source = join(REPOSITORY_ROOT, 'apps/web/node_modules');
   const target = join(copy, packagePath, 'node_modules');
-  for (const entry of readdirSync(source)) {
+  readdirSync(source).forEach((entry) => {
     const names = entry.startsWith('@')
       ? readdirSync(join(source, entry)).map((name) => `${entry}/${name}`)
       : [entry];
-    for (const name of names.filter((name) => !name.startsWith('@repo/'))) {
-      mkdirSync(dirname(join(target, name)), { recursive: true });
-      symlinkSync(realpathSync(join(source, name)), join(target, name));
-    }
-  }
-  for (const [name, path] of Object.entries(workspace)) {
+    names
+      .filter((name) => !name.startsWith('@repo/'))
+      .forEach((name) => {
+        mkdirSync(dirname(join(target, name)), { recursive: true });
+        symlinkSync(realpathSync(join(source, name)), join(target, name));
+      });
+  });
+  Object.entries(workspace).forEach(([name, path]) => {
     mkdirSync(dirname(join(target, name)), { recursive: true });
     symlinkSync(join(copy, path), join(target, name));
-  }
+  });
 }
 
 beforeAll(() => {
@@ -167,14 +169,14 @@ beforeAll(() => {
     .filter(
       (path) => path && !path.startsWith('showcase/') && existsSync(join(REPOSITORY_ROOT, path)),
     );
-  for (const path of files) {
+  files.forEach((path) => {
     mkdirSync(dirname(join(copy, path)), { recursive: true });
     copyFileSync(join(REPOSITORY_ROOT, path), join(copy, path));
-  }
+  });
   symlinkSync(join(REPOSITORY_ROOT, 'node_modules'), join(copy, 'node_modules'));
-  for (const path of PACKAGES_WITH_MODULES) {
+  PACKAGES_WITH_MODULES.forEach((path) => {
     symlinkSync(join(REPOSITORY_ROOT, path, 'node_modules'), join(copy, path, 'node_modules'));
-  }
+  });
   linkWebModules('apps/web', { '@repo/api': 'apps/api', '@repo/ui': 'packages/ui' });
   git('init', '-q', '-b', 'main');
   // `.gitignore` names `node_modules/`, which matches no symlink.
@@ -182,14 +184,16 @@ beforeAll(() => {
   git('add', '-A');
   git('commit', '-q', '-m', 'scaffold');
 
-  for (const path of files.filter((file) => /^apps\/(web|api)\//.test(file))) {
-    write(
-      path.replace(/^apps\//, 'showcase/x/'),
-      readFileSync(join(REPOSITORY_ROOT, path), 'utf8')
-        .replaceAll('@repo/web', '@x/web')
-        .replaceAll('@repo/api', '@x/api'),
-    );
-  }
+  files
+    .filter((file) => /^apps\/(web|api)\//.test(file))
+    .forEach((path) => {
+      write(
+        path.replace(/^apps\//, 'showcase/x/'),
+        readFileSync(join(REPOSITORY_ROOT, path), 'utf8')
+          .replaceAll('@repo/web', '@x/web')
+          .replaceAll('@repo/api', '@x/api'),
+      );
+    });
   symlinkSync(
     join(REPOSITORY_ROOT, 'apps/api/node_modules'),
     join(copy, 'showcase/x/api/node_modules'),
@@ -244,14 +248,14 @@ describe('a showcase result', () => {
     const configOf = (path: string) =>
       JSON.parse(run(['eslint', '--print-config', path]).stdout).rules;
 
-    for (const file of [WEB_FILE, API_FILE]) {
+    [WEB_FILE, API_FILE].forEach((file) => {
       const showcase = configOf(`showcase/x/${file}`);
       const policy = Object.entries(showcase).filter(([rule]) => rule.startsWith('policy/'));
 
       expect(showcase).toEqual(configOf(`apps/${file}`));
       expect(policy.length).toBeGreaterThan(5);
       expect(policy.filter(([, setting]) => JSON.stringify(setting) !== '[2]')).toEqual([]);
-    }
+    });
   });
 
   it('fails ESLint policy on a seeded violation and on nothing else', () => {
