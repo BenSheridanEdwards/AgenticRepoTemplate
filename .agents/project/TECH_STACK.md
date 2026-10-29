@@ -1,10 +1,7 @@
-# Tech stack — one tool per concern
+# Tech stack
 
-The point of this list is not the tools; it is that **each concern has exactly
-one owner**. An agent knows which tool to reach for, and keeps each job with
-the one tool that owns it. Adding or swapping a tool
-is an ADR-level decision. See [`QUALITY_GATES.md`](QUALITY_GATES.md) for where
-each owner runs locally and in CI.
+Each concern has one owner. Use that tool for its job; adding or swapping a
+tool needs an ADR. [QUALITY_GATES.md](QUALITY_GATES.md) lists where each runs.
 
 | Concern | Owner | Notes |
 | --- | --- | --- |
@@ -38,53 +35,19 @@ each owner runs locally and in CI.
 | Static application security | **CodeQL** | SAST on every push and pull request. |
 | License compliance | **pnpm licenses + allow-list** | `pnpm --recursive licenses list` covers every workspace package; CI fails on a dependency license outside the permissive allow-list. |
 | Automated PR review rules | **`REVIEW.md`** | The judgment rules Cursor Bugbot, Codex, and Claude read after lint; `AGENTS.md` and `.cursor/BUGBOT.md` point every reviewer at the one file, and `pnpm check:context` holds the wiring ([ADR 0049](../decisions/0049-review-rules-for-bot-reviewers.md)). |
-| Repo health audits | **ArchitectPlaybook** | Claude Code skills; the health-check (showcase #1). |
-| Simplicity discipline | **Ponytail** | Prefer deletion, stdlib/native features, and existing patterns. |
 
 ## Why these choices
 
-- **Effect 4, through Standard Schema.** `@hookform/resolvers` still declares
-  its Effect peer as `^3.10.3`, so `effectTsResolver` runs on Effect 3 only.
-  Forms hand an Effect Schema to `standardSchemaResolver` through
-  `Schema.toStandardSchemaV1`, the same adapter the api procedures use. The
-  web bundle is about 26 kB smaller than on Effect 3 and fits the 110 kB
-  budget ([ADR 0036](../decisions/0036-effect-4.md)).
-- **Native type stripping, no runner.** Node 22.18 is the first Node 22 that
-  strips types by default. `engines.node` is `>=22.18`, the floor, and `.nvmrc`
-  stays `22`. Locally, `nvm use` can pick an installed 22.x older than 22.18,
-  where the api fails to start; `nvm install` gets the newest Node 22.
-- **The Vite proxy.** The browser calls `/trpc` on its own origin, so the web
-  app needs no CORS setup and no api URL in its bundle.
-- **Keep the web-to-api contract in the shared router type.** Pact and other
-  consumer-driven contract tools are out of scope. The web and the api share
-  one workspace, one release and one `AppRouter` type, so the compiler checks
-  each call's input and output against the provider, and the behaviour map
-  runs them over real HTTP. Bring in Pact, through an ADR, when a consumer or
-  a provider ships from another repository.
+- `@hookform/resolvers` declares an Effect peer of `^3.10.3`, so `effectTsResolver` supports Effect 3 only. Use `standardSchemaResolver(Schema.toStandardSchemaV1(schema))` for Effect 4 forms, with the same adapter as api procedures. The web bundle is about 26 kB smaller than on Effect 3 and fits the 110 kB budget ([ADR 0036](../decisions/0036-effect-4.md)).
+- Node 22.18 is the first Node 22 release to strip types by default. `engines.node` sets that floor; `.nvmrc` stays `22`. If `nvm use` selects an older 22.x, run `nvm install` to get the newest Node 22.
+- The Vite proxy lets the browser call `/trpc` on its own origin, with no CORS setup or api URL in the bundle.
+- The web and api share one workspace, release and `AppRouter` type. Typecheck checks each call against the provider; the behaviour map exercises real HTTP. Pact and other consumer-driven contract tools stay out of scope until a consumer or provider ships from another repository; adding one then needs an ADR.
 
 ## Boundaries to respect
 
-- **Each lint rule has one owner.** Biome owns formatting and general lint;
-  ESLint owns policy, React hooks, React Compiler, and React Doctor rules; the
-  React Doctor CLI owns the project-level checks
-  ([ADR 0010](../decisions/0010-lint-engine-ownership.md),
-  [ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)). When two engines
-  implement the same check, one turns it off and names the owner. Biome is the
-  only formatter.
-- **One test runner per layer.** Unit = Jest, E2E = Playwright. That is the
-  whole matrix, and `pnpm check:adr` asks for an ADR before a new one lands.
-- **The unit suite asserts behaviour.** Unit tests stub stylesheets on purpose
-  (`tooling/jest/jest.style-stub.cjs`).
-- **One owner per app concern.** TanStack Query owns server state, React Hook
-  Form owns form state, Effect Schema owns validation, tRPC owns transport, and
-  `@repo/ui` owns the primitives. Use these owners for their concern.
-- **What to leave out.** A router library, a global store, a second schema
-  library (such as zod), a second data-fetching library, a database client, an
-  ORM, an auth library and a TypeScript runner (`tsx`, `ts-node` for the api)
-  each need an ADR first. A result keeps its data in memory in the feature's
-  `integrations.ts`.
+- Each lint rule has one owner. Biome owns formatting and general lint; ESLint owns policy, React hooks, React Compiler and React Doctor rules; the React Doctor CLI owns project checks ([ADR 0010](../decisions/0010-lint-engine-ownership.md), [ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)). If engines overlap, turn off one check and name its owner. Biome is the only formatter.
+- Use Jest for unit tests and Playwright for E2E. A new runner needs an ADR (`pnpm check:adr`). Unit tests assert behaviour and stub stylesheets through `tooling/jest/jest.style-stub.cjs`.
+- Keep server state in TanStack Query, form state in React Hook Form, validation in Effect Schema, transport in tRPC, and primitives in `@repo/ui`.
+- A router library, global store, second schema library (such as zod), second data-fetching library, database client, ORM, auth library or TypeScript runner (`tsx`, `ts-node` for the api) each needs an ADR first. A result keeps its data in memory in the feature's `integrations.ts`.
 
-External tooling (Fallow, ArchitectPlaybook, Ponytail) is
-documented in the repo root `README.md` with Fallow-skill and Ponytail installation hints. We reference
-these as living libraries rather than vendoring copies — see
-[`../decisions/0004-agent-context-lives-in-dot-agents.md`](../decisions/0004-agent-context-lives-in-dot-agents.md).
+External tools: see the [README](../../README.md) for Fallow-skill and Ponytail installation hints (Ponytail favours deletion, stdlib/native features and existing patterns); [ArchitectPlaybook](https://github.com/BenSheridanEdwards/ArchitectPlaybook) is an external audit toolkit; reference these libraries without vendoring them ([ADR 0004](../decisions/0004-agent-context-lives-in-dot-agents.md)).

@@ -1,15 +1,10 @@
 # Conventions
 
-Each convention below names the check that enforces it. The error message of
-each check names the fix. The judgment calls at the end are the conventions no
-check can decide; reviewers hold those. When in doubt, copy the reference
-feature.
+Use [AGENTS.md's rule table](../../AGENTS.md#rules-and-what-enforces-them) for shared rules and gates. The tables below cover code conventions; reviewers hold the judgment calls. Copy the reference feature when in doubt.
 
 ## Enforced conventions
 
-The ESLint rules and the Biome naming override run on package source:
-`{apps,packages}/*/src/**` and `showcase/*/*/src/**`. The package ESLint policy
-and React rules cover `.ts` and `.tsx` files.
+The ESLint rules and Biome naming override run on `{apps,packages}/*/src/**` and `showcase/*/*/src/**`; package ESLint policy and React rules cover `.ts` and `.tsx`.
 
 | Convention | Enforced by |
 | --- | --- |
@@ -21,7 +16,6 @@ and React rules cover `.ts` and `.tsx` files.
 | Identifiers: `camelCase` functions and variables, `PascalCase` types and components, `SCREAMING_SNAKE_CASE` for true configuration constants. | Biome `style/useNamingConvention` |
 | File names are camelCase, PascalCase, or the name of their export. | Biome `style/useFilenamingConvention` |
 | A component or hook lives in the file of the same name (`GreetingForm.tsx`, `useGreeting.ts`). | ESLint `policy/file-matches-export` |
-| Keep each comment group to four physical lines; write longer rationale in a doc or ADR. Adjacent mixed comment syntaxes count together. | ESLint `policy/no-large-comments` |
 | Keep block nesting to four levels. | ESLint `max-depth` |
 | Bind with `const` unless the name is reassigned. | Biome `style/useConst` |
 | Components and hooks leave props, state, hook values and globals unchanged during render. | ESLint `react-hooks/immutability`, `react-hooks/globals`, `react-hooks/purity` |
@@ -40,8 +34,6 @@ and React rules cover `.ts` and `.tsx` files.
 | Another module imports a route, feature or api feature only through its `index.ts`: `./routes/greeting` in the web, `./features/greeting/index.ts` in the api. | ESLint `no-restricted-imports` |
 | Every relative import in an api package names its `.ts` extension (`./application.ts`). | `pnpm typecheck` (`tsconfig.api.json`, `NodeNext`) and Node at runtime |
 | Api code uses only erasable TypeScript syntax and sees no DOM; web code has the DOM and no Node globals. | `pnpm typecheck` (`tsconfig.api.json` with `erasableSyntaxOnly`; `tsconfig.json` with the DOM libs and no Node types) |
-| Every source file belongs to one architecture role. | Fallow `coverage.requireAllFiles` (`pnpm arch:gate`) |
-| Value imports between roles follow the table in [`ARCHITECTURE.md`](ARCHITECTURE.md); type-only imports may cross roles subject to slice isolation and route co-location. | Fallow boundaries and `route-colocation` (`pnpm arch:gate`, [ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)); imports within a role remain subject to slice isolation. |
 | Banned imports, calls and effects per role. | Fallow rule pack, reported as `contract/<id>` (`pnpm arch:gate`, `pnpm fallow:audit`) |
 | `strict` TypeScript with `noUncheckedIndexedAccess` and `noUnusedLocals`. | `pnpm typecheck`; review of the diff catches a loosened `tsconfig.base.json` ([ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md)) |
 | `unknown` and narrowing in place of `any`. | Biome `suspicious/noExplicitAny` |
@@ -49,17 +41,14 @@ and React rules cover `.ts` and `.tsx` files.
 | `interface` for object shapes, `type` for unions and aliases. | Biome `style/useConsistentTypeDefinitions` |
 | Import order. | Biome `organizeImports` |
 | Every block has a body; a handled error does something observable. | Biome `suspicious/noEmptyBlockStatements` |
-| An ESLint exception lives in `eslint.config.js` with its reason. | ESLint `noInlineConfig` on every source file ([ADR 0039](../decisions/0039-block-inline-lint-disable-comments.md)) |
-| Outside result roots, every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. | `pnpm check:suppressions`; Biome for `biome-ignore`; the structure check rejects these directives in `apps/` and `showcase/<id>/`. |
 | Outside result roots, every `fallow-ignore` comment names its reason. | Fallow `require-suppression-reason`; the structure check rejects this directive in `apps/` and `showcase/<id>/`. |
 | Accessible, labelled controls and status regions. | Biome `a11y/*`, jest-axe, `@axe-core/playwright`, Lighthouse |
 
+Comment groups count physical lines and adjacent mixed syntaxes together. Imports within a role still follow slice isolation.
+
 ## Contract rules
 
-The Fallow rule pack
-[`tooling/architecture/contract.rules.jsonc`](../../tooling/architecture/contract.rules.jsonc)
-reports each finding as `policy-violation` `contract/<id>`, an error. Tests are
-outside every rule.
+The [Fallow rule pack](../../tooling/architecture/contract.rules.jsonc) reports each finding as `policy-violation` `contract/<id>`, an error. Tests are outside every rule.
 
 | Rule id | What it keeps |
 | --- | --- |
@@ -81,8 +70,7 @@ outside every rule.
 | Form schema | Effect Schema | `<name>FormSchema.ts` (`greetingFormSchema.ts`) |
 | Local UI state | `useState` or `useReducer` | a `use*` hook |
 
-After a mutation, refresh the queries it changes in `onSuccess` with
-`queryClient.invalidateQueries({ queryKey: trpc.<router>.<procedure>.queryKey() })`.
+After a mutation, refresh the queries it changes in `onSuccess` with `queryClient.invalidateQueries({ queryKey: trpc.<router>.<procedure>.queryKey() })`.
 
 ## Api file roles
 
@@ -94,41 +82,19 @@ After a mutation, refresh the queries it changes in `onSuccess` with
 | `features/<name>/integrations.ts` | Storage, including in-memory storage, and every effect. |
 | `features/<name>/index.ts` | The public surface: the feature router. |
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full role table and the
-greeting reference.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full role table and greeting reference.
 
 ## Judgment calls
 
-- **Full words in identifiers.** Write `name` and `request`. The name is the
-  cheapest documentation an agent has. Established acronyms such as E2E, CI,
-  ADR, UI, IO, and URL are fine.
-- **Hooks wire state, components render, pure functions hold logic.** See
-  [`ARCHITECTURE.md`](ARCHITECTURE.md).
-- **Build with `@repo/ui` primitives.** Use `Button` and `TextField` for
-  controls, and add a primitive to `packages/ui` when a result needs a new one.
-- **Validate data at an IO boundary.** Parse network, storage, and environment
-  data before trusting its type, as `server.ts` decodes `PORT` with Effect
-  Schema. A type assertion is a claim, and validation is proof.
-- **Fail loudly at boundaries.** `main.tsx` throws when `#root` is missing.
-- **Declarative transforms.** Build arrays and objects with `map`, `filter`,
-  `flatMap`, `reduce` and `Object.fromEntries` in place of `for` and `while`
-  loops, `push` and in-place mutation. The `style/useConst` and React Hooks
-  rows enforce part of this; the rest is not enforced yet
-  ([North Star §9](../../docs/NORTH_STAR.md#9-declarative-over-imperative)).
-- **Decisions in ADRs.** A comment states the local reason for a line. A
-  decision, its alternatives and its trade-offs go in an ADR in
-  [`../decisions/`](../decisions).
+- Use full words such as `name` and `request` in identifiers. Established acronyms such as E2E, CI, ADR, UI, IO, and URL are fine.
+- Hooks wire state, components render, and pure functions hold logic. See [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- Build controls with `@repo/ui`'s `Button` and `TextField`; add a primitive to `packages/ui` when a result needs a new one.
+- Parse network, storage, and environment data at the IO boundary before trusting its type. `server.ts` decodes `PORT` with Effect Schema; a type assertion alone proves nothing.
+- Fail loudly at boundaries, as `main.tsx` does when `#root` is missing.
+- Build arrays and objects with `map`, `filter`, `flatMap`, `reduce` and `Object.fromEntries` in place of loops, `push` and in-place mutation. `style/useConst` and React Hooks rules enforce part of this; review holds the rest ([North Star §9](../../docs/NORTH_STAR.md#9-declarative-over-imperative)).
+- Keep comments for the local reason behind a line. Record decisions, alternatives and trade-offs in an [ADR](../decisions/).
 
 ## Enforced commit and branch conventions
 
-| Convention | Enforced by |
-| --- | --- |
-| Commits use Conventional Commits, `type(scope): subject`, lower case with no trailing period. | commitlint on `commit-msg` |
-| PR titles use Conventional Commits. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
-| Branches are `<type>/<short-kebab-summary>`, for example `feat/greeting-trim-name`. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
-| A new dependency arrives with a new ADR that names it. | `pnpm check:adr` in `pnpm verify` and CI |
-
-## Commit judgment
-
-- Write the subject in the imperative mood.
-- Keep one logical change per commit, so the diff stays reviewable.
+Use Conventional Commits, `type(scope): subject`, lower case with no trailing period (commitlint on `commit-msg`). Branches are `<type>/<short-kebab-summary>`, such as `feat/greeting-trim-name` (`PR quality`, `scripts/validate-pr-body.mjs`).
+Write subjects in the imperative mood and keep one logical change per commit.
