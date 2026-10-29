@@ -226,9 +226,18 @@ function jobLines(workflowText) {
 function parseJobs(workflowText) {
   const jobs = new Map();
   const problems = [];
-  const state = { jobs, job: undefined, step: undefined, jobKey: undefined, nested: 'reject' };
+  let state = {
+    job: undefined,
+    jobName: undefined,
+    step: undefined,
+    jobKey: undefined,
+    nested: 'reject',
+  };
   for (const { text, number } of jobLines(workflowText)) {
-    if (!readLine(state, text)) {
+    const read = readLine(state, text);
+    state = read.state;
+    if (state.job) jobs.set(state.jobName, state.job);
+    if (!read.ok) {
       problems.push(
         `line ${number} has a layout the contract reader does not check: "${text.trim()}". ` +
           'Use the layout of the other workflow jobs so every step stays checked.',
@@ -245,26 +254,25 @@ function readLine(state, line) {
     return startJob(state, field);
   }
   if (!state.job) {
-    return false;
+    return { state, ok: false };
   }
   if (indent === 4) {
-    state.jobKey = field?.[1];
-    return field !== null && setField(state, state.job, field[1], field[2]);
+    const next = { ...state, jobKey: field?.[1] };
+    return field === null ? { state: next, ok: false } : setField(next, 'job', field[1], field[2]);
   }
   if (state.jobKey === 'steps') {
     return readStepLine(state, line, indent);
   }
-  return state.nested === 'opaque';
+  return { state, ok: state.nested === 'opaque' };
 }
 
 function startJob(state, field) {
-  Object.assign(state, { job: undefined, step: undefined, jobKey: undefined });
+  const next = { ...state, job: undefined, jobName: undefined, step: undefined, jobKey: undefined };
   if (!field || field[2] !== undefined) {
-    return false;
+    return { state: next, ok: false };
   }
-  state.job = { steps: [] };
-  state.jobs.set(field[1], state.job);
-  return true;
+  const job = { steps: [] };
+  return { state: { ...next, job, jobName: field[1] }, ok: true };
 }
 
 function readStepLine(state, line, indent) {
@@ -274,20 +282,31 @@ function readStepLine(state, line, indent) {
   const step = indent === 6 ? line.trim().match(/^- (.*)$/)?.[1] : line.trim();
   const field = indent === 6 || indent === 8 ? step?.match(FIELD) : null;
   if (!field) {
-    return false;
+    return { state, ok: false };
   }
   if (indent === 6) {
-    state.step = {};
-    state.job.steps.push(state.step);
+    const step = {};
+    const next = { ...state, step, job: { ...state.job, steps: [...state.job.steps, step] } };
+    return setField(next, 'step', field[1], field[2]);
   }
-  return state.step !== undefined && setField(state, state.step, field[1], field[2]);
+  return state.step === undefined
+    ? { state, ok: false }
+    : setField(state, 'step', field[1], field[2]);
 }
 
 function readNested(state, line) {
   if (state.nested === 'run') {
-    state.step.run += `${line.slice(10)}\n`;
+    const step = { ...state.step, run: `${state.step.run}${line.slice(10)}\n` };
+    return {
+      state: {
+        ...state,
+        step,
+        job: { ...state.job, steps: [...state.job.steps.slice(0, -1), step] },
+      },
+      ok: true,
+    };
   }
-  return state.nested !== 'reject';
+  return { state, ok: state.nested !== 'reject' };
 }
 
 /**
@@ -297,18 +316,24 @@ function readNested(state, line) {
  */
 function setField(state, target, key, value) {
   if (value === undefined) {
-    state.nested = 'opaque';
-    return !['run', 'if', 'continue-on-error', 'name'].includes(key);
+    return {
+      state: { ...state, nested: 'opaque' },
+      ok: !['run', 'if', 'continue-on-error', 'name'].includes(key),
+    };
   }
-  if (/^[|>]/.test(value)) {
-    const isRunBlock = key === 'run' && BLOCK_HEADER.test(value);
-    state.nested = isRunBlock ? 'run' : 'opaque';
-    target[key] = '';
-    return isRunBlock;
-  }
-  state.nested = 'reject';
-  target[key] = unwrapExpression(value);
-  return true;
+  const block = /^[|>]/.test(value);
+  const isRunBlock = key === 'run' && BLOCK_HEADER.test(value);
+  const updated = { ...state[target], [key]: block ? '' : unwrapExpression(value) };
+  const next = {
+    ...state,
+    [target]: updated,
+    nested: block ? (isRunBlock ? 'run' : 'opaque') : 'reject',
+  };
+  const job =
+    target === 'job'
+      ? updated
+      : { ...state.job, steps: [...state.job.steps.slice(0, -1), updated] };
+  return { state: { ...next, job }, ok: !block || isRunBlock };
 }
 
 /** `if: ${{ x }}` and `if: x` mean the same to GitHub; compare the bare form. */

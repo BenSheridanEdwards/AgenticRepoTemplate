@@ -813,13 +813,14 @@ async function setupStage({ plan, deps, failures, agent }) {
     cwd: plan.clone,
     ...confined(plan, agentEnv(plan.privateEnv), plan.privateEnv),
   });
-  agent.version = version.stdout.trim();
   if (version.code !== 0) {
     failures.push(
       `${plan.agentArgv[0]} --version exited ${version.code}: ${version.output.trim()}`,
     );
   }
-  agent.userConfigSha256 = userConfigSha256(plan);
+  return {
+    agent: { ...agent, version: version.stdout.trim(), userConfigSha256: userConfigSha256(plan) },
+  };
 }
 
 /**
@@ -889,19 +890,20 @@ async function agentStage(state) {
   }
   const streamText = readFileSync(plan.streamPath, 'utf8');
   const events = streamEvents(streamText);
-  const { userTextEvents } = recordSessionSummary(state, events);
+  const { userTextEvents, plan: sessionPlan } = recordSessionSummary(state, events);
   const kept = redactSecrets(streamText, process.env);
   mkdirSync(dirname(plan.keptStreamPath), { recursive: true });
   writeFileSync(plan.keptStreamPath, kept);
-  state.stream = {
+  const stream = {
     path: plan.task.evidenceDir ? plan.keptStreamPath : relative(plan.root, plan.keptStreamPath),
     sha256: sha256(kept),
     userTextEvents,
   };
-  result.outsideReads = findOutsideReads(events, readScope(plan));
+  result.outsideReads = findOutsideReads(events, readScope(sessionPlan));
   if (result.outsideReads.length > 0) {
     failures.push(`named paths outside the clone: ${result.outsideReads.join(', ')}`);
   }
+  return { stream, plan: sessionPlan };
 }
 
 function recordSessionSummary({ plan, agent, run, failures }, events) {
@@ -912,17 +914,17 @@ function recordSessionSummary({ plan, agent, run, failures }, events) {
     (events.some((event) => event.type === 'turn.failed') || summary.sessionId === null)
   )
     failures.push('Codex did not finish a valid thread');
-  if (plan.agentName === 'codex') {
-    plan.sessionId = summary.sessionId;
-    plan.sessionTranscript = summary.transcriptPath;
-  }
+  const sessionPlan =
+    plan.agentName === 'codex'
+      ? { ...plan, sessionId: summary.sessionId, sessionTranscript: summary.transcriptPath }
+      : plan;
   Object.assign(agent, {
     resolvedModel,
     modelSource: summary.modelSource ?? 'stream',
     reasoningEffort: summary.reasoningEffort ?? null,
   });
   Object.assign(run, { turns, costUsd, tokenUsage: summary.tokenUsage ?? null });
-  return { userTextEvents };
+  return { userTextEvents, plan: sessionPlan };
 }
 
 /**
@@ -960,10 +962,10 @@ async function resultStage({ plan, deps, scaffold, failures, result }) {
   }
   await rewindToScaffold(plan, deps);
   const committed = await commitResult(plan, deps);
-  result.commit = committed.commit;
   if (committed.failure) {
     failures.push(committed.failure);
   }
+  return { result: { ...result, commit: committed.commit } };
 }
 
 /**
@@ -1003,7 +1005,7 @@ async function checksStage(state) {
     plan.clone,
     plan.checkClone,
   );
-  state.checks = await runCommands(plan.checks, plan.checkClone, deps, {
+  const checks = await runCommands(plan.checks, plan.checkClone, deps, {
     ...confined(plan, checkEnv(plan.checkPrivateEnv), plan.checkPrivateEnv),
     privateTmp: {
       ...confined(plan, checkEnv(plan.checkPrivateEnv), plan.checkPrivateEnv).privateTmp,
@@ -1013,14 +1015,15 @@ async function checksStage(state) {
       ],
     },
   });
-  for (const check of state.checks.filter(({ exitCode }) => exitCode !== 0)) {
+  for (const check of checks.filter(({ exitCode }) => exitCode !== 0)) {
     failures.push(`check ${check.name} exited ${check.exitCode}`);
   }
   for (const name of plan.checks
     .map(({ name }) => name)
-    .filter((required) => state.checks.every((check) => check.name !== required))) {
+    .filter((required) => checks.every((check) => check.name !== required))) {
     failures.push(`check ${name} did not run`);
   }
+  return { checks };
 }
 
 /**
@@ -1049,25 +1052,27 @@ const STAGES = [
 
 /** @param {RunState} state */
 async function runStages(state) {
+  let current = state;
   for (const stage of STAGES) {
     try {
       if (stage.stopped) {
-        const failures = [...state.failures, stage.stopped];
+        const failures = [...current.failures, stage.stopped];
         await writeEvidence(
-          state.plan,
-          toEvidence({ ...state, failures }, state.deps.now()),
-          state.deps,
+          current.plan,
+          toEvidence({ ...current, failures }, current.deps.now()),
+          current.deps,
         );
       }
-      await stage.run(state);
+      current = { ...current, ...(await stage.run(current)) };
     } catch (error) {
-      state.failures.push(`harness: ${error instanceof Error ? error.message : String(error)}`);
-      return;
+      current.failures.push(`harness: ${error instanceof Error ? error.message : String(error)}`);
+      return current;
     }
-    if (stage.beforeAgent && state.failures.length > 0) {
-      return;
+    if (stage.beforeAgent && current.failures.length > 0) {
+      return current;
     }
   }
+  return current;
 }
 
 /**
@@ -1148,7 +1153,7 @@ export async function runTrial(plan, deps) {
     mkdirSync(plan.privateEnv[name], { recursive: true, mode: 0o700 });
   }
   /** @type {RunState} */
-  const state = {
+  const initialState = {
     plan,
     deps,
     scaffold,
@@ -1168,7 +1173,7 @@ export async function runTrial(plan, deps) {
     },
     stream: { path: null, sha256: null, userTextEvents: null },
   };
-  if (!preparationFailure) await runStages(state);
+  const state = preparationFailure ? initialState : await runStages(initialState);
   if (
     (state.failures.length > 0 && state.run.agentExitCode !== null) ||
     plan.task.land === 'patch'

@@ -107,24 +107,25 @@ function readHunkLine(line, left, body) {
   if (mark === '+') {
     body.lines.push(line.slice(1));
   }
-  left.old -= mark === '+' || mark === '\\' ? 0 : 1;
-  left.new -= mark === '-' || mark === '\\' ? 0 : 1;
+  return {
+    old: left.old - (mark === '+' || mark === '\\' ? 0 : 1),
+    new: left.new - (mark === '-' || mark === '\\' ? 0 : 1),
+  };
 }
 
-/** Reads one hunk from `index`; returns the index after it. */
+/** Reads one hunk from `index`; returns its next index and newline status. */
 function readHunk(lines, index, body) {
   const counts = HUNK.exec(lines[index]);
-  const left = { old: Number(counts?.[1] ?? 1), new: Number(counts?.[2] ?? 1) };
+  let left = { old: Number(counts?.[1] ?? 1), new: Number(counts?.[2] ?? 1) };
   let at = index + 1;
   while (left.old > 0 || left.new > 0) {
-    readHunkLine(lines[at], left, body);
+    left = readHunkLine(lines[at], left, body);
     at += 1;
   }
   if (lines[at]?.startsWith('\\')) {
-    body.newline = false;
-    at += 1;
+    return { next: at + 1, newline: false };
   }
-  return at;
+  return { next: at, newline: body.newline };
 }
 
 /** One file's diff from its `diff --git` line: its path, whether it is new, its added text. */
@@ -138,7 +139,9 @@ function readFileDiff(lines, start) {
   }
   const body = { lines: [], newline: true };
   while (lines[index]?.startsWith('@@')) {
-    index = readHunk(lines, index, body);
+    const hunk = readHunk(lines, index, body);
+    index = hunk.next;
+    body.newline = hunk.newline;
   }
   const text = body.lines.join('\n');
   return {

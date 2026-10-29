@@ -215,34 +215,66 @@ describe('validateEvidence', () => {
   });
 
   it.each([
-    ['a failed check', (value: ReturnType<typeof passed>) => (value.checks[0].exitCode = 1)],
+    [
+      'a failed check',
+      (value: ReturnType<typeof passed>) => ({
+        ...value,
+        checks: value.checks.map((check, index) =>
+          index === 0 ? { ...check, exitCode: 1 } : check,
+        ),
+      }),
+    ],
     [
       'no commit',
-      (value: ReturnType<typeof passed>) => Object.assign(value.result, { commit: null }),
+      (value: ReturnType<typeof passed>) => ({
+        ...value,
+        result: { ...value.result, commit: null },
+      }),
     ],
     [
       'a path outside the scope',
-      (value: ReturnType<typeof passed>) => value.result.outsideScope.push('apps/web/src/App.tsx'),
+      (value: ReturnType<typeof passed>) => ({
+        ...value,
+        result: {
+          ...value.result,
+          outsideScope: [...value.result.outsideScope, 'apps/web/src/App.tsx'],
+        },
+      }),
     ],
     [
       'no kept stream',
-      (value: ReturnType<typeof passed>) => {
-        Object.assign(value, { stream: { path: null, sha256: null, userTextEvents: null } });
-      },
+      (value: ReturnType<typeof passed>) => ({
+        ...value,
+        stream: { path: null, sha256: null, userTextEvents: null },
+      }),
     ],
     [
       'a read outside the clone',
-      (value: ReturnType<typeof passed>) => value.result.outsideReads.push('/workspace/mono/pr5'),
+      (value: ReturnType<typeof passed>) => ({
+        ...value,
+        result: {
+          ...value.result,
+          outsideReads: [...value.result.outsideReads, '/workspace/mono/pr5'],
+        },
+      }),
     ],
     [
       'a recorded failure',
-      (value: ReturnType<typeof passed>) => value.failures.push('agent exited 1'),
+      (value: ReturnType<typeof passed>) => ({
+        ...value,
+        failures: [...value.failures, 'agent exited 1'],
+      }),
     ],
-    ['the e2e check missing', (value: ReturnType<typeof passed>) => value.checks.splice(2, 1)],
-    ['no check at all', (value: ReturnType<typeof passed>) => value.checks.splice(0)],
+    [
+      'the e2e check missing',
+      (value: ReturnType<typeof passed>) => ({
+        ...value,
+        checks: value.checks.filter((_, index) => index !== 2),
+      }),
+    ],
+    ['no check at all', (value: ReturnType<typeof passed>) => ({ ...value, checks: [] })],
   ])('throws on a passed status with %s', (_case, spoil) => {
-    const value = passed();
-    spoil(value);
+    const value = spoil(passed());
 
     expect(() => validateEvidence(value)).toThrow('evidence.result.status');
   });

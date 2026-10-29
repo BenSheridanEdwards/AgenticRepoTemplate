@@ -1,5 +1,5 @@
 // Advisory declarative-style rules, outside every gate (ADR 0063). ESLint owns
-// the loop selectors and `no-param-reassign` with `props`; Biome owns the rest
+// the loop selectors; Biome owns the rest
 // (`biome.declarative.json` beside this file). Run with `pnpm lint:declarative`.
 import tseslint from 'typescript-eslint';
 
@@ -53,7 +53,6 @@ export default [
     files: ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'],
     rules: {
       'no-restricted-syntax': ['warn', ...loopSelectors],
-      'no-param-reassign': ['warn', { props: true }],
     },
   },
 ];

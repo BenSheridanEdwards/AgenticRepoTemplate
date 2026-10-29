@@ -1207,11 +1207,11 @@ describe('renderComparison', () => {
   const EDITS = { 'todo-02': [withoutRouterInputs], 'todo-03': [addEdge] };
   const STREAMS = { 'todo-02': flagging('todo-02') };
   const runs = (
-    change: (records: ReturnType<typeof evidence>[]) => void = () => undefined,
+    change: (records: ReturnType<typeof evidence>[]) => ReturnType<typeof evidence>[] = (records) =>
+      records,
     streams = STREAMS,
   ) => {
-    const records = ['todo-01', 'todo-02', 'todo-03'].map(evidence);
-    change(records);
+    const records = change(['todo-01', 'todo-02', 'todo-03'].map(evidence));
     return records.map((record) => ({
       evidence: record,
       source: record.result.patch ?? `showcase/${record.trial.id}`,
@@ -1229,18 +1229,22 @@ describe('renderComparison', () => {
 
   it('shows modern runs side by side and excludes foreign tasks from the report', () => {
     const modern = runs((records) =>
-      records.forEach((record, index) => {
-        record.schema = 2;
-        record.task = {
+      records.map((record, index) => ({
+        ...record,
+        schema: 2,
+        task: {
           name: 'todo',
           definitionSha256: 'b'.repeat(64),
           target: null,
           checks: ['install', 'verify', 'e2e', 'structure'],
           land: 'showcase',
-        };
-        record.agent.name = index === 2 ? 'codex' : 'claude';
-        if (index === 2) record.agent.resolvedModel = 'gpt-6.1-sol';
-      }),
+        },
+        agent: {
+          ...record.agent,
+          name: index === 2 ? 'codex' : 'claude',
+          resolvedModel: index === 2 ? 'gpt-6.1-sol' : record.agent.resolvedModel,
+        },
+      })),
     );
     const foreign = {
       ...modern[0],
@@ -1269,9 +1273,13 @@ describe('renderComparison', () => {
 
   it('renders a split baseline as a row that does not hold, and says so in the verdict', () => {
     const report = renderComparison(
-      runs((records) => {
-        records[2].agent.resolvedModel = 'claude-other';
-      }),
+      runs((records) =>
+        records.map((record, index) =>
+          index === 2
+            ? { ...record, agent: { ...record.agent, resolvedModel: 'claude-other' } }
+            : record,
+        ),
+      ),
       read,
     );
     expect(report).toMatch(/\| Resolved model \|.*\| no \|/);
@@ -1280,9 +1288,13 @@ describe('renderComparison', () => {
 
   it('re-derives each rendered prompt from the template', () => {
     const report = renderComparison(
-      runs((records) => {
-        records[1].prompt.sha256 = 'f'.repeat(64);
-      }),
+      runs((records) =>
+        records.map((record, index) =>
+          index === 1
+            ? { ...record, prompt: { ...record.prompt, sha256: 'f'.repeat(64) } }
+            : record,
+        ),
+      ),
       read,
     );
     expect(report).toMatch(/\| Rendered prompt SHA-256 \|.*\| no \|/);

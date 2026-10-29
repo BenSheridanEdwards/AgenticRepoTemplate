@@ -124,8 +124,10 @@ function tokenUsageOf(completed) {
   const tokenUsage = completed.length
     ? completed.reduce(
         (total, event) => {
-          for (const key of Object.keys(total)) total[key] += event.usage?.[key] ?? 0;
-          return total;
+          const entries = [];
+          for (const [key, value] of Object.entries(total))
+            entries.push([key, value + (event.usage?.[key] ?? 0)]);
+          return Object.fromEntries(entries);
         },
         { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 },
       )

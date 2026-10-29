@@ -533,10 +533,13 @@ describe('runTrial', () => {
       }),
     );
     const loaded = loadTask(join(taskDir, 'task.json'));
+    const transcript = join(caseDir, 'codex-home/sessions/2026/10/rollout-test-thread.jsonl');
     const agent = fakeAgent(
       'codex',
       `
+      put(${JSON.stringify(transcript)}, '');
       emit({ type: 'thread.started', thread_id: 'test-thread' });
+      emit({ type: 'item.completed', item: { type: 'command_execution', command: ${JSON.stringify(`cat '${transcript}'`)}, aggregated_output: '', exit_code: 0 } });
       put('src/result.txt', 'done');
       put('src/ignored.txt', 'not committed');
       ${outside ? "put('pnpm-lock.yaml', 'not allowed');" : ''}
@@ -581,6 +584,7 @@ describe('runTrial', () => {
     ).toEqual([]);
     expect(evidence.result.status).toBe(expected.status);
     expect(evidence.result.outsideScope).toEqual(expected.outsideScope);
+    expect(evidence.result.outsideReads).toEqual([]);
     expect(evidence.checks.map(({ name, exitCode }) => [name, exitCode])).toEqual([
       ['unit', 0],
       ['private-acceptance', expected.acceptanceExit],
