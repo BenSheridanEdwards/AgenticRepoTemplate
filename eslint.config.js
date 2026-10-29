@@ -103,6 +103,11 @@ const policyRules = {
 
 export default [
   {
+    // Parameter updates return copies instead of mutating callers (ADR 0079, I11).
+    files: ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'],
+    rules: { 'no-param-reassign': ['error', { props: true }] },
+  },
+  {
     ignores: [
       '**/dist/**',
       'coverage/**',

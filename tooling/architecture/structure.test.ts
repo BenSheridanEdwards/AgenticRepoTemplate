@@ -72,13 +72,12 @@ function validate(
   });
 }
 
-const editManifest = (
+const editManifest = <T>(
   path: string,
-  edit: (fields: Record<string, Record<string, string>>) => void,
+  edit: (fields: Record<string, Record<string, string>>) => T,
 ) => {
   const fields = JSON.parse(CLEAN_TREE[path] ?? '{}');
-  edit(fields);
-  return { [path]: JSON.stringify(fields) };
+  return { [path]: JSON.stringify(edit(fields)) };
 };
 
 const FEATURE = 'showcase/todo-01/api/src/features/greeting';
@@ -186,51 +185,58 @@ describe('validateStructure', () => {
   it.each([
     [
       'an external dependency the reference web lacks',
-      (fields: Record<string, Record<string, string>>) => {
-        fields.dependencies = { ...fields.dependencies, lodash: '^4.17.21' };
-      },
+      (fields: Record<string, Record<string, string>>) => ({
+        ...fields,
+        dependencies: { ...fields.dependencies, lodash: '^4.17.21' },
+      }),
       /lodash/,
     ],
     [
       'a range that differs from the reference',
-      (fields: Record<string, Record<string, string>>) => {
-        fields.dependencies = { ...fields.dependencies, react: '^18.3.0' };
-      },
+      (fields: Record<string, Record<string, string>>) => ({
+        ...fields,
+        dependencies: { ...fields.dependencies, react: '^18.3.0' },
+      }),
       /react/,
     ],
     [
       "another result's api",
-      (fields: Record<string, Record<string, string>>) => {
-        fields.devDependencies = { '@todo-02/api': 'workspace:*' };
-      },
+      (fields: Record<string, Record<string, string>>) => ({
+        ...fields,
+        devDependencies: { '@todo-02/api': 'workspace:*' },
+      }),
       /@todo-02\/api/,
     ],
     [
       'a missing @repo/ui',
-      (fields: Record<string, Record<string, string>>) => {
-        fields.dependencies = { react: '^19.1.0' };
-      },
+      (fields: Record<string, Record<string, string>>) => ({
+        ...fields,
+        dependencies: { react: '^19.1.0' },
+      }),
       /@repo\/ui/,
     ],
     [
       'a script the reference web lacks',
-      (fields: Record<string, Record<string, string>>) => {
-        fields.scripts = { ...fields.scripts, lint: 'eslint .' };
-      },
+      (fields: Record<string, Record<string, string>>) => ({
+        ...fields,
+        scripts: { ...fields.scripts, lint: 'eslint .' },
+      }),
       /lint/,
     ],
     [
       'a script command that differs from the reference',
-      (fields: Record<string, Record<string, string>>) => {
-        fields.scripts = { ...fields.scripts, build: 'true' };
-      },
+      (fields: Record<string, Record<string, string>>) => ({
+        ...fields,
+        scripts: { ...fields.scripts, build: 'true' },
+      }),
       /scripts/,
     ],
     [
       'a field the reference lacks',
-      (fields: Record<string, Record<string, string>>) => {
-        fields.pnpm = { overrides: { react: '18.3.1' } };
-      },
+      (fields: Record<string, Record<string, string>>) => ({
+        ...fields,
+        pnpm: { overrides: { react: '18.3.1' } },
+      }),
       /pnpm/,
     ],
   ])('fails a showcase web manifest with %s', (_, edit, problem) => {
@@ -245,11 +251,12 @@ describe('validateStructure', () => {
 
   it('fails a manifest with the wrong name, not private, or not an ES module', () => {
     const violations = validate(
-      editManifest('showcase/todo-01/api/package.json', (fields) => {
-        fields.name = '@repo/api';
-        fields.private = false;
-        fields.type = 'commonjs';
-      }),
+      editManifest('showcase/todo-01/api/package.json', (fields) => ({
+        ...fields,
+        name: '@repo/api',
+        private: false,
+        type: 'commonjs',
+      })),
     );
     expect(violations).toEqual([
       {
@@ -273,9 +280,10 @@ describe('validateStructure', () => {
   it('fails an api manifest that lists a workspace dependency', () => {
     expect(
       validate(
-        editManifest('showcase/todo-01/api/package.json', (fields) => {
-          fields.dependencies = { effect: '^3.22.3', '@repo/ui': 'workspace:*' };
-        }),
+        editManifest('showcase/todo-01/api/package.json', (fields) => ({
+          ...fields,
+          dependencies: { effect: '^3.22.3', '@repo/ui': 'workspace:*' },
+        })),
       ),
     ).toEqual([
       {

@@ -13,6 +13,7 @@ const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const ESLINT_BIN = resolve(REPOSITORY_ROOT, 'node_modules/.bin/eslint');
 
 interface LintMessage {
+  severity: number;
   line: number;
   message: string;
   ruleId: string | null;
@@ -48,6 +49,26 @@ function lintPolicy(
 
 describe('ESLint policy stack', () => {
   jest.setTimeout(60_000);
+
+  it.each([
+    'ts',
+    'tsx',
+    'mts',
+    'cts',
+    'js',
+    'jsx',
+    'mjs',
+    'cjs',
+  ])('rejects parameter mutation and accepts a returned copy in %s', (extension) => {
+    const filename = `scripts/parameter-fixture.${extension}`;
+    const mutation = lintPolicy('function f(item) { item.x = 1; }', filename);
+    expect(mutation.exitCode).toBe(1);
+    expect(mutation.ruleIds).toEqual(['no-param-reassign']);
+    expect(mutation.messages[0]?.severity).toBe(2);
+    const copy = lintPolicy('function f(item) { return { ...item, x: 1 }; }', filename);
+    expect(copy.exitCode).toBe(0);
+    expect(copy.ruleIds).toEqual([]);
+  });
 
   it('turns on every local policy rule as an error for apps/web/src/', () => {
     const run = spawnSync(ESLINT_BIN, ['--print-config', 'apps/web/src/App.tsx'], {

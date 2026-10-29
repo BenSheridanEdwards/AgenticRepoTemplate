@@ -39,11 +39,9 @@ function reasons(path: string, before: string | null, after: string | null): str
   return enforcementProblems([{ path, before, after }]).map((problem: Problem) => problem.reason);
 }
 
-function edited<T>(base: T, change: (draft: T) => void): T {
+function edited<T>(base: T, change: (draft: T) => T): T {
   const draft: T = JSON.parse(JSON.stringify(base));
-  change(draft);
-
-  return draft;
+  return change(draft);
 }
 
 const tick = (body: string, box = 'x') =>
@@ -286,99 +284,136 @@ describe('json judge', () => {
     linter: { rules: { style: Record<string, string>; suspicious: Record<string, string> } };
   };
 
-  const biomeReasons = (change: (draft: Biome) => void) =>
+  const biomeReasons = (change: (draft: Biome) => Biome) =>
     reasons('biome.json', json(biome), json(edited<Biome>(biome, change)));
 
-  it.each<[string, (draft: Biome) => void, string[]]>([
+  it.each<[string, (draft: Biome) => Biome, string[]]>([
     [
       'a lowered severity',
-      (draft) => {
-        draft.linter.rules.style.useConst = 'off';
-      },
+      (draft) => ({
+        ...draft,
+        linter: {
+          ...draft.linter,
+          rules: { ...draft.linter.rules, style: { ...draft.linter.rules.style, useConst: 'off' } },
+        },
+      }),
       ['lowers `linter.rules.style.useConst` from `error` to `off`'],
     ],
     [
       'a raised severity',
-      (draft) => {
-        draft.linter.rules.style.noNonNullAssertion = 'error';
-      },
+      (draft) => ({
+        ...draft,
+        linter: {
+          ...draft.linter,
+          rules: {
+            ...draft.linter.rules,
+            style: { ...draft.linter.rules.style, noNonNullAssertion: 'error' },
+          },
+        },
+      }),
       [],
     ],
     [
       'a rule added at error',
-      (draft) => {
-        draft.linter.rules.style.useBlockStatements = 'error';
-      },
+      (draft) => ({
+        ...draft,
+        linter: {
+          ...draft.linter,
+          rules: {
+            ...draft.linter.rules,
+            style: { ...draft.linter.rules.style, useBlockStatements: 'error' },
+          },
+        },
+      }),
       [],
     ],
     [
       'a rule added at off',
-      (draft) => {
-        draft.linter.rules.style.useBlockStatements = 'off';
-      },
+      (draft) => ({
+        ...draft,
+        linter: {
+          ...draft.linter,
+          rules: {
+            ...draft.linter.rules,
+            style: { ...draft.linter.rules.style, useBlockStatements: 'off' },
+          },
+        },
+      }),
       ['adds rule `linter.rules.style.useBlockStatements` at `off`'],
     ],
     [
       'a removed off rule',
-      (draft) => {
-        delete draft.linter.rules.suspicious.noDebugger;
-      },
+      (draft) => ({
+        ...draft,
+        linter: {
+          ...draft.linter,
+          rules: {
+            ...draft.linter.rules,
+            suspicious: Object.fromEntries(
+              Object.entries(draft.linter.rules.suspicious).filter(([key]) => key !== 'noDebugger'),
+            ),
+          },
+        },
+      }),
       [],
     ],
     [
       'a removed error rule',
-      (draft) => {
-        delete draft.linter.rules.style.useConst;
-      },
+      (draft) => ({
+        ...draft,
+        linter: {
+          ...draft.linter,
+          rules: {
+            ...draft.linter.rules,
+            style: Object.fromEntries(
+              Object.entries(draft.linter.rules.style).filter(([key]) => key !== 'useConst'),
+            ),
+          },
+        },
+      }),
       ['removes rule `linter.rules.style.useConst`'],
     ],
     [
       'an added negated include',
-      (draft) => {
-        draft.files.includes.push('!src/legacy/**');
-      },
+      (draft) => ({
+        ...draft,
+        files: { ...draft.files, includes: [...draft.files.includes, '!src/legacy/**'] },
+      }),
       ['adds `!src/legacy/**` to `files.includes`'],
     ],
     [
       'a removed positive include',
-      (draft) => {
-        draft.files.includes = ['!**/dist'];
-      },
+      (draft) => ({ ...draft, files: { ...draft.files, includes: ['!**/dist'] } }),
       ['removes `**` from `files.includes`'],
     ],
     [
       'a removed negated include',
-      (draft) => {
-        draft.files.includes = ['**'];
-      },
+      (draft) => ({ ...draft, files: { ...draft.files, includes: ['**'] } }),
       [],
     ],
     [
       'a disabled linter',
-      (draft) => {
-        draft.linter.enabled = false;
-      },
+      (draft) => ({ ...draft, linter: { ...draft.linter, enabled: false } }),
       ['sets `linter.enabled` to `false`'],
     ],
     [
       'a change to the files an override covers',
-      (draft) => {
-        draft.overrides[0]?.includes.push('scripts/**');
-      },
+      (draft) => ({
+        ...draft,
+        overrides: draft.overrides.map((override, index) =>
+          index === 0 ? { ...override, includes: [...override.includes, 'scripts/**'] } : override,
+        ),
+      }),
       ['changes the files an override covers'],
     ],
     [
       'a neutral formatter change',
-      (draft) => {
-        draft.formatter.lineWidth = 120;
-      },
+      (draft) => ({ ...draft, formatter: { ...draft.formatter, lineWidth: 120 } }),
       [],
     ],
     [
       'a $schema change',
-      (draft) => {
-        draft.$schema = 'https://biomejs.dev/schemas/2.6.0/schema.json';
-      },
+      (draft) => ({ ...draft, $schema: 'https://biomejs.dev/schemas/2.6.0/schema.json' }),
       [],
     ],
   ])('judges %s in biome.json', (_name, change, expected) => {
