@@ -61,7 +61,7 @@ test.describe('Todo acceptance', () => {
     await expect(page.getByRole('checkbox', { name: title, exact: true })).not.toBeChecked();
   });
 
-  for (const blank of ['', '   ']) {
+  ['', '   '].forEach((blank) => {
     test(`adds nothing and shows an alert for the title ${JSON.stringify(blank)}`, async ({
       page,
     }) => {
@@ -76,7 +76,7 @@ test.describe('Todo acceptance', () => {
       await expect(todoItem(page, loaded)).toBeVisible();
       await expect(todoList(page).getByRole('checkbox', { name: /^\s*$/ })).toHaveCount(0);
     });
-  }
+  });
 
   test('toggles a todo complete and back, and keeps each state across a reload', async ({
     page,
