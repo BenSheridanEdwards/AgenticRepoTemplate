@@ -30,14 +30,12 @@ const PUSH_TO_MAIN = { event: 'push', baseRef: '' };
 const aggregatedJobs = AGGREGATED.map((gate) => gate.job);
 
 function needsWith(overrides: Record<string, Result | undefined> = {}) {
-  const needs: Record<string, { result: Result; outputs: object }> = {};
-  for (const job of aggregatedJobs) {
-    const result = job in overrides ? overrides[job] : 'success';
-    if (result) {
-      needs[job] = { result, outputs: {} };
-    }
-  }
-  return needs;
+  return Object.fromEntries(
+    aggregatedJobs.flatMap((job) => {
+      const result = job in overrides ? overrides[job] : 'success';
+      return result ? [[job, { result, outputs: {} }]] : [];
+    }),
+  );
 }
 
 function failingLanes(decision: { lanes: Array<{ job: string; pass: boolean }> }) {
@@ -103,10 +101,10 @@ describe('decideRequiredGates', () => {
   });
 
   it('fails a lane that was skipped although it applies to every event', () => {
-    for (const run of [PR_INTO_MAIN, PUSH_TO_MAIN]) {
+    [PR_INTO_MAIN, PUSH_TO_MAIN].forEach((run) => {
       const decision = decideRequiredGates({ needs: needsWith({ quality: 'skipped' }), run });
       expect(failingLanes(decision)).toEqual(['quality']);
-    }
+    });
   });
 
   it('fails the up-to-date lane when it is skipped on a pull request into main', () => {

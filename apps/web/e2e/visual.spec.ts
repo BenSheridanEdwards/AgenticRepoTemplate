@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 
-for (const viewport of [
+[
   { width: 1280, height: 720 },
   { width: 390, height: 844 },
-]) {
+].forEach((viewport) => {
   test(`reference greeting at ${viewport.width}px matches approved screens`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
@@ -25,4 +25,4 @@ for (const viewport of [
       fullPage: true,
     });
   });
-}
+});

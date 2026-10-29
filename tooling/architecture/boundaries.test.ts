@@ -72,18 +72,18 @@ function withSeededRepository<Result>(
 ) {
   const directory = mkdtempSync(join(tmpdir(), 'fallow-contract-'));
   try {
-    for (const path of ['.fallowrc.jsonc', 'pnpm-workspace.yaml', RULE_PACK]) {
+    ['.fallowrc.jsonc', 'pnpm-workspace.yaml', RULE_PACK].forEach((path) => {
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       copyFileSync(join(REPOSITORY_ROOT, path), join(directory, path));
-    }
-    for (const [path, source] of Object.entries({ ...LAYOUT, ...seed })) {
+    });
+    Object.entries({ ...LAYOUT, ...seed }).forEach(([path, source]) => {
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), source);
-    }
-    for (const [link, target] of Object.entries(WORKSPACE_LINKS)) {
+    });
+    Object.entries(WORKSPACE_LINKS).forEach(([link, target]) => {
       mkdirSync(dirname(join(directory, link)), { recursive: true });
       symlinkSync(join(directory, target), join(directory, link));
-    }
+    });
     return run(directory);
   } finally {
     rmSync(directory, { recursive: true, force: true });

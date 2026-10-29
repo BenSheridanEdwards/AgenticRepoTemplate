@@ -54,11 +54,13 @@ export function loadContract(configJson) {
   }
   const roles = boundaries.zones.map((zone) => zone.name);
   roles.forEach(kindOf);
-  for (const role of Object.values(REQUIRED_ROLES).flat()) {
-    if (!roles.includes(role)) {
-      throw new Error(`contract: required role "${role}" has no zone in .fallowrc.jsonc.`);
-    }
-  }
+  Object.values(REQUIRED_ROLES)
+    .flat()
+    .forEach((role) => {
+      if (!roles.includes(role)) {
+        throw new Error(`contract: required role "${role}" has no zone in .fallowrc.jsonc.`);
+      }
+    });
   const directions = boundaries.rules.flatMap((rule) => [
     ...(rule.allow ?? []).map((to) => ({ from: rule.from, to, typeOnly: false })),
     ...(rule.allowTypeOnly ?? []).map((to) => ({ from: rule.from, to, typeOnly: true })),

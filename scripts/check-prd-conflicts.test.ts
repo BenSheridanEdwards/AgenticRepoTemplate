@@ -539,10 +539,10 @@ describe('createNodeFilesystem', () => {
   });
 
   function track(files: Record<string, string>) {
-    for (const [path, content] of Object.entries(files)) {
+    Object.entries(files).forEach(([path, content]) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), content);
-    }
+    });
     execFileSync('git', ['init', '--quiet'], { cwd: root });
     execFileSync('git', ['add', '.'], { cwd: root });
   }

@@ -140,10 +140,10 @@ describe('confidence workflow', () => {
   it('regrades when any required-check workflow completes', () => {
     const workflow = readFileSync('.github/workflows/confidence.yml', 'utf8');
     const watched = workflow.match(/^ {4}workflows: \[(.+)\]$/m)?.[1]?.split(', ');
-    for (const file of new Set(REQUIRED_GATES.map((gate) => gate.workflow))) {
+    [...new Set(REQUIRED_GATES.map((gate) => gate.workflow))].forEach((file) => {
       const name = readFileSync(`.github/workflows/${file}`, 'utf8').match(/^name: (.+)$/m)?.[1];
       expect(watched).toContain(name);
-    }
+    });
     expect(workflow).toContain('    types: [completed]');
   });
 });
@@ -413,14 +413,14 @@ describe('CLI', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('reads the PR checkout as data and writes the amber label and gap summary', () => {
-    for (const file of [greetingSpec, greetingPrd]) {
+    [greetingSpec, greetingPrd].forEach((file) => {
       const path = join(root, file.path.replaceAll('greeting', 'fixture-covered'));
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(
         path,
         file.text.replaceAll('greeting', 'fixture-covered').replace('Greeting', 'Fixture Covered'),
       );
-    }
+    });
     const output = join(root, 'output');
     const summary = join(root, 'summary');
     const result = run('--decide', {
@@ -596,13 +596,13 @@ describe('CLI', () => {
       'confidence: amber',
       'confidence: red',
     ]);
-    for (const label of labels) {
+    labels.forEach((label) => {
       expect(label).toEqual({
         name: expect.any(String),
         color: expect.stringMatching(/^[0-9a-f]{6}$/),
         description: expect.any(String),
       });
-    }
+    });
   });
 });
 
@@ -661,14 +661,14 @@ describe('labels', () => {
   });
 
   it('defines a colour and description for each label', () => {
-    for (const [level, label] of Object.entries(CONFIDENCE_LABELS)) {
+    Object.entries(CONFIDENCE_LABELS).forEach(([level, label]) => {
       if (level !== 'green' && level !== 'amber' && level !== 'red') throw new Error(level);
       const def = CONFIDENCE_LABEL_DEFS[level];
       expect(def.name).toBe(label);
       expect(def.color).toMatch(/^[0-9a-f]{6}$/);
       expect(def.description.length).toBeGreaterThan(0);
       expect(def.description.length).toBeLessThanOrEqual(100);
-    }
+    });
   });
 });
 
