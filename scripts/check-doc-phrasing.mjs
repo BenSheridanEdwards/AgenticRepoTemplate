@@ -16,10 +16,10 @@ import { pathToFileURL } from 'node:url';
 const NEGATIVE_PHRASE =
   /\b(do not|don't|never|must not|mustn't|should not|shouldn't|cannot|can't|won't|avoid)\b/i;
 const LEADING_NO = /^\s*(?:(?:[-*+]|\d+\.)\s+)?(?:\*\*)?(No)\s/;
-const GUIDANCE_PREFIXES = ['.agents/', '.github/', 'docs/', '.claude/skills/'];
+const GUIDANCE_PREFIXES = ['.agents/', '.github/', 'docs/'];
 
 // The show-me skill is vendored and pinned by hash in skills-lock.json.
-const EXCLUDED_PREFIXES = ['.agents/decisions/', '.claude/skills/show-me/SKILL.md'];
+const EXCLUDED_PREFIXES = ['.agents/decisions/', '.agents/skills/show-me/SKILL.md'];
 
 /** True for the Markdown files that tell an agent or a person how to work here. */
 export function isGuidanceDoc(path) {

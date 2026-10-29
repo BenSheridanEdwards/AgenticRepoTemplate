@@ -76,6 +76,8 @@ function buildPassingTree() {
     'docs/GLOSSARY.md': 'glossary',
     '.agents/project/QUALITY_GATES.md': 'gates',
     '.agents/project/PR_QUALITY.md': 'pr quality',
+    '.agents/skills/adopt-the-factory/SKILL.md': skillFrontmatter,
+    '.agents/skills/pr-quality-contract/SKILL.md': skillFrontmatter,
     '.claude/skills/adopt-the-factory/SKILL.md': skillFrontmatter,
     '.claude/skills/pr-quality-contract/SKILL.md': skillFrontmatter,
     '.agents/decisions/0001-record-decisions.md': '# 1. Record decisions\n',
@@ -240,10 +242,10 @@ describe('checkContextLayer', () => {
 
   it('passes with the merged skills and without the retired skill folders', () => {
     const files = buildPassingTree();
-    const skillPaths = Object.keys(files).filter((path) => path.startsWith('.claude/skills/'));
+    const skillPaths = Object.keys(files).filter((path) => path.startsWith('.agents/skills/'));
     expect(skillPaths).toEqual([
-      '.claude/skills/adopt-the-factory/SKILL.md',
-      '.claude/skills/pr-quality-contract/SKILL.md',
+      '.agents/skills/adopt-the-factory/SKILL.md',
+      '.agents/skills/pr-quality-contract/SKILL.md',
     ]);
     expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
       ok: true,
@@ -256,7 +258,7 @@ describe('checkContextLayer', () => {
     'pr-quality-contract',
   ])('fails when the merged %s skill is missing', (name) => {
     const files = buildPassingTree();
-    const path = `.claude/skills/${name}/SKILL.md`;
+    const path = `.agents/skills/${name}/SKILL.md`;
     delete files[path];
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
@@ -270,10 +272,48 @@ describe('checkContextLayer', () => {
     'pr-quality-contract',
   ])('fails when %s is missing its frontmatter description', (name) => {
     const files = buildPassingTree();
-    files[`.claude/skills/${name}/SKILL.md`] = ['---', 'name: a-skill', '---'].join('\n');
+    files[`.agents/skills/${name}/SKILL.md`] = ['---', 'name: a-skill', '---'].join('\n');
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('description:');
+  });
+
+  it('passes when the skill copies are identical', () => {
+    const files = buildPassingTree();
+    expect(checkContextLayer(createInMemoryFilesystem({ files }))).toEqual({
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it.each([
+    ['a changed byte', '.claude/skills/adopt-the-factory/SKILL.md', 'different'],
+    ['a source-only file', '.agents/skills/extra/README.md', 'extra'],
+    ['a copy-only file', '.claude/skills/extra/README.md', 'extra'],
+  ])('fails with the sync command for %s', (_description, path, content) => {
+    const files = { ...buildPassingTree(), [path]: content };
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(path);
+    expect(result.errors[0]).toContain('run `pnpm skills:sync` and commit `.claude/skills`');
+  });
+
+  it('fails with the sync command for a symlink copy', () => {
+    const files = buildPassingTree();
+    const path = '.claude/skills/adopt-the-factory/SKILL.md';
+    delete files[path];
+    const result = checkContextLayer(
+      createInMemoryFilesystem({
+        files,
+        symlinks: { [path]: '.agents/skills/adopt-the-factory/SKILL.md' },
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(path);
+    expect(result.errors[0]).toContain('regular file');
+    expect(result.errors[0]).toContain('run `pnpm skills:sync` and commit `.claude/skills`');
   });
 
   it('fails, naming the file and lines, when a merge leaves a section in a doc twice', () => {

@@ -46,8 +46,8 @@ const REQUIRED_PROJECT_DOCS = [
 
 /** The house skills for factory adoption and the PR proof contract. */
 const REQUIRED_HOUSE_SKILLS = [
-  '.claude/skills/adopt-the-factory/SKILL.md',
-  '.claude/skills/pr-quality-contract/SKILL.md',
+  '.agents/skills/adopt-the-factory/SKILL.md',
+  '.agents/skills/pr-quality-contract/SKILL.md',
 ];
 
 /** The human-written review rules and the Cursor Bugbot pointer to them. */
@@ -166,7 +166,6 @@ function isContextDoc(path) {
     path.endsWith('.md') &&
     (!path.includes('/') ||
       path.startsWith('.agents/') ||
-      path.startsWith('.claude/skills/') ||
       path === 'docs/NORTH_STAR.md' ||
       path === 'docs/GLOSSARY.md')
   );
@@ -377,6 +376,41 @@ function checkReviewRules(filesystem, errors) {
   }
 }
 
+function checkSkillCopies(filesystem) {
+  const trackedFiles = filesystem.listTrackedFiles();
+  const sourcePrefix = '.agents/skills/';
+  const copyPrefix = '.claude/skills/';
+  const pathsUnder = (prefix) =>
+    new Set(
+      trackedFiles
+        .filter((path) => path.startsWith(prefix))
+        .map((path) => path.slice(prefix.length)),
+    );
+  const sourcePaths = pathsUnder(sourcePrefix);
+  const copyPaths = pathsUnder(copyPrefix);
+  const fix = 'run `pnpm skills:sync` and commit `.claude/skills`';
+
+  return [...new Set([...sourcePaths, ...copyPaths])].flatMap((path) => {
+    const source = `${sourcePrefix}${path}`;
+    const copy = `${copyPrefix}${path}`;
+    if (!sourcePaths.has(path) || !copyPaths.has(path)) {
+      return [`Skill paths differ: \`${source}\` and \`${copy}\` must both be tracked; ${fix}.`];
+    }
+    try {
+      if (!filesystem.lstat(source).isFile || !filesystem.lstat(copy).isFile) {
+        return [
+          `Skill source \`${source}\` and copy \`${copy}\` must each be a regular file; ${fix}.`,
+        ];
+      }
+      return filesystem.readText(source) === filesystem.readText(copy)
+        ? []
+        : [`Skill copy \`${copy}\` differs from \`${source}\`; ${fix}.`];
+    } catch {
+      return [`Unable to read skill source \`${source}\` or copy \`${copy}\`; ${fix}.`];
+    }
+  });
+}
+
 /** Run every context-layer invariant. Returns `{ ok, errors }`; pure. */
 export function checkContextLayer(filesystem) {
   const errors = [];
@@ -410,6 +444,8 @@ export function checkContextLayer(filesystem) {
       errors.push(`\`${skillPath}\` frontmatter is missing a \`description:\` field.`);
     }
   }
+
+  errors.push(...checkSkillCopies(filesystem));
 
   checkReviewRules(filesystem, errors);
 

@@ -6,7 +6,7 @@
 // This is the BEHAVIOUR MAP: the product's contract from the user's point of
 // view. Drive the real UI; assert via the accessibility tree. Keep it about
 // WHAT the product does, not HOW it is built.
-// See .claude/skills/run-e2e-tests/SKILL.md.
+// See .agents/skills/run-e2e-tests/SKILL.md.
 
 import { expect, type Page, test } from '@playwright/test';
 

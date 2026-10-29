@@ -35,7 +35,10 @@ they sit outside enforcement sign-off.
 
 ## Skills
 
-The repo's skills live under `.claude/skills/`:
+The repo's skills live under `.agents/skills/`. Codex reads that source;
+Claude Code reads the tracked byte copy in `.claude/skills/`.
+
+Edit skills in `.agents/skills/`, run `pnpm skills:sync`; `pnpm check:context` fails when `.claude/skills/` differs.
 
 - `adopt-the-factory`: adopt or audit guidance, gates, CI, and PR proof in another repo.
 - `run-e2e-tests`: map a behaviour to a Playwright test and run it.
@@ -61,7 +64,7 @@ findings. Ponytail is the global simplicity plugin (`/ponytail lite|full|ultra`)
 | Templates | `.agents/templates/` supplies starting points for code and tests. |
 | Local gates | `.husky/` and `scripts/` give feedback before commit and push. |
 | Remote gates | `.github/workflows/` verifies each PR from a clean checkout. |
-| Skills | `.claude/skills/` holds reusable workflows. |
+| Skills | `.agents/skills/` holds reusable workflows. |
 
 Keep each rule in its owning layer and link to it elsewhere. Use
 `adopt-the-factory` to install these layers in another repo. For anti-slop,

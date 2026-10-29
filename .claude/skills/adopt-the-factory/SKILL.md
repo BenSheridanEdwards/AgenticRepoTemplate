@@ -33,7 +33,7 @@ This template currently uses these paths; check the target before copying.
 | Harness setup | `.agents/HARNESSES.md` maps entry points; `.claude/settings.json` and hooks configure Claude Code. |
 | Project standards | `.agents/project/` holds architecture, conventions, tool ownership, and completion rules. |
 | Decisions and patterns | `.agents/decisions/` holds ADRs; `.agents/templates/` holds starting points. |
-| Repeated workflows | `.claude/skills/` holds skills. |
+| Repeated workflows | `.agents/skills/` holds skills. |
 | Executable checks | `.husky/`, `scripts/`, and `.github/workflows/` run local and remote gates. |
 | Review proof | `.github/pull_request_template.md` and `.agents/project/PR_QUALITY.md` define the handoff. |
 

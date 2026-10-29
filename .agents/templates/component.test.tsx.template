@@ -7,7 +7,7 @@
 // path the test needs; a missing handler fails the call with its path. Drop
 // the provider for a component that never calls the api.
 // Assert on observable behaviour through the accessibility tree (roles, names,
-// live regions), one `it` per behaviour. See .claude/skills/write-unit-tests/SKILL.md.
+// live regions), one `it` per behaviour. See .agents/skills/write-unit-tests/SKILL.md.
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

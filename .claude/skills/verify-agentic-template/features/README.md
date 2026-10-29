@@ -7,7 +7,7 @@ matching feature file as the recipe.
 ## Baseline preconditions
 
 - Launch with `node $V launch --run <id>`, where
-  `V=.claude/skills/verify-agentic-template/scripts/verify.mjs`.
+  `V=.agents/skills/verify-agentic-template/scripts/verify.mjs`.
 - Require `PASS` on every line of `node $V doctor --run <id>`.
 - The app is at the printed `url`, on `127.0.0.1` and a free port. The page is
   `/`. It has no auth or stored data.

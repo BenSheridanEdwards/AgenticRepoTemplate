@@ -46,14 +46,16 @@ describe('isGuidanceDoc', () => {
     '.agents/project/CONVENTIONS.md',
     '.github/pull_request_template.md',
     'docs/proof/README.md',
-    '.claude/skills/show-me/REPOSITORY.md',
+    '.agents/skills/show-me/REPOSITORY.md',
   ])('checks %s', (path) => {
     expect(isGuidanceDoc(path)).toBe(true);
   });
 
   it.each([
     '.agents/decisions/0001-record-architecture-decisions.md',
-    '.claude/skills/show-me/SKILL.md',
+    '.agents/skills/show-me/SKILL.md',
+    '.claude/skills/adopt-the-factory/SKILL.md',
+    '.claude/skills/show-me/REPOSITORY.md',
     'src/features/threshold-counter/ThresholdCounter.tsx',
   ])('leaves %s alone', (path) => {
     expect(isGuidanceDoc(path)).toBe(false);
