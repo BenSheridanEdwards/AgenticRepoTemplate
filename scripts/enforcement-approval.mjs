@@ -289,11 +289,11 @@ const byJson =
       const path = dotted(leaf.path);
       const at = inert(path);
 
-      for (const rule of LEAF_RULES) {
-        const reason = rule(leaf, key, at);
+      const reason = LEAF_RULES.values()
+        .map((rule) => rule(leaf, key, at))
+        .find((result) => result !== undefined);
 
-        if (reason !== undefined) return reason ? [reason] : [];
-      }
+      if (reason !== undefined) return reason ? [reason] : [];
 
       if (neutral.some((prefix) => isUnder(path, prefix))) return [];
       const verb = { added: 'adds', removed: 'removes', changed: 'changes' }[leaf.change];

@@ -226,15 +226,15 @@ describe('product intent', () => {
     'docs/prd/greeting.md',
     'docs/NORTH_STAR.md',
   ])('requires sign-off for every addition, edit and deletion of %s', (path) => {
-    for (const [before, after] of [
+    [
       [null, 'intent'],
       ['intent', 'updated intent'],
       ['intent', null],
-    ]) {
+    ].forEach(([before, after]) => {
       expect(enforcementProblems([{ path, before, after }])).toEqual([
         expect.objectContaining({ path, area: 'Product intent' }),
       ]);
-    }
+    });
 
     expect(reasons(path, 'intent', 'updated intent')).toEqual(['edits product intent']);
   });
@@ -887,7 +887,9 @@ describe('planApproval', () => {
       planApproval({ head: HEAD, problems: [], comment: undefined, signedOff: false, event: pull }),
     ];
 
-    for (const { status } of plans) expect(status?.description.length).toBeLessThan(140);
+    plans.forEach(({ status }) => {
+      expect(status?.description.length).toBeLessThan(140);
+    });
   });
 });
 

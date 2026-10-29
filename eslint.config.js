@@ -69,6 +69,34 @@ const singleOwnerOverrides = {
   'react-doctor/no-unstable-nested-components': 'off', // react-hooks/static-components
 };
 
+const loopSelectors = [
+  {
+    selector: 'ForStatement',
+    message:
+      '[ForStatement] Prefer declarative iteration: map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from instead of a for loop.',
+  },
+  {
+    selector: 'ForInStatement',
+    message:
+      '[ForInStatement] Prefer Object.keys/Object.entries with map/filter/reduce/flatMap/some/every/find/Array.from instead of for...in.',
+  },
+  {
+    selector: 'ForOfStatement[await=false]',
+    message:
+      '[ForOfStatement] Prefer map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from instead of for...of.',
+  },
+  {
+    selector: 'WhileStatement',
+    message:
+      '[WhileStatement] Prefer declarative iteration (map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from) instead of while.',
+  },
+  {
+    selector: 'DoWhileStatement',
+    message:
+      '[DoWhileStatement] Prefer declarative iteration (map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from) instead of do...while.',
+  },
+];
+
 const policyRules = {
   ...Object.fromEntries(Object.keys(policy.rules).map((rule) => [`policy/${rule}`, 'error'])),
   'react-doctor/prefer-function-component': 'error',
@@ -105,7 +133,10 @@ export default [
   {
     // Parameter updates return copies instead of mutating callers (ADR 0079, I11).
     files: ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'],
-    rules: { 'no-param-reassign': ['error', { props: true }] },
+    rules: {
+      'no-param-reassign': ['error', { props: true }],
+      'no-restricted-syntax': ['error', ...loopSelectors],
+    },
   },
   {
     ignores: [
@@ -159,6 +190,7 @@ export default [
     rules: {
       'no-restricted-syntax': [
         'error',
+        ...loopSelectors,
         ...['**', '**/'].flatMap((wildcard) =>
           [
             `Literal[value='${wildcard}']`,
