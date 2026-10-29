@@ -899,7 +899,7 @@ async function agentStage(state) {
     sha256: sha256(kept),
     userTextEvents,
   };
-  result.outsideReads = findOutsideReads(events, readScope(plan));
+  result.outsideReads = findOutsideReads(events, readScope(sessionPlan));
   if (result.outsideReads.length > 0) {
     failures.push(`named paths outside the clone: ${result.outsideReads.join(', ')}`);
   }
