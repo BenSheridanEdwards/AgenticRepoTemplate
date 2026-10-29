@@ -80,7 +80,7 @@ the code-level rules and their checks.
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
 | Gate and tooling scripts match a glob with `matchesGlob` from `node:path` or the tool's own file list. | `pnpm lint:policy` ([ADR 0041](.agents/decisions/0041-scripts-ask-the-tool-which-files-a-glob-covers.md)) |
 | A test's child process starts from the allowlisted environment in `scripts/jest-global-setup.mjs`; a test passes any other variable it needs in `env`. | Jest `globalSetup` and `scripts/jest-env.test.ts` ([ADR 0042](.agents/decisions/0042-test-child-processes-get-an-allowlisted-environment.md)) |
-| Guidance docs state rules as the action to take. | `pnpm check:docs` |
+| Guidance docs state rules as the action to take and use no em dash or AI filler phrase. | `pnpm check:docs` |
 | Each PRD in `docs/prd/` links every behaviour it lists to the E2E test that proves it. | `pnpm check:docs` ([ADR 0045](.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)) |
 | A doc that ties sign-off to a file names only a file the enforcement gate guards. | `pnpm check:docs` ([ADR 0030](.agents/decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)) |
 

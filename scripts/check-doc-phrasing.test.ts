@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findNegativePhrasing, isGuidanceDoc } from './check-doc-phrasing.mjs';
+import { findNegativePhrasing, findSlop, isGuidanceDoc, isSlopDoc } from './check-doc-phrasing.mjs';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -70,5 +70,67 @@ describe('check-doc-phrasing CLI', () => {
     });
     expect(run.stderr).toBe('');
     expect(run.status).toBe(0);
+  });
+});
+
+describe('findSlop', () => {
+  it.each([
+    '—',
+    'in order to',
+    'due to the fact that',
+    'at this point in time',
+    'in the event that',
+    'has the ability to',
+    'have the ability to',
+    'it is important to note',
+    "it's worth noting",
+    'it is worth noting',
+    'delve',
+    'tapestry',
+    'testament to',
+    'pivotal',
+    'seamless',
+    'seamlessly',
+    'at its core',
+    'evolving landscape',
+    "let's dive",
+    'without further ado',
+    'I hope this helps',
+  ])('reports %j with its line and original case', (phrase) => {
+    expect(findSlop(`# Title\nUse ${phrase.toUpperCase()}.`)).toEqual([
+      { line: 2, phrase: phrase.toUpperCase() },
+    ]);
+  });
+
+  it.each([
+    'Use plain words, commas and parentheses. En dash – and hyphen - pass.',
+    'delved tapestries pivotally seamlesslyness showcase key underscore ensure additionally robust',
+    '`— in order to`',
+    '```md\n— in order to\n```',
+    '~~~md\n— in order to\n~~~',
+    '[reference](https://example.com/—/delve)',
+  ])('passes %j', (text) => {
+    expect(findSlop(text)).toEqual([]);
+  });
+
+  it('reports every match after a matching fence closes', () => {
+    expect(findSlop('````md\n```\n— delve\n````\n— delve')).toEqual([
+      { line: 5, phrase: '—' },
+      { line: 5, phrase: 'delve' },
+    ]);
+  });
+
+  it.each([
+    'docs/trials/x.md',
+    '.agents/decisions/0081-example.md',
+    '.agents/skills/show-me/SKILL.md',
+    'tooling/trial/fixtures/example.md',
+  ])('excludes %s from slop checks', (path) => {
+    expect(isSlopDoc(path)).toBe(false);
+  });
+
+  it('keeps trial records in the negative-phrasing scope', () => {
+    expect(isGuidanceDoc('docs/trials/x.md')).toBe(true);
+    expect(isSlopDoc('AGENTS.md')).toBe(true);
   });
 });
