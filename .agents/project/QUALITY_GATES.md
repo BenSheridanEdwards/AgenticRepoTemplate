@@ -25,10 +25,10 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. | `pnpm gates:check` |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | Head-specific approval for enforcement or product-intent changes; see [Enforcement approval](#enforcement-approval). | `node scripts/enforcement-approval.mjs --git origin/main HEAD` |
 | Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Advisory green, amber or red label from gates, E2E/PRD coverage, unit coverage and import blast radius; gates nothing. | `node scripts/confidence-label.mjs --decide` with head evidence |
-| Stable installs | `pnpm verify`, CI | Lockfile checker | `pnpm check:lockfile` |
-| Result inclusion and trial protocol | Unit tests in verify/CI | Jest (`tooling/trial/`) | `pnpm test` |
-| Coverage per result | `pnpm verify`, CI | Jest and `tooling/coverage-by-result.mjs` | `pnpm test:coverage` (80% in every metric per result) |
-| Todo acceptance | E2E in pre-push and CI | Playwright `<id>-acceptance` | `pnpm e2e` |
+| `pnpm verify`, CI | Lockfile checker | Stable installs | `pnpm check:lockfile` |
+| Unit tests in verify/CI | Jest (`tooling/trial/`) | Result inclusion and trial protocol | `pnpm test` |
+| `pnpm verify`, CI | Jest and `tooling/coverage-by-result.mjs` | Coverage per result | `pnpm test:coverage` (80% in every metric per result) |
+| E2E in pre-push and CI | Playwright `<id>-acceptance` | Todo acceptance | `pnpm e2e` |
 | CI visual | `.github/workflows/visual.yml` (Playwright) | Reference desktop/mobile screenshot comparison on the shared UI scope; other PRs pass through its scope rule. | `pnpm visual` on Linux |
 
 ## Hook commands and scope
