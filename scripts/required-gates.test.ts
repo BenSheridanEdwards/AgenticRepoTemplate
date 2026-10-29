@@ -127,7 +127,7 @@ describe('decideRequiredGates', () => {
 });
 
 describe('the --decide CLI that the Required gates job runs', () => {
-  function decide(needs: object, run = PR_INTO_MAIN) {
+  function decide(needs: ReturnType<typeof needsWith>, run = PR_INTO_MAIN) {
     return spawnSync('node', [SCRIPT, '--decide'], {
       encoding: 'utf8',
       env: {
@@ -336,7 +336,7 @@ describe('checkContract', () => {
     ],
   ])('fails when %s', (_label, workflow, from, to, message) => {
     const errors = contractErrors((files) => ({
-      [workflow]: files[workflow as keyof typeof REAL_FILES].replace(from, to),
+      [workflow]: files[workflow].replace(from, to),
     }));
     expect(errors).toEqual([expect.stringContaining(message)]);
   });
@@ -393,7 +393,7 @@ describe('checkContract', () => {
     ],
   ])('fails closed when %s', (_label, workflow, from, to) => {
     const errors = contractErrors((files) => ({
-      [workflow]: files[workflow as keyof typeof REAL_FILES].replace(from, to),
+      [workflow]: files[workflow].replace(from, to),
     }));
     expect(errors).toContainEqual(expect.stringMatching(new RegExp(`^${workflow} line \\d+ `)));
   });

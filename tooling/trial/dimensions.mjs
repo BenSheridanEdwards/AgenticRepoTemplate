@@ -130,18 +130,20 @@ function structureAspects(facts) {
         const tests = facts.testFiles.get(role) ?? [];
         return form(`tests ${role}`, String(tests.length), listed(tests));
       }),
-    ...facts.outsideFiles.map(({ path, text }) => ({
-      ...form(`file ${path}`, shortHash(text)),
-      ...(path === 'web/index.html'
-        ? {
-            within: {
-              value: shortHash(text.replace(/<title>[\s\S]*?<\/title>/, '<title></title>')),
-              freedom: /** @type {Freedom} */ (5),
-              why: 'copy text: only the `<title>` differs',
-            },
-          }
-        : {}),
-    })),
+    ...facts.outsideFiles.map(({ path, text }) => {
+      const aspect = form(`file ${path}`, shortHash(text));
+      if (path === 'web/index.html') {
+        return {
+          ...aspect,
+          within: {
+            value: shortHash(text.replace(/<title>[\s\S]*?<\/title>/, '<title></title>')),
+            freedom: /** @type {Freedom} */ (5),
+            why: 'copy text: only the `<title>` differs',
+          },
+        };
+      }
+      return aspect;
+    }),
   ];
 }
 

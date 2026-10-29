@@ -38,7 +38,7 @@ function lintPolicy(
   const output = `${run.stdout}${run.stderr}`;
   let messages: LintMessage[] = [];
   try {
-    [{ messages }] = JSON.parse(run.stdout) as [{ messages: LintMessage[] }];
+    [{ messages }] = JSON.parse(run.stdout);
   } catch {
     messages = [];
   }
@@ -54,7 +54,7 @@ describe('ESLint policy stack', () => {
       cwd: REPOSITORY_ROOT,
       encoding: 'utf8',
     });
-    const { rules } = JSON.parse(run.stdout) as { rules: Record<string, unknown[]> };
+    const { rules }: { rules: Record<string, unknown[]> } = JSON.parse(run.stdout);
     for (const rule of Object.keys(policy.rules)) {
       expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
     }
@@ -439,7 +439,7 @@ export function SettingsPage() {
       maxBuffer: 64 * 1024 * 1024,
     });
     expect({ status: run.status, stderr: run.stderr }).toEqual({ status: 0, stderr: '' });
-    const results = JSON.parse(run.stdout) as { filePath: string; messages: LintMessage[] }[];
+    const results: { filePath: string; messages: LintMessage[] }[] = JSON.parse(run.stdout);
     const findings = results.flatMap(({ filePath, messages }) =>
       messages
         .filter(({ ruleId }) =>
@@ -595,7 +595,7 @@ describe('ESLint contract rules', () => {
       cwd: REPOSITORY_ROOT,
       encoding: 'utf8',
     });
-    const { rules } = JSON.parse(run.stdout) as { rules: Record<string, unknown[]> };
+    const { rules }: { rules: Record<string, unknown[]> } = JSON.parse(run.stdout);
     for (const rule of Object.keys(policy.rules)) {
       expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
     }
@@ -935,9 +935,8 @@ function Badge() {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
     });
-    const linted = (JSON.parse(run.stdout) as { filePath: string }[]).map(({ filePath }) =>
-      filePath.slice(REPOSITORY_ROOT.length + 1),
-    );
+    const results: { filePath: string }[] = JSON.parse(run.stdout);
+    const linted = results.map(({ filePath }) => filePath.slice(REPOSITORY_ROOT.length + 1));
 
     expect(tracked.length).toBeGreaterThan(100);
     expect(tracked.filter((path) => !linted.includes(path))).toEqual([]);

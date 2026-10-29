@@ -661,9 +661,10 @@ describe('labels', () => {
   });
 
   it('defines a colour and description for each label', () => {
-    for (const level of Object.keys(CONFIDENCE_LABELS)) {
-      const def = CONFIDENCE_LABEL_DEFS[level as keyof typeof CONFIDENCE_LABEL_DEFS];
-      expect(def.name).toBe(CONFIDENCE_LABELS[level as keyof typeof CONFIDENCE_LABELS]);
+    for (const [level, label] of Object.entries(CONFIDENCE_LABELS)) {
+      if (level !== 'green' && level !== 'amber' && level !== 'red') throw new Error(level);
+      const def = CONFIDENCE_LABEL_DEFS[level];
+      expect(def.name).toBe(label);
       expect(def.color).toMatch(/^[0-9a-f]{6}$/);
       expect(def.description.length).toBeGreaterThan(0);
       expect(def.description.length).toBeLessThanOrEqual(100);

@@ -107,12 +107,13 @@ process.exit(${exitCode});
   return path;
 }
 
-const lastCall = (agent: string) =>
-  JSON.parse(readFileSync(`${agent}.call.json`, 'utf8')) as {
-    argv: string[];
-    stdin: string;
-    cwd: string;
-  };
+interface AgentCall {
+  argv: string[];
+  stdin: string;
+  cwd: string;
+}
+const lastCall = (agent: string): AgentCall =>
+  JSON.parse(readFileSync(`${agent}.call.json`, 'utf8'));
 
 const WRITES_RESULT = "put('showcase/todo-01/web/src/main.tsx', 'export {};\\n');";
 
@@ -151,7 +152,9 @@ const quietDeps = (overrides: Partial<ReturnType<typeof systemDeps>> = {}) => {
 const freePort = () =>
   new Promise<number>((done) => {
     const server = createServer().listen(0, '127.0.0.1', () => {
-      const { port } = server.address() as { port: number };
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Expected TCP address');
+      const { port } = address;
       server.close(() => done(port));
     });
   });
@@ -403,7 +406,7 @@ describe('renderPrompt', () => {
 
   it('fills the committed template with the trial id and number', () => {
     const template = readFileSync(join(REPOSITORY_ROOT, 'tooling/trial/todo-prompt.md'), 'utf8');
-    const planned = { id: 'todo-02', trial: 2 } as Parameters<typeof renderPrompt>[1];
+    const planned = { id: 'todo-02', trial: 2 };
 
     expect(renderPrompt(template, planned)).toBe(
       template.replaceAll('{{ID}}', 'todo-02').replaceAll('{{N}}', '2'),
@@ -431,9 +434,9 @@ describe('renderPrompt', () => {
   });
 
   it('throws on a placeholder it does not fill', () => {
-    expect(() =>
-      renderPrompt('Trial {{ID}} on {{DATE}}', { id: 'todo-01', trial: 1 } as never),
-    ).toThrow('{{DATE}}');
+    expect(() => renderPrompt('Trial {{ID}} on {{DATE}}', { id: 'todo-01', trial: 1 })).toThrow(
+      '{{DATE}}',
+    );
   });
 });
 
@@ -1671,7 +1674,7 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
     const base = plan({ agent: '/fake' });
     const link = join(caseDir, 'checkout-link');
     symlinkSync(checkout, link);
-    const paths: Record<string, string | undefined> = {
+    const paths = {
       missing: undefined,
       relative: 'relative',
       checkout,

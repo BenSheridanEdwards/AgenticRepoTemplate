@@ -35,22 +35,32 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(directory, { recursive: true, force: true }));
 it.each`
-  rule                                                 | bad                                                                                                  | good
-  ${'anti-slop(no-module-mocking)'}                    | ${"jest.mock('example');"}                                                                           | ${'jest.fn();'}
-  ${'anti-slop(no-reflect-apply)'}                     | ${'Reflect.apply(fn, null, []);'}                                                                    | ${'fn();'}
-  ${'anti-slop(no-reflect-get)'}                       | ${"Reflect.get(value, 'id');"}                                                                       | ${'value.id;'}
-  ${'anti-slop(no-unknown-type-aliases)'}              | ${'type Value = unknown;'}                                                                           | ${'type Value = string;'}
-  ${'anti-slop(no-widen-then-assert)'}                 | ${'const source = { id: "x" }; const wide: unknown = source; const value = wide as { id: string };'} | ${'const value = { id: "x" };'}
-  ${'anti-slop(no-reduce-accumulator-copy)'}           | ${'items.reduce((acc, item) => acc.concat(item), []);'}                                              | ${'[1, 2].map(value => value);'}
-  ${'anti-slop(no-runtime-typeof)'}                    | ${'typeof value === "string";'}                                                                      | ${'value.length;'}
-  ${'anti-slop-effect(no-manual-effect-error-tag)'}    | ${'Effect.catch(error => error._tag === "Missing" ? recover : fail);'}                               | ${'Effect.catchTag("Missing", recover);'}
-  ${'anti-slop-effect(no-manual-tag-comparison)'}      | ${'value._tag === "Ready";'}                                                                         | ${'Match.is("Ready")(value);'}
-  ${'anti-slop-effect(no-manual-tagged-construction)'} | ${'const value = { _tag: "Ready" };'}                                                                | ${'const value = Ready.make({});'}
+  rule                                                      | bad                                                                                                  | good
+  ${'anti-slop(no-module-mocking)'}                         | ${"jest.mock('example');"}                                                                           | ${'jest.fn();'}
+  ${'anti-slop(no-reflect-apply)'}                          | ${'Reflect.apply(fn, null, []);'}                                                                    | ${'fn();'}
+  ${'anti-slop(no-reflect-get)'}                            | ${"Reflect.get(value, 'id');"}                                                                       | ${'value.id;'}
+  ${'anti-slop(no-unknown-type-aliases)'}                   | ${'type Value = unknown;'}                                                                           | ${'type Value = string;'}
+  ${'anti-slop(no-widen-then-assert)'}                      | ${'const source = { id: "x" }; const wide: unknown = source; const value = wide as { id: string };'} | ${'const value = { id: "x" };'}
+  ${'anti-slop(no-reduce-accumulator-copy)'}                | ${'items.reduce((acc, item) => acc.concat(item), []);'}                                              | ${'[1, 2].map(value => value);'}
+  ${'anti-slop(no-runtime-typeof)'}                         | ${'typeof value === "string";'}                                                                      | ${'value.length;'}
+  ${'anti-slop(require-safety-comment-for-type-assertion)'} | ${'const value = input as string;'}                                                                  | ${'const value = "text";'}
+  ${'anti-slop(no-known-value-widening)'}                   | ${'const value: Record<string, string> = { name: "Ada" };'}                                          | ${'const value = { name: "Ada" } satisfies Record<string, string>;'}
+  ${'anti-slop(no-unsafe-dictionary-type)'}                 | ${'type Values = Record<string, unknown>;'}                                                          | ${'type Values = Record<string, string>;'}
+  ${'anti-slop(no-unknown-parameters)'}                     | ${'function read(value: unknown) {}'}                                                                | ${'function read(value: string) {}'}
+  ${'anti-slop(no-object-parameters)'}                      | ${'function read(value: object) {}'}                                                                 | ${'function read(value: { name: string }) {}'}
+  ${'anti-slop(no-chained-type-assertions)'}                | ${'const value = input as unknown as string;'}                                                       | ${'const value = "text";'}
+  ${'anti-slop(no-conditional-empty-object-spread)'}        | ${'const value = { ...(present ? { name: "Ada" } : {}) };'}                                          | ${'const value = { name: present ? "Ada" : "Ben" };'}
+  ${'anti-slop(no-unknown-returns)'}                        | ${'function read(): unknown { return "text"; }'}                                                     | ${'function read(): string { return "text"; }'}
+  ${'anti-slop-effect(no-manual-effect-error-tag)'}         | ${'Effect.catch(error => error._tag === "Missing" ? recover : fail);'}                               | ${'Effect.catchTag("Missing", recover);'}
+  ${'anti-slop-effect(no-manual-tag-comparison)'}           | ${'value._tag === "Ready";'}                                                                         | ${'Match.is("Ready")(value);'}
+  ${'anti-slop-effect(no-manual-tagged-construction)'}      | ${'const value = { _tag: "Ready" };'}                                                                | ${'const value = Ready.make({});'}
 `('$rule rejects a violation and accepts clean code', ({ rule, bad, good }) => {
   write('apps/web/src/example.ts', bad);
   expect(lint()).toMatchObject({
     status: 1,
-    diagnostics: expect.arrayContaining([expect.objectContaining({ code: rule })]),
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({ code: rule, severity: 'error' }),
+    ]),
   });
   expect(lint(true).status).toBe(1);
   write('apps/web/src/example.ts', good);
@@ -68,14 +78,13 @@ showcase/todo-01 showcase/todo-02 showcase/todo-03 showcase/todo-codex-01 showca
   expect(lint(true)).toMatchObject({ status: 0, diagnostics: [] });
 });
 
-it('advisory warnings pass alone and fail under --deny-warnings', () => {
+it('allows typeof in tooling and rejects it in package source in both configs', () => {
   write('scripts/example.ts', 'typeof value === "string";');
   expect(lint()).toMatchObject({ status: 0, diagnostics: [] });
-  expect(lint(true)).toMatchObject({
-    status: 0,
-    diagnostics: expect.arrayContaining([expect.objectContaining({ severity: 'warning' })]),
-  });
-  expect(lint(true, ['--deny-warnings']).status).toBe(1);
+  expect(lint(true)).toMatchObject({ status: 0, diagnostics: [] });
+  write('apps/web/src/example.ts', 'typeof value === "string";');
+  expect(lint().status).toBe(1);
+  expect(lint(true).status).toBe(1);
 });
 
 it('explicit config and --no-ignore prevent nested config and eslintignore bypasses', () => {

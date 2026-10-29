@@ -28,13 +28,20 @@ const COPIED_CONFIGS = [
   'tooling/architecture/contract.rules.jsonc',
 ];
 
-const manifest = (fields: Record<string, unknown>) => `${JSON.stringify(fields, null, 2)}\n`;
+const manifest = (fields: {
+  name: string;
+  private: boolean;
+  type: string;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}) => `${JSON.stringify(fields, null, 2)}\n`;
 
 /**
  * The files of one result under `root` with npm scope `scope`: every required
  * role, the reference manifests' shape, and imports that follow the contract.
  */
-export function resultFiles(root: string, scope: string): Record<string, string> {
+export function resultFiles(root: string, scope: string) {
   const web = `${root}/web`;
   const api = `${root}/api`;
   return {
@@ -91,7 +98,7 @@ export function createMonorepo(files: Record<string, string | null>) {
     mkdirSync(dirname(join(directory, path)), { recursive: true });
     copyFileSync(join(REPOSITORY_ROOT, path), join(directory, path));
   }
-  const layout: Record<string, string | null> = {
+  const layout = {
     'package.json': manifest({ name: 'root', private: true, type: 'module' }),
     '.gitignore': '.cache/\n',
     ...resultFiles('apps', 'repo'),

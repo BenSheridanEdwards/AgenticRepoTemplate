@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '..');
 const SCRIPT = join(ROOT, 'scripts/anti-slop-changed.mjs');
-const WARNING = 'typeof value === "string";\n';
+const FINDING = 'Reflect.get(value, "name");\n';
 const ERROR = 'Reflect.get(value, "id");\n';
 
 const env = {
@@ -63,7 +63,7 @@ beforeEach(() => {
     }),
   );
   write('anti-slop.advisory.mjs', readFileSync(join(ROOT, 'anti-slop.advisory.mjs'), 'utf8'));
-  write('scripts/existing.ts', `${WARNING}\nexport const count = 1;\n`);
+  write('scripts/existing.ts', `${FINDING}\nexport const count = 1;\n`);
   git('init', '-q');
   commit();
   git('update-ref', 'refs/remotes/origin/main', 'HEAD');
@@ -76,26 +76,26 @@ it.each([
   'scripts/a space café.ts',
   '.github/added.ts',
   '.example.mjs',
-])('reports a new warning in %s', (file) => {
-  write(file, WARNING);
+])('reports a new finding in %s', (file) => {
+  write(file, FINDING);
   commit();
 
   expect(check()).toMatchObject({
     status: 1,
-    stdout: expect.stringContaining(`${file}:1 anti-slop(no-runtime-typeof) `),
+    stdout: expect.stringContaining(`${file}:1 anti-slop(no-reflect-get) `),
     stderr: '',
   });
 });
 
 it('passes when only ignored files change', () => {
-  write('vendor/example.ts', WARNING);
+  write('vendor/example.ts', FINDING);
   commit();
 
   expect(check()).toEqual({ status: 0, stdout: '', stderr: '' });
 });
 
-it('passes when a changed file only has a warning on an unchanged line', () => {
-  write('scripts/existing.ts', `${WARNING}\nexport const count = 2;\n`);
+it('passes when a changed file only has a finding on an unchanged line', () => {
+  write('scripts/existing.ts', `${FINDING}\nexport const count = 2;\n`);
   commit();
 
   expect(check()).toEqual({ status: 0, stdout: '', stderr: '' });
@@ -111,16 +111,16 @@ it('filters unchanged errors even when oxlint exits one', () => {
   expect(check()).toEqual({ status: 0, stdout: '', stderr: '' });
 });
 
-it('uses added-line coordinates after an insertion shifts an old warning', () => {
-  write('scripts/existing.ts', `export const first = 1;\n\n${WARNING}\nexport const count = 1;\n`);
+it('uses added-line coordinates after an insertion shifts an old finding', () => {
+  write('scripts/existing.ts', `export const first = 1;\n\n${FINDING}\nexport const count = 1;\n`);
   commit();
 
   expect(check()).toEqual({ status: 0, stdout: '', stderr: '' });
 });
 
 it('ignores deletion-only hunks and deleted files', () => {
-  write('scripts/existing.ts', WARNING);
-  write('scripts/deleted.ts', WARNING);
+  write('scripts/existing.ts', FINDING);
+  write('scripts/deleted.ts', FINDING);
   commit();
   git('update-ref', 'refs/remotes/origin/main', 'HEAD');
   git('rm', 'scripts/deleted.ts');
@@ -131,7 +131,7 @@ it('ignores deletion-only hunks and deleted files', () => {
 });
 
 it('reports a replacement line and works from a repository subdirectory', () => {
-  write('scripts/existing.ts', `${WARNING}\n${ERROR}`);
+  write('scripts/existing.ts', `${FINDING}\n${ERROR}`);
   commit();
 
   expect(check(join(directory, 'scripts'))).toMatchObject({
@@ -154,7 +154,7 @@ it('ignores existing findings when a file is renamed', () => {
 
 it('reports only added findings after a rename', () => {
   git('mv', 'scripts/existing.ts', 'scripts/renamed.ts');
-  write('scripts/renamed.ts', `${WARNING}\nexport const count = 1;\n\n${ERROR}`);
+  write('scripts/renamed.ts', `${FINDING}\nexport const count = 1;\n\n${ERROR}`);
   commit();
 
   expect(check()).toMatchObject({
@@ -180,7 +180,7 @@ it('fails clearly when origin/main is missing', () => {
 
 it('fails clearly when the advisory configuration cannot load', () => {
   write('anti-slop.advisory.mjs', 'throw new Error("broken advisory config");\n');
-  write('scripts/added.ts', WARNING);
+  write('scripts/added.ts', FINDING);
   commit();
 
   expect(check()).toMatchObject({ status: 1, stderr: expect.stringContaining('oxlint') });

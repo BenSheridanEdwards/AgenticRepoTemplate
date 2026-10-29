@@ -15,11 +15,17 @@ import {
 // The PR head every body below is checked against.
 const HEAD = '0a21f68d4a57e7998b1357444f2bdad00cea6528';
 const NORTH_STAR = 'abcdef1234567890abcdef1234567890abcdef12';
-const INTENT_PORTS = {
+interface IntentPorts {
+  listPrdFiles: () => string[];
+  northStarCommit: () => string;
+  changedFiles: string[];
+  prdCoverage: { path: string; patterns: string[] }[];
+}
+const INTENT_PORTS: IntentPorts = {
   listPrdFiles: () => ['docs/prd/greeting.md', 'docs/prd/todo.md'],
   northStarCommit: () => NORTH_STAR,
-  changedFiles: [] as string[],
-  prdCoverage: [] as { path: string; patterns: string[] }[],
+  changedFiles: [],
+  prdCoverage: [],
 };
 
 // A body that satisfies every rule: all four sections in order, each with real

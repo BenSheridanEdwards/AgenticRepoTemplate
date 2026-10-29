@@ -47,7 +47,7 @@ const input = {
 
 describe('trusted blast-radius grading', () => {
   const evidence = shapeBlastRadius(input);
-  const parse = (value: unknown, changed = [button]) =>
+  const parse = <Value>(value: Value, changed = [button]) =>
     parseBlastRadius(JSON.stringify(value), { head, changed });
 
   it('accepts complete evidence and assigns package, result and root units', () => {
