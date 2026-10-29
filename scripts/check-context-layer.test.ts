@@ -119,9 +119,11 @@ describe('checkContextLayer', () => {
     expect(files).not.toHaveProperty(['.agents/project/GLOSSARY.md']);
     delete files['docs/GLOSSARY.md'];
     files['.agents/project/GLOSSARY.md'] = 'old glossary';
+
     const result = checkContextLayer(
       createInMemoryFilesystem({ files, symlinks: { 'docs/GLOSSARY.md': 'elsewhere.md' } }),
     );
+
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toContain('`docs/GLOSSARY.md` is a symbolic link');
   });
