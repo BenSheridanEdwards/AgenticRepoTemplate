@@ -193,9 +193,11 @@ describe('.codex/hooks.json', () => {
 describe('.claude/settings.json', () => {
   it('resolves the git hook, refuses bypasses, and allows normal commits', () => {
     const settings = JSON.parse(readFileSync(resolve(ROOT, '.claude/settings.json'), 'utf8'));
+
     const hook = settings.hooks.PreToolUse.flatMap(
       (entry: { hooks: { if: string; args: string[] }[] }) => entry.hooks,
     ).find((entry: { if: string }) => entry.if === 'Bash(git *)');
+
     const hookPath = hook.args[0].replace(`\${CLAUDE_PROJECT_DIR}`, ROOT);
     expect(existsSync(hookPath)).toBe(true);
 
@@ -211,6 +213,7 @@ describe('.claude/settings.json', () => {
         }),
         encoding: 'utf8',
       });
+
     const blocked = run('git commit --no-verify -m "probe"');
     expect(blocked.status).toBe(2);
     expect(blocked.stderr).toContain('switches off the quality gates');
