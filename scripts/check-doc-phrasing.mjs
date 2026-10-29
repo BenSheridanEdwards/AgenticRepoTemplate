@@ -61,6 +61,30 @@ export function findNegativePhrasing(text) {
   });
 }
 
+// Slop uses guidance scope minus trial records. ADRs and hash-pinned show-me are
+// already excluded; trial fixtures and other non-guidance Markdown stay outside it.
+export const isSlopDoc = (path) => isGuidanceDoc(path) && !path.startsWith('docs/trials/');
+
+const SLOP =
+  /—|\b(?:in order to|due to the fact that|at this point in time|in the event that|has the ability to|have the ability to|it is important to note|it's worth noting|it is worth noting|delve|tapestry|testament to|pivotal|seamless(?:ly)?|at its core|evolving landscape|let's dive|without further ado|I hope this helps)\b/gi;
+
+/** Each `{ line, phrase }` containing an em dash or listed filler in prose. Pure. */
+export function findSlop(text) {
+  return text.split('\n').reduce(
+    (state, line, index) => {
+      const fence = nextFence(state.fence, line);
+      const findings = fence
+        ? []
+        : Array.from(proseOf(line).matchAll(SLOP), (match) => ({
+            line: index + 1,
+            phrase: match[0],
+          }));
+      return { fence, findings: state.findings.concat(findings) };
+    },
+    { fence: '', findings: [] },
+  ).findings;
+}
+
 function runCli() {
   const paths = execFileSync('git', ['ls-files', '*.md'], { encoding: 'utf8' })
     .split('\n')
@@ -70,6 +94,18 @@ function runCli() {
       ({ line, phrase }) => `  ✗ ${path}:${line} "${phrase}"`,
     ),
   );
+  const slop = paths
+    .filter(isSlopDoc)
+    .flatMap((path) =>
+      findSlop(readFileSync(path, 'utf8')).map(
+        ({ line, phrase }) => `✗ ${path}:${line} "${phrase}"`,
+      ),
+    );
+  if (slop.length > 0) {
+    console.error(slop.join('\n'));
+    console.error('use a comma, colon, period or parentheses; cut the filler');
+    process.exitCode = 1;
+  }
   if (failures.length === 0) {
     console.log(`OK: ${paths.length} guidance docs state their rules positively.`);
     return;
