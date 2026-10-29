@@ -157,10 +157,19 @@ export function Fixture() {
     expect(result.exitCode).toBe(0);
   });
 
-  it('keeps advisory loop warnings out of the policy gate in their own folder', () => {
+  it.each([
+    ['for...of', 'for (const value of [1]) { console.log(value); }'],
+    ['while', 'while (false) { console.log(1); }'],
+  ])('fails a %s loop', (_, source) => {
+    const result = lintPolicy(source, 'scripts/loop-fixture.js');
+    expect(result.exitCode).toBe(1);
+    expect(result.ruleIds).toContain('no-restricted-syntax');
+  });
+
+  it('passes for await', () => {
     const result = lintPolicy(
-      'for (const value of [1]) { console.log(value); }',
-      'tooling/declarative-lint/fixture.js',
+      'async function consume(values) { for await (const value of values) { console.log(value); } }',
+      'scripts/loop-fixture.js',
     );
     expect(result.exitCode).toBe(0);
     expect(result.messages).toEqual([]);
@@ -907,7 +916,6 @@ describe('ESLint inline config', () => {
     'showcase/x/web/src/App.tsx',
     'tooling/architecture/structure.mjs',
     'tooling/trial/compare.test.ts',
-    'tooling/declarative-lint/fixture.js',
     'scripts/check-suppressions.mjs',
     'playwright.config.ts',
   ])('blocks every inline config form in %s', (filename) => {

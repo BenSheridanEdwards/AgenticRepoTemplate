@@ -152,9 +152,11 @@ const oneComponentPerFile = {
   create(context) {
     return {
       Program(program) {
-        for (const component of moduleComponents(program, context.filename).slice(1)) {
-          context.report({ node: component.node, messageId: 'extra', data: component });
-        }
+        moduleComponents(program, context.filename)
+          .slice(1)
+          .forEach((component) => {
+            context.report({ node: component.node, messageId: 'extra', data: component });
+          });
       },
     };
   },
@@ -205,13 +207,13 @@ const stateAndEffectsInHooks = {
       ExportNamedDeclaration(node) {
         const hooks = STATE_AND_EFFECT_HOOKS.get(node.source?.value);
 
-        for (const specifier of hooks ? node.specifiers : []) {
+        (hooks ? node.specifiers : []).forEach((specifier) => {
           const hook = specifier.local.name ?? specifier.local.value;
 
           if (hooks.has(hook)) {
             context.report({ node: specifier, messageId: 'reexport', data: { hook } });
           }
-        }
+        });
       },
       ExportAllDeclaration(node) {
         if (STATE_AND_EFFECT_HOOKS.has(node.source.value)) {
@@ -225,13 +227,13 @@ const stateAndEffectsInHooks = {
           return;
         }
 
-        for (const specifier of node.specifiers) {
+        node.specifiers.forEach((specifier) => {
           if (specifier.type !== 'ImportSpecifier') {
             hookNamespaces.set(specifier.local.name, hooks);
           } else if (hooks.has(importedName(specifier))) {
             hookNames.set(specifier.local.name, importedName(specifier));
           }
-        }
+        });
       },
       CallExpression(node) {
         const hook = restrictedHook(node.callee);
@@ -240,11 +242,7 @@ const stateAndEffectsInHooks = {
           return;
         }
 
-        let owner = node.parent;
-
-        while (owner && !isFunctionNode(owner)) {
-          owner = owner.parent;
-        }
+        const owner = context.sourceCode.getAncestors(node).findLast(isFunctionNode);
 
         const name = owner ? functionName(owner) : null;
 
@@ -287,8 +285,8 @@ const handlerNames = {
   create(context) {
     return {
       Program(program) {
-        for (const { fn } of moduleComponents(program, context.filename)) {
-          for (const identifier of localFunctions(fn.body)) {
+        moduleComponents(program, context.filename).forEach(({ fn }) => {
+          localFunctions(fn.body).forEach((identifier) => {
             if (!/^handle[A-Z]/.test(identifier.name)) {
               const suffix = identifier.name.charAt(0).toUpperCase() + identifier.name.slice(1);
               context.report({
@@ -297,8 +295,8 @@ const handlerNames = {
                 data: { name: identifier.name, suffix },
               });
             }
-          }
-        }
+          });
+        });
       },
     };
   },
@@ -373,11 +371,11 @@ const callbackPropNames = {
           typeMembers(program, propsType),
         );
 
-        for (const member of members.filter(isMisnamedCallback)) {
+        members.filter(isMisnamedCallback).forEach((member) => {
           const name = member.key.name;
           const suffix = name.charAt(0).toUpperCase() + name.slice(1);
           context.report({ node: member, messageId: 'prefix', data: { name, suffix } });
-        }
+        });
       },
     };
   },
@@ -400,11 +398,11 @@ const pagesInRoutes = {
           return;
         }
 
-        for (const component of moduleComponents(program, context.filename)) {
+        moduleComponents(program, context.filename).forEach((component) => {
           if (component.name.endsWith('Page')) {
             context.report({ node: component.node, messageId: 'location', data: component });
           }
-        }
+        });
       },
     };
   },
@@ -441,13 +439,15 @@ const fileMatchesExport = {
         const [component] = moduleComponents(program, context.filename);
         const named = [component?.node, ...exportedHooks(program)].filter(Boolean);
 
-        for (const node of named.filter(({ name }) => name !== basename(path, extension))) {
-          context.report({
-            node,
-            messageId: 'mismatch',
-            data: { name: node.name, expected: `${node.name}${extension}` },
+        named
+          .filter(({ name }) => name !== basename(path, extension))
+          .forEach((node) => {
+            context.report({
+              node,
+              messageId: 'mismatch',
+              data: { name: node.name, expected: `${node.name}${extension}` },
+            });
           });
-        }
       },
     };
   },
@@ -466,11 +466,11 @@ const folderNames = {
       Program(program) {
         const folders = dirname(repositoryPath(context)).split('/').slice(1);
 
-        for (const folder of folders) {
+        folders.forEach((folder) => {
           if (!FOLDER_NAME.test(folder)) {
             context.report({ node: program, messageId: 'kebab', data: { folder } });
           }
-        }
+        });
       },
     };
   },
@@ -690,13 +690,13 @@ function importTracker(source, name) {
         return;
       }
 
-      for (const specifier of node.specifiers) {
+      node.specifiers.forEach((specifier) => {
         if (specifier.type !== 'ImportSpecifier') {
           namespaces.add(specifier.local.name);
         } else if (importedName(specifier) === name) {
           locals.add(specifier.local.name);
         }
-      }
+      });
     },
     /** Whether `node` names the import: `name`, an alias of it, or `namespace.name`. */
     names(node) {
@@ -872,7 +872,7 @@ const noLargeComments = {
           run = [];
         };
 
-        for (const comment of source.getAllComments()) {
+        source.getAllComments().forEach((comment) => {
           const previous = run.at(-1);
 
           if (
@@ -884,7 +884,7 @@ const noLargeComments = {
           }
 
           run.push(comment);
-        }
+        });
 
         flushRun();
       },
