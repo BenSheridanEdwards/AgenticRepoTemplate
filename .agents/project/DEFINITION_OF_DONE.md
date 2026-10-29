@@ -99,7 +99,7 @@ that names the fix unless:
   compares `origin/main...HEAD` ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md));
 - the Verification Summary has exactly one `- North Star commit:` line naming
   one SHA of 7-40 hex characters, optionally in balanced backticks, that is a
-  prefix of the last commit to change `.agents/NORTH_STAR.md` at the PR head
+  prefix of the last commit to change `docs/NORTH_STAR.md` at the PR head
   ([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md));
 - the body names no machine-local path: it cites repo-relative paths,
   placeholders such as `<workdir>/repo` or `<tmp>/verify.log`, links, and commands,

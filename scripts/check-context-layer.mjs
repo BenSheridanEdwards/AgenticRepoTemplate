@@ -33,14 +33,13 @@ const MINIMUM_NON_EMPTY_LINES = 20;
 const MAXIMUM_CONTRACT_BYTES = 32 * 1024;
 
 /**
- * The seven project docs under `.agents/project/` that the start-here guide
+ * The six project docs under `.agents/project/` that the start-here guide
  * and the Definition of Done both promise exist.
  */
 const REQUIRED_PROJECT_DOCS = [
   'ARCHITECTURE.md',
   'CONVENTIONS.md',
   'TECH_STACK.md',
-  'GLOSSARY.md',
   'DEFINITION_OF_DONE.md',
   'QUALITY_GATES.md',
   'PR_QUALITY.md',
@@ -382,10 +381,12 @@ export function checkContextLayer(filesystem) {
   checkClaudePointer(filesystem, errors);
   checkStartHere(filesystem, errors);
 
-  // The seven project docs.
+  // The six project docs.
   for (const documentName of REQUIRED_PROJECT_DOCS) {
     assertRegularFile(filesystem, `.agents/project/${documentName}`, errors);
   }
+
+  assertRegularFile(filesystem, 'docs/GLOSSARY.md', errors);
 
   // The two house skills, each with YAML frontmatter carrying name + description.
   for (const skillPath of REQUIRED_HOUSE_SKILLS) {

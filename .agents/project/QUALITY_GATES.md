@@ -22,7 +22,7 @@ only when a hook, script, workflow, or review checklist actually owns it.
 | PRD links | `scripts/check-prd-conflicts.mjs` (`pnpm check:docs`) | Each PRD in `docs/prd/` lists behaviours, and each behaviour links an E2E spec and the title of a test in it that runs ([ADR 0045](../decisions/0045-prds-state-intent-and-link-their-specs.md)). |
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | Each dependency name new since the merge base with the PR's base branch is named by an ADR added in the same change ([ADR 0020](../decisions/0020-pr-process-checks.md)). |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. |
-| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement, or adds, edits, deletes or renames product intent in `docs/prd/**` or `.agents/NORTH_STAR.md`, until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md), [ADR 0060](../decisions/0060-product-intent-needs-sign-off.md)). |
+| Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | `enforcement-approval` status stays red on a PR that loosens or rewrites enforcement, or adds, edits, deletes or renames product intent in `docs/prd/**` or `docs/NORTH_STAR.md`, until BenSheridanEdwards ticks the sign-off for the head commit ([ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md), [ADR 0060](../decisions/0060-product-intent-needs-sign-off.md)). |
 | Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Grades every pull request `confidence: green`, `confidence: amber` or `confidence: red` from its gate results, the E2E coverage of its changed slices, its PRD status, changed-source unit line coverage and import blast radius. Advisory: it grades an already-green PR and gates nothing ([ADR 0064](../decisions/0064-merge-confidence-label.md), [ADR 0067](../decisions/0067-grade-merge-confidence-on-changed-file-line-coverage.md), [ADR 0068](../decisions/0068-grade-merge-confidence-on-import-blast-radius.md)). |
 
 The pre-commit Biome command is
@@ -43,7 +43,7 @@ checkbox/radio controls allowed). The existing source globs cover every result.
 exemptions and comment threshold. These run in `pnpm verify`, pre-push and CI.
 
 Slop is code more complex than the change needs, or code that breaks an
-agreed convention ([North Star](../NORTH_STAR.md)). Biome, ESLint and React
+agreed convention ([North Star](../../docs/NORTH_STAR.md)). Biome, ESLint and React
 Doctor fail on any warning
 ([ADR 0046](../decisions/0046-fail-lint-on-warnings.md)). Declarative code is
 partly gated by Biome `style/useConst` and the React Hooks rules
@@ -291,7 +291,7 @@ Every other PR passes with no comment.
   lowered rule, an added ignore entry, a removed or newly created include list,
   or a strictness flag turned off asks, and raising a rule passes.
 - **Product intent.** The Product intent guard covers `docs/prd/**` and
-  `.agents/NORTH_STAR.md`. Every addition, edit, deletion or rename needs
+  `docs/NORTH_STAR.md`. Every addition, edit, deletion or rename needs
   Ben's sign-off, including wording-only edits: intent has no tighten/loosen
   direction. A rename counts when either side is guarded. Other guidance docs
   stay outside the guard, as do `package.json`, the

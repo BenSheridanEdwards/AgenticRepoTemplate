@@ -73,7 +73,7 @@ function buildPassingTree() {
     '.agents/project/ARCHITECTURE.md': 'architecture',
     '.agents/project/CONVENTIONS.md': 'conventions',
     '.agents/project/TECH_STACK.md': 'tech stack',
-    '.agents/project/GLOSSARY.md': 'glossary',
+    'docs/GLOSSARY.md': 'glossary',
     '.agents/project/DEFINITION_OF_DONE.md': 'done',
     '.agents/project/QUALITY_GATES.md': 'gates',
     '.agents/project/PR_QUALITY.md': 'pr quality',
@@ -107,11 +107,23 @@ describe('checkContextLayer', () => {
 
   it('fails, listing the file, when a required file is missing', () => {
     const files = buildPassingTree();
-    delete files['.agents/project/GLOSSARY.md'];
+    delete files['docs/GLOSSARY.md'];
     const result = checkContextLayer(createInMemoryFilesystem({ files }));
     expect(result.ok).toBe(false);
-    expect(result.errors.join('\n')).toContain('.agents/project/GLOSSARY.md');
+    expect(result.errors.join('\n')).toContain('docs/GLOSSARY.md');
     expect(result.errors.join('\n')).toContain('Missing required file');
+  });
+
+  it('requires the glossary in docs as a regular file', () => {
+    const files = buildPassingTree();
+    expect(files).not.toHaveProperty(['.agents/project/GLOSSARY.md']);
+    delete files['docs/GLOSSARY.md'];
+    files['.agents/project/GLOSSARY.md'] = 'old glossary';
+    const result = checkContextLayer(
+      createInMemoryFilesystem({ files, symlinks: { 'docs/GLOSSARY.md': 'elsewhere.md' } }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('`docs/GLOSSARY.md` is a symbolic link');
   });
 
   it('fails when AGENTS.md is a symbolic link rather than a regular file', () => {
@@ -296,7 +308,7 @@ describe('checkContextLayer', () => {
 
   it('skips front matter and nested or tilde fences, and matches closing hashes', () => {
     const files = buildPassingTree();
-    files['.agents/project/GLOSSARY.md'] = [
+    files['.agents/project/CONVENTIONS.md'] = [
       '---',
       '# a yaml comment',
       '# a yaml comment',
@@ -316,7 +328,7 @@ describe('checkContextLayer', () => {
       ok: true,
       errors: [],
     });
-    files['.agents/project/GLOSSARY.md'] = '# Glossary\n## Term\n## Term ##\n';
+    files['.agents/project/CONVENTIONS.md'] = '# Glossary\n## Term\n## Term ##\n';
     expect(checkContextLayer(createInMemoryFilesystem({ files })).errors.join('\n')).toContain(
       'has the section `## Term` 2 times',
     );

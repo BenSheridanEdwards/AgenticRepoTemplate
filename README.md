@@ -49,7 +49,7 @@ owned by a named engineer, whoever or whatever wrote it.
 
 The factory is the repository: a scaffold any agent can operate in that refuses
 changes missing the project's standards (see
-[`.agents/NORTH_STAR.md`](.agents/NORTH_STAR.md) and Sarah Fim's anti-slop
+[`docs/NORTH_STAR.md`](docs/NORTH_STAR.md) and Sarah Fim's anti-slop
 software factory —
 [video](https://x.com/sarahfim/status/2108298553823203613),
 [write-up](https://x.com/sarahfim/status/2109736893198016898)). Installed means
@@ -57,7 +57,7 @@ the hook, script, or workflow runs on a clean checkout; a target is labelled as
 one.
 
 **The factory's three rules** (detail and status in
-[`.agents/NORTH_STAR.md`](.agents/NORTH_STAR.md)):
+[`docs/NORTH_STAR.md`](docs/NORTH_STAR.md)):
 
 1. **The toolchain refuses slop.** Lint rules, type rules and architecture
    tests hold the agreed conventions. Typecheck, staged Biome lint and
@@ -180,7 +180,7 @@ without asking anyone anything.
   the [conventions](.agents/project/CONVENTIONS.md) for naming, imports,
   errors, and state, the
   [tech stack](.agents/project/TECH_STACK.md) and what not to add to it, the
-  [glossary](.agents/project/GLOSSARY.md) of shared language, the
+  [glossary](docs/GLOSSARY.md) of shared language, the
   [Definition of Done](.agents/project/DEFINITION_OF_DONE.md), the
   [quality-gate matrix](.agents/project/QUALITY_GATES.md), the
   [PR quality contract](.agents/project/PR_QUALITY.md), the
@@ -350,11 +350,12 @@ optimise last.
 ## Every file, and why it is here
 
 ```
+docs/NORTH_STAR.md        Where the repo is heading and why.
+docs/GLOSSARY.md          Shared language.
 AGENTS.md                 Operating contract: commands, golden rules, and the map.
 .claude/CLAUDE.md          Imports AGENTS.md for Claude Code.
 .agents/                  Every agent doc (read before writing).
   CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
-  NORTH_STAR.md             Where the repo is heading and why.
   project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.
@@ -362,7 +363,6 @@ AGENTS.md                 Operating contract: commands, golden rules, and the ma
   project/QUALITY_GATES.md  Which gate runs where, and which tool owns it.
   project/PR_QUALITY.md     Proof required before a PR is ready.
   project/TECH_STACK.md     One tool per concern, and what not to add.
-  project/GLOSSARY.md       Shared language.
   decisions/                Decision records: why each constraint exists.
   templates/                Scaffolds for components, tests, and E2E.
 .claude/

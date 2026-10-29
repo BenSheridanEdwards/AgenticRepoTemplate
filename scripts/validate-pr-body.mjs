@@ -514,7 +514,7 @@ function collectNorthStarErrors(value, headSha, northStarCommit) {
     if (expected.toLowerCase().startsWith(named.toLowerCase())) return [];
     return [
       `\`- North Star commit:\` says ${named}, but the last commit changing ` +
-        `\`.agents/NORTH_STAR.md\` at the PR head is ${expected}. ` +
+        `\`docs/NORTH_STAR.md\` at the PR head is ${expected}. ` +
         'Re-check the North Star and update the field.',
     ];
   } catch (error) {
@@ -756,7 +756,7 @@ function runCli() {
     branch: decodeEnv(process.env.PR_HEAD_REF),
     listPrdFiles: () => readPrdFiles(headSha),
     northStarCommit: (head) =>
-      execFileSync('git', ['log', '-1', '--format=%H', head, '--', '.agents/NORTH_STAR.md'], {
+      execFileSync('git', ['log', '-1', '--format=%H', head, '--', 'docs/NORTH_STAR.md'], {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
       }).trim(),

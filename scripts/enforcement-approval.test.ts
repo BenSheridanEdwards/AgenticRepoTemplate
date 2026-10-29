@@ -87,7 +87,7 @@ describe('GUARDS', () => {
     ['biome.json', 'Biome config'],
     ['docs/prd/greeting.md', 'Product intent'],
     ['docs/prd/nested/feature.md', 'Product intent'],
-    ['.agents/NORTH_STAR.md', 'Product intent'],
+    ['docs/NORTH_STAR.md', 'Product intent'],
   ])('guards %s as %s', (path, area) => {
     expect(guardedPaths([{ filename: path }])).toEqual([path]);
     expect(enforcementProblems([{ path, before: '{}', after: null }])[0]?.area).toBe(area);
@@ -98,7 +98,7 @@ describe('GUARDS', () => {
     'AGENTS.md',
     '.agents/x.md',
     '.agents/START_HERE.md',
-    '.agents/NORTH_STAR.md.bak',
+    'docs/NORTH_STAR.md.bak',
     'docs/prd-other/feature.md',
     'package.json',
     'pnpm-lock.yaml',
@@ -226,7 +226,7 @@ describe('anti-slop enforcement', () => {
 describe('product intent', () => {
   it.each([
     'docs/prd/greeting.md',
-    '.agents/NORTH_STAR.md',
+    'docs/NORTH_STAR.md',
   ])('requires sign-off for every addition, edit and deletion of %s', (path) => {
     for (const [before, after] of [
       [null, 'intent'],
@@ -249,8 +249,8 @@ describe('product intent', () => {
       'docs/prd/renamed.md',
       ['docs/prd/greeting.md', 'docs/prd/renamed.md'],
     ],
-    ['.agents/NORTH_STAR.md', '.agents/archived.md', ['.agents/NORTH_STAR.md']],
-    ['.agents/draft.md', '.agents/NORTH_STAR.md', ['.agents/NORTH_STAR.md']],
+    ['docs/NORTH_STAR.md', '.agents/archived.md', ['docs/NORTH_STAR.md']],
+    ['.agents/draft.md', 'docs/NORTH_STAR.md', ['docs/NORTH_STAR.md']],
   ])('requires sign-off for a rename from %s to %s', (previous, filename, expected) => {
     const paths = guardedPaths([{ filename, previous_filename: previous }]);
     expect(paths).toEqual(expected);

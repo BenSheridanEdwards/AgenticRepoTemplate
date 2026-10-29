@@ -27,7 +27,7 @@
       "id": "outcome",
       "attributes": {
         "label": "Outcome",
-        "description": "Name the outcome in [.agents/NORTH_STAR.md](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/blob/main/.agents/NORTH_STAR.md) this change advances, and explain how.",
+        "description": "Name the outcome in [docs/NORTH_STAR.md](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/blob/main/docs/NORTH_STAR.md) this change advances, and explain how.",
         "placeholder": "The North Star outcome and how the proposed behaviour or intent change moves it."
       },
       "validations": { "required": true }
