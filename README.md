@@ -39,12 +39,12 @@ Follow that slice when adding a feature.
 | [Architecture](.agents/project/ARCHITECTURE.md) and [conventions](.agents/project/CONVENTIONS.md) | Module roles, allowed imports and code patterns; [templates](.agents/templates/) to copy. |
 | [Product intent](docs/prd/greeting.md) and [North Star](docs/NORTH_STAR.md) | The greeting's promises and the template's direction; [ADRs](.agents/decisions/) record decisions. |
 | [Visual regression](apps/web/e2e/__screenshots__/README.md) | How the reference app's Playwright baselines are captured and updated. |
-| [Skills](.claude/skills/) | Workflows for adoption, tests, browser verification and PR proof. |
+| [Skills](.agents/skills/) | Workflows for adoption, tests, browser verification and PR proof. |
 | [Trials](.agents/TRIALS.md) | Running the Todo and Notes trials and reading their evidence. |
 
 ## Adopt it
 
-Choose **Use this template** for a new project, or use the [adoption skill](.claude/skills/adopt-the-factory/SKILL.md) in an existing repo.
+Choose **Use this template** for a new project, or use the [adoption skill](.agents/skills/adopt-the-factory/SKILL.md) in an existing repo.
 Follow the [hosted setup checklist](.github/SECURITY.md) to configure security and merge enforcement.
 
 ## Tools it builds on

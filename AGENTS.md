@@ -107,4 +107,4 @@ Regenerate disposable output (`apps/web/dist/`, `.cache/`, `coverage/`) with its
 | [`decisions/`](.agents/decisions/) | to understand *why* a constraint exists before you challenge it. ADRs. |
 | [`templates/`](.agents/templates/) | when creating a new component, test, E2E flow, or PRD. Copy from here. |
 | [`NORTH_STAR.md`](docs/NORTH_STAR.md) | to see where the repo is heading and why. |
-| [`verify-agentic-template`](.claude/skills/verify-agentic-template/SKILL.md) | to drive the app and capture PR proof. |
+| [`verify-agentic-template`](.agents/skills/verify-agentic-template/SKILL.md) | to drive the app and capture PR proof. |

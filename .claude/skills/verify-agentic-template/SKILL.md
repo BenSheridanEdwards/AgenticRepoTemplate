@@ -15,7 +15,7 @@ answers with real data without mocks. The browser is the only user surface.
 (gitignored): `instance/` is server state, `evidence/` is proof.
 
 ```bash
-V=.claude/skills/verify-agentic-template/scripts/verify.mjs
+V=.agents/skills/verify-agentic-template/scripts/verify.mjs
 ```
 
 ## Setup
@@ -162,7 +162,7 @@ Proof standards:
   calls a click caused.
 - For a PR, copy the screenshots that prove the claim into
   `docs/proof/<scope>/` and embed them per
-  `.claude/skills/pr-quality-contract/SKILL.md`. Read the PNG before you
+  `.agents/skills/pr-quality-contract/SKILL.md`. Read the PNG before you
   cite it.
 
 ## Cleanup

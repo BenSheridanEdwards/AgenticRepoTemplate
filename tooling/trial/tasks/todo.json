@@ -33,6 +33,7 @@
   ],
   "ports": [5173, 3001, 5183, 3011],
   "enforcementPaths": [
+    ".agents/skills",
     ".husky",
     ".github/workflows",
     ".claude",

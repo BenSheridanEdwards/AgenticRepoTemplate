@@ -75,7 +75,7 @@ Reviewers check these requirements:
 - E2E tests map to the user-visible behaviour the PR changes.
 - Every bug fix ships, in the same change, with a regression test that fails on the unfixed code and asserts the user-visible symptom.
 - Missing visual proof or E2E coverage has a technical reason and a replacement verification method.
-- Commit proof on the PR branch under `docs/proof/<short-scope>/`, unless the PR gives a technical reason for another committed location. Embed screenshot proof inline as the [PR quality skill](../../.claude/skills/pr-quality-contract/SKILL.md) describes.
+- Commit proof on the PR branch under `docs/proof/<short-scope>/`, unless the PR gives a technical reason for another committed location. Embed screenshot proof inline as the [PR quality skill](../../.agents/skills/pr-quality-contract/SKILL.md) describes.
 - Each evidence link opens the rendered artifact once the branch is pushed.
 
 ## Verification

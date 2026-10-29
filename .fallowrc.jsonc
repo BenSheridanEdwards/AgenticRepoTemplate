@@ -340,6 +340,7 @@
         "{apps,showcase/*}/web/{index.html,vite.config.ts}",
         "{apps,showcase/*}/web/e2e/**",
         ".claude/**",
+        ".agents/skills/**",
         "scripts/**",
         "tooling/**",
         "vendor/**"

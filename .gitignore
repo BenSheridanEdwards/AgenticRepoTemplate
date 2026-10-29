@@ -28,5 +28,5 @@ test-results/
 # Claude Code personal overrides (never committed; team settings live in settings.json)
 .claude/settings.local.json
 
-# Verification runs from .claude/skills/verify-agentic-template (instance state + evidence)
+# Verification runs from .agents/skills/verify-agentic-template (instance state + evidence)
 .verify/

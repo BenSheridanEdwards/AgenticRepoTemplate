@@ -62,4 +62,4 @@ git log -1 --format=%H <head> -- docs/NORTH_STAR.md. -->
 
 # PR Proof Law
 
-- [ ] I followed `.agents/project/PR_QUALITY.md` and `.claude/skills/pr-quality-contract/SKILL.md`; the `PR quality` check verifies the proof format.
+- [ ] I followed `.agents/project/PR_QUALITY.md` and `.agents/skills/pr-quality-contract/SKILL.md`; the `PR quality` check verifies the proof format.
