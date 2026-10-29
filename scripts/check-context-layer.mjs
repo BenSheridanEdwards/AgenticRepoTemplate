@@ -219,28 +219,25 @@ function proseLines(text) {
  */
 function sectionsOf(text) {
   const sections = new Map();
-  const ancestors = [];
-  proseLines(text).forEach((line, index) => {
+  proseLines(text).reduce((ancestors, line, index) => {
     const match = ATX_HEADING.exec(line);
     if (!match) {
-      return;
+      return ancestors;
     }
     const level = match[1].length;
     const heading = `${match[1]} ${match[2]}`;
-    while (ancestors.length > 0 && ancestors.at(-1).level >= level) {
-      ancestors.pop();
-    }
-    const key = [...ancestors.map((ancestor) => ancestor.heading), heading].join('\n');
+    const parents = ancestors.filter((ancestor) => ancestor.level < level);
+    const key = [...parents.map((ancestor) => ancestor.heading), heading].join('\n');
     const section = sections.get(key) ?? {
       key,
       heading,
-      parent: ancestors.at(-1)?.heading,
+      parent: parents.at(-1)?.heading,
       lines: [],
     };
     section.lines.push(index + 1);
     sections.set(key, section);
-    ancestors.push({ level, heading });
-  });
+    return [...parents, { level, heading }];
+  }, []);
   return [...sections.values()];
 }
 
@@ -259,25 +256,25 @@ function checkDuplicateSections(filesystem, errors) {
     );
     return;
   }
-  for (const path of trackedFiles.filter(isContextDoc)) {
+  trackedFiles.filter(isContextDoc).forEach((path) => {
     if (!isReadableDoc(filesystem, path)) {
-      continue;
+      return;
     }
     const duplicates = sectionsOf(filesystem.readText(path)).filter(
       ({ lines }) => lines.length > 1,
     );
-    for (const { key, heading, parent, lines } of duplicates) {
-      if (duplicates.some((outer) => key.startsWith(`${outer.key}\n`))) {
-        continue;
-      }
-      errors.push(
-        `\`${path}\` has the section \`${heading}\` ${lines.length} times under ` +
-          `${parent ? `\`${parent}\`` : 'the top level'} (lines ${lines.join(', ')}). A merge usually ` +
-          'does this when both sides added the section. Keep one copy, merging any lines that differ, ' +
-          'and delete the rest.',
-      );
-    }
-  }
+    errors.push(
+      ...duplicates
+        .filter(({ key }) => !duplicates.some((outer) => key.startsWith(`${outer.key}\n`)))
+        .map(
+          ({ heading, parent, lines }) =>
+            `\`${path}\` has the section \`${heading}\` ${lines.length} times under ` +
+            `${parent ? `\`${parent}\`` : 'the top level'} (lines ${lines.join(', ')}). A merge usually ` +
+            'does this when both sides added the section. Keep one copy, merging any lines that differ, ' +
+            'and delete the rest.',
+        ),
+    );
+  });
 }
 
 /** Where ADRs live, and the `NNNN-slug.md` name each one has. */
@@ -313,25 +310,24 @@ function checkDecisionNumbers(filesystem, errors) {
     return;
   }
 
-  const decisions = [];
-  for (const { name, path } of files) {
+  const decisions = files.flatMap(({ name, path }) => {
     const match = ADR_FILE_NAME.exec(name);
     if (!match) {
       errors.push(`\`${path}\` must be named \`NNNN-slug.md\`, like the other ADRs.`);
-      continue;
+      return [];
     }
     if (!assertRegularFile(filesystem, path, errors)) {
-      continue;
+      return [];
     }
     const number = Number(match[1]);
-    decisions.push({ path, number });
     if (titleNumber(filesystem.readText(path)) !== number) {
       errors.push(`\`${path}\` must start with the title \`# ${number}.\` to match its file name.`);
     }
-  }
+    return [{ path, number }];
+  });
 
   const highestNumber = Math.max(0, ...decisions.map(({ number }) => number));
-  for (const [number, sharing] of Map.groupBy(decisions, (decision) => decision.number)) {
+  Map.groupBy(decisions, (decision) => decision.number).forEach((sharing, number) => {
     if (sharing.length > 1) {
       errors.push(
         `ADR ${number} is used by ${sharing.map(({ path }) => `\`${path}\``).join(' and ')}. ` +
@@ -339,7 +335,7 @@ function checkDecisionNumbers(filesystem, errors) {
           'then rename the file, change its `# N.` title, and update every link to it.',
       );
     }
-  }
+  });
 }
 
 /**
@@ -424,22 +420,22 @@ export function checkContextLayer(filesystem) {
   checkStartHere(filesystem, errors);
 
   // The six project docs.
-  for (const documentName of REQUIRED_PROJECT_DOCS) {
+  REQUIRED_PROJECT_DOCS.forEach((documentName) => {
     assertRegularFile(filesystem, `.agents/project/${documentName}`, errors);
-  }
+  });
 
   assertRegularFile(filesystem, 'docs/GLOSSARY.md', errors);
 
   // The two house skills, each with YAML frontmatter carrying name + description.
-  for (const skillPath of REQUIRED_HOUSE_SKILLS) {
+  REQUIRED_HOUSE_SKILLS.forEach((skillPath) => {
     if (!assertRegularFile(filesystem, skillPath, errors)) {
-      continue;
+      return;
     }
     const skillText = filesystem.readText(skillPath);
     const frontmatterMatch = skillText.match(/^---\n([\s\S]*?)\n---/);
     if (!frontmatterMatch) {
       errors.push(`\`${skillPath}\` is missing YAML frontmatter (a leading \`---\` block).`);
-      continue;
+      return;
     }
     const frontmatter = frontmatterMatch[1];
     if (!/^\s*name:\s*\S/m.test(frontmatter)) {
@@ -448,7 +444,7 @@ export function checkContextLayer(filesystem) {
     if (!/^\s*description:\s*\S/m.test(frontmatter)) {
       errors.push(`\`${skillPath}\` frontmatter is missing a \`description:\` field.`);
     }
-  }
+  });
 
   errors.push(...checkSkillCopies(filesystem));
 
@@ -469,9 +465,9 @@ function runCli() {
   }
 
   console.error('Context layer check failed:\n');
-  for (const error of result.errors) {
+  result.errors.forEach((error) => {
     console.error(`  ✗ ${error}`);
-  }
+  });
   console.error('\nSee `.agents/project/QUALITY_GATES.md` for the gate matrix.');
   process.exit(1);
 }

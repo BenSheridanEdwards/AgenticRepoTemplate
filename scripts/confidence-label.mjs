@@ -99,13 +99,12 @@ export function sliceOf(path) {
 
 /** The unique route and feature slices the changed files touch, in order. */
 export function collectSlices(changedFiles) {
-  const slices = new Map();
-  for (const file of changedFiles) {
-    const slice = sliceOf(file);
-    if (slice) {
-      slices.set(`${slice.result}:${slice.kind}:${slice.name}`, slice);
-    }
-  }
+  const slices = new Map(
+    changedFiles
+      .map(sliceOf)
+      .filter(Boolean)
+      .map((slice) => [`${slice.result}:${slice.kind}:${slice.name}`, slice]),
+  );
   return [...slices.values()];
 }
 
@@ -401,9 +400,9 @@ function runDecide() {
   });
 
   console.log(`confidence: ${decision.level}`);
-  for (const reason of decision.reasons) {
+  decision.reasons.forEach((reason) => {
     console.log(`  - ${reason}`);
-  }
+  });
   writeOutput('level', decision.level);
   writeOutput('label', CONFIDENCE_LABELS[decision.level]);
   if (process.env.GITHUB_STEP_SUMMARY) {

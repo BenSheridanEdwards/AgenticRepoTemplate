@@ -144,21 +144,21 @@ function repositoryRelative(pattern) {
 /** A PRD's behaviours, proof paths, coverage globs and unread declarations. */
 export function parseBehaviours(prdPath, text) {
   const lines = text.split(/\r?\n/).map((line, index) => ({ line, number: index + 1 }));
-  const behaviours = [];
   const unread = lines.filter(({ line }) => BEHAVIOURS_HEADING.test(line)).slice(1);
-  for (const { line, number } of behavioursSection(lines)) {
+  const behaviours = behavioursSection(lines).reduce((items, { line, number }) => {
     const item = BEHAVIOUR.exec(line);
     const proof = PROOF.exec(line);
     if (item) {
       const summary = /^\*\*(.+?)\*\*/.exec(item[1])?.[1] ?? item[1];
-      behaviours.push({ line: number, summary, proofs: [] });
-    } else if (proof && behaviours.length > 0) {
+      items.push({ line: number, summary, proofs: [] });
+    } else if (proof && items.length > 0) {
       const spec = posix.join(posix.dirname(prdPath), proof[2].replace(/#.*$/, ''));
-      behaviours.at(-1).proofs.push({ line: number, title: proof[1], spec });
+      items.at(-1).proofs.push({ line: number, title: proof[1], spec });
     } else if (UNREAD_LINE.test(line)) {
       unread.push({ line, number });
     }
-  }
+    return items;
+  }, []);
   return { behaviours, unread, ...parseCovers(prdPath, lines) };
 }
 
@@ -200,15 +200,13 @@ function hasTestBody(call) {
  * spread or a computed key hides one.
  */
 function namedProperties(object) {
-  const properties = new Map();
-  for (const property of object.properties) {
+  const entries = object.properties.map((property) => {
     const { name } = property;
-    if (!name || !(ts.isIdentifier(name) || ts.isStringLiteralLike(name))) {
-      return undefined;
-    }
-    properties.set(name.text, ts.isPropertyAssignment(property) ? property.initializer : property);
-  }
-  return properties;
+    return name && (ts.isIdentifier(name) || ts.isStringLiteralLike(name))
+      ? [name.text, ts.isPropertyAssignment(property) ? property.initializer : property]
+      : undefined;
+  });
+  return entries.some((entry) => entry === undefined) ? undefined : new Map(entries);
 }
 
 /** Whether an annotation, or a list of them, stops a test, or cannot be read. */
@@ -278,11 +276,12 @@ function testTitlesRun(specPath, specText) {
     ts.forEachChild(node, (child) => visit(child, inner));
   };
   visit(file, [file]);
-  const runs = new Map();
-  for (const { title, scopes } of tests.filter(({ title }) => title !== undefined)) {
-    runs.set(title, runs.get(title) || !scopes.some((scope) => skipped.has(scope)));
-  }
-  return runs;
+  return tests
+    .filter(({ title }) => title !== undefined)
+    .reduce((runs, { title, scopes }) => {
+      runs.set(title, runs.get(title) || !scopes.some((scope) => skipped.has(scope)));
+      return runs;
+    }, new Map());
 }
 
 /**

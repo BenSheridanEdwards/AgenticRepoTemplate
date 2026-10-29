@@ -55,7 +55,9 @@ export const isInherited = (name) =>
  * reaches a test's git or gate script.
  */
 export default function globalSetup() {
-  for (const name of Object.keys(process.env)) {
-    if (!isInherited(name)) delete process.env[name];
-  }
+  Object.keys(process.env)
+    .filter((name) => !isInherited(name))
+    .forEach((name) => {
+      delete process.env[name];
+    });
 }

@@ -39,20 +39,15 @@ function workspaceGlobs(workspaceYaml) {
   if (!/^packages:\s*(#.*)?$/.test(lines[start])) {
     throw new Error(`${WORKSPACE_FILE}: write \`packages:\` as a block list (\`  - 'apps/*'\`).`);
   }
-  const globs = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^\s*(#.*)?$/.test(line)) {
-      continue;
-    }
-    if (!/^\s*-/.test(line)) {
-      break;
-    }
+  const items = lines.slice(start + 1).filter((line) => !/^\s*(#.*)?$/.test(line));
+  const end = items.findIndex((line) => !/^\s*-/.test(line));
+  const globs = items.slice(0, end === -1 ? undefined : end).map((line) => {
     const item = line.match(/^\s*-\s+(['"]?)([^'"#\s{[]+)\1\s*(#.*)?$/);
     if (!item) {
       throw new Error(`${WORKSPACE_FILE}: cannot read the packages item \`${line.trim()}\`.`);
     }
-    globs.push(item[2].replace(/^(!?)\.\//, '$1'));
-  }
+    return item[2].replace(/^(!?)\.\//, '$1');
+  });
   if (globs.length === 0) {
     throw new Error(`${WORKSPACE_FILE}: \`packages:\` lists no globs.`);
   }
@@ -115,9 +110,10 @@ function git(...args) {
 function nextAdrNumber() {
   let highest = 0;
   try {
-    for (const file of readdirSync(DECISIONS_DIRECTORY)) {
-      highest = Math.max(highest, Number(file.match(/^(\d{4})-/)?.[1] ?? 0));
-    }
+    highest = readdirSync(DECISIONS_DIRECTORY).reduce(
+      (maximum, file) => Math.max(maximum, Number(file.match(/^(\d{4})-/)?.[1] ?? 0)),
+      0,
+    );
   } catch {
     // No decisions directory yet: the first ADR is 0001.
   }
@@ -170,9 +166,9 @@ function runCli(baseRef) {
   }
 
   console.error(`New dependencies since ${baseRef} that no ADR in this change names:\n`);
-  for (const name of missing) {
+  missing.forEach((name) => {
     console.error(`  ✗ ${name}`);
-  }
+  });
   console.error(
     `\nAdd \`${DECISIONS_DIRECTORY}/NNNN-<slug>.md\` (next number: ${nextAdrNumber()}) that names ` +
       'each dependency and explains why it is needed and what it replaces, per ' +
