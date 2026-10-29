@@ -70,18 +70,19 @@ function proseLines(markdown) {
 
 /** The `{ line, text }` blocks of `markdown`: paragraphs, list items, table rows, headings. */
 function blocksOf(markdown) {
-  const blocks = [];
-  for (const [index, line] of proseLines(markdown).entries()) {
-    const current = blocks.at(-1);
-    if (line.trim() === '') {
-      blocks.push(undefined);
-    } else if (current && !BLOCK_START.test(line)) {
-      current.text += `\n${line}`;
-    } else {
-      blocks.push({ line: index + 1, text: line });
-    }
-  }
-  return blocks.filter(Boolean);
+  return proseLines(markdown)
+    .reduce((blocks, line, index) => {
+      const current = blocks.at(-1);
+      if (line.trim() === '') {
+        blocks.push(undefined);
+      } else if (current && !BLOCK_START.test(line)) {
+        current.text += `\n${line}`;
+      } else {
+        blocks.push({ line: index + 1, text: line });
+      }
+      return blocks;
+    }, [])
+    .filter(Boolean);
 }
 
 /** The `{ line, text }` claims of `markdown`: table cells, sentences, and clauses. */

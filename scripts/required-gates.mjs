@@ -226,16 +226,16 @@ function jobLines(workflowText) {
 function parseJobs(workflowText) {
   const jobs = new Map();
   const problems = [];
-  let state = {
+  const initialState = {
     job: undefined,
     jobName: undefined,
     step: undefined,
     jobKey: undefined,
     nested: 'reject',
   };
-  for (const { text, number } of jobLines(workflowText)) {
-    const read = readLine(state, text);
-    state = read.state;
+  jobLines(workflowText).reduce((previous, { text, number }) => {
+    const read = readLine(previous, text);
+    const state = read.state;
     if (state.job) jobs.set(state.jobName, state.job);
     if (!read.ok) {
       problems.push(
@@ -243,7 +243,8 @@ function parseJobs(workflowText) {
           'Use the layout of the other workflow jobs so every step stays checked.',
       );
     }
-  }
+    return state;
+  }, initialState);
   return { jobs, problems };
 }
 
@@ -382,9 +383,9 @@ function checkGateJob(gate, job, errors) {
         'An untested skip reads as a pass.',
     );
   }
-  for (const step of job.steps) {
+  job.steps.forEach((step) => {
     checkStep(gate, step, `${where} step "${stepLabel(step)}"`, errors);
-  }
+  });
 }
 
 function stepLabel(step) {
@@ -414,13 +415,14 @@ function checkStep(gate, step, where, errors) {
         `Allowed here: ${allowed.map((condition) => `\`${condition}\``).join(', ')}.`,
     );
   }
-  for (const { label, pattern } of STEP_POLICY.ignoredExit) {
-    if (pattern.test(step.run ?? '')) {
-      errors.push(
-        `${where} ignores its exit code with \`${label}\`, so a failure reads as a pass.`,
-      );
-    }
-  }
+  errors.push(
+    ...STEP_POLICY.ignoredExit
+      .filter(({ pattern }) => pattern.test(step.run ?? ''))
+      .map(
+        ({ label }) =>
+          `${where} ignores its exit code with \`${label}\`, so a failure reads as a pass.`,
+      ),
+  );
 }
 
 /** The whole aggregate job, so a removed or weakened step is drift too. */
@@ -505,25 +507,25 @@ function checkAggregateJob(ciJobs, ciText, errors) {
 export function checkContract({ readWorkflow, inventory }) {
   const errors = [];
   const jobsByWorkflow = new Map();
-  for (const gate of REQUIRED_GATES) {
+  REQUIRED_GATES.forEach((gate) => {
     if (!jobsByWorkflow.has(gate.workflow)) {
       const { jobs, problems } = parseJobs(readWorkflow(gate.workflow));
       errors.push(...problems.map((problem) => `${gate.workflow} ${problem}`));
       jobsByWorkflow.set(gate.workflow, jobs);
     }
     checkGateJob(gate, jobsByWorkflow.get(gate.workflow).get(gate.job), errors);
-  }
+  });
 
   const ciJobs = jobsByWorkflow.get(AGGREGATE.workflow);
   checkAggregateJob(ciJobs, readWorkflow(AGGREGATE.workflow), errors);
-  for (const jobId of ciJobs.keys()) {
+  [...ciJobs.keys()].forEach((jobId) => {
     if (jobId !== AGGREGATE.job && !AGGREGATED.some((gate) => gate.job === jobId)) {
       errors.push(
         `ci.yml job \`${jobId}\` is not in the contract. Add it to REQUIRED_GATES in ` +
           'scripts/required-gates.mjs so the aggregate judges it.',
       );
     }
-  }
+  });
 
   if (inventory !== renderInventory()) {
     errors.push(`${INVENTORY_PATH} is stale. Run \`pnpm gates:inventory\` and commit the result.`);
@@ -624,9 +626,9 @@ function report(errors, okMessage) {
     console.log(okMessage);
     process.exit(0);
   }
-  for (const error of errors) {
+  errors.forEach((error) => {
     console.error(`  ✗ ${error}`);
-  }
+  });
   process.exit(1);
 }
 
@@ -640,9 +642,9 @@ function runDecide() {
   }
   const run = { event: process.env.EVENT_NAME, baseRef: process.env.BASE_REF ?? '' };
   const decision = decideRequiredGates({ needs, run });
-  for (const lane of decision.lanes) {
+  decision.lanes.forEach((lane) => {
     console.log(`${lane.pass ? '✓' : '✗'} ${lane.check}: ${lane.reason}`);
-  }
+  });
   report(
     decision.ok ? [] : ['At least one required lane did not pass.'],
     'Every required lane passed.',

@@ -49,20 +49,16 @@ export function nextFence(fence, line) {
  * @param {string} text Markdown source
  */
 export function findNegativePhrasing(text) {
-  const findings = [];
   let fence = '';
-  for (const [index, line] of text.split('\n').entries()) {
+  return text.split('\n').flatMap((line, index) => {
     fence = nextFence(fence, line);
 
     const phrase = fence
       ? undefined
       : (proseOf(line).match(NEGATIVE_PHRASE) ?? line.match(LEADING_NO))?.[1];
 
-    if (phrase) {
-      findings.push({ line: index + 1, phrase });
-    }
-  }
-  return findings;
+    return phrase ? [{ line: index + 1, phrase }] : [];
+  });
 }
 
 function runCli() {

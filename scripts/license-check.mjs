@@ -54,21 +54,19 @@ try {
 }
 
 const byLicense = JSON.parse(raw);
-const violations = [];
-for (const [license, packages] of Object.entries(byLicense)) {
-  if (isAllowed(license)) {
-    continue;
-  }
-  const list = Array.isArray(packages) ? packages : [];
-  const names = list.map((pkg) => pkg.name ?? String(pkg)).slice(0, 12);
-  violations.push({ license, count: list.length, names });
-}
+const violations = Object.entries(byLicense)
+  .filter(([license]) => !isAllowed(license))
+  .map(([license, packages]) => {
+    const list = Array.isArray(packages) ? packages : [];
+    const names = list.map((pkg) => pkg.name ?? String(pkg)).slice(0, 12);
+    return { license, count: list.length, names };
+  });
 
 if (violations.length > 0) {
   console.error('✗ License compliance: dependency license(s) outside the allow-list:\n');
-  for (const violation of violations) {
+  violations.forEach((violation) => {
     console.error(`  ${violation.license}  (${violation.count}): ${violation.names.join(', ')}`);
-  }
+  });
   console.error(
     '\nReview the license, then either remove the dependency or add the SPDX id to' +
       '\nthe allow-list in scripts/license-check.mjs (a deliberate, reviewable change).',

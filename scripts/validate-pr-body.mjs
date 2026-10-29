@@ -94,13 +94,8 @@ const HEAD_COMMIT_VALUE_PATTERN = /^(`?)([0-9a-f]{7,40})\1$/i;
  * unterminated trailing `<!--` (an opened-but-never-closed comment).
  */
 function stripHtmlComments(text) {
-  let previous;
-  let current = text;
-  do {
-    previous = current;
-    current = current.replace(/<!--[\s\S]*?-->/g, '');
-  } while (current !== previous);
-  return current.replace(/<!--[\s\S]*$/, '');
+  const current = text.replace(/<!--[\s\S]*?-->/g, '');
+  return current === text ? current.replace(/<!--[\s\S]*$/, '') : stripHtmlComments(current);
 }
 
 /**
@@ -119,25 +114,24 @@ function linkTargets(text, pattern) {
 
 /** Every inline image in the body must be an absolute https URL GitHub renders. */
 function collectImageErrors(body) {
-  const errors = [];
-  for (const url of linkTargets(stripCode(stripHtmlComments(body)), INLINE_IMAGE)) {
+  return linkTargets(stripCode(stripHtmlComments(body)), INLINE_IMAGE).flatMap((url) => {
     if (!/^https:\/\//i.test(url)) {
-      errors.push(
+      return [
         `Image "${url}" is not an absolute https:// URL, so it will not render on GitHub. ` +
           'Commit the file under `docs/proof/<scope>/` and embed its GitHub blob URL with ' +
           '`?raw=1`: `![alt](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)`.',
-      );
+      ];
     } else if (
       GITHUB_BLOB_URL.test(url) &&
       !['1', 'true'].includes(new URL(url).searchParams.get('raw'))
     ) {
-      errors.push(
+      return [
         `Image "${url}" is a GitHub blob URL without \`?raw=1\`, so GitHub shows a broken image. ` +
           'Append `?raw=1` to the URL.',
-      );
+      ];
     }
-  }
-  return errors;
+    return [];
+  });
 }
 
 /**
@@ -145,17 +139,17 @@ function collectImageErrors(body) {
  * Keep each distinct path with its first line number.
  */
 function findLocalPaths(body) {
-  const paths = new Map();
-  for (const [index, line] of body.split('\n').entries()) {
-    for (const match of line.matchAll(PUBLISHED_TOKEN)) {
-      if (match.groups.path === undefined) continue;
-      const path = match.groups.path.replace(/[.,;:!?]+$/, '');
-      if (!paths.has(path)) {
-        paths.set(path, index + 1);
-      }
-    }
-  }
-  return paths;
+  return body
+    .split('\n')
+    .flatMap((line, index) =>
+      [...line.matchAll(PUBLISHED_TOKEN)]
+        .filter((match) => match.groups.path !== undefined)
+        .map((match) => [match.groups.path.replace(/[.,;:!?]+$/, ''), index + 1]),
+    )
+    .reduce((paths, [path, line]) => {
+      if (!paths.has(path)) paths.set(path, line);
+      return paths;
+    }, new Map());
 }
 
 /** Collect machine-local path errors with reviewer-accessible alternatives. */
@@ -215,25 +209,15 @@ function isPlaceholderOnly(sectionBody) {
  * until the next heading of any level.
  */
 function splitSections(body) {
-  const lines = body.split('\n');
-  const sections = [];
-  let current = null;
-
-  for (const line of lines) {
+  const sections = body.split('\n').reduce((items, line) => {
     const headingMatch = line.match(/^#{1,6}\s+(.*\S)\s*$/);
     if (headingMatch) {
-      if (current) {
-        sections.push(current);
-      }
-      current = { heading: headingMatch[1].trim(), bodyLines: [] };
-    } else if (current) {
-      current.bodyLines.push(line);
+      items.push({ heading: headingMatch[1].trim(), bodyLines: [] });
+    } else if (items.length > 0) {
+      items.at(-1).bodyLines.push(line);
     }
-  }
-  if (current) {
-    sections.push(current);
-  }
-
+    return items;
+  }, []);
   return sections.map((section) => ({
     heading: section.heading,
     body: section.bodyLines.join('\n'),
@@ -267,13 +251,11 @@ function collectTitleErrors(title) {
 function locateSections(headings) {
   const errors = [];
   const foundIndexBySection = new Map();
-  let searchFrom = 0;
-
-  for (const required of REQUIRED_SECTIONS) {
+  REQUIRED_SECTIONS.reduce((searchFrom, required) => {
     const foundAt = headings.indexOf(required, searchFrom);
     if (foundAt !== -1) {
       foundIndexBySection.set(required, foundAt);
-      searchFrom = foundAt + 1;
+      return foundAt + 1;
     } else if (headings.includes(required)) {
       errors.push(
         `Section "${required}" is out of order. Required order: ` +
@@ -282,24 +264,24 @@ function locateSections(headings) {
     } else {
       errors.push(`Missing required section heading: "${required}".`);
     }
-  }
+    return searchFrom;
+  }, 0);
   return { errors, foundIndexBySection };
 }
 
 /** Every located section must carry real content, and proof needs an image or N/A. */
 function collectContentErrors(sections, foundIndexBySection) {
-  const errors = [];
-  for (const [required, index] of foundIndexBySection) {
+  return [...foundIndexBySection].flatMap(([required, index]) => {
     if (required === PROOF_HEADING) {
-      errors.push(...collectProofErrors(sections[index].body));
-    } else if (isPlaceholderOnly(sections[index].body)) {
-      errors.push(
-        `Section "${required}" is empty or placeholder-only. ` +
-          'Fill it with real content (bare `-` bullets and empty checkboxes do not count).',
-      );
+      return collectProofErrors(sections[index].body);
     }
-  }
-  return errors;
+    return isPlaceholderOnly(sections[index].body)
+      ? [
+          `Section "${required}" is empty or placeholder-only. ` +
+            'Fill it with real content (bare `-` bullets and empty checkboxes do not count).',
+        ]
+      : [];
+  });
 }
 
 /**
@@ -768,9 +750,9 @@ function runCli() {
   }
 
   console.error('PR quality contract failed:\n');
-  for (const error of result.errors) {
+  result.errors.forEach((error) => {
     console.error(`  ✗ ${error}`);
-  }
+  });
   console.error(
     '\nSee `.github/pull_request_template.md` and ' + '`.agents/project/PR_QUALITY.md`.',
   );
