@@ -287,7 +287,11 @@ describe('checkContextLayer', () => {
   });
 
   it.each([
-    ['a changed byte', '.claude/skills/adopt-the-factory/SKILL.md', 'different'],
+    [
+      'a changed byte',
+      '.claude/skills/adopt-the-factory/SKILL.md',
+      buildPassingTree()['.claude/skills/adopt-the-factory/SKILL.md'].replace('body', 'b0dy'),
+    ],
     ['a source-only file', '.agents/skills/extra/README.md', 'extra'],
     ['a copy-only file', '.claude/skills/extra/README.md', 'extra'],
   ])('fails with the sync command for %s', (_description, path, content) => {
@@ -302,13 +306,16 @@ describe('checkContextLayer', () => {
   it('fails with the sync command for a symlink copy', () => {
     const files = buildPassingTree();
     const path = '.claude/skills/adopt-the-factory/SKILL.md';
+
     delete files[path];
+
     const result = checkContextLayer(
       createInMemoryFilesystem({
         files,
         symlinks: { [path]: '.agents/skills/adopt-the-factory/SKILL.md' },
       }),
     );
+
     expect(result.ok).toBe(false);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain(path);

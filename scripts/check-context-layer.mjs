@@ -380,12 +380,14 @@ function checkSkillCopies(filesystem) {
   const trackedFiles = filesystem.listTrackedFiles();
   const sourcePrefix = '.agents/skills/';
   const copyPrefix = '.claude/skills/';
+
   const pathsUnder = (prefix) =>
     new Set(
       trackedFiles
         .filter((path) => path.startsWith(prefix))
         .map((path) => path.slice(prefix.length)),
     );
+
   const sourcePaths = pathsUnder(sourcePrefix);
   const copyPaths = pathsUnder(copyPrefix);
   const fix = 'run `pnpm skills:sync` and commit `.claude/skills`';
@@ -393,15 +395,18 @@ function checkSkillCopies(filesystem) {
   return [...new Set([...sourcePaths, ...copyPaths])].flatMap((path) => {
     const source = `${sourcePrefix}${path}`;
     const copy = `${copyPrefix}${path}`;
+
     if (!sourcePaths.has(path) || !copyPaths.has(path)) {
       return [`Skill paths differ: \`${source}\` and \`${copy}\` must both be tracked; ${fix}.`];
     }
+
     try {
       if (!filesystem.lstat(source).isFile || !filesystem.lstat(copy).isFile) {
         return [
           `Skill source \`${source}\` and copy \`${copy}\` must each be a regular file; ${fix}.`,
         ];
       }
+
       return filesystem.readText(source) === filesystem.readText(copy)
         ? []
         : [`Skill copy \`${copy}\` differs from \`${source}\`; ${fix}.`];
