@@ -1,8 +1,7 @@
-# Glossary — the project's ubiquitous language
+# Glossary
 
-Use these terms **exactly**, in identifiers, tests, commits, and prose. Shared
-language is how an agent's output reads as if the team wrote it. When a new
-domain term appears, add it here in the same change.
+Use these terms exactly in identifiers, tests, commits, and prose. Add new
+domain terms here in the same change.
 
 | Term | Meaning |
 | --- | --- |
