@@ -116,11 +116,18 @@ function readHunkLine(line, left, body) {
 /** Reads one hunk from `index`; returns its next index and newline status. */
 function readHunk(lines, index, body) {
   const counts = HUNK.exec(lines[index]);
-  let left = { old: Number(counts?.[1] ?? 1), new: Number(counts?.[2] ?? 1) };
-  let at = index + 1;
-  while (left.old > 0 || left.new > 0) {
-    left = readHunkLine(lines[at], left, body);
-    at += 1;
+  const initial = { old: Number(counts?.[1] ?? 1), new: Number(counts?.[2] ?? 1) };
+  const { left, at } = lines
+    .slice(index + 1)
+    .reduce(
+      ({ left, at }, line) =>
+        left.old > 0 || left.new > 0
+          ? { left: readHunkLine(line, left, body), at: at + 1 }
+          : { left, at },
+      { left: initial, at: index + 1 },
+    );
+  if (left.old > 0 || left.new > 0) {
+    readHunkLine(undefined, left, body);
   }
   if (lines[at]?.startsWith('\\')) {
     return { next: at + 1, newline: false };
@@ -131,18 +138,18 @@ function readHunk(lines, index, body) {
 /** One file's diff from its `diff --git` line: its path, whether it is new, its added text. */
 function readFileDiff(lines, start) {
   const path = / b\/(.+)$/.exec(lines[start])?.[1] ?? '';
-  const header = [];
-  let index = start + 1;
-  while (index < lines.length && !/^(?:@@|diff --git |-- $)/.test(lines[index])) {
-    header.push(lines[index]);
-    index += 1;
-  }
+  const boundary = lines.findIndex(
+    (line, at) => at > start && /^(?:@@|diff --git |-- $)/.test(line),
+  );
+  const headerEnd = boundary === -1 ? lines.length : boundary;
+  const header = lines.slice(start + 1, headerEnd);
   const body = { lines: [], newline: true };
-  while (lines[index]?.startsWith('@@')) {
-    const hunk = readHunk(lines, index, body);
-    index = hunk.next;
+  const index = lines.reduce((next, line, at) => {
+    if (at !== next || !line.startsWith('@@')) return next;
+    const hunk = readHunk(lines, at, body);
     body.newline = hunk.newline;
-  }
+    return hunk.next;
+  }, headerEnd);
   const text = body.lines.join('\n');
   return {
     path,
@@ -164,18 +171,20 @@ function readFileDiff(lines, start) {
 export function treeFromPatch(patch, root) {
   const lines = patch.split('\n');
   const tree = new Map();
-  let index = lines.findIndex((line) => line.startsWith('diff --git '));
-  while (index !== -1 && lines[index]?.startsWith('diff --git ')) {
-    const diff = readFileDiff(lines, index);
-    index = diff.next;
-    if (!diff.path.startsWith(`${root}/`)) {
-      continue;
-    }
-    if (!diff.newFile) {
-      throw new Error(`compare: ${diff.path} is not a new file in the patch`);
-    }
-    tree.set(diff.path.slice(root.length + 1), diff.text);
-  }
+  lines.reduce(
+    (next, line, at) => {
+      if (at !== next || !line.startsWith('diff --git ')) return next;
+      const diff = readFileDiff(lines, at);
+      if (diff.path.startsWith(`${root}/`)) {
+        if (!diff.newFile) {
+          throw new Error(`compare: ${diff.path} is not a new file in the patch`);
+        }
+        tree.set(diff.path.slice(root.length + 1), diff.text);
+      }
+      return diff.next;
+    },
+    lines.findIndex((line) => line.startsWith('diff --git ')),
+  );
   return new Map([...tree].sort(([a], [b]) => (a < b ? -1 : 1)));
 }
 
@@ -189,21 +198,24 @@ export const sortText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 function filesByRole(tree, roleOf, contract) {
   const sourceFiles = new Map([...contract.roles, OUTSIDE].map((role) => [role, []]));
   const testFiles = new Map([['e2e', []]]);
-  for (const path of tree.keys()) {
-    if (!isTest(path)) {
-      sourceFiles.get(roleOf(path) ?? OUTSIDE).push(path);
-      continue;
-    }
-    const subject = path.replace(/\.test(\.tsx?)$/, '$1');
-    const candidates = [
-      subject,
-      subject.replace(/\.tsx?$/, (ext) => (ext === '.ts' ? '.tsx' : '.ts')),
-    ];
-    const tested = candidates.find((candidate) => tree.has(candidate));
-    const role = path.startsWith('web/e2e/') ? 'e2e' : (roleOf(tested ?? path) ?? OUTSIDE);
-    testFiles.set(role, [...(testFiles.get(role) ?? []), path]);
-  }
-  return { sourceFiles, testFiles };
+  return [...tree.keys()].reduce(
+    ({ sourceFiles, testFiles }, path) => {
+      if (!isTest(path)) {
+        sourceFiles.get(roleOf(path) ?? OUTSIDE).push(path);
+        return { sourceFiles, testFiles };
+      }
+      const subject = path.replace(/\.test(\.tsx?)$/, '$1');
+      const candidates = [
+        subject,
+        subject.replace(/\.tsx?$/, (ext) => (ext === '.ts' ? '.tsx' : '.ts')),
+      ];
+      const tested = candidates.find((candidate) => tree.has(candidate));
+      const role = path.startsWith('web/e2e/') ? 'e2e' : (roleOf(tested ?? path) ?? OUTSIDE);
+      testFiles.set(role, [...(testFiles.get(role) ?? []), path]);
+      return { sourceFiles, testFiles };
+    },
+    { sourceFiles, testFiles },
+  );
 }
 
 /**
@@ -211,17 +223,19 @@ function filesByRole(tree, roleOf, contract) {
  * type-only when the diagram dashes it or `typeOnlyPairs` holds its pair.
  */
 function parseDiagram(text, typeOnlyPairs) {
-  const labels = new Map();
-  const edges = [];
-  for (const line of (text ?? '').split('\n')) {
-    const node = /^\s*(\w+)\["([^"]+)"\]$/.exec(line);
-    const edge = /^\s*(\w+) (-->|-\.->) (\w+)$/.exec(line);
-    if (node && !line.includes('subgraph')) {
-      labels.set(node[1], node[2]);
-    } else if (edge) {
-      edges.push({ from: edge[1], to: edge[3], typeOnly: edge[2] === '-.->' });
-    }
-  }
+  const { labels, edges } = (text ?? '').split('\n').reduce(
+    ({ labels, edges }, line) => {
+      const node = /^\s*(\w+)\["([^"]+)"\]$/.exec(line);
+      const edge = /^\s*(\w+) (-->|-\.->) (\w+)$/.exec(line);
+      if (node && !line.includes('subgraph')) {
+        labels.set(node[1], node[2]);
+      } else if (edge) {
+        edges.push({ from: edge[1], to: edge[3], typeOnly: edge[2] === '-.->' });
+      }
+      return { labels, edges };
+    },
+    { labels: new Map(), edges: [] },
+  );
   return {
     text: (text ?? '')
       .split('\n')
@@ -263,15 +277,18 @@ function readTypeOnlyPairs(tree, roleOf, contract) {
     const own = packages.find(({ name }) => specifier === name || specifier.startsWith(`${name}/`));
     return [...(own?.roles ?? contract.roles.filter((role) => !held.has(role)))];
   };
-  const pairs = new Map();
-  for (const [path, text] of sources) {
-    const from = roleOf(path);
-    for (const { specifier, typeOnly } of moduleReferences(path, text)) {
-      for (const to of landings(path, specifier).filter((role) => role !== from)) {
-        pairs.set(`${from} ${to}`, (pairs.get(`${from} ${to}`) ?? true) && typeOnly);
-      }
-    }
-  }
+  const pairs = sources
+    .flatMap(([path, text]) =>
+      moduleReferences(path, text).flatMap(({ specifier, typeOnly }) =>
+        landings(path, specifier)
+          .filter((role) => role !== roleOf(path))
+          .map((to) => [`${roleOf(path)} ${to}`, typeOnly]),
+      ),
+    )
+    .reduce(
+      (pairs, [pair, typeOnly]) => pairs.set(pair, (pairs.get(pair) ?? true) && typeOnly),
+      new Map(),
+    );
   return new Set([...pairs].filter(([, typeOnly]) => typeOnly).map(([pair]) => pair));
 }
 
@@ -292,17 +309,15 @@ function readManifest(text, id) {
     return { dependencies: {}, rest: '(absent)' };
   }
   const manifest = JSON.parse(text.replaceAll(`@${id}/`, '@{id}/'));
-  const dependencies = {};
-  const rest = {};
-  for (const [field, value] of Object.entries(manifest)) {
-    if (field.endsWith('ependencies')) {
-      for (const [name, range] of Object.entries(value)) {
-        dependencies[`${field} ${name}`] = range;
-      }
-    } else {
-      rest[field] = value;
-    }
-  }
+  const fields = Object.entries(manifest);
+  const dependencies = Object.fromEntries(
+    fields
+      .filter(([field]) => field.endsWith('ependencies'))
+      .flatMap(([field, value]) =>
+        Object.entries(value).map(([name, range]) => [`${field} ${name}`, range]),
+      ),
+  );
+  const rest = Object.fromEntries(fields.filter(([field]) => !field.endsWith('ependencies')));
   return { dependencies, rest: canonical(rest) };
 }
 
@@ -339,8 +354,7 @@ function readApiReports(tree, root, roleOf) {
   const files = [...tree.keys()].map((path) => `${root}/${path}`);
   const local = (path) => path.slice(root.length + 1);
   const entries = listPublicEntries(files, (path) => JSON.parse(tree.get(local(path)) ?? '{}'));
-  const reports = new Map();
-  for (const { name, entry, packageRoot } of entries) {
+  const reports = entries.reduce((reports, { name, entry, packageRoot }) => {
     const key = `${packageRoot.split('/').pop()}:${roleOf(local(entry)) ?? OUTSIDE}`;
     const text = tree.get(`${local(packageRoot)}/etc/${name}.api.md`);
     const exports = text === undefined ? [] : parseReportExports(parseReport(text));
@@ -350,7 +364,8 @@ function readApiReports(tree, root, roleOf) {
       entries: [...report.entries, local(entry)],
       exports: [...report.exports, ...exports],
     });
-  }
+    return reports;
+  }, new Map());
   return [...reports.values()]
     .sort((a, b) => sortText(a.key, b.key))
     .map((report) => ({
@@ -416,15 +431,15 @@ function walkRouter(router, prefix) {
 /** The router value of the api package's own report: the one export typed TRPCBuiltRouter. */
 function parseRouter(text) {
   const sourceFile = parseReport(text);
-  for (const statement of sourceFile.statements.filter(ts.isVariableStatement)) {
-    for (const declaration of statement.declarationList.declarations) {
-      const type = declaration.type;
-      if (type && ts.isTypeReferenceNode(type) && type.typeName.getText() === 'TRPCBuiltRouter') {
-        return walkRouter(type, '');
-      }
-    }
-  }
-  return [];
+  const type = sourceFile.statements
+    .filter(ts.isVariableStatement)
+    .flatMap((statement) => [...statement.declarationList.declarations])
+    .map((declaration) => declaration.type)
+    .find(
+      (type) =>
+        type && ts.isTypeReferenceNode(type) && type.typeName.getText() === 'TRPCBuiltRouter',
+    );
+  return type ? walkRouter(type, '') : [];
 }
 
 /** `[name, type]` for an interface or alias without type parameters, else null. */
@@ -447,13 +462,11 @@ function collectTypeDeclarations(tree) {
   const declarations = [...tree]
     .filter(([path]) => path.startsWith('api/') && isSource(path))
     .flatMap(([path, text]) => parse(path, text).statements.map(declarationOf).filter(Boolean));
-  const types = new Map();
-  for (const [name, declared] of declarations) {
+  return declarations.reduce((types, [name, declared]) => {
     const previous = types.get(name);
     const agrees = previous === undefined || (previous && oneLine(previous) === oneLine(declared));
-    types.set(name, agrees ? declared : null);
-  }
-  return types;
+    return types.set(name, agrees ? declared : null);
+  }, new Map());
 }
 
 /**
@@ -560,7 +573,6 @@ const pick = (candidates, hint) =>
  * The key name only breaks a tie shape leaves; an open tie stays null.
  */
 function recognizeOperations(procedures, normalized, brief) {
-  const operations = new Map();
   const queries = listCandidates(procedures, (p) => normalized.get(p).input);
   const mutations = procedures.filter((p) => p.kind === 'mutation');
   const takes = (input) => mutations.filter((p) => normalized.get(p).input === input);
@@ -569,22 +581,21 @@ function recognizeOperations(procedures, normalized, brief) {
   const split = returnsItem.length === 1 && byId.length === 2;
   const toggle = split ? returnsItem[0] : byHint(byId, HINTS.toggle);
   const remove = split ? byId.find((p) => p !== toggle) : byHint(byId, HINTS.delete);
-  for (const [operation, procedure] of [
-    ['list', pick(queries, HINTS.list)],
-    ['create', pick(takes(brief.createInput), HINTS.create)],
-    ...(brief.operations.includes('toggle') && toggle !== remove
-      ? [
-          ['toggle', toggle],
-          ['delete', remove],
-        ]
-      : []),
-    ...(brief.operations.includes('toggle') ? [] : [['delete', pick(byId, HINTS.delete)]]),
-  ]) {
-    if (procedure) {
-      operations.set(procedure, operation);
-    }
-  }
-  return operations;
+  return new Map(
+    [
+      ['list', pick(queries, HINTS.list)],
+      ['create', pick(takes(brief.createInput), HINTS.create)],
+      ...(brief.operations.includes('toggle') && toggle !== remove
+        ? [
+            ['toggle', toggle],
+            ['delete', remove],
+          ]
+        : []),
+      ...(brief.operations.includes('toggle') ? [] : [['delete', pick(byId, HINTS.delete)]]),
+    ]
+      .filter(([, procedure]) => procedure)
+      .map(([operation, procedure]) => [procedure, operation]),
+  );
 }
 
 const takesNothing = (input) => /^(void|undefined)$/.test(input);
@@ -801,17 +812,19 @@ const holdsJsx = (nodes) =>
 export function scanWebFile(path, text, role) {
   const sourceFile = parse(path, text);
   const uiImports = uiImportsOf(sourceFile);
-  const found = { components: [], hooks: [] };
-  for (const { name, node } of functionsOf(sourceFile)) {
-    const inner = descendants(node);
-    if (/^use[A-Z]/.test(name)) {
-      found.hooks.push({ name, role, file: path, calls: callsIn(inner) });
-    } else if (/^[A-Z]/.test(name) && path.endsWith('.tsx') && holdsJsx(inner)) {
-      const component = scanComponent(name, node, sourceFile, inner, uiImports);
-      found.components.push({ ...component, role, file: path });
-    }
-  }
-  return found;
+  return functionsOf(sourceFile).reduce(
+    (found, { name, node }) => {
+      const inner = descendants(node);
+      if (/^use[A-Z]/.test(name)) {
+        found.hooks.push({ name, role, file: path, calls: callsIn(inner) });
+      } else if (/^[A-Z]/.test(name) && path.endsWith('.tsx') && holdsJsx(inner)) {
+        const component = scanComponent(name, node, sourceFile, inner, uiImports);
+        found.components.push({ ...component, role, file: path });
+      }
+      return found;
+    },
+    { components: [], hooks: [] },
+  );
 }
 
 /** Components and hooks of the web sources. */
@@ -881,16 +894,17 @@ function mutatedBy(node) {
 
 /** The names a file reassigns (`=`, `+=`, `++`) and the names whose value it mutates in place. */
 function writesIn(inner) {
-  const reassigned = new Set();
-  const mutated = new Set();
-  for (const node of inner) {
-    const assigned = assignedBy(node);
-    const changed = assigned ?? mutatedBy(node);
-    if (changed) {
-      (assigned && ts.isIdentifier(assigned) ? reassigned : mutated).add(rootName(changed));
-    }
-  }
-  return { reassigned, mutated };
+  return inner.reduce(
+    ({ reassigned, mutated }, node) => {
+      const assigned = assignedBy(node);
+      const changed = assigned ?? mutatedBy(node);
+      if (changed) {
+        (assigned && ts.isIdentifier(assigned) ? reassigned : mutated).add(rootName(changed));
+      }
+      return { reassigned, mutated };
+    },
+    { reassigned: new Set(), mutated: new Set() },
+  );
 }
 
 const isLiteral = (value) =>
@@ -941,36 +955,37 @@ function counters(sourceFile, inner) {
 
 /** Where the api keeps its todos, and how it makes an id. */
 function scanStorage(tree, roleOf) {
-  const roles = new Set();
-  const sources = new Set();
-  for (const [path, text] of tree) {
-    if (!path.startsWith('api/') || !isSource(path)) {
-      continue;
-    }
-    const sourceFile = parse(path, text);
-    const inner = descendants(sourceFile);
-    const writes = writesIn(inner);
-    if (
-      sourceFile.statements
-        .filter(ts.isVariableStatement)
-        .some((statement) => holdsState(statement, writes))
-    ) {
-      roles.add(roleOf(path) ?? OUTSIDE);
-    }
-    const uuid = inner.some(
-      (node) =>
-        ts.isCallExpression(node) &&
-        (ts.isIdentifier(node.expression) || ts.isPropertyAccessExpression(node.expression)) &&
-        (ts.isIdentifier(node.expression) ? node.expression : node.expression.name).text ===
-          'randomUUID',
+  const { roles, sources } = [...tree]
+    .filter(([path]) => path.startsWith('api/') && isSource(path))
+    .reduce(
+      ({ roles, sources }, [path, text]) => {
+        const sourceFile = parse(path, text);
+        const inner = descendants(sourceFile);
+        const writes = writesIn(inner);
+        if (
+          sourceFile.statements
+            .filter(ts.isVariableStatement)
+            .some((statement) => holdsState(statement, writes))
+        ) {
+          roles.add(roleOf(path) ?? OUTSIDE);
+        }
+        const uuid = inner.some(
+          (node) =>
+            ts.isCallExpression(node) &&
+            (ts.isIdentifier(node.expression) || ts.isPropertyAccessExpression(node.expression)) &&
+            (ts.isIdentifier(node.expression) ? node.expression : node.expression.name).text ===
+              'randomUUID',
+        );
+        if (uuid) {
+          sources.add('randomUUID');
+        }
+        if (counters(sourceFile, inner).length > 0) {
+          sources.add('counter');
+        }
+        return { roles, sources };
+      },
+      { roles: new Set(), sources: new Set() },
     );
-    if (uuid) {
-      sources.add('randomUUID');
-    }
-    if (counters(sourceFile, inner).length > 0) {
-      sources.add('counter');
-    }
-  }
   return { roles: unique(roles), idSource: unique(sources).join('+') || 'unrecognized' };
 }
 
@@ -1057,20 +1072,23 @@ const sectionKind = (line) => {
  * @returns {readonly { file: string, name: string, kind: 'value' | 'type' }[]}
  */
 function auditReExports(text) {
-  const found = [];
-  let kind = null;
-  let file = null;
-  for (const line of text.replace(ANSI, '').split(/\r?\n/)) {
-    const name = FINDING.exec(line)?.[1];
-    if (/^\S/.test(line)) {
-      kind = sectionKind(line);
-      file = null;
-    } else if (/^ {2}\S+$/.test(line)) {
-      file = line.trim();
-    } else if (name && kind && file) {
-      found.push({ file, name, kind });
-    }
-  }
+  const { found } = text
+    .replace(ANSI, '')
+    .split(/\r?\n/)
+    .reduce(
+      ({ found, kind, file }, line) => {
+        const name = FINDING.exec(line)?.[1];
+        if (/^\S/.test(line)) {
+          return { found, kind: sectionKind(line), file: null };
+        }
+        if (/^ {2}\S+$/.test(line)) {
+          return { found, kind, file: line.trim() };
+        }
+        if (name && kind && file) found.push({ file, name, kind });
+        return { found, kind, file };
+      },
+      { found: [], kind: null, file: null },
+    );
   return found;
 }
 
@@ -1083,12 +1101,15 @@ function auditReExports(text) {
  * @returns {readonly GateFinding[]}
  */
 export function readGateFindings(streamText, root) {
-  const found = new Map();
   const findings = streamText === null ? [] : gateResultTexts(streamText).flatMap(auditReExports);
-  for (const { file, name, kind } of findings.filter((f) => f.file.startsWith(`${root}/`))) {
-    const local = file.slice(root.length + 1);
-    found.set(`${local} ${name} ${kind}`, { file: local, name, kind });
-  }
+  const found = new Map(
+    findings
+      .filter((f) => f.file.startsWith(`${root}/`))
+      .map(({ file, name, kind }) => {
+        const local = file.slice(root.length + 1);
+        return [`${local} ${name} ${kind}`, { file: local, name, kind }];
+      }),
+  );
   return [...found].sort(([a], [b]) => sortText(a, b)).map(([, finding]) => finding);
 }
 

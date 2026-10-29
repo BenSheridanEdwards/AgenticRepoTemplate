@@ -422,17 +422,18 @@ const DIMENSIONS = [
  */
 function alignAspects(dimension, results) {
   const perRun = results.map((facts) => new Map(dimension.aspects(facts).map((a) => [a.key, a])));
-  const keys = [];
-  for (const aspects of perRun) {
-    let at = 0;
-    for (const key of aspects.keys()) {
-      const found = keys.indexOf(key);
-      if (found === -1) {
-        keys.splice(at, 0, key);
-      }
-      at = (found === -1 ? at : found) + 1;
-    }
-  }
+  const keys = perRun.reduce((keys, aspects) => {
+    return [...aspects.keys()].reduce(
+      ({ keys, at }, key) => {
+        const found = keys.indexOf(key);
+        return {
+          keys: found === -1 ? keys.toSpliced(at, 0, key) : keys,
+          at: (found === -1 ? at : found) + 1,
+        };
+      },
+      { keys, at: 0 },
+    ).keys;
+  }, []);
   return keys.map((key) => ({ key, aspects: perRun.map((aspects) => aspects.get(key)) }));
 }
 
@@ -518,33 +519,36 @@ const isFreedom = (freedom) =>
 
 /** @returns {readonly Difference[]} */
 function applyNotes(differences, notes) {
-  const noted = new Map(differences.map((difference) => [difference.key, difference]));
-  for (const note of notes) {
-    if (REVOKED_FREEDOMS.includes(note.freedom)) {
-      throw new Error(
-        `compare: the author ruling on "${note.key}" names freedom ${note.freedom}, revoked by ADR 0069.`,
+  const noted = notes.reduce(
+    (noted, note) => {
+      if (REVOKED_FREEDOMS.includes(note.freedom)) {
+        throw new Error(
+          `compare: the author ruling on "${note.key}" names freedom ${note.freedom}, revoked by ADR 0069.`,
+        );
+      }
+      if (!isFreedom(note.freedom)) {
+        throw new Error(
+          `compare: the author ruling on "${note.key}" names freedom ${note.freedom}; a ruling names one from 1 to ${FREEDOMS.length}.`,
+        );
+      }
+      const difference = noted.get(note.key);
+      if (difference?.classification !== 'outside-spec') {
+        throw new Error(
+          `compare: the author note on "${note.key}" is stale; the comparison has ${difference ? `it as ${difference.classification}` : 'no such aspect'}.`,
+        );
+      }
+      const { dimension, aspect, key, kind, values } = difference;
+      const base = { dimension, aspect, key, kind, values, why: note.why };
+      noted.set(
+        key,
+        note.freedom === undefined
+          ? { ...base, classification: 'outside-spec', by: 'note' }
+          : { ...base, classification: 'spec-freedom', freedom: note.freedom, by: 'ruling' },
       );
-    }
-    if (!isFreedom(note.freedom)) {
-      throw new Error(
-        `compare: the author ruling on "${note.key}" names freedom ${note.freedom}; a ruling names one from 1 to ${FREEDOMS.length}.`,
-      );
-    }
-    const difference = noted.get(note.key);
-    if (difference?.classification !== 'outside-spec') {
-      throw new Error(
-        `compare: the author note on "${note.key}" is stale; the comparison has ${difference ? `it as ${difference.classification}` : 'no such aspect'}.`,
-      );
-    }
-    const { dimension, aspect, key, kind, values } = difference;
-    const base = { dimension, aspect, key, kind, values, why: note.why };
-    noted.set(
-      key,
-      note.freedom === undefined
-        ? { ...base, classification: 'outside-spec', by: 'note' }
-        : { ...base, classification: 'spec-freedom', freedom: note.freedom, by: 'ruling' },
-    );
-  }
+      return noted;
+    },
+    new Map(differences.map((difference) => [difference.key, difference])),
+  );
   return [...noted.values()];
 }
 

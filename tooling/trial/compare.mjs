@@ -293,13 +293,13 @@ function tmpPathsOf(evidence, readText) {
 
 /** Throws when a cause names a path that no run found before its agent ran. */
 function checkCauses(causes, evidences) {
-  for (const path of Object.keys(causes)) {
+  Object.keys(causes).forEach((path) => {
     if (!evidences.some((e) => e.result.outsideReads.includes(path))) {
       throw new Error(
         `compare: the cause for ${path} is stale; no run found it before its agent ran.`,
       );
     }
-  }
+  });
 }
 
 /** Who wrote under `/tmp` and what, for a clause: `every run` and `logs` when it fits. */

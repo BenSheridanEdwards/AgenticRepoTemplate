@@ -82,18 +82,18 @@ const shape = (fields) => (value, path) => {
   if (Object.prototype.toString.call(value) !== '[object Object]') {
     reject(path, 'an object', value);
   }
-  for (const key of Object.keys(value)) {
+  Object.keys(value).forEach((key) => {
     if (!Object.hasOwn(fields, key)) {
       throw new Error(`${path}.${key}: not a field of the evidence schema`);
     }
-  }
-  for (const [key, check] of Object.entries(fields)) {
-    if (!Object.hasOwn(value, key) && check.optional) continue;
+  });
+  Object.entries(fields).forEach(([key, check]) => {
+    if (!Object.hasOwn(value, key) && check.optional) return;
     if (!Object.hasOwn(value, key)) {
       throw new Error(`${path}.${key}: missing`);
     }
     check(value[key], `${path}.${key}`);
-  }
+  });
 };
 
 const REV = text(/^[0-9a-f]{40}$/, 'a 40-hex commit');
@@ -270,11 +270,11 @@ const CONSISTENCY = [
 export function validateEvidence(value) {
   (value?.schema === 2 ? SCHEMA2 : SCHEMA)(value, 'evidence');
   const evidence = /** @type {TrialEvidence} */ (value);
-  for (const { path, holds, rule } of CONSISTENCY) {
+  CONSISTENCY.forEach(({ path, holds, rule }) => {
     if (!holds(evidence)) {
       throw new Error(`${path}: ${rule}`);
     }
-  }
+  });
   return evidence;
 }
 

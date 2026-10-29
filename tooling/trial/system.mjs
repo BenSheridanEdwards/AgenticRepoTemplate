@@ -163,9 +163,9 @@ const running = new Set();
 
 /** Stops every process group the harness started that is still running. */
 export function stopAll() {
-  for (const pid of running) {
+  [...running].forEach((pid) => {
     stopGroup(pid, 'SIGKILL');
-  }
+  });
 }
 
 function stopGroup(pid, signal) {
@@ -251,15 +251,18 @@ export function listeners(port, proc = '/proc') {
 function procListeners(port, proc) {
   const address = `:${port.toString(16).toUpperCase().padStart(4, '0')}`;
   const ipv6 = `${proc}/net/tcp6`;
-  const sockets = new Set();
-  for (const table of [`${proc}/net/tcp`, ...(existsSync(ipv6) ? [ipv6] : [])]) {
-    for (const row of readFileSync(table, 'utf8').trim().split('\n').slice(1)) {
-      const [, local, , state, , , , , , inode] = row.trim().split(/\s+/);
-      if (local.endsWith(address) && state === LISTEN_STATE) {
-        sockets.add(`socket:[${inode}]`);
-      }
-    }
-  }
+  const sockets = new Set(
+    [`${proc}/net/tcp`, ...(existsSync(ipv6) ? [ipv6] : [])].flatMap((table) =>
+      readFileSync(table, 'utf8')
+        .trim()
+        .split('\n')
+        .slice(1)
+        .flatMap((row) => {
+          const [, local, , state, , , , , , inode] = row.trim().split(/\s+/);
+          return local.endsWith(address) && state === LISTEN_STATE ? [`socket:[${inode}]`] : [];
+        }),
+    ),
+  );
   if (sockets.size === 0) {
     return [];
   }
@@ -291,19 +294,23 @@ const pause = (ms) => new Promise((done) => setTimeout(done, ms));
  * after five seconds.
  */
 async function stopListeners(port) {
-  for (const signal of ['SIGTERM', 'SIGKILL']) {
-    for (const pid of listeners(port)) {
+  await ['SIGTERM', 'SIGKILL'].reduce(async (previous, signal) => {
+    await previous;
+    listeners(port).forEach((pid) => {
       stopGroup(pid, signal);
       try {
         process.kill(pid, signal);
       } catch {
         // It has already exited.
       }
-    }
-    for (let waited = 0; waited < 5_000 && (await isPortBusy(port)); waited += 100) {
+    });
+    await Array.from({ length: 50 }).reduce(async (previous) => {
+      const busy = await previous;
+      if (!busy || !(await isPortBusy(port))) return false;
       await pause(100);
-    }
-  }
+      return true;
+    }, Promise.resolve(true));
+  }, Promise.resolve());
 }
 
 /** @returns {import('./run-trial.mjs').Deps} */
