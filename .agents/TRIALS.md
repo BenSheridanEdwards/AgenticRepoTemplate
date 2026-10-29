@@ -49,4 +49,3 @@ classified against the spec freedoms of
 Read the report when compare exits non-zero for an inconsistent verdict,
 a split baseline or failed runs
 ([ADR 0069](decisions/0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md)).
-
