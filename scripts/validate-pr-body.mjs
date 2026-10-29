@@ -24,7 +24,7 @@ import { coveredPaths, parseBehaviours } from './check-prd-conflicts.mjs';
 /**
  * The four template sections, in the order the contract requires them.
  * `.github/pull_request_template.md` and
- * `.agents/project/DEFINITION_OF_DONE.md` are the source of truth for this list.
+ * `.agents/project/PR_QUALITY.md` are the source of truth for this list.
  */
 export const REQUIRED_SECTIONS = [
   'Why does this feature exist?',
@@ -772,7 +772,7 @@ function runCli() {
     console.error(`  ✗ ${error}`);
   }
   console.error(
-    '\nSee `.github/pull_request_template.md` and ' + '`.agents/project/DEFINITION_OF_DONE.md`.',
+    '\nSee `.github/pull_request_template.md` and ' + '`.agents/project/PR_QUALITY.md`.',
   );
   process.exit(1);
 }

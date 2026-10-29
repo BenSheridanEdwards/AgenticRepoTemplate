@@ -13,7 +13,6 @@ asking for proof, or decide whether work is ready to report complete.
 
 ## Read First
 
-- `.agents/project/DEFINITION_OF_DONE.md`
 - `.agents/project/PR_QUALITY.md`
 - `.github/pull_request_template.md`
 - `git status --short --branch`

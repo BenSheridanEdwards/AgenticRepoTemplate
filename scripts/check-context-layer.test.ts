@@ -74,7 +74,6 @@ function buildPassingTree() {
     '.agents/project/CONVENTIONS.md': 'conventions',
     '.agents/project/TECH_STACK.md': 'tech stack',
     'docs/GLOSSARY.md': 'glossary',
-    '.agents/project/DEFINITION_OF_DONE.md': 'done',
     '.agents/project/QUALITY_GATES.md': 'gates',
     '.agents/project/PR_QUALITY.md': 'pr quality',
     '.claude/skills/adopt-the-factory/SKILL.md': skillFrontmatter,
@@ -94,6 +93,16 @@ describe('checkContextLayer', () => {
     const filesystem = createInMemoryFilesystem({ files: buildPassingTree() });
     const result = checkContextLayer(filesystem);
     expect(result).toEqual({ ok: true, errors: [] });
+  });
+
+  it('requires PR quality without a separate Definition of Done file', () => {
+    const files = buildPassingTree();
+    expect(files).not.toHaveProperty(['.agents/project/DEFINITION_OF_DONE.md']);
+    expect(checkContextLayer(createInMemoryFilesystem({ files })).ok).toBe(true);
+    delete files['.agents/project/PR_QUALITY.md'];
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain('.agents/project/PR_QUALITY.md');
   });
 
   it('passes without a top-level OpenAI manifest', () => {

@@ -12,7 +12,7 @@ first.
 2. **Keep agent-written code at enterprise quality.** The patterns in
    `.agents/project/ARCHITECTURE.md`, the conventions, and the gates make every
    agent's output consistent. Before claiming work is done, verify the change
-   against `.agents/project/DEFINITION_OF_DONE.md`.
+   against `.agents/project/PR_QUALITY.md`.
 
 ## Skills available here
 

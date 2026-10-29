@@ -118,7 +118,7 @@ describe.each(['sh', 'bash'])('block-gate-bypass hook under %s', (shell) => {
     const { status, stderr } = runHook(shell, command);
     expect(status).toBe(2);
     expect(stderr).toContain('Fix what the gate reports instead');
-    expect(stderr).toContain('.agents/project/DEFINITION_OF_DONE.md');
+    expect(stderr).toContain('.agents/project/PR_QUALITY.md#definition-of-done');
   });
 
   it.each(ALLOWED)('allows %j', (command) => {

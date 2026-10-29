@@ -394,6 +394,13 @@ describe('planTrial', () => {
 });
 
 describe('renderPrompt', () => {
+  it.each(['todo', 'notes'])('points the %s prompt at the merged completion contract', (task) => {
+    const template = readFileSync(join(REPOSITORY_ROOT, `tooling/trial/${task}-prompt.md`), 'utf8');
+    expect(template).toContain(
+      'Done means `pnpm verify` and `pnpm e2e` pass with every gate as it is, per `.agents/project/PR_QUALITY.md`.',
+    );
+  });
+
   it('fills the committed template with the trial id and number', () => {
     const template = readFileSync(join(REPOSITORY_ROOT, 'tooling/trial/todo-prompt.md'), 'utf8');
     const planned = { id: 'todo-02', trial: 2 } as Parameters<typeof renderPrompt>[1];
