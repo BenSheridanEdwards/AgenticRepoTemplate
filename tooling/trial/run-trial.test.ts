@@ -1437,9 +1437,8 @@ ${holdUntilReleased(agentHold)}`,
 
   it.each([
     'package.json',
-    '.size-limit.json',
-    'lighthouserc.json',
-    'jest.setup.ts',
+    'tooling/lighthouse/lighthouserc.json',
+    'tooling/jest/jest.setup.ts',
     '.npmrc',
   ])('moves the enforcement revision on a scaffold commit to %s', async (path) => {
     write(checkout, path, `${JSON.stringify({ changed: path })}\n`);

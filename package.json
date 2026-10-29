@@ -32,7 +32,7 @@
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",
-    "lhci": "lhci autorun",
+    "lhci": "lhci autorun --config=tooling/lighthouse/lighthouserc.json",
     "secret-scan": "bash scripts/secret-scan.sh",
     "license:check": "node scripts/license-check.mjs",
     "check:lockfile": "node scripts/check-lockfile.mjs",
@@ -53,6 +53,18 @@
     "lint:anti-slop:changed": "node scripts/anti-slop-changed.mjs",
     "visual:update": "pnpm visual --update-snapshots"
   },
+  "size-limit": [
+    {
+      "name": "app bundle (JS, brotli)",
+      "path": "apps/web/dist/assets/*.js",
+      "limit": "110 kB"
+    },
+    {
+      "name": "app styles (CSS, brotli)",
+      "path": "apps/web/dist/assets/*.css",
+      "limit": "5 kB"
+    }
+  ],
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
     "@biomejs/biome": "^2.5.1",

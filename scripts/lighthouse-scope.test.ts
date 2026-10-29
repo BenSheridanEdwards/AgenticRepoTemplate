@@ -28,7 +28,7 @@ describe('uiRelevantFiles', () => {
     'package.json',
     'pnpm-lock.yaml',
     '.nvmrc',
-    'lighthouserc.json',
+    'tooling/lighthouse/lighthouserc.json',
     '.github/workflows/lighthouse.yml',
     'scripts/lighthouse-scope.mjs',
     'apps/web/e2e/__screenshots__/greeting-1280-initial.png',
@@ -140,6 +140,8 @@ describe('lighthouse-scope CLI', () => {
   });
 
   it.each([
+    'tooling/lighthouse/lighthouserc.json',
+    'package.json',
     'apps/web/e2e/__screenshots__/greeting-1280-initial.png',
     'apps/web/e2e/visual.spec.ts',
     'playwright.config.ts',
