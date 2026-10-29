@@ -78,7 +78,7 @@ and E2E tests:
   trust project hooks. It is a speed bump with known gaps
   ([ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI on a clean
   checkout is the backstop; required branch checks make it a merge gate
-  ([hosted setup](../docs/hosted-security.md)).
+  ([hosted setup](../.github/SECURITY.md)).
 - **Warnings fail Biome, ESLint and React Doctor.** Biome runs with
   `--error-on-warnings`, ESLint with `--max-warnings=0`, and React Doctor with
   `--blocking warning`
