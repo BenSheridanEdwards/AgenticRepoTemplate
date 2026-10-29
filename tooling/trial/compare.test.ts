@@ -39,7 +39,7 @@ const FIXTURES = resolve(import.meta.dirname, 'fixtures');
  * these tests pass in a rerun scaffold that has removed `docs/trials/` and the
  * old `showcase/` results (ADR 0047). Every other path reads the repository.
  */
-const FIXTURE_FOR: Record<string, string> = {
+const FIXTURE_FOR = {
   'docs/trials/todo-01.patch': 'todo-01.patch',
   'docs/trials/todo-01.json': 'todo-01.json',
   'docs/trials/todo-02.json': 'todo-02.json',
@@ -126,7 +126,12 @@ const remove =
 type ToolContent = string | { type: 'text'; text: string }[];
 interface ToolCall {
   name: string;
-  input: Record<string, unknown>;
+  input: {
+    command?: string;
+    file_path?: string;
+    content?: string;
+    [key: string]: string | undefined;
+  };
 }
 
 /** The Bash call that printed the real todo-02 finding. */
@@ -833,7 +838,7 @@ describe('compareResults', () => {
 
   it.each([99, 0, 2.5])('throws on a ruling that names freedom %p, which the list lacks', (n) => {
     const pair = [facts('todo-01'), facts('todo-03', addSolidEdge)];
-    const ruling = { key: SOLID_EDGE, freedom: n as 1, why: 'x' };
+    const ruling = { key: SOLID_EDGE, freedom: n, why: 'x' };
     expect(() => compareResults(pair, [ruling])).toThrow(SOLID_EDGE);
   });
 
@@ -1199,8 +1204,8 @@ describe('readGateFindings', () => {
 });
 
 describe('renderComparison', () => {
-  const EDITS: Record<string, Edit[]> = { 'todo-02': [withoutRouterInputs], 'todo-03': [addEdge] };
-  const STREAMS: Record<string, string> = { 'todo-02': flagging('todo-02') };
+  const EDITS = { 'todo-02': [withoutRouterInputs], 'todo-03': [addEdge] };
+  const STREAMS = { 'todo-02': flagging('todo-02') };
   const runs = (
     change: (records: ReturnType<typeof evidence>[]) => void = () => undefined,
     streams = STREAMS,

@@ -3,7 +3,7 @@
  */
 import { listPublicEntries } from './api-report.mjs';
 
-const MANIFESTS: Record<string, { name: string; exports?: unknown }> = {
+const MANIFESTS = {
   'apps/web/package.json': { name: '@repo/web' },
   'apps/api/package.json': { name: '@repo/api', exports: { '.': { types: './src/router.ts' } } },
   'packages/ui/package.json': { name: '@repo/ui', exports: { '.': './src/index.ts' } },

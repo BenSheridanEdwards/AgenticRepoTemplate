@@ -45,7 +45,9 @@ describe('listeners', () => {
     const server: Server = await new Promise((done) => {
       const listening = createServer().listen(0, '127.0.0.1', () => done(listening));
     });
-    const { port } = server.address() as { port: number };
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected TCP address');
+    const { port } = address;
 
     try {
       expect(listeners(port)).toEqual([process.pid]);

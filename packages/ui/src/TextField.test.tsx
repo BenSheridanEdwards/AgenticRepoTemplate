@@ -26,7 +26,7 @@ it('announces an error and ties it to the input', async () => {
 });
 
 it('forwards a ref to the input', () => {
-  const ref = { current: null as HTMLInputElement | null };
+  const ref: React.RefObject<HTMLInputElement | null> = { current: null };
   render(<TextField label="Name" ref={ref} />);
 
   expect(ref.current).toBe(screen.getByRole('textbox', { name: 'Name' }));

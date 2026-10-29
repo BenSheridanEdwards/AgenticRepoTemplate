@@ -5,7 +5,7 @@ import { loadContract } from './contract.mjs';
 import { loadRepositoryContract } from './temporary-monorepo';
 
 /** `fallow config --format json -q` output, cut to the fields the contract reads. */
-const configJson = (boundaries: unknown) =>
+const configJson = <Boundaries>(boundaries: Boundaries) =>
   JSON.stringify({ entry: [], rulePacks: [], boundaries });
 
 const ZONES = [

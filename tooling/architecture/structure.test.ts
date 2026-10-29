@@ -20,7 +20,7 @@ const reference = resultAt('reference', 'apps', 'repo');
 // Generic greeting fixture; canonical brief identities are exercised separately below.
 const todo = resultAt('example', 'showcase/todo-01', 'todo-01');
 
-const CLEAN_TREE: Record<string, string> = {
+const CLEAN_TREE = {
   ...resultFiles('apps', 'repo'),
   ...resultFiles('showcase/todo-01', 'todo-01'),
   'apps/architecture.mmd': 'flowchart LR\n',
@@ -33,10 +33,15 @@ const CLEAN_TREE: Record<string, string> = {
 function validate(
   changes: Record<string, string | null> = {},
   {
-    edges = [] as { from: string; to: string }[],
+    edges = [],
     results = [reference, todo],
-    symlinks = [] as string[],
+    symlinks = [],
     contract: structureContract = contract,
+  }: {
+    edges?: { from: string; to: string }[];
+    results?: (typeof reference)[];
+    symlinks?: string[];
+    contract?: typeof contract;
   } = {},
 ) {
   const tree = Object.fromEntries(
@@ -67,7 +72,10 @@ function validate(
   });
 }
 
-const editManifest = (path: string, edit: (fields: Record<string, unknown>) => void) => {
+const editManifest = (
+  path: string,
+  edit: (fields: Record<string, Record<string, string>>) => void,
+) => {
   const fields = JSON.parse(CLEAN_TREE[path] ?? '{}');
   edit(fields);
   return { [path]: JSON.stringify(fields) };
@@ -226,7 +234,7 @@ describe('validateStructure', () => {
       /pnpm/,
     ],
   ])('fails a showcase web manifest with %s', (_, edit, problem) => {
-    expect(validate(editManifest('showcase/todo-01/web/package.json', edit as never))).toEqual([
+    expect(validate(editManifest('showcase/todo-01/web/package.json', edit))).toEqual([
       {
         kind: 'manifest',
         package: 'showcase/todo-01/web',
@@ -634,7 +642,7 @@ function canonicalRoute(brief: 'todo' | 'notes') {
     [`${entity}List`]: `props: { ${plural.toLowerCase()}: readonly ${entity}[]; ${callbacks} }`,
     [`${entity}Item`]: `props: { ${entity.toLowerCase()}: ${entity}; ${callbacks} }`,
   };
-  const files: Record<string, string | null> = {
+  const files = {
     ...resultFiles(result.root, id),
     [`${result.web}/src/routes/greeting/index.ts`]: null,
     [`${route}/index.ts`]: `export { ${plural}Page } from './${plural}Page';`,

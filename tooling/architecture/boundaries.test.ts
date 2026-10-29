@@ -15,7 +15,7 @@ const API = 'apps/api/src';
 const GREETING = `${API}/features/greeting`;
 
 /** A clean copy of the reference result's role layout: every import follows the contract. */
-const LAYOUT: Record<string, string> = {
+const LAYOUT = {
   'package.json': '{ "name": "root", "private": true, "type": "module" }\n',
   'apps/web/package.json':
     '{ "name": "@repo/web", "private": true, "type": "module", "dependencies": { "@repo/ui": "workspace:*" }, "devDependencies": { "@repo/api": "workspace:*" } }\n',
@@ -101,7 +101,7 @@ function architectureGate(seed: Record<string, string> = {}) {
       cwd: directory,
       encoding: 'utf8',
     });
-    const report = JSON.parse(run.stdout) as ArchitectureReport;
+    const report: ArchitectureReport = JSON.parse(run.stdout);
     return {
       status: run.status,
       findings: [

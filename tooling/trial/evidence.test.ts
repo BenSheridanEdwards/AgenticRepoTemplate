@@ -62,8 +62,10 @@ const passed = () => ({
   retries: [],
 });
 
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
 /** Every key path of a value, objects only (array items are covered by their own cases). */
-function keyPaths(value: unknown, prefix: string[] = []): string[][] {
+function keyPaths(value: JsonValue, prefix: string[] = []): string[][] {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return [];
   }
@@ -74,11 +76,15 @@ function keyPaths(value: unknown, prefix: string[] = []): string[][] {
 }
 
 function without(path: string[]) {
-  const value: Record<string, unknown> = passed();
-  const parent = path
-    .slice(0, -1)
-    .reduce((node, key) => node[key] as Record<string, unknown>, value);
-  delete parent[path.at(-1) as string];
+  const value: { [key: string]: JsonValue } = passed();
+  const parent = path.slice(0, -1).reduce((node, key) => {
+    const child = node[key];
+    if (!child || typeof child !== 'object' || Array.isArray(child)) throw new Error(key);
+    return child;
+  }, value);
+  const key = path.at(-1);
+  if (key === undefined) throw new Error('Expected field path');
+  delete parent[key];
   return value;
 }
 
@@ -100,7 +106,7 @@ describe('validateEvidence', () => {
     Object.assign(value.run, {
       tokenUsage: { input_tokens: 1, cached_input_tokens: 0, output_tokens: 2 },
     });
-    value.result.patch = '/private/todo-codex-02.patch' as never;
+    Object.assign(value.result, { patch: '/private/todo-codex-02.patch' });
     value.checks = ['unit', 'private-acceptance'].map((name) => ({
       name,
       command: name,
@@ -167,26 +173,30 @@ describe('validateEvidence', () => {
     ['a string exit code', ['run', 'agentExitCode'], '0'],
   ])('throws on %s', (_case, path, bad) => {
     const value = passed();
-    const parent = path
-      .slice(0, -1)
-      .reduce<Record<string, unknown>>((node, key) => node[key] as Record<string, unknown>, value);
-    parent[path.at(-1) as string] = bad;
+    const field = path.at(-1);
+    if (field === undefined) throw new Error('Expected field path');
+    const parent = path.slice(0, -1).reduce((node, key) => {
+      const child = node[key];
+      if (!child || typeof child !== 'object' || Array.isArray(child)) throw new Error(key);
+      return child;
+    }, value);
+    Object.assign(parent, { [field]: bad });
 
     expect(() => validateEvidence(value)).toThrow(`evidence.${path.join('.')}`);
   });
 
   it('accepts an earlier attempt that failed before the agent started', () => {
     const value = passed();
-    value.retries = [
-      { startedAt: '2026-10-17T11:00:00.000Z', failures: ['setup install exited 1'] },
-    ] as never;
+    Object.assign(value, {
+      retries: [{ startedAt: '2026-10-17T11:00:00.000Z', failures: ['setup install exited 1'] }],
+    });
 
     expect(validateEvidence(value)).toEqual(value);
   });
 
   it('throws on an earlier attempt without its failures', () => {
     const value = passed();
-    value.retries = [{ startedAt: '2026-10-17T11:00:00.000Z' }] as never;
+    Object.assign(value, { retries: [{ startedAt: '2026-10-17T11:00:00.000Z' }] });
 
     expect(() => validateEvidence(value)).toThrow('evidence.retries[0].failures');
   });
@@ -197,19 +207,15 @@ describe('validateEvidence', () => {
 
   it('throws on a check without its exit code', () => {
     const value = passed();
-    value.checks = [
-      { name: 'verify', command: 'pnpm verify', durationMs: 1, outputTail: '' } as never,
-    ];
+    Object.assign(value, {
+      checks: [{ name: 'verify', command: 'pnpm verify', durationMs: 1, outputTail: '' }],
+    });
 
     expect(() => validateEvidence(value)).toThrow('evidence.checks[0].exitCode');
   });
 
   it.each([
-    [
-      'a failed check',
-      (value: ReturnType<typeof passed>) =>
-        ((value.checks[0] as { exitCode: number }).exitCode = 1),
-    ],
+    ['a failed check', (value: ReturnType<typeof passed>) => (value.checks[0].exitCode = 1)],
     [
       'no commit',
       (value: ReturnType<typeof passed>) => Object.assign(value.result, { commit: null }),
@@ -221,7 +227,7 @@ describe('validateEvidence', () => {
     [
       'no kept stream',
       (value: ReturnType<typeof passed>) => {
-        value.stream = { path: null, sha256: null, userTextEvents: null } as never;
+        Object.assign(value, { stream: { path: null, sha256: null, userTextEvents: null } });
       },
     ],
     [

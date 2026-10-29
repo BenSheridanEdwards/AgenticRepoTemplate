@@ -1,6 +1,7 @@
 import type { AppRouter } from '@repo/api';
 import { TRPCClientError, type TRPCLink } from '@trpc/client';
 import { observable } from '@trpc/server/observable';
+import { Schema } from 'effect';
 import type { RouterInputs, RouterOutputs } from './trpc';
 
 type ProcedurePath = {
@@ -27,15 +28,13 @@ export function handlerLink(handlers: TestApiHandlers): TRPCLink<AppRouter> {
   return () =>
     ({ op }) =>
       observable((observer) => {
-        const handler = handlers[op.path as ProcedurePath] as
-          | ((input: unknown) => unknown)
-          | undefined;
+        const handler = Object.entries(handlers).find(([path]) => path === op.path)?.[1];
         Promise.resolve(op.input)
           .then((input) => {
             if (!handler) {
               throw new Error(`TestApiProvider has no handler for ${op.path}`);
             }
-            return handler(input);
+            return handler(Schema.decodeUnknownSync(Schema.Struct({ name: Schema.String }))(input));
           })
           .then(
             (data) => {

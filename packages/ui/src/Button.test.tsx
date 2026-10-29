@@ -4,9 +4,9 @@ import { axe } from 'jest-axe';
 import { Button } from './Button';
 
 it('renders a button that does not submit a form unless asked to', async () => {
-  const handleSubmit = jest.fn((event: SubmitEvent) => event.preventDefault());
+  const handleSubmit = jest.fn((event: Event) => event.preventDefault());
   render(
-    <form onSubmit={(event) => handleSubmit(event.nativeEvent as SubmitEvent)}>
+    <form onSubmit={(event) => handleSubmit(event.nativeEvent)}>
       <Button>Plain</Button>
       <Button type="submit">Send</Button>
     </form>,

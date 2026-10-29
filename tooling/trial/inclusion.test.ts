@@ -56,12 +56,19 @@ delete env.JEST_WORKER_ID;
 let copy: string;
 
 function run(argv: string[]) {
-  const ran = spawnSync(argv[0] as string, argv.slice(1), {
-    cwd: copy,
-    env,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
+  const ran = spawnSync(
+    argv[0] ??
+      (() => {
+        throw new Error('Expected executable');
+      })(),
+    argv.slice(1),
+    {
+      cwd: copy,
+      env,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    },
+  );
   return { code: ran.status, output: `${ran.stdout}${ran.stderr}`, stdout: ran.stdout };
 }
 
@@ -235,7 +242,7 @@ describe('a showcase result', () => {
 
   it('gets the same ESLint config as the reference, with every policy rule on', () => {
     const configOf = (path: string) =>
-      JSON.parse(run(['eslint', '--print-config', path]).stdout).rules as Record<string, unknown>;
+      JSON.parse(run(['eslint', '--print-config', path]).stdout).rules;
 
     for (const file of [WEB_FILE, API_FILE]) {
       const showcase = configOf(`showcase/x/${file}`);

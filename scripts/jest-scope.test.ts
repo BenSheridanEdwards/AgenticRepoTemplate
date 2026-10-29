@@ -44,7 +44,8 @@ function testsJestRuns() {
   const listed = execFileSync('node_modules/.bin/jest', ['--listTests', '--json'], {
     encoding: 'utf8',
   });
-  return new Set((JSON.parse(listed) as string[]).map((path) => relative(process.cwd(), path)));
+  const paths: string[] = JSON.parse(listed);
+  return new Set(paths.map((path) => relative(process.cwd(), path)));
 }
 
 describe('Jest scope over workspace package sources', () => {

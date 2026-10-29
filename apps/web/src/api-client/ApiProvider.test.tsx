@@ -15,13 +15,15 @@ afterEach(() => {
 });
 
 it('sends procedure calls to /trpc on the same origin and reads the answer', async () => {
-  const fetchMock = jest.fn(async (_url: string) => ({
-    ok: true,
-    status: 200,
-    headers: { get: () => 'application/json' },
-    json: async () => [{ result: { data: { message: 'Hello, Ada!' } } }],
-  }));
-  globalThis.fetch = fetchMock as unknown as typeof fetch;
+  // jsdom omits Response; use Node's native implementation from its own realm.
+  const NodeResponse: typeof Response = jest.requireActual('node:vm').runInThisContext('Response');
+  const fetchMock = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>(
+    async () =>
+      new NodeResponse(JSON.stringify([{ result: { data: { message: 'Hello, Ada!' } } }]), {
+        headers: { 'content-type': 'application/json' },
+      }),
+  );
+  globalThis.fetch = fetchMock;
 
   render(
     <ApiProvider>

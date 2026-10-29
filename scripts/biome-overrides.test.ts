@@ -15,7 +15,7 @@ const BIOME_BIN = resolve(REPOSITORY_ROOT, 'node_modules/.bin/biome');
  * Biome's stdin mode does not name the rule, so the seed is a real file in a
  * temporary folder laid out like the repo.
  */
-function lintSeed(path: string, source: string): { status: number | null; rules: string[] } {
+function lintSeed(path: string, source: string) {
   const directory = mkdtempSync(join(tmpdir(), 'biome-overrides-'));
   try {
     copyFileSync(join(REPOSITORY_ROOT, 'biome.json'), join(directory, 'biome.json'));
@@ -26,7 +26,7 @@ function lintSeed(path: string, source: string): { status: number | null; rules:
       cwd: directory,
       encoding: 'utf8',
     });
-    const report = JSON.parse(run.stdout) as { diagnostics: { category: string }[] };
+    const report: { diagnostics: { category: string }[] } = JSON.parse(run.stdout);
     return { status: run.status, rules: report.diagnostics.map(({ category }) => category) };
   } finally {
     rmSync(directory, { recursive: true, force: true });
