@@ -33,10 +33,10 @@ function write(path: string, text: string) {
 beforeEach(() => {
   // Match the physical paths Jest reports and the CLI gets from process.cwd().
   root = realpathSync(mkdtempSync(join(tmpdir(), 'coverage-by-result-')));
-  for (const result of ['apps', 'showcase/todo-01']) {
+  ['apps', 'showcase/todo-01'].forEach((result) => {
     write(`${result}/web/package.json`, '{}\n');
     write(`${result}/api/package.json`, '{}\n');
-  }
+  });
 });
 
 afterEach(() => {

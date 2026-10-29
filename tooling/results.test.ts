@@ -9,10 +9,10 @@ import { listResults } from './results.mjs';
 function withTree(paths: string[], check: (root: string) => void) {
   const root = mkdtempSync(join(tmpdir(), 'results-'));
   try {
-    for (const path of paths) {
+    paths.forEach((path) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
       writeFileSync(join(root, path), '{}\n');
-    }
+    });
     check(root);
   } finally {
     rmSync(root, { recursive: true, force: true });

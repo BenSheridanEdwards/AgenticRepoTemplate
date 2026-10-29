@@ -225,19 +225,21 @@ function symlinks({ results, symlinks: paths }) {
 }
 
 function dependencyProblems(manifest, reference, referenceDirectory) {
-  const workspace = [];
-  const problems = [];
-  for (const field of DEPENDENCY_FIELDS) {
-    for (const [name, range] of Object.entries(manifest[field] ?? {})) {
-      if (range.startsWith('workspace:')) {
-        workspace.push(name);
-      } else if (reference[field]?.[name] !== range) {
-        problems.push(
-          `${field} "${name}": "${range}" is not in ${referenceDirectory}/package.json; use only its dependencies and ranges`,
-        );
-      }
-    }
-  }
+  const dependencies = DEPENDENCY_FIELDS.flatMap((field) =>
+    Object.entries(manifest[field] ?? {}).map(([name, range]) => ({ field, name, range })),
+  );
+  const workspace = dependencies
+    .filter(({ range }) => range.startsWith('workspace:'))
+    .map(({ name }) => name);
+  const problems = dependencies
+    .filter(
+      ({ field, name, range }) =>
+        !range.startsWith('workspace:') && reference[field]?.[name] !== range,
+    )
+    .map(
+      ({ field, name, range }) =>
+        `${field} "${name}": "${range}" is not in ${referenceDirectory}/package.json; use only its dependencies and ranges`,
+    );
   return { workspace: workspace.sort(), problems };
 }
 
@@ -365,18 +367,21 @@ const SCAFFOLD_REPORTS = [
 ];
 
 function reportExports(text) {
-  const exports = [];
-  const unsupported = [];
-  for (const [line] of text.matchAll(/^export .*$/gm)) {
+  const declarations = [...text.matchAll(/^export .*$/gm)].map(([line]) => {
     const declaration =
       /^export (?:declare )?(function|const|type|interface|class|enum) (\w+)/.exec(line);
     if (declaration) {
       const [, kind, name] = declaration;
-      exports.push(`${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}`);
-    } else {
-      unsupported.push(line.trim());
+      return { exported: `${name}:${kind === 'type' || kind === 'interface' ? 'type' : 'value'}` };
     }
-  }
+    return { unsupported: line.trim() };
+  });
+  const exports = declarations.flatMap(({ exported }) =>
+    exported === undefined ? [] : [exported],
+  );
+  const unsupported = declarations.flatMap(({ unsupported }) =>
+    unsupported === undefined ? [] : [unsupported],
+  );
   return { exports: exports.sort(), unsupported };
 }
 

@@ -176,15 +176,15 @@ describe('validatePullRequest', () => {
     }).errors;
 
   it('passes when the head commit names the PR head: full, short, uppercase, or next line', () => {
-    for (const field of [
+    [
       `- Head commit: ${HEAD}`,
       '- Head commit: `0a21f68`',
       '- Head commit: 0A21F68',
       '- Head commit:\n  0a21f68',
       '- Head commit:\n\n  0a21f68',
-    ]) {
+    ].forEach((field) => {
       expect(headErrors(field, HEAD)).toEqual([]);
-    }
+    });
   });
 
   it('reads only the label line, so prose after the field is not part of it', () => {
@@ -203,7 +203,7 @@ describe('validatePullRequest', () => {
   });
 
   it('fails when the head commit is not exactly one SHA, including None', () => {
-    for (const field of [
+    [
       '- Head commit: None',
       '- Head commit: the latest one',
       '- Head commit: 0a21f68 (was 16b1728)',
@@ -211,11 +211,11 @@ describe('validatePullRequest', () => {
       '- Head commit: `0a21f68',
       '- Head commit: 0a21f68`',
       '- Head commit:',
-    ]) {
+    ].forEach((field) => {
       expect(headErrors(field, HEAD).join('\n')).toContain(
         'must be one commit SHA and nothing else',
       );
-    }
+    });
   });
 
   it('names the rejected value, cut to 40 characters', () => {
@@ -263,7 +263,7 @@ describe('validatePullRequest', () => {
   });
 
   it('fails closed when headSha is missing or malformed instead of skipping the comparison', () => {
-    for (const headSha of [undefined, '', '0a21f68', `${HEAD}x`]) {
+    [undefined, '', '0a21f68', `${HEAD}x`].forEach((headSha) => {
       const result = validatePullRequest({
         ...INTENT_PORTS,
         title: VALID_TITLE,
@@ -274,7 +274,7 @@ describe('validatePullRequest', () => {
       expect(result.errors.join('\n')).toContain(
         'headSha must be the 40-character PR head SHA or null',
       );
-    }
+    });
   });
 
   describe('intent references', () => {
@@ -284,11 +284,11 @@ describe('validatePullRequest', () => {
       validatePullRequest({ title: VALID_TITLE, body, headSha, ...ports });
 
     it.each(['PRDs checked', 'North Star commit'])('requires exactly one %s line', (name) => {
-      for (const field of ['', `<!-- - ${name}: ignored -->`]) {
+      ['', `<!-- - ${name}: ignored -->`].forEach((field) => {
         const result = check(withField(name, field));
         expect(result.ok).toBe(false);
         expect(result.errors.join('\n')).toContain(`exactly one \`- ${name}:\` line; found 0`);
-      }
+      });
       const result = check(`${VALID_BODY}\n- ${name} (again): ignored`);
       expect(result.ok).toBe(false);
       expect(result.errors.join('\n')).toContain(`exactly one \`- ${name}:\` line; found 2`);
@@ -712,7 +712,7 @@ describe('validatePullRequest', () => {
     });
 
     it('accepts every Conventional Commit type in both the title and the branch', () => {
-      for (const type of CONVENTIONAL_COMMIT_TYPES) {
+      CONVENTIONAL_COMMIT_TYPES.forEach((type) => {
         const result = validatePullRequest({
           ...INTENT_PORTS,
           headSha: HEAD,
@@ -721,7 +721,7 @@ describe('validatePullRequest', () => {
           branch: `${type}/do-the-thing`,
         });
         expect(result).toEqual({ ok: true, errors: [] });
-      }
+      });
     });
   });
 
@@ -781,20 +781,15 @@ describe('validatePullRequest', () => {
     const pathErrors = (extra: string) =>
       resultFor(extra).errors.filter((error) => error.includes('machine-local path'));
 
-    const urlCases: string[] = [];
-    for (const scheme of ['http', 'https']) {
-      for (const wrap of [
-        (s: string) => s,
-        (s: string) => `[link](${s})`,
-        (s: string) => `<${s}>`,
-      ]) {
-        for (const part of ['/home/box/x', '/tmp/run/x', '/workspace/x']) {
-          for (const suffix of [part, `?next=${part}`, `#${part}`]) {
-            urlCases.push(wrap(`${scheme}://example.com/${suffix}`));
-          }
-        }
-      }
-    }
+    const urlCases = ['http', 'https'].flatMap((scheme) =>
+      [(s: string) => s, (s: string) => `[link](${s})`, (s: string) => `<${s}>`].flatMap((wrap) =>
+        ['/home/box/x', '/tmp/run/x', '/workspace/x'].flatMap((part) =>
+          [part, `?next=${part}`, `#${part}`].map((suffix) =>
+            wrap(`${scheme}://example.com/${suffix}`),
+          ),
+        ),
+      ),
+    );
     it.each([
       ...urlCases,
       'https://example.com:/tmp/local',
@@ -910,9 +905,9 @@ describe('validatePullRequest', () => {
         '`/tmp/inline`\n```text\n/workspace/fenced\n```\n<!-- /home/box/comment -->',
       );
       expect(errors).toHaveLength(3);
-      for (const path of ['/tmp/inline', '/workspace/fenced', '/home/box/comment']) {
+      ['/tmp/inline', '/workspace/fenced', '/home/box/comment'].forEach((path) => {
         expect(errors.some((error) => error.includes(JSON.stringify(path)))).toBe(true);
-      }
+      });
     });
 
     it.each([
@@ -1052,11 +1047,11 @@ describe('resolveHeadSha', () => {
   });
 
   it('fails instead of falling back when PR_HEAD_SHA is empty or malformed', () => {
-    for (const value of ['', '0a21f68', 'not-a-sha']) {
+    ['', '0a21f68', 'not-a-sha'].forEach((value) => {
       expect(() => resolveHeadSha({ PR_HEAD_SHA: value }, noGit)).toThrow(
         'PR_HEAD_SHA must be the 40-character PR head SHA',
       );
-    }
+    });
   });
 
   it('fails in GitHub Actions without PR_HEAD_SHA, because the checkout is a merge commit', () => {

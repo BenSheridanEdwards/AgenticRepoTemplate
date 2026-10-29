@@ -35,13 +35,12 @@ function createInMemoryFilesystem({ files = {}, symlinks = {} }) {
     },
     listDirectory(relativePath) {
       const prefix = `${relativePath}/`;
-      const children = new Map();
-      for (const path of [...Object.keys(files), ...Object.keys(symlinks)]) {
-        if (path.startsWith(prefix)) {
+      const children = [...Object.keys(files), ...Object.keys(symlinks)]
+        .filter((path) => path.startsWith(prefix))
+        .reduce((entries, path) => {
           const [name, ...rest] = path.slice(prefix.length).split('/');
-          children.set(name, children.get(name) || rest.length > 0);
-        }
-      }
+          return entries.set(name, entries.get(name) || rest.length > 0);
+        }, new Map());
       if (children.size === 0) {
         throw new Error(`ENOENT: ${relativePath}`);
       }

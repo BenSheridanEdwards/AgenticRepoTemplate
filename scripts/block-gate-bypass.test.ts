@@ -232,8 +232,8 @@ describe('.claude/settings.json', () => {
     expect(hooks.map((hook: { if: string }) => hook.if).sort()).toEqual(
       ['Bash(bash *)', 'Bash(env *)', 'Bash(git *)', 'Bash(sh *)'].sort(),
     );
-    for (const hook of hooks) {
+    [...hooks].forEach((hook) => {
       expect(hook).toMatchObject({ type: 'command', command: 'sh', args: [HOOK_ARG] });
-    }
+    });
   });
 });

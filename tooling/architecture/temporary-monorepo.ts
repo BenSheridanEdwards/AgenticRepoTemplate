@@ -94,22 +94,22 @@ export function resultFiles(root: string, scope: string) {
  */
 export function createMonorepo(files: Record<string, string | null>) {
   const directory = mkdtempSync(join(tmpdir(), 'architecture-'));
-  for (const path of COPIED_CONFIGS) {
+  COPIED_CONFIGS.forEach((path) => {
     mkdirSync(dirname(join(directory, path)), { recursive: true });
     copyFileSync(join(REPOSITORY_ROOT, path), join(directory, path));
-  }
+  });
   const layout = {
     'package.json': manifest({ name: 'root', private: true, type: 'module' }),
     '.gitignore': '.cache/\n',
     ...resultFiles('apps', 'repo'),
     ...files,
   };
-  for (const [path, text] of Object.entries(layout)) {
+  Object.entries(layout).forEach(([path, text]) => {
     if (text !== null) {
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), text);
     }
-  }
+  });
   spawnSync('git', ['init', '-q'], { cwd: directory });
   return { directory, cleanup: () => rmSync(directory, { recursive: true, force: true }) };
 }

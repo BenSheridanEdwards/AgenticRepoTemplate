@@ -80,18 +80,15 @@ export function renderContractDiagram(contract) {
  * @param {readonly import('./graph.mjs').FileEdge[]} edges
  */
 export function renderResultDiagram(contract, result, edges) {
-  const roles = new Set();
-  const roleEdges = new Map();
-  for (const edge of edges.filter(({ from }) => from.startsWith(`${result.root}/`))) {
-    const from = contract.roleOf(edge.from);
-    const to = contract.roleOf(edge.to);
-    for (const role of [from, to].filter(Boolean)) {
-      roles.add(role);
-    }
-    if (from && to && from !== to) {
-      roleEdges.set(`${from} ${to}`, [from, to]);
-    }
-  }
+  const pairs = edges
+    .filter(({ from }) => from.startsWith(`${result.root}/`))
+    .map(({ from, to }) => [contract.roleOf(from), contract.roleOf(to)]);
+  const roles = new Set(pairs.flat().filter(Boolean));
+  const roleEdges = new Map(
+    pairs
+      .filter(([from, to]) => from && to && from !== to)
+      .map(([from, to]) => [`${from} ${to}`, [from, to]]),
+  );
   return renderDiagram(
     contract,
     `${GENERATOR}: result ${result.id} (${result.root}), the role edges of Fallow's import graph`,
@@ -150,11 +147,11 @@ function main(root) {
     console.log(`OK: ${plan.size} diagrams match the contract and the import graph.`);
     return true;
   }
-  for (const [path, text] of plan) {
+  plan.forEach((text, path) => {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
     console.log(`Wrote ${path}`);
-  }
+  });
   if (extra.length > 0) {
     console.error(extra.join('\n'));
   }

@@ -76,9 +76,9 @@ describe('ESLint policy stack', () => {
       encoding: 'utf8',
     });
     const { rules }: { rules: Record<string, unknown[]> } = JSON.parse(run.stdout);
-    for (const rule of Object.keys(policy.rules)) {
+    Object.keys(policy.rules).forEach((rule) => {
       expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
-    }
+    });
   });
 
   it('ignores build output inside a workspace package', () => {
@@ -617,9 +617,9 @@ describe('ESLint contract rules', () => {
       encoding: 'utf8',
     });
     const { rules }: { rules: Record<string, unknown[]> } = JSON.parse(run.stdout);
-    for (const rule of Object.keys(policy.rules)) {
+    Object.keys(policy.rules).forEach((rule) => {
       expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
-    }
+    });
   });
 
   it('passes a router that imports a feature through its index.ts with an explicit extension', () => {

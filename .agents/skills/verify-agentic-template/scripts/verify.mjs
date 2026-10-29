@@ -67,15 +67,15 @@ const runPaths = (runId) => {
 function parseArguments(argv) {
   const [command, ...rest] = argv;
   const options = { positional: [] };
-  for (let index = 0; index < rest.length; index += 1) {
-    const token = rest[index];
+  rest.reduce((nextIndex, token, index) => {
+    if (index < nextIndex) return nextIndex;
     if (token?.startsWith('--')) {
       options[token.slice(2)] = rest[index + 1];
-      index += 1;
-    } else {
-      options.positional.push(token);
+      return index + 2;
     }
-  }
+    options.positional.push(token);
+    return index + 1;
+  }, 0);
   return { command, options };
 }
 
@@ -249,7 +249,12 @@ async function launch(options) {
   writeFileSync(paths.instanceFile, `${JSON.stringify(instance, null, 2)}\n`);
 
   const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
+  const waitUntilReady = async () => {
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Not ready after ${READY_TIMEOUT_MS} ms. Read ${paths.serverLog}, then cleanup.`,
+      );
+    }
     if (!isAlive(server.pid)) {
       throw new Error(`Server exited during startup. Read ${paths.serverLog}.`);
     }
@@ -271,8 +276,9 @@ async function launch(options) {
       }
     }
     await new Promise((wait) => setTimeout(wait, 500));
-  }
-  throw new Error(`Not ready after ${READY_TIMEOUT_MS} ms. Read ${paths.serverLog}, then cleanup.`);
+    return waitUntilReady();
+  };
+  await waitUntilReady();
 }
 
 async function doctor(options) {
@@ -322,9 +328,9 @@ async function doctor(options) {
       `${instance.mode} build ${instance.build.slice(0, 12)}, HEAD ${head.slice(0, 12)}`,
     ],
   ];
-  for (const [name, passed, detail] of checks) {
+  checks.forEach(([name, passed, detail]) => {
     console.log(`${passed ? 'PASS' : 'FAIL'}  ${name}  (${detail})`);
-  }
+  });
   console.log(`run=${runId} result=${result.id} mode=${instance.mode} url=${instance.url}`);
   if (checks.some(([, passed]) => !passed)) {
     process.exitCode = 1;
@@ -420,9 +426,11 @@ async function drive(options) {
       await video.delete();
     }
     await browser.close();
-    for (const helperVideo of readdirSync(output).filter((file) => file.startsWith('page@'))) {
-      rmSync(join(output, helperVideo));
-    }
+    readdirSync(output)
+      .filter((file) => file.startsWith('page@'))
+      .forEach((helperVideo) => {
+        rmSync(join(output, helperVideo));
+      });
   }
   if (manifest.pageErrors.length > 0 && !failure) {
     failure = new Error(`Uncaught page errors: ${manifest.pageErrors.join('; ')}`);
@@ -431,9 +439,9 @@ async function drive(options) {
   manifest.finishedAt = new Date().toISOString();
   writeFileSync(join(output, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
-  for (const { name, result, error } of manifest.steps) {
+  manifest.steps.forEach(({ name, result, error }) => {
     console.log(`${result.toUpperCase()}  ${name}${error ? `  (${error})` : ''}`);
-  }
+  });
   console.log(`${manifest.result.toUpperCase()} journey=${journey.id} evidence=${output}`);
   if (failure) {
     process.exitCode = 1;

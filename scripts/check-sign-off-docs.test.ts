@@ -163,13 +163,14 @@ describe('check-sign-off-docs CLI', () => {
     beforeEach(() => {
       directory = mkdtempSync(join(tmpdir(), 'sign-off-docs-'));
       mkdirSync(join(directory, 'scripts'));
-      for (const script of [
-        'check-sign-off-docs.mjs',
-        'check-doc-phrasing.mjs',
-        'enforcement-approval.mjs',
-      ]) {
-        copyFileSync(join(REPOSITORY_ROOT, 'scripts', script), join(directory, 'scripts', script));
-      }
+      ['check-sign-off-docs.mjs', 'check-doc-phrasing.mjs', 'enforcement-approval.mjs'].forEach(
+        (script) => {
+          copyFileSync(
+            join(REPOSITORY_ROOT, 'scripts', script),
+            join(directory, 'scripts', script),
+          );
+        },
+      );
       writeFileSync(join(directory, 'tsconfig.json'), '{}\n');
       writeFileSync(
         join(directory, 'README.md'),

@@ -25,10 +25,10 @@ function typeCheck(program: 'tsconfig.json' | 'tsconfig.api.json', files: Record
       'tsconfig.json': JSON.stringify(tsconfig),
       ...files,
     };
-    for (const [path, source] of Object.entries(tree)) {
+    Object.entries(tree).forEach(([path, source]) => {
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), source);
-    }
+    });
     const run = spawnSync(TSC_BIN, ['-p', 'tsconfig.json', '--noEmit'], {
       cwd: directory,
       encoding: 'utf8',
@@ -50,14 +50,14 @@ function typeCheckAtRepoPaths(program: 'tsconfig.domain.json', files: Record<str
   mkdirSync(join(REPOSITORY_ROOT, '.cache'), { recursive: true });
   const directory = mkdtempSync(join(REPOSITORY_ROOT, '.cache/typescript-programs-'));
   try {
-    for (const config of ['tsconfig.base.json', 'tsconfig.api.json', program]) {
+    ['tsconfig.base.json', 'tsconfig.api.json', program].forEach((config) => {
       copyFileSync(join(REPOSITORY_ROOT, config), join(directory, config));
-    }
+    });
     const tree = { 'package.json': '{ "type": "module" }\n', ...files };
-    for (const [path, source] of Object.entries(tree)) {
+    Object.entries(tree).forEach(([path, source]) => {
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), source);
-    }
+    });
     const run = spawnSync(TSC_BIN, ['-p', program, '--noEmit'], {
       cwd: directory,
       encoding: 'utf8',

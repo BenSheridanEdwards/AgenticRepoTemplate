@@ -272,11 +272,11 @@ describe('node tooling/architecture/diagram.mjs on a temporary monorepo', () => 
   it('fails on a diagram no result owns, and keeps the file for a person to remove', () => {
     mkdirSync(diagramOf('showcase/old'));
     writeFileSync(diagramOf('showcase/old/architecture.mmd'), 'flowchart LR\n');
-    for (const args of [['--check'], []]) {
+    [['--check'], []].forEach((args) => {
       const run = runTool('diagram.mjs', repository.directory, ...args);
       expect(run.status).toBe(1);
       expect(run.output).toMatch(/extra diagram: showcase\/old\/architecture\.mmd/);
-    }
+    });
     expect(existsSync(diagramOf('showcase/old/architecture.mmd'))).toBe(true);
   });
 
