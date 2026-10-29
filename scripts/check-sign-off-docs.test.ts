@@ -78,7 +78,7 @@ describe('findUnguardedSignOffPaths reports', () => {
   it('the sentence #81 rewrote by hand, at the line it starts on', () => {
     const text =
       'The hook lives in `.claude/hooks/block-gate-bypass.sh`.\nA PR that widens `.claude/settings.json` permissions waits for sign-off.';
-    expect(find(text, '.agents/CLAUDE_CODE.md')).toEqual([
+    expect(find(text, '.agents/HARNESSES.md')).toEqual([
       { line: 2, path: '.claude/settings.json' },
     ]);
   });

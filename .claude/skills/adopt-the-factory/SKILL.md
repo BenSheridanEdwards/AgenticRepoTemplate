@@ -17,7 +17,7 @@ Adapt the template to the target's stack and existing tools.
   toolchain configuration.
 - Inspect existing agent instructions, hooks, scripts, CI workflows, tests,
   deployment configuration, and the PR template.
-- In this template, read `.agents/project/AGENTIC_INFRASTRUCTURE.md`,
+- In this template, read `.agents/HARNESSES.md`,
   `QUALITY_GATES.md`, `TECH_STACK.md`, and `PR_QUALITY.md` under `.agents/project/`.
 - Name the package manager, framework, CI provider, default branch, and
   commands that will prove the installation works.
@@ -30,7 +30,7 @@ This template currently uses these paths; check the target before copying.
 | --- | --- |
 | Claude import | `.claude/CLAUDE.md` imports `AGENTS.md` with `@../AGENTS.md`. |
 | Operating contract | `AGENTS.md` holds commands, rules, and the context map. |
-| Tool adapter | `.agents/CLAUDE_CODE.md`, `.claude/settings.json`, and hooks hold Claude-specific setup. |
+| Harness setup | `.agents/HARNESSES.md` maps entry points; `.claude/settings.json` and hooks configure Claude Code. |
 | Project standards | `.agents/project/` holds architecture, conventions, tool ownership, and completion rules. |
 | Decisions and patterns | `.agents/decisions/` holds ADRs; `.agents/templates/` holds starting points. |
 | Repeated workflows | `.claude/skills/` holds skills. |

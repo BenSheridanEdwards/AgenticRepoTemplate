@@ -173,8 +173,8 @@ without asking anyone anything.
 - [`AGENTS.md`](AGENTS.md) is the root operating contract
   ([agents.md](https://agents.md) convention), with golden rules, commands, and
   a map of the rest. [`.claude/CLAUDE.md`](.claude/CLAUDE.md) imports it so
-  Claude Code loads it. [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) adds the
-  Claude Code layer.
+  Claude Code loads it. [`HARNESSES.md`](.agents/HARNESSES.md) maps harness
+  entry points, settings, hooks, skills, and layers.
 - [`.agents/`](.agents) is the single source of detail: the
   [architecture pattern](.agents/project/ARCHITECTURE.md) agents must follow,
   the [conventions](.agents/project/CONVENTIONS.md) for naming, imports,
@@ -355,8 +355,7 @@ docs/GLOSSARY.md          Shared language.
 AGENTS.md                 Operating contract: commands, golden rules, and the map.
 .claude/CLAUDE.md          Imports AGENTS.md for Claude Code.
 .agents/                  Every agent doc (read before writing).
-  CLAUDE_CODE.md            Claude Code skills, settings, hooks, and tooling.
-  project/AGENTIC_INFRASTRUCTURE.md  How guidance, gates, workflows, and skills fit together.
+  HARNESSES.md              Harness entry points, settings, hooks, skills, and layers.
   project/ARCHITECTURE.md   The pattern agents must follow.
   project/CONVENTIONS.md    Naming, imports, errors, state.
   project/QUALITY_GATES.md  Which gate runs where, and which tool owns it.
