@@ -359,7 +359,7 @@ export const GUARDS = [
   },
   {
     area: 'Product intent',
-    paths: [/^docs\/prd\//, /^\.agents\/NORTH_STAR\.md$/],
+    paths: [/^docs\/prd\//, /^docs\/NORTH_STAR\.md$/],
     judge: rewrite('edits product intent'),
   },
 ];

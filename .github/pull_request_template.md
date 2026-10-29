@@ -41,7 +41,7 @@ List every PRD whose Covers globs or linked specs match a changed path in PRDs
 checked, and update that PRD or explain unchanged behaviour. Both rename paths
 count; local validation compares origin/main...HEAD.
 North Star commit: one SHA (7-40 hex characters, backticks allowed) from
-git log -1 --format=%H <head> -- .agents/NORTH_STAR.md. -->
+git log -1 --format=%H <head> -- docs/NORTH_STAR.md. -->
 
 - Head commit:
 - PRDs checked:

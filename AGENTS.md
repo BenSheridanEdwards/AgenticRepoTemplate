@@ -13,7 +13,7 @@ rules every automated reviewer applies after lint.
 A reference scaffold for **agentic engineering**: the files, gates, and context
 that make AI-written code consistent and enterprise-grade. TypeScript + React is
 just the runnable carrier. The scaffolding is the point (see the root
-`README.md` and [`NORTH_STAR.md`](.agents/NORTH_STAR.md)).
+`README.md` and [`NORTH_STAR.md`](docs/NORTH_STAR.md)).
 
 ## Run it
 
@@ -106,7 +106,7 @@ a split baseline or failed runs
    in an ADR, and keep code comments to the local reason for a line.
 8. **Write declarative code.** Transform data with `map`, `filter`, `flatMap`
    and `reduce` over `const` bindings, in place of loops and mutation
-   ([North Star §9](.agents/NORTH_STAR.md#9-declarative-over-imperative)).
+   ([North Star §9](docs/NORTH_STAR.md#9-declarative-over-imperative)).
 
 For tasks longer than three steps, checkpoint in the PR body.
 
@@ -136,10 +136,10 @@ the code-level rules and their checks.
 
 | Rule | Enforced by |
 | --- | --- |
-| Each in-scope source file has an architecture role; value imports between roles follow the table in [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md). Type-only imports may cross roles subject to slice isolation and route co-location: route value and type imports stay within their own folder, `@repo/ui`, the api-client public barrel and external npm packages ([ADR 0075](.agents/decisions/0075-canonical-colocated-routes.md)). Tests, E2E specs, configs, scripts and tooling sit outside the role table. | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck`; [North Star §2](.agents/NORTH_STAR.md#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs) names the limits. |
+| Each in-scope source file has an architecture role; value imports between roles follow the table in [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md). Type-only imports may cross roles subject to slice isolation and route co-location: route value and type imports stay within their own folder, `@repo/ui`, the api-client public barrel and external npm packages ([ADR 0075](.agents/decisions/0075-canonical-colocated-routes.md)). Tests, E2E specs, configs, scripts and tooling sit outside the role table. | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck`; [North Star §2](docs/NORTH_STAR.md#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs) names the limits. |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Run every applicable hook. Common bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides) are refused for the supported command forms. | `.claude/hooks/block-gate-bypass.sh` in Claude Code and trusted Codex Bash sessions; [ADR 0027](.agents/decisions/0027-block-common-hook-bypasses.md) lists the gaps. CI re-runs the gates; hosted required checks govern merging. |
-| A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `eslint.config.js`, `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`, `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`), or any addition, edit, deletion or rename in `docs/prd/**` or of `.agents/NORTH_STAR.md`, waits for the approver (repo variable `ENFORCEMENT_APPROVER`, default `BenSheridanEdwards`) to tick the sign-off for its head commit. A tick counts when it is made as that approver. | `enforcement-approval` status ([ADR 0023](.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md), [ADR 0060](.agents/decisions/0060-product-intent-needs-sign-off.md)) |
+| A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `eslint.config.js`, `biome.json`, `commitlint.config.ts`, `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`, `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`), or any addition, edit, deletion or rename in `docs/prd/**` or of `docs/NORTH_STAR.md`, waits for the approver (repo variable `ENFORCEMENT_APPROVER`, default `BenSheridanEdwards`) to tick the sign-off for its head commit. A tick counts when it is made as that approver. | `enforcement-approval` status ([ADR 0023](.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md), [ADR 0060](.agents/decisions/0060-product-intent-needs-sign-off.md)) |
 | Done means every gate is green on the latest commit. | `Required gates` and the checks in `docs/required-gates.md` |
 | A PR body keeps the template sections and carries inline proof. | `PR quality` workflow (`scripts/validate-pr-body.mjs`) |
 | A new dependency arrives with an ADR. | `pnpm check:adr` |
@@ -192,10 +192,10 @@ stdlib or native platform features before adding abstractions or dependencies.
 | [`project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md) | …before opening, updating, or marking a pull request ready. |
 | [`REVIEW.md`](REVIEW.md) | …before reviewing a pull request: the human-written rules every automated reviewer (Cursor Bugbot, Codex, Claude) applies after lint. |
 | [`project/TECH_STACK.md`](.agents/project/TECH_STACK.md) | …to know which tool owns which concern (and what *not* to add). |
-| [`project/GLOSSARY.md`](.agents/project/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
 | [`decisions/`](.agents/decisions/) | …to understand *why* a constraint exists before you challenge it. ADRs. |
 | [`templates/`](.agents/templates/) | …when creating a new component, test, E2E flow, or PRD. Copy from here. |
-| [`NORTH_STAR.md`](.agents/NORTH_STAR.md) | …to see where the repo is heading and why. |
+| [`NORTH_STAR.md`](docs/NORTH_STAR.md) | …to see where the repo is heading and why. |
 | [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) | …if you are Claude Code: skills, settings, hooks, and tooling. |
 | [`verify-agentic-template`](.claude/skills/verify-agentic-template/SKILL.md) | …to drive the app and capture PR proof. |
 

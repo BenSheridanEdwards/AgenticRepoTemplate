@@ -18,7 +18,7 @@ Discovery: [`AGENTS.md`](AGENTS.md) sends Codex and Claude here.
   line, and the rule it touches.
 - When the same judgment finding recurs, propose a lint rule in an ADR so the
   gate owns it next time. Prose rules go stale; a lint rule closes the loop (see
-  [`.agents/NORTH_STAR.md`](.agents/NORTH_STAR.md)).
+  [`docs/NORTH_STAR.md`](docs/NORTH_STAR.md)).
 
 ## Correctness and tests
 
@@ -64,7 +64,7 @@ Discovery: [`AGENTS.md`](AGENTS.md) sends Codex and Claude here.
 ## Naming and clarity
 
 - Confirm identifiers use full words and the exact terms from
-  [`.agents/project/GLOSSARY.md`](.agents/project/GLOSSARY.md); a name is the
+  [`docs/GLOSSARY.md`](docs/GLOSSARY.md); a name is the
   cheapest documentation the next agent reads.
 - Flag a comment that restates the code or records a decision. Keep comments
   for the local reason behind a non-obvious line, and ask for an ADR for the

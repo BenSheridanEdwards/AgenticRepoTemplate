@@ -54,7 +54,7 @@ the pinned, hash-checked upstream source.
 - Document only commands that pass in a clean checkout.
 - Describe current architecture as fact, and mark future architecture as a
   target or an ADR.
-- Treat `docs/prd/**` and `.agents/NORTH_STAR.md` as product intent: every
+- Treat `docs/prd/**` and `docs/NORTH_STAR.md` as product intent: every
   addition, edit, deletion or rename waits for sign-off from
   the approver (repo variable `ENFORCEMENT_APPROVER`, default `BenSheridanEdwards`)
   on the PR head through `enforcement-approval`. Intent changes are judged

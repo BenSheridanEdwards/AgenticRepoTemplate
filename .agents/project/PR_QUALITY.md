@@ -103,9 +103,9 @@ Beside that line, include exactly one of each:
   validation compares `origin/main...HEAD`
   ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md)).
 - `- North Star commit:` names the last commit that changed
-  `.agents/NORTH_STAR.md` as the PR head sees it: one SHA of 7-40 hex characters,
+  `docs/NORTH_STAR.md` as the PR head sees it: one SHA of 7-40 hex characters,
   optionally in balanced backticks. Read it with
-  `git log -1 --format=%H <head> -- .agents/NORTH_STAR.md`.
+  `git log -1 --format=%H <head> -- docs/NORTH_STAR.md`.
 
 `PR quality` checks these references at the PR head
 ([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md)).

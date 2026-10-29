@@ -29,9 +29,9 @@ written standards, and consistency is infrastructure. Domain docs in the repo
 inform the agent. The gates decide what lands.
 
 For day-to-day operating rules see [Start here](../AGENTS.md). For what is
-installed today see [`.agents/project/TECH_STACK.md`](project/TECH_STACK.md)
-and [`.agents/project/QUALITY_GATES.md`](project/QUALITY_GATES.md).
-Settled decisions live as ADRs in [`.agents/decisions/`](decisions/).
+installed today see [`.agents/project/TECH_STACK.md`](../.agents/project/TECH_STACK.md)
+and [`.agents/project/QUALITY_GATES.md`](../.agents/project/QUALITY_GATES.md).
+Settled decisions live as ADRs in [`.agents/decisions/`](../.agents/decisions/).
 
 **What success looks like.** Any person's agent, on any harness or model, can
 clone a repository built from this template and open only pull requests a named
@@ -59,14 +59,14 @@ and E2E tests:
   files the change touches, and gitleaks on staged content. Each pre-commit
   step must finish in under 30 seconds on a realistic staged change. Review
   examines slower steps carefully for a likely move to pre-push
-  ([ADR 0062](decisions/0062-pre-commit-steps-stay-under-30-seconds.md)).
+  ([ADR 0062](../.agents/decisions/0062-pre-commit-steps-stay-under-30-seconds.md)).
   **Before every push**, `.husky/pre-push` checks that every pushed branch
   contains a freshly fetched `origin/main`, then runs `pnpm verify` and
   `pnpm e2e`: ESLint policy lint, React Doctor, the architecture gate and
   structure check, the diagrams and API reports, the tests and the
   production build. CI re-runs every gate on a clean checkout. Git skips
   pre-commit on a conflict-free merge
-  ([ADR 0028](decisions/0028-pre-push-runs-the-full-local-gate-suite.md));
+  ([ADR 0028](../.agents/decisions/0028-pre-push-runs-the-full-local-gate-suite.md));
   `scripts/fallow-audit.sh` skips its audit when a base branch is absent.
   Running every convention check before every commit remains a target,
   within the 30-second budget. Review holds the budget through recorded
@@ -76,18 +76,18 @@ and E2E tests:
   `--no-verify`, `git commit -n`, `HUSKY=0` and rewrites of `core.hooksPath`,
   git aliases or config includes in Claude Code, and in Codex sessions that
   trust project hooks. It is a speed bump with known gaps
-  ([ADR 0027](decisions/0027-block-common-hook-bypasses.md)); CI on a clean
+  ([ADR 0027](../.agents/decisions/0027-block-common-hook-bypasses.md)); CI on a clean
   checkout is the backstop; required branch checks make it a merge gate
   ([hosted setup](../.github/SECURITY.md)).
 - **Warnings fail Biome, ESLint and React Doctor.** Biome runs with
   `--error-on-warnings`, ESLint with `--max-warnings=0`, and React Doctor with
   `--blocking warning`
-  ([ADR 0046](decisions/0046-fail-lint-on-warnings.md)). Fallow warning-level
+  ([ADR 0046](../.agents/decisions/0046-fail-lint-on-warnings.md)). Fallow warning-level
   findings remain nonblocking; Jest and Playwright console warnings also
   pass. Warnings-as-failures across every tool remains a target.
 - **ESLint disable comments are ignored.** ESLint sets `noInlineConfig`, so it
   applies no inline `eslint-disable` comment and fails the run on each one
-  ([ADR 0039](decisions/0039-block-inline-lint-disable-comments.md)). An
+  ([ADR 0039](../.agents/decisions/0039-block-inline-lint-disable-comments.md)). An
   ESLint exception lives in `eslint.config.js` with its reason. The other
   engines accept a suppression that names its reason (`biome-ignore`,
   `@ts-expect-error`, `fallow-ignore`) outside result roots. The structure
@@ -104,7 +104,7 @@ A standard with no gate behind it is a target and is labelled as one. A rule is
 finished when the routes around it are closed too: aliases, re-exports, inline
 disables, and edits to the rule's own config. A change that loosens or rewrites
 a rule waits for Ben's sign-off on the exact commit
-([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)).
+([ADR 0024](../.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md)).
 
 Each lint engine owns its own concerns. Biome owns format and general lint.
 ESLint owns policy rules and the React hooks and Compiler rules. React Doctor
@@ -113,7 +113,7 @@ enforces the rest in CI.
 
 ### 2. Layers import downward, slices stand alone, decisions live in ADRs
 
-[ARCHITECTURE.md](project/ARCHITECTURE.md) holds one table that maps each role
+[ARCHITECTURE.md](../.agents/project/ARCHITECTURE.md) holds one table that maps each role
 to its folder, its allowed imports, and the Fallow zone that enforces it. The
 roles form layers, and each layer imports only the layers below it: a route
 composes features, the api client and the UI package; a procedure calls
@@ -122,7 +122,7 @@ package import no other role by value. Fallow fails a value import the table
 leaves out, and `coverage.requireAllFiles` fails an in-scope source file in
 no role (`pnpm arch:gate`).
 A type-only import may cross between any two roles
-([ADR 0037](decisions/0037-type-only-edges-and-flagged-re-exports.md)), so the
+([ADR 0037](../.agents/decisions/0037-type-only-edges-and-flagged-re-exports.md)), so the
 downward rule holds for values between roles. Imports within a role remain
 allowed subject to slice isolation. Tests, E2E specs, configs, scripts and
 tooling sit outside the role table.
@@ -136,10 +136,10 @@ UI package. Every folder is named for its role,
 so a reviewer can see a PR's scope from the paths it touches.
 
 Decisions live in decision records. The reason behind a choice, its
-alternatives and its trade-offs go in an ADR in [`decisions/`](decisions/),
+alternatives and its trade-offs go in an ADR in [`decisions/`](../.agents/decisions/),
 and a code comment keeps to the local reason for a line. ESLint
 `policy/no-large-comments` caps each comment group at four lines in package
-TypeScript source ([ADR 0050](decisions/0050-anti-slop-lint-policies.md)). It
+TypeScript source ([ADR 0050](../.agents/decisions/0050-anti-slop-lint-policies.md)). It
 measures length only, so review judges whether a comment records a decision
 that belongs in an ADR. Not enforced yet: the comment cap outside package
 TypeScript source, and a check that a new decision arrives with its ADR
@@ -182,7 +182,7 @@ Every piece of work ends as one pull request that is:
 - **Green** on every required check, on the latest commit.
 - **Up to date with `main`**.
 - **Described well enough to approve from**, following the
-  [PR quality contract](project/PR_QUALITY.md).
+  [PR quality contract](../.agents/project/PR_QUALITY.md).
 
 A person approves, merges, and deploys.
 
@@ -213,8 +213,8 @@ its ADR, review holds this principle
 
 The 2026-10-15 gap review settled eight decisions that shape the plan. The
 reasoning lives as ADRs in
-[`.agents/decisions/`](decisions/), indexed by
-[0006](decisions/0006-gap-review-decision-set.md).
+[`.agents/decisions/`](../.agents/decisions/), indexed by
+[0006](../.agents/decisions/0006-gap-review-decision-set.md).
 
 1. **Protected enforcement paths.** Root configs, `.github/**`, `.claude/**`,
    `.husky/**`, `scripts/**`, `tooling/**`, the lockfile, and the agent docs are
@@ -251,19 +251,19 @@ approval with an audit trail) stay in the plan.
 **Installed today.** The repo is a pnpm workspace:
 `apps/web` holds the Vite + React app, `apps/api` the tRPC api, and
 `packages/ui` the shared components, each file mapped onto the one role table
-(#89, #90; [ADR 0031](decisions/0031-workspace-conversion.md),
-[ADR 0032](decisions/0032-api-ui-greeting-and-contract.md)). Effect Schema
+(#89, #90; [ADR 0031](../.agents/decisions/0031-workspace-conversion.md),
+[ADR 0032](../.agents/decisions/0032-api-ui-greeting-and-contract.md)). Effect Schema
 defines every boundary, forms and tRPC inputs alike, inside the bundle budget
-(#90, #96; [ADR 0011](decisions/0011-effect-schema-everywhere.md),
-[ADR 0036](decisions/0036-effect-4.md)). ESLint owns the policy, hook, and
+(#90, #96; [ADR 0011](../.agents/decisions/0011-effect-schema-everywhere.md),
+[ADR 0036](../.agents/decisions/0036-effect-4.md)). ESLint owns the policy, hook, and
 compiler rules beside Biome, which formats and runs general lint (#61;
-[ADR 0010](decisions/0010-lint-engine-ownership.md),
-[ADR 0015](decisions/0015-eslint-policy-stack-wiring.md)). Fallow 3.x owns the
+[ADR 0010](../.agents/decisions/0010-lint-engine-ownership.md),
+[ADR 0015](../.agents/decisions/0015-eslint-policy-stack-wiring.md)). Fallow 3.x owns the
 architecture graph, gate, and diagram from `.fallowrc.jsonc` and checks dead
 code, cycles, and complexity, with a committed role diagram and an API
 Extractor report per package (#62, #91;
-[ADR 0014](decisions/0014-fallow-owns-architecture-checks.md),
-[ADR 0033](decisions/0033-result-diagrams-and-structure-validation.md)). The
+[ADR 0014](../.agents/decisions/0014-fallow-owns-architecture-checks.md),
+[ADR 0033](../.agents/decisions/0033-result-diagrams-and-structure-validation.md)). The
 repo runs `strict` TypeScript, Jest, Playwright, and axe; Husky hooks mirror
 the CI gates; a script validates PR bodies; and a hook refuses `--no-verify`
 and the other common hook bypasses.
@@ -280,12 +280,12 @@ the table marks as last. Each PR that changes a tool also updates
 | React Doctor | Blocking React rules through ESLint, with React Doctor in CI for the rest | Installed (#61; ADR 0010) |
 | Effect Schema | One schema idiom for forms, tRPC inputs, and external data | Installed (#90, #96; ADR 0011, 0036) |
 | State in custom hooks | `useState` and `useEffect` only inside custom `use*` hooks, checked by lint | Installed, ESLint `policy/state-and-effects-in-hooks` |
-| Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0024](decisions/0024-sign-off-only-loosening-enforcement-changes.md)) | Installed |
-| Pre-commit budget | Each `.husky/pre-commit` step must finish in under 30 seconds; review examines slower steps for a likely move to pre-push ([ADR 0062](decisions/0062-pre-commit-steps-stay-under-30-seconds.md)) | Review-held through recorded per-step measurements; documentation only |
+| Enforcement sign-off | Ben ticks one checkbox, bound to the head commit, for each change that loosens or rewrites a gate ([ADR 0024](../.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md)) | Installed |
+| Pre-commit budget | Each `.husky/pre-commit` step must finish in under 30 seconds; review examines slower steps for a likely move to pre-push ([ADR 0062](../.agents/decisions/0062-pre-commit-steps-stay-under-30-seconds.md)) | Review-held through recorded per-step measurements; documentation only |
 | Architecture checks | Fallow 3.x gate, committed role diagram, and API Extractor reports | Installed (#62, #91; ADR 0014, 0033) |
 | Role-named folders | `lib/`, `utils/` and the other catch-all folders fail a check | Installed, ESLint `policy/role-named-folders` |
-| Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, [`AGENTS.md`](../AGENTS.md) and [`CONVENTIONS.md`](project/CONVENTIONS.md) |
-| `REVIEW.md` | Human-written rules for automated PR review, read after lint by Cursor Bugbot, Codex, and Claude | Installed (#112; [ADR 0049](decisions/0049-review-rules-for-bot-reviewers.md)); `pnpm check:context` holds the wiring |
+| Rule-to-enforcer table | Every rule in `.agents/` names its gate, or says "Not enforced yet" | Installed, [`AGENTS.md`](../AGENTS.md) and [`CONVENTIONS.md`](../.agents/project/CONVENTIONS.md) |
+| `REVIEW.md` | Human-written rules for automated PR review, read after lint by Cursor Bugbot, Codex, and Claude | Installed (#112; [ADR 0049](../.agents/decisions/0049-review-rules-for-bot-reviewers.md)); `pnpm check:context` holds the wiring |
 | Declarative code | Data transforms with `map`, `filter`, `flatMap` and `reduce` over `const`, in place of loops and mutation ([§9](#9-declarative-over-imperative)) | Partial: Biome `style/useConst`; ESLint `react-hooks/immutability`, `react-hooks/globals`, `react-hooks/purity`. Loops and general mutation: Not enforced yet |
 | Decisions in ADRs | The reason for a decision lives in an ADR; a comment group keeps to four lines ([§2](#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs)) | Partial: ESLint `policy/no-large-comments` in package TypeScript source; decision content: Not enforced yet |
 | Cloud agents | Agents triggered from tickets, alerts, or schedules | Last, once the repository is factory-shaped |

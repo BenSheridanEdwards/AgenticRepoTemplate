@@ -33,14 +33,13 @@ const MINIMUM_NON_EMPTY_LINES = 20;
 const MAXIMUM_CONTRACT_BYTES = 32 * 1024;
 
 /**
- * The seven project docs under `.agents/project/` that the start-here guide
+ * The six project docs under `.agents/project/` that the start-here guide
  * and the Definition of Done both promise exist.
  */
 const REQUIRED_PROJECT_DOCS = [
   'ARCHITECTURE.md',
   'CONVENTIONS.md',
   'TECH_STACK.md',
-  'GLOSSARY.md',
   'DEFINITION_OF_DONE.md',
   'QUALITY_GATES.md',
   'PR_QUALITY.md',
@@ -160,13 +159,17 @@ function checkClaudePointer(filesystem, errors) {
 
 /**
  * The tracked context docs a merge can duplicate a section in: root Markdown,
- * everything under `.agents/`, and the house skills. Only tracked files count,
- * so a local scratch note cannot fail a check that CI would pass.
+ * everything under `.agents/`, the North Star and glossary in `docs/`, and the
+ * house skills. Only tracked files count, so local scratch notes cannot fail CI.
  */
 function isContextDoc(path) {
   return (
     path.endsWith('.md') &&
-    (!path.includes('/') || path.startsWith('.agents/') || path.startsWith('.claude/skills/'))
+    (!path.includes('/') ||
+      path.startsWith('.agents/') ||
+      path.startsWith('.claude/skills/') ||
+      path === 'docs/NORTH_STAR.md' ||
+      path === 'docs/GLOSSARY.md')
   );
 }
 
@@ -382,10 +385,12 @@ export function checkContextLayer(filesystem) {
   checkClaudePointer(filesystem, errors);
   checkStartHere(filesystem, errors);
 
-  // The seven project docs.
+  // The six project docs.
   for (const documentName of REQUIRED_PROJECT_DOCS) {
     assertRegularFile(filesystem, `.agents/project/${documentName}`, errors);
   }
+
+  assertRegularFile(filesystem, 'docs/GLOSSARY.md', errors);
 
   // The two house skills, each with YAML frontmatter carrying name + description.
   for (const skillPath of REQUIRED_HOUSE_SKILLS) {

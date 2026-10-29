@@ -114,7 +114,7 @@ greeting reference.
   `flatMap`, `reduce` and `Object.fromEntries` in place of `for` and `while`
   loops, `push` and in-place mutation. The `style/useConst` and React Hooks
   rows enforce part of this; the rest is not enforced yet
-  ([North Star §9](../NORTH_STAR.md#9-declarative-over-imperative)).
+  ([North Star §9](../../docs/NORTH_STAR.md#9-declarative-over-imperative)).
 - **Decisions in ADRs.** A comment states the local reason for a line. A
   decision, its alternatives and its trade-offs go in an ADR in
   [`../decisions/`](../decisions).

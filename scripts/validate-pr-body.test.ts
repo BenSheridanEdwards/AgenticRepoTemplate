@@ -369,7 +369,7 @@ describe('validatePullRequest', () => {
       const result = check(withField('North Star commit', '- North Star commit: 1234567'));
       expect(result.ok).toBe(false);
       expect(result.errors.join('\n')).toContain(
-        `last commit changing \`.agents/NORTH_STAR.md\` at the PR head is ${NORTH_STAR}`,
+        `last commit changing \`docs/NORTH_STAR.md\` at the PR head is ${NORTH_STAR}`,
       );
     });
 
@@ -1212,7 +1212,7 @@ describe('PRD impact git and CLI', () => {
     return git('rev-parse', 'HEAD');
   };
   const prepare = () => {
-    write('.agents/NORTH_STAR.md', '# Software factory\n');
+    write('docs/NORTH_STAR.md', '# Software factory\n');
     write(prd, '# Greeting\n- **Covers:** `apps/web/src/routes/greeting/**`\n');
     write(covered, 'original\n');
     const base = commit();
