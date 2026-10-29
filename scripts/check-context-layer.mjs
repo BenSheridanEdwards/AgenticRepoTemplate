@@ -159,13 +159,17 @@ function checkClaudePointer(filesystem, errors) {
 
 /**
  * The tracked context docs a merge can duplicate a section in: root Markdown,
- * everything under `.agents/`, and the house skills. Only tracked files count,
- * so a local scratch note cannot fail a check that CI would pass.
+ * everything under `.agents/`, the North Star and glossary in `docs/`, and the
+ * house skills. Only tracked files count, so local scratch notes cannot fail CI.
  */
 function isContextDoc(path) {
   return (
     path.endsWith('.md') &&
-    (!path.includes('/') || path.startsWith('.agents/') || path.startsWith('.claude/skills/'))
+    (!path.includes('/') ||
+      path.startsWith('.agents/') ||
+      path.startsWith('.claude/skills/') ||
+      path === 'docs/NORTH_STAR.md' ||
+      path === 'docs/GLOSSARY.md')
   );
 }
 

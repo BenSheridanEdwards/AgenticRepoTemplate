@@ -281,6 +281,18 @@ describe('checkContextLayer', () => {
     expect(message).toContain('lines 3, 9');
   });
 
+  it.each([
+    'docs/NORTH_STAR.md',
+    'docs/GLOSSARY.md',
+  ])('fails when a merge duplicates a section in %s', (path) => {
+    const files = buildPassingTree();
+    files[path] = '# Document\n## Term\n## Term\n';
+    const result = checkContextLayer(createInMemoryFilesystem({ files }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain(`\`${path}\` has the section \`## Term\` 2 times`);
+    expect(result.errors.join('\n')).toContain('lines 2, 3');
+  });
+
   it('passes when the same heading sits under different parents or inside a code block', () => {
     const files = buildPassingTree();
     files['.agents/project/CONVENTIONS.md'] = [

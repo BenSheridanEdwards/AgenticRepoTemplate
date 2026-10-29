@@ -192,7 +192,7 @@ stdlib or native platform features before adding abstractions or dependencies.
 | [`project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md) | …before opening, updating, or marking a pull request ready. |
 | [`REVIEW.md`](REVIEW.md) | …before reviewing a pull request: the human-written rules every automated reviewer (Cursor Bugbot, Codex, Claude) applies after lint. |
 | [`project/TECH_STACK.md`](.agents/project/TECH_STACK.md) | …to know which tool owns which concern (and what *not* to add). |
-| [`project/GLOSSARY.md`](docs/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
 | [`decisions/`](.agents/decisions/) | …to understand *why* a constraint exists before you challenge it. ADRs. |
 | [`templates/`](.agents/templates/) | …when creating a new component, test, E2E flow, or PRD. Copy from here. |
 | [`NORTH_STAR.md`](docs/NORTH_STAR.md) | …to see where the repo is heading and why. |
