@@ -1,19 +1,10 @@
 # Start here
 
-Every agent doc for this repo lives in `.agents/`. The root `AGENTS.md` and
-`CLAUDE.md` only point here. This file is the operating contract for **any**
-agent or engineer: concrete commands, explicit rules, no tribal knowledge. When
-the way we work changes, change it here.
-
-Before reviewing a pull request, read [`REVIEW.md`](REVIEW.md): the human-written
-rules every automated reviewer applies after lint.
-
-## What this repo is
-
-A reference scaffold for **agentic engineering**: the files, gates, and context
-that make AI-written code consistent and enterprise-grade. TypeScript + React is
-just the runnable carrier. The scaffolding is the point (see the root
-`README.md` and [`NORTH_STAR.md`](docs/NORTH_STAR.md)).
+This is the operating contract for every agent and engineer. Keep it current
+when the way we work changes. Detailed guidance lives in `.agents/`.
+This repo is a reference scaffold for agentic engineering; TypeScript and React
+are its runnable example. See [README.md](README.md) and the [North Star](docs/NORTH_STAR.md).
+Read [REVIEW.md](REVIEW.md) before reviewing a pull request.
 
 ## Run it
 
@@ -31,84 +22,23 @@ pnpm verify           # the full local gate suite (typecheck → biome → eslin
 pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```
 
-## Run the trials
+For the trial runbook, read [TRIALS.md](.agents/TRIALS.md).
 
-The orchestrator runs each trial; an agent inside a trial builds its
-result from the prompt alone. Run trials one at a time, from the checkout
-that keeps the evidence, at the scaffold revision every trial shares
-([ADR 0034](.agents/decisions/0034-trial-harness-and-evidence.md)):
+## Golden rules
 
-```bash
-pnpm trial --trial 1 --scaffold <rev> --trials-root <dir> --dry-run   # print the plan and the exact claude argv
-pnpm trial --trial 1 --scaffold <rev> --trials-root <dir>             # clone, run one fresh session, check, record
-pnpm trial --task tooling/trial/tasks/notes.json --trial 1 --scaffold <rev> --trials-root <dir>  # Notes brief
-git fetch <dir>/todo-01-<stamp>/repo trial/todo-01:trial/todo-01         # keep the result branch
-```
-
-Pass `--agent codex` for a fresh Codex exec session (default: `claude`).
-Pass `--task /absolute/path/task.json` for a task file; a task with a target
-repository pins its own revision and needs no `--scaffold`. Task-local prompts
-and acceptance commands stay outside the clone. External tasks use `land: patch`
-and can set an absolute `evidenceDir` to keep private evidence outside this repo.
-See [ADR 0048](.agents/decisions/0048-trial-tasks-and-codex.md). Todo Codex ids are
-`todo-codex-01..03`. Notes ids are `notes-01..03` and
-`notes-codex-01..03`; select its task file as above
-([ADR 0071](.agents/decisions/0071-a-second-trial-brief.md)).
-Compare each brief separately: `node tooling/trial/compare.mjs --brief notes`
-writes `docs/trials/notes-comparison.md`; the default `--brief todo` keeps
-`docs/trials/comparison.md`. Both prove baselines per agent.
-
-The run writes `docs/trials/todo-01.json`, the agent's stream as
-`todo-01.stream.jsonl` with secrets redacted (and `todo-01.patch` when it
-fails), and prints its workdir. Fetch the result branch, then remove the
-workdir before the next trial; the harness refuses to start while one
-remains. Pass `--retry` only after a failure from before the agent started.
-
-Each trial's commands use a private temp and cache folder inside its
-workdir, and bubblewrap (`bwrap`) mounts that temp folder over `/tmp`, so the
-agent sees only its own `/tmp` files. Install bubblewrap first: a trial fails
-before its agent starts when `bwrap` fails to run. No time limit
-applies. Stop a trial with Ctrl-C, and read how long it took from
-`run.durationMs` and `run.agentDurationMs` in its record
-([ADR 0038](.agents/decisions/0038-trial-isolation-and-no-time-limit.md)).
-
-After the three trials, merge each passed result branch with `git merge --no-ff`,
-commit every record, stream and patch, and run
-`node tooling/trial/compare.mjs` to write `docs/trials/comparison.md`: the
-full pass count, the shared baseline and each difference between the runs,
-classified against the spec freedoms of
-[ADR 0035](.agents/decisions/0035-trial-comparison.md) and
-[ADR 0037](.agents/decisions/0037-type-only-edges-and-flagged-re-exports.md).
-Read the report when compare exits non-zero for an inconsistent verdict,
-a split baseline or failed runs
-([ADR 0069](.agents/decisions/0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md)).
-
-## The golden rules
-
-1. **Read before you write.** Architecture, conventions, the Definition of Done,
-   the glossary, and ADRs live in this folder.
-2. **Follow the patterns; copy the templates.** New files come from
-   [`templates/`](.agents/templates/). Consistency is the deliverable.
-3. **Behaviour is defined by the E2E map**, each result's `web/e2e/*.spec.ts`
-   (for example `apps/web/e2e/greeting.spec.ts`), not by the implementation.
-   Add behaviour there first. A feature's PRD in `docs/prd/` states its intent
-   and links each behaviour to the test that proves it.
-4. **When a gate fails, fix the cause.** Keep every gate and its config as it
-   is; the checks below enforce this.
-5. **Done means the gates are green.** Report a task complete once
-   `pnpm verify` and `pnpm e2e` pass; see
-   [`project/DEFINITION_OF_DONE.md`](.agents/project/DEFINITION_OF_DONE.md).
-6. **PRs carry proof.** Complete the pull request template and follow
-   [`project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md) before opening a PR or
-   marking it ready.
-7. **Change rules in the open.** When a constraint is wrong, propose an ADR in
-   [`decisions/`](.agents/decisions/) and change the rule there. Record each decision
-   in an ADR, and keep code comments to the local reason for a line.
-8. **Write declarative code.** Transform data with `map`, `filter`, `flatMap`
-   and `reduce` over `const` bindings, in place of loops and mutation
-   ([North Star §9](docs/NORTH_STAR.md#9-declarative-over-imperative)).
+1. Read the architecture, conventions, Definition of Done, glossary, and ADRs before writing code; use the map below.
+2. Copy new files from [templates](.agents/templates/).
+3. Define behaviour first in each result's `web/e2e/*.spec.ts` (for example `apps/web/e2e/greeting.spec.ts`). Each feature's PRD in `docs/prd/` states its intent and links each behaviour to its test.
+4. Fix the cause of a failed gate; keep the gate and its config in place.
+5. Report a task complete once `pnpm verify` and `pnpm e2e` pass; follow the [Definition of Done](.agents/project/DEFINITION_OF_DONE.md).
+6. Complete the pull request template and follow [PR quality](.agents/project/PR_QUALITY.md) before opening a PR or marking it ready.
+7. Propose an ADR in [decisions](.agents/decisions/) when a constraint needs to change, and change the rule there. Record decisions in ADRs; keep code comments for the local reason behind a line.
+8. Write declarative transforms with `map`, `filter`, `flatMap` and `reduce` over `const` bindings ([North Star §9](docs/NORTH_STAR.md#9-declarative-over-imperative)). Review holds the remaining judgment under [REVIEW.md](REVIEW.md#scope-and-simplicity); see [ADR 0061](.agents/decisions/0061-refine-the-software-factory-philosophy.md) for the limits of lint.
 
 For tasks longer than three steps, checkpoint in the PR body.
+Use Ponytail for coding, review, refactor, and design tasks unless the user says
+otherwise. Default level: `full`. Prefer deletion, existing patterns, and stdlib
+or native platform features before abstractions or dependencies.
 
 ## Before you push
 
@@ -125,8 +55,7 @@ Builders, including Codex, follow these steps before every push:
 4. Leave advisory findings on lines you did not change for their rollout PRs.
 5. Run `pnpm verify` and `pnpm e2e`; `pnpm verify` runs `pnpm lint:anti-slop`.
 
-Reviewers follow [Anti-slop findings](REVIEW.md#anti-slop-findings) on the
-PR head, including the changed-lines check and a change request per finding.
+For review findings, follow [REVIEW.md](REVIEW.md#anti-slop-findings).
 
 ## Rules and what enforces them
 
@@ -155,55 +84,29 @@ the code-level rules and their checks.
 | Each PRD in `docs/prd/` links every behaviour it lists to the E2E test that proves it. | `pnpm check:docs` ([ADR 0045](.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)) |
 | A doc that ties sign-off to a file names only a file the enforcement gate guards. | `pnpm check:docs` ([ADR 0030](.agents/decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)) |
 
-Review holds the declarative-code target until a general check lands.
-Transforms are partly enforced by Biome `style/useConst` and the React Hooks
-rules `react-hooks/immutability`, `react-hooks/globals` and
-`react-hooks/purity`; loops and other mutation are not enforced yet
-([ADR 0061](.agents/decisions/0061-refine-the-software-factory-philosophy.md)).
+For hook commands, order, and the 30-second pre-commit step budget, read
+[Quality gates](.agents/project/QUALITY_GATES.md). Record per-step timings in the
+PR ([ADR 0062](.agents/decisions/0062-pre-commit-steps-stay-under-30-seconds.md)).
+For comment and decision-record judgment, read [REVIEW.md](REVIEW.md#naming-and-clarity).
+The comment cap checks length; `pnpm check:adr` requires a record for new dependencies.
+Keep one tool owner per concern; follow [Tech stack](.agents/project/TECH_STACK.md).
+Regenerate disposable output (`apps/web/dist/`, `.cache/`, `coverage/`) with its command.
 
-Pre-commit runs `pnpm typecheck`, staged Biome lint and format,
-`pnpm fallow:audit` (including complexity), and staged gitleaks. Review holds
-the budget: each step must finish in under 30 seconds on a realistic staged
-change, and a slower step receives careful review for a likely move to
-pre-push ([ADR 0062](.agents/decisions/0062-pre-commit-steps-stay-under-30-seconds.md)).
-The up-to-date-with-main check runs at push before `pnpm verify` (including
-the build) and `pnpm e2e`, and in CI. The budget is documentation only;
-record per-step timings in the PR.
+## Where things are
 
-Review judges whether a comment contains a decision that belongs in an ADR.
-The comment cap checks length only; `pnpm check:adr` requires a record only
-for a new dependency. A general decision-record check remains a target.
-
-## Simplicity Mode
-
-Use Ponytail for coding, review, refactor, and design tasks unless the user says
-otherwise. Default level: `full`: delete code, reuse existing patterns, and use
-stdlib or native platform features before adding abstractions or dependencies.
-
-## What is here, and when to read it
-
-| Path | Read it when… |
+| Path | Read it when |
 | --- | --- |
-| [`project/AGENTIC_INFRASTRUCTURE.md`](.agents/project/AGENTIC_INFRASTRUCTURE.md) | …before changing agent guidance, hooks, workflows, or skills. |
-| [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md) | …before adding or moving any module: the role table, the api file roles, the state model, and how to add a route, a feature or a procedure. It is the pattern you must follow. |
-| [`project/CONVENTIONS.md`](.agents/project/CONVENTIONS.md) | …while writing code: naming, structure, imports, errors, state. |
-| [`project/DEFINITION_OF_DONE.md`](.agents/project/DEFINITION_OF_DONE.md) | …before you claim a task is finished. The gates enforce this list. |
-| [`project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md) | …before changing hooks, scripts, CI, or tool ownership. |
-| [`project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md) | …before opening, updating, or marking a pull request ready. |
-| [`REVIEW.md`](REVIEW.md) | …before reviewing a pull request: the human-written rules every automated reviewer (Cursor Bugbot, Codex, Claude) applies after lint. |
-| [`project/TECH_STACK.md`](.agents/project/TECH_STACK.md) | …to know which tool owns which concern (and what *not* to add). |
-| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | …when you meet a domain term. Use these words exactly, in code and prose. |
-| [`decisions/`](.agents/decisions/) | …to understand *why* a constraint exists before you challenge it. ADRs. |
-| [`templates/`](.agents/templates/) | …when creating a new component, test, E2E flow, or PRD. Copy from here. |
-| [`NORTH_STAR.md`](docs/NORTH_STAR.md) | …to see where the repo is heading and why. |
-| [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) | …if you are Claude Code: skills, settings, hooks, and tooling. |
-| [`verify-agentic-template`](.claude/skills/verify-agentic-template/SKILL.md) | …to drive the app and capture PR proof. |
-
-## Safety
-
-- Keep secrets out of commits; CI runs a secret scan and a dependency audit.
-- Keep one owner per concern: Biome formats and runs general lint, ESLint runs
-  policy and React rules, Jest and Playwright run tests. A new tool for an owned
-  concern needs an ADR (see [`project/TECH_STACK.md`](.agents/project/TECH_STACK.md));
-  `pnpm check:adr` fails a new dependency that no new ADR names.
-- Treat generated artefacts (`apps/web/dist/`, `.cache/`, `coverage/`) as disposable; regenerate them with their command.
+| [`project/AGENTIC_INFRASTRUCTURE.md`](.agents/project/AGENTIC_INFRASTRUCTURE.md) | before changing agent guidance, hooks, workflows, or skills. |
+| [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md) | before adding or moving any module: the role table, the api file roles, the state model, and how to add a route, a feature or a procedure. It is the pattern you must follow. |
+| [`project/CONVENTIONS.md`](.agents/project/CONVENTIONS.md) | while writing code: naming, structure, imports, errors, state. |
+| [`project/DEFINITION_OF_DONE.md`](.agents/project/DEFINITION_OF_DONE.md) | before you claim a task is finished. The gates enforce this list. |
+| [`project/QUALITY_GATES.md`](.agents/project/QUALITY_GATES.md) | before changing hooks, scripts, CI, or tool ownership. |
+| [`project/PR_QUALITY.md`](.agents/project/PR_QUALITY.md) | before opening, updating, or marking a pull request ready. |
+| [`REVIEW.md`](REVIEW.md) | before reviewing a pull request: the human-written rules every automated reviewer (Cursor Bugbot, Codex, Claude) applies after lint. |
+| [`project/TECH_STACK.md`](.agents/project/TECH_STACK.md) | to know which tool owns which concern (and what *not* to add). |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | when you meet a domain term. Use these words exactly, in code and prose. |
+| [`decisions/`](.agents/decisions/) | to understand *why* a constraint exists before you challenge it. ADRs. |
+| [`templates/`](.agents/templates/) | when creating a new component, test, E2E flow, or PRD. Copy from here. |
+| [`NORTH_STAR.md`](docs/NORTH_STAR.md) | to see where the repo is heading and why. |
+| [`CLAUDE_CODE.md`](.agents/CLAUDE_CODE.md) | if you are Claude Code: skills, settings, hooks, and tooling. |
+| [`verify-agentic-template`](.claude/skills/verify-agentic-template/SKILL.md) | to drive the app and capture PR proof. |
