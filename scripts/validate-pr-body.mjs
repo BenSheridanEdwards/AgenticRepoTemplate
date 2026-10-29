@@ -88,14 +88,23 @@ const HEAD_COMMIT_VALUE_PATTERN = /^(`?)([0-9a-f]{7,40})\1$/i;
  * Strip HTML comments (`<!-- ... -->`) from a block of text. Template guidance
  * lives in comments; it must not count as user-provided content.
  *
- * A single `replace` pass is incomplete: removing one match can splice the
- * surrounding text into a *new* `<!--`, so a crafted body could leave a comment
- * marker behind. Loop to a fixpoint so no `<!--` can survive, and drop any
- * unterminated trailing `<!--` (an opened-but-never-closed comment).
+ * Removing comments can splice the surrounding text into a new `<!--`.
+ * Keep the text between complete comments, then repeat to a fixpoint before
+ * dropping an unterminated tail. Each pass removes every complete comment
+ * before considering newly formed markers, preserving their removal order.
  */
 function stripHtmlComments(text) {
-  const current = text.replace(/<!--[\s\S]*?-->/g, '');
-  return current === text ? current.replace(/<!--[\s\S]*$/, '') : stripHtmlComments(current);
+  const comments = [...text.matchAll(/<!--[\s\S]*?-->/g)];
+  if (comments.length === 0) return text.split('<!--', 1)[0];
+
+  const current = comments
+    .map((comment, index) => {
+      const previous = comments[index - 1];
+      return text.slice(previous ? previous.index + previous[0].length : 0, comment.index);
+    })
+    .join('');
+  const last = comments.at(-1);
+  return stripHtmlComments(current + text.slice(last.index + last[0].length));
 }
 
 /**
