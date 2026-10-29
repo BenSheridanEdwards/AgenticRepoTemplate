@@ -23,12 +23,7 @@
     ".roo/**",
     ".windsurf/**",
     "vendor/**",
-    "showcase/todo-01/**",
-    "showcase/todo-02/**",
-    "showcase/todo-03/**",
-    "showcase/todo-codex-01/**",
-    "showcase/todo-codex-02/**",
-    "showcase/todo-codex-03/**"
+    "showcase/**"
   ],
   "rules": {
     "anti-slop/require-safety-comment-for-type-assertion": "error",
