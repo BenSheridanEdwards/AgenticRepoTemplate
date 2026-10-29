@@ -91,20 +91,30 @@ const HEAD_COMMIT_VALUE_PATTERN = /^(`?)([0-9a-f]{7,40})\1$/i;
  * Removing comments can splice the surrounding text into a new `<!--`.
  * Keep the text between complete comments, then repeat to a fixpoint before
  * dropping an unterminated tail. Each pass removes every complete comment
- * before considering newly formed markers, preserving their removal order.
+ * before considering newly formed markers. Each changing pass removes at least
+ * seven characters (`<!---->`), bounding the passes without recursion.
  */
 function stripHtmlComments(text) {
-  const comments = [...text.matchAll(/<!--[\s\S]*?-->/g)];
-  if (comments.length === 0) return text.split('<!--', 1)[0];
-
-  const current = comments
-    .map((comment, index) => {
-      const previous = comments[index - 1];
-      return text.slice(previous ? previous.index + previous[0].length : 0, comment.index);
-    })
-    .join('');
-  const last = comments.at(-1);
-  return stripHtmlComments(current + text.slice(last.index + last[0].length));
+  const result = Array.from({ length: Math.floor(text.length / 7) + 1 }).reduce(
+    (state) => {
+      if (state.done) return state;
+      const comments = [...state.text.matchAll(/<!--[\s\S]*?-->/g)];
+      if (comments.length === 0) return { text: state.text, done: true };
+      const current = comments
+        .map((comment, index) => {
+          const previous = comments[index - 1];
+          return state.text.slice(
+            previous ? previous.index + previous[0].length : 0,
+            comment.index,
+          );
+        })
+        .join('');
+      const last = comments.at(-1);
+      return { text: current + state.text.slice(last.index + last[0].length), done: false };
+    },
+    { text, done: false },
+  );
+  return result.text.split('<!--', 1)[0];
 }
 
 /**

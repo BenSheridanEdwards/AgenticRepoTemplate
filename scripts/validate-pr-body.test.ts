@@ -141,6 +141,20 @@ describe('validatePullRequest', () => {
     expect(result.errors.join('\n')).toContain('no proof');
   });
 
+  it('reports contract errors for deeply nested HTML comments without overflowing', () => {
+    const validate = (content: string) =>
+      validatePullRequest({
+        ...INTENT_PORTS,
+        title: VALID_TITLE,
+        body: `# Why does this feature exist?\n\n${content}`,
+        headSha: HEAD,
+      });
+
+    const result = validate(`${'<!-'.repeat(7_000)}<!--x-->${'-x-->'.repeat(7_000)}`);
+    expect(result).toEqual(validate(''));
+    expect(result.ok).toBe(false);
+  });
+
   it('fails a non-Conventional-Commits title', () => {
     const result = validatePullRequest({
       ...INTENT_PORTS,
