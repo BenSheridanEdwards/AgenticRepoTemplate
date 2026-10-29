@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const HOOK = resolve(ROOT, '.claude/hooks/block-gate-bypass.sh');
-const HOOK_ARG = `\${CLAUDE_PROJECT_DIR}/.claude/hooks/block-gate-bypass.sh`;
+const HOOK = resolve(ROOT, '.agents/hooks/block-gate-bypass.sh');
+const HOOK_ARG = `\${CLAUDE_PROJECT_DIR}/.agents/hooks/block-gate-bypass.sh`;
 
 /** Pipe a Bash command into the hook as Claude Code's PreToolUse JSON. */
 function runHook(shell: string, command: string, description = 'Run a git command') {
@@ -174,22 +174,51 @@ describe('.codex/hooks.json', () => {
     expect(pre[0].hooks).toHaveLength(1);
     expect(pre[0].hooks[0].type).toBe('command');
     expect(pre[0].hooks[0].command).toContain('git rev-parse --show-toplevel');
-    expect(pre[0].hooks[0].command).toContain('.claude/hooks/block-gate-bypass.sh');
+    expect(pre[0].hooks[0].command).toContain('.agents/hooks/block-gate-bypass.sh');
   });
 
   it.each([
     ROOT,
     resolve(ROOT, 'tooling/trial'),
-  ])('blocks git commit --no-verify and allows git status, run from %s', (cwd) => {
+  ])('blocks git commit --no-verify and allows normal commits and git status, run from %s', (cwd) => {
     const blocked = runCodexHook('git commit --no-verify --allow-empty -m probe', cwd);
     expect(blocked.status).toBe(2);
     expect(blocked.stderr).toContain('Fix what the gate reports instead');
 
+    expect(runCodexHook('git commit -m "fix: probe"', cwd)).toEqual({ status: 0, stderr: '' });
     expect(runCodexHook('git status', cwd)).toEqual({ status: 0, stderr: '' });
   });
 });
 
 describe('.claude/settings.json', () => {
+  it('resolves the git hook, refuses bypasses, and allows normal commits', () => {
+    const settings = JSON.parse(readFileSync(resolve(ROOT, '.claude/settings.json'), 'utf8'));
+    const hook = settings.hooks.PreToolUse.flatMap(
+      (entry: { hooks: { if: string; args: string[] }[] }) => entry.hooks,
+    ).find((entry: { if: string }) => entry.if === 'Bash(git *)');
+    const hookPath = hook.args[0].replace(`\${CLAUDE_PROJECT_DIR}`, ROOT);
+    expect(existsSync(hookPath)).toBe(true);
+
+    const run = (command: string) =>
+      spawnSync('sh', [hookPath], {
+        input: JSON.stringify({
+          session_id: 'test-session',
+          transcript_path: '/tmp/transcript.jsonl',
+          cwd: ROOT,
+          hook_event_name: 'PreToolUse',
+          tool_name: 'Bash',
+          tool_input: { command },
+        }),
+        encoding: 'utf8',
+      });
+    const blocked = run('git commit --no-verify -m "probe"');
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toContain('switches off the quality gates');
+    const allowed = run('git commit -m "fix: probe"');
+    expect(allowed.status).toBe(0);
+    expect(allowed.stderr).toBe('');
+  });
+
   it('spawns the hook for git, env, sh, and bash commands', () => {
     const settings = JSON.parse(readFileSync(resolve(ROOT, '.claude/settings.json'), 'utf8'));
     const bashEntries = settings.hooks.PreToolUse.filter(

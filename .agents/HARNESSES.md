@@ -23,7 +23,7 @@ verifies the Claude import and the AGENTS/REVIEW/BUGBOT wiring.
 
 `.claude/settings.json` holds the command permission allowlist and a PreToolUse
 hook for Bash commands running `git`, `env`, `sh`, or `bash`.
-`.codex/hooks.json` calls the same `.claude/hooks/block-gate-bypass.sh` guard
+`.codex/hooks.json` calls the same `.agents/hooks/block-gate-bypass.sh` guard
 for Bash in Codex sessions that trust and enable project hooks.
 
 The guard refuses `--no-verify`, `git commit -n`, `HUSKY=0`, and writes to
