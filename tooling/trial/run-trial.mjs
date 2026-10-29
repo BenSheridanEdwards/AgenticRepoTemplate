@@ -197,11 +197,12 @@ export function planTrial(options) {
   };
 }
 
+const existingAncestor = (path) => (existsSync(path) ? path : existingAncestor(dirname(path)));
+
 /** External evidence stays outside the invoking checkout, including through symlinks. */
 function validateEvidenceDirectory(task, root) {
   if (!task.target) return;
-  let ancestor = resolve(task.evidenceDir);
-  while (!existsSync(ancestor)) ancestor = dirname(ancestor);
+  const ancestor = existingAncestor(resolve(task.evidenceDir));
   const evidenceRoot = resolve(realpathSync(ancestor), relative(ancestor, task.evidenceDir));
   const checkoutRoot = realpathSync(root);
   if (evidenceRoot === checkoutRoot || withinPaths(evidenceRoot, [checkoutRoot]))
@@ -394,14 +395,14 @@ async function scaffoldInputs(plan, deps) {
   const lockfile =
     (await atScaffold(plan, deps, LOCKFILE)) ??
     (plan.task.target || plan.task.land !== 'showcase' ? '' : null);
-  for (const [path, text] of [
+  [
     [plan.task.prompt, template],
     [LOCKFILE, lockfile],
-  ]) {
+  ].forEach(([path, text]) => {
     if (text === null) {
       throw new Error(`The scaffold ${plan.scaffoldRev} has no ${path}.`);
     }
-  }
+  });
   return { template, lockfile };
 }
 
@@ -457,7 +458,7 @@ async function checkPreconditions(plan, deps) {
   if (free < MIN_FREE_DISK_BYTES) {
     throw new Error(`Only ${(free / 1e9).toFixed(1)} GB free disk; a trial needs 5 GB.`);
   }
-  for (const port of plan.ports) {
+  for await (const port of plan.ports) {
     if (await deps.isPortBusy(port)) {
       throw new Error(`port ${port} is busy; a trial's servers need it.`);
     }
@@ -524,7 +525,7 @@ async function prepareClone(plan, deps) {
  */
 async function runCommands(commands, cwd, deps, options) {
   const records = [];
-  for (const command of commands) {
+  for await (const command of commands) {
     const run = await deps.exec(command.argv, { cwd, ...options });
     records.push({
       name: command.name,
@@ -803,11 +804,11 @@ async function setupStage({ plan, deps, failures, agent }) {
     );
     return;
   }
-  for (const setup of await runCommands(plan.setup, plan.clone, deps, options)) {
-    if (setup.exitCode !== 0) {
-      failures.push(`setup ${setup.name} exited ${setup.exitCode}`);
-    }
-  }
+  failures.push(
+    ...(await runCommands(plan.setup, plan.clone, deps, options))
+      .filter(({ exitCode }) => exitCode !== 0)
+      .map((setup) => `setup ${setup.name} exited ${setup.exitCode}`),
+  );
   if (!plan.task.target) failures.push(...missingCheckEntries(plan));
   const version = await deps.exec([plan.agentArgv[0], '--version'], {
     cwd: plan.clone,
@@ -937,7 +938,7 @@ function recordSessionSummary({ plan, agent, run, failures }, events) {
  * @param {RunState} state
  */
 async function strayServerStage({ plan, deps, failures, result }) {
-  for (const port of plan.ports) {
+  for await (const port of plan.ports) {
     if (!(await deps.isPortBusy(port))) {
       continue;
     }
@@ -992,9 +993,9 @@ async function checksStage(state) {
     );
     return;
   }
-  for (const folder of folders) {
+  folders.forEach((folder) => {
     mkdirSync(folder, { recursive: true, mode: 0o700 });
-  }
+  });
   await git(
     deps,
     plan.workdir,
@@ -1015,14 +1016,15 @@ async function checksStage(state) {
       ],
     },
   });
-  for (const check of checks.filter(({ exitCode }) => exitCode !== 0)) {
-    failures.push(`check ${check.name} exited ${check.exitCode}`);
-  }
-  for (const name of plan.checks
-    .map(({ name }) => name)
-    .filter((required) => checks.every((check) => check.name !== required))) {
-    failures.push(`check ${name} did not run`);
-  }
+  failures.push(
+    ...checks
+      .filter(({ exitCode }) => exitCode !== 0)
+      .map((check) => `check ${check.name} exited ${check.exitCode}`),
+    ...plan.checks
+      .map(({ name }) => name)
+      .filter((required) => checks.every((check) => check.name !== required))
+      .map((name) => `check ${name} did not run`),
+  );
   return { checks };
 }
 
@@ -1051,28 +1053,25 @@ const STAGES = [
 ];
 
 /** @param {RunState} state */
-async function runStages(state) {
-  let current = state;
-  for (const stage of STAGES) {
-    try {
-      if (stage.stopped) {
-        const failures = [...current.failures, stage.stopped];
-        await writeEvidence(
-          current.plan,
-          toEvidence({ ...current, failures }, current.deps.now()),
-          current.deps,
-        );
-      }
-      current = { ...current, ...(await stage.run(current)) };
-    } catch (error) {
-      current.failures.push(`harness: ${error instanceof Error ? error.message : String(error)}`);
-      return current;
+async function runStages(state, index = 0) {
+  const stage = STAGES[index];
+  if (!stage) return state;
+  let current;
+  try {
+    if (stage.stopped) {
+      const failures = [...state.failures, stage.stopped];
+      await writeEvidence(
+        state.plan,
+        toEvidence({ ...state, failures }, state.deps.now()),
+        state.deps,
+      );
     }
-    if (stage.beforeAgent && current.failures.length > 0) {
-      return current;
-    }
+    current = { ...state, ...(await stage.run(state)) };
+  } catch (error) {
+    state.failures.push(`harness: ${error instanceof Error ? error.message : String(error)}`);
+    return state;
   }
-  return current;
+  return stage.beforeAgent && current.failures.length > 0 ? current : runStages(current, index + 1);
 }
 
 /**
@@ -1149,9 +1148,9 @@ export async function runTrial(plan, deps) {
   const retries = await checkPreconditions(plan, deps);
   const startedAt = deps.now();
   const { scaffold, preparationFailure } = await prepareScaffold(plan, deps);
-  for (const name of Object.keys(PRIVATE_ENV)) {
+  Object.keys(PRIVATE_ENV).forEach((name) => {
     mkdirSync(plan.privateEnv[name], { recursive: true, mode: 0o700 });
-  }
+  });
   /** @type {RunState} */
   const initialState = {
     plan,
@@ -1222,21 +1221,22 @@ function parseArguments(argv) {
     '--agent': 'agent',
     '--task': 'task',
   };
-  for (let index = 0; index < argv.length; index += 1) {
-    const flag = argv[index];
+  argv.reduce((nextIndex, flag, index) => {
+    if (index < nextIndex) return nextIndex;
     if (flag === '--dry-run') {
       options.dryRun = true;
     } else if (flag === '--retry') {
       options.retry = true;
     } else if (flag in valued && argv[index + 1] !== undefined) {
       options[valued[flag]] = argv[index + 1];
-      index += 1;
+      return index + 2;
     } else {
       throw new Error(
         `Unknown or incomplete argument ${flag}. See the header of tooling/trial/run-trial.mjs.`,
       );
     }
-  }
+    return index + 1;
+  }, 0);
   if (
     options.trial === undefined ||
     (options.scaffold === undefined && options.task === undefined)
@@ -1393,13 +1393,13 @@ async function main(argv) {
     await printDryRun(plan, deps);
     return 0;
   }
-  for (const signal of ['SIGINT', 'SIGTERM']) {
+  ['SIGINT', 'SIGTERM'].forEach((signal) => {
     process.on(signal, () => {
       stopAll();
       console.error(`Stopped by ${signal}. The provisional evidence and the workdir stay.`);
       process.exit(130);
     });
-  }
+  });
   const evidence = await runTrial(plan, deps);
   printOutcome(plan, evidence);
   return evidence.result.status === 'passed' ? 0 : 1;
