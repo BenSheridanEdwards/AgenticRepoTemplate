@@ -52,10 +52,8 @@
     ]
   },
 
-  // jest.style-stub.cjs is referenced as a string in jest.config.ts
-  // (moduleNameMapper), not imported, so it isn't statically reachable. It is
-  // used by every test run — exclude it from dead-file analysis.
-  "ignorePatterns": ["jest.style-stub.cjs", "vendor/**"],
+  // Jest loads this stub through moduleNameMapper, outside static imports.
+  "ignorePatterns": ["tooling/jest/jest.style-stub.cjs", "vendor/**"],
 
   // The contract's banned imports and calls per role (ADR 0032).
   "rulePacks": ["tooling/architecture/contract.rules.jsonc"],
@@ -335,8 +333,6 @@
         "**/*.d.ts",
         "**/*.d.mts",
         "{commitlint,jest,playwright}.config.ts",
-        "jest.setup.ts",
-        "jest.style-stub.cjs",
         "eslint.config.js",
         "anti-slop.advisory.mjs",
         "{apps,showcase/*}/web/{index.html,vite.config.ts}",

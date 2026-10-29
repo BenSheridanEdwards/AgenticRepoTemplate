@@ -74,7 +74,7 @@ each owner runs locally and in CI.
 - **One test runner per layer.** Unit = Jest, E2E = Playwright. That is the
   whole matrix, and `pnpm check:adr` asks for an ADR before a new one lands.
 - **The unit suite asserts behaviour.** Unit tests stub stylesheets on purpose
-  (`jest.style-stub.cjs`).
+  (`tooling/jest/jest.style-stub.cjs`).
 - **One owner per app concern.** TanStack Query owns server state, React Hook
   Form owns form state, Effect Schema owns validation, tRPC owns transport, and
   `@repo/ui` owns the primitives. Use these owners for their concern.

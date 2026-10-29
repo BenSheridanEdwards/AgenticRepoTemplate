@@ -39,7 +39,7 @@ complete once `pnpm verify` and `pnpm e2e` are green.
 - [ ] **Accessible.** No axe violations (jest-axe in unit tests, `@axe-core/playwright`
       in the E2E run); interactive elements are reachable and labelled.
 - [ ] **Within budget.** `pnpm size` passes (the bundle stays under the
-      `.size-limit.json` budget).
+      `package.json` `size-limit` budget).
 - [ ] **PR proof is ready.** The pull request body follows
       [`PR_QUALITY.md`](PR_QUALITY.md) and the
       [pull request template](../../.github/pull_request_template.md), with exact

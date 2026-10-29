@@ -45,4 +45,4 @@ jobs:
         run: pnpm build
       - name: Run Lighthouse
         if: steps.changes.outputs.ui-changed == 'true'
-        run: pnpm exec lhci autorun
+        run: pnpm exec lhci autorun --config=tooling/lighthouse/lighthouserc.json

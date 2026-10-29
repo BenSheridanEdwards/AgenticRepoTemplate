@@ -288,8 +288,8 @@ fix in so it stays fixed.
 
 Non-functionals are held continuously, not only at audit time: Lighthouse keeps
 an accessibility floor of 0.9 and a performance target of 0.8 (median of three
-runs) in [`lighthouserc.json`](lighthouserc.json), a bundle-size budget lives in
-[`.size-limit.json`](.size-limit.json), and Fallow checks dead code, cycles,
+runs) in [`tooling/lighthouse/lighthouserc.json`](tooling/lighthouse/lighthouserc.json), a bundle-size budget lives in
+the `size-limit` field in [`package.json`](package.json), and Fallow checks dead code, cycles,
 and complexity drift in pre-commit when a base branch exists. The full
 pre-push suite covers conflict-free merges that skip pre-commit. Fallow also
 owns the architecture graph, gate, the architecture contract's rule pack,
@@ -389,10 +389,10 @@ biome.json                  Format, import order, and general lint.
 eslint.config.js            Policy, React hooks, React Compiler, and React Doctor rules.
 tooling/eslint-plugin-policy.js  The repository's own ESLint policy rules (ADR 0019).
 commitlint.config.ts        Conventional Commits.
-jest.config.ts / jest.setup.ts  Unit and component tests (RTL and jest-axe), coverage gate.
+jest.config.ts / tooling/jest/  Unit and component tests (RTL and jest-axe), coverage gate.
 playwright.config.ts        Browser harness for the E2E behaviour map: one project and two servers per result.
-.size-limit.json            Bundle-size budget.
-lighthouserc.json           Lighthouse budget (accessibility floor and performance).
+package.json (size-limit)   Bundle-size budget.
+tooling/lighthouse/lighthouserc.json  Lighthouse budget (accessibility floor and performance).
 .fallowrc.jsonc             Fallow config: the role zones and rules, the contract rule pack, plus runtime-loaded plugins.
 pnpm-workspace.yaml         Workspace packages (apps/*, packages/*, showcase/*/web, showcase/*/api), trusted builds, and security overrides.
 vendor/                     Vendored dependency patches (braces, extract-zip), wired via pnpm overrides until upstream ships fixes.

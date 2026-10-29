@@ -12,9 +12,9 @@ const existingRoots = (...folders: string[]) =>
   folders.filter((folder) => existsSync(folder)).map((folder) => `<rootDir>/${folder}`);
 
 const shared = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/tooling/jest/jest.setup.ts'],
   moduleNameMapper: {
-    '\\.(css|less|scss|sass)$': '<rootDir>/jest.style-stub.cjs',
+    '\\.(css|less|scss|sass)$': '<rootDir>/tooling/jest/jest.style-stub.cjs',
   },
   transform: {
     // Effect 4 ships ES modules only and reads `import.meta?.env`, which has no

@@ -38,7 +38,7 @@ const UI_FILES = new Set([
   'package.json',
   'pnpm-lock.yaml',
   '.nvmrc',
-  'lighthouserc.json',
+  'tooling/lighthouse/lighthouserc.json',
   '.github/workflows/lighthouse.yml',
   'scripts/lighthouse-scope.mjs',
   'apps/web/e2e/visual.spec.ts',
