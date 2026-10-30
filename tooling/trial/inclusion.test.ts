@@ -445,9 +445,12 @@ describe('a showcase result', () => {
     expect(gate.output).toContain(reported);
   });
 
-  it('passes the commit gates that read the change against main', () => {
+  it('passes the dependency gate and rejects copied CSS in the commit audit', () => {
     expect(run(['node', 'scripts/check-dependency-adr.mjs', 'main']).code).toBe(0);
-    expect(run(['fallow', 'audit', '--base', 'main']).code).toBe(0);
+    const audit = run(['fallow', 'audit', '--base', 'main']);
+    expect(audit.code).toBe(1);
+    expect(audit.output).toContain('css-duplicate-block');
+    expect(audit.output).toContain('showcase/x/web/src/index.css');
   });
 
   it('fails the dependency ADR check on a dependency no ADR names', () => {
