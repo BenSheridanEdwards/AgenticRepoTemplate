@@ -33,13 +33,14 @@ pre-push. Timing is held by review. Running every convention check before every 
 within that budget. Git skips pre-commit on conflict-free merges; Fallow's audit skips when its base branch
 is absent ([ADR 0028](../.agents/decisions/0028-pre-push-runs-the-full-local-gate-suite.md)).
 
-The [bypass hook](../.agents/hooks/block-gate-bypass.sh) refuses common skips, including `--no-verify`, `git commit -n`, `HUSKY=0`, and hooksPath, alias or config include rewrites, in Claude Code and trusted Codex
+The [bypass hook](../.agents/hooks/block-gate-bypass.sh) refuses common skips, including `--no-verify`,
+`git commit -n`, `HUSKY=0`, and hooksPath, alias or config include rewrites, in Claude Code and trusted Codex
 hook sessions. Its known gaps are in [ADR 0027](../.agents/decisions/0027-block-common-hook-bypasses.md);
 clean-checkout CI and hosted required checks remain the backstop.
 
 Warnings fail Biome, ESLint and React Doctor. [ADR 0079](../.agents/decisions/0079-no-advisory-lint.md) sets
 the lint policy: every rule becomes an error or is removed, including Fallow's warning tier. That rollout is
-incomplete in this checkout. Jest and Playwright console warnings still pass; warnings-as-failures across
+not finished yet. Jest and Playwright console warnings still pass; warnings-as-failures across
 every tool remains a target.
 
 ESLint rejects inline config; keep reasoned exceptions in `eslint.config.js`. Other engines accept reasoned
@@ -102,21 +103,25 @@ merges and deploys.
 Write transforms over `const` with `map`, `filter`, `flatMap`, `some`, `every`, `find`, `reduce` and
 `Object.fromEntries` instead of loops, `let` accumulators, `push` or in-place mutation. Use `reduce` for one
 value; build arrays and objects with `map`, `flatMap` and `Object.fromEntries`. Biome rejects accumulating
-spread. Biome `style/useConst` and React Hooks immutability, globals and purity rules cover single-assignment bindings and mutation during render in package TypeScript. ESLint now rejects loops and parameter
-reassignment, including parameter property mutation ([ADR 0079](../.agents/decisions/0079-no-advisory-lint.md)). General reassignment and other mutation remain partly held by [review](../REVIEW.md). Biome's
+spread. Biome `style/useConst` and React Hooks immutability, globals and purity rules cover single-assignment
+bindings and mutation during render in package TypeScript. ESLint now rejects loops and parameter
+reassignment, including parameter property mutation
+([ADR 0079](../.agents/decisions/0079-no-advisory-lint.md)). General reassignment and other mutation remain
+partly held by [review](../REVIEW.md). Biome's
 `noForEach` and `useForOf` stay off because they steer toward loops.
 
 ## Decisions settled on 2026-10-15
 
 [ADR 0006](../.agents/decisions/0006-gap-review-decision-set.md) indexes the eight decisions:
 
-1. Protected enforcement paths match [GUARDS](../scripts/enforcement-approval.mjs):
+1. Protected enforcement paths follow [ADR 0023](../.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md)
+   and later amendments, matching [GUARDS](../scripts/enforcement-approval.mjs):
    `.github/workflows/**`, `.husky/**`, `eslint.config.js`, `commitlint.config.ts`,
    `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`,
    `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`,
    `biome.json`, `vendor/anti-slop/**`, any `.oxlintrc.json` or `oxlint.config.*`,
    `docs/prd/**` and `docs/NORTH_STAR.md`. Keep checks against suppressions,
-   deleted/skipped/`.only` tests and coverage excludes; see the guard's judges for scope.
+   deleted/skipped/`.only` tests and coverage excludes.
 2. Make this the reference monorepo and drop the two demo features.
 3. Move the unchanged app to `apps/web` in PR0, then target it with nine enforcement PRs.
 4. Lint ownership follows §1.
