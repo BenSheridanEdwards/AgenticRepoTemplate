@@ -38,8 +38,8 @@ The [bypass hook](../.agents/hooks/block-gate-bypass.sh) refuses common skips, i
 hook sessions. Its known gaps are in [ADR 0027](../.agents/decisions/0027-block-common-hook-bypasses.md);
 clean-checkout CI and hosted required checks remain the backstop.
 
-Warnings fail Biome, ESLint and React Doctor. [ADR 0079](../.agents/decisions/0079-no-advisory-lint.md) sets
-the lint policy: every rule becomes an error or is removed, including Fallow's warning tier. That rollout is
+Warnings fail Biome, ESLint and React Doctor. [ADR 0079](../.agents/decisions/0079-no-advisory-lint.md) records
+Ben's lint decision: every rule becomes an error or is removed, including Fallow's warning tier. That rollout is
 not finished yet. Jest and Playwright console warnings still pass; warnings-as-failures across
 every tool remains a target.
 
@@ -107,8 +107,8 @@ spread. Biome `style/useConst` and React Hooks immutability, globals and purity 
 bindings and mutation during render in package TypeScript. ESLint now rejects loops and parameter
 reassignment, including parameter property mutation
 ([ADR 0079](../.agents/decisions/0079-no-advisory-lint.md)). General reassignment and other mutation remain
-partly held by [review](../REVIEW.md). Biome's
-`noForEach` and `useForOf` stay off because they steer toward loops.
+held by [review](../REVIEW.md). Biome's `noForEach` and `useForOf` stay off because they steer
+toward loops.
 
 ## Decisions settled on 2026-10-15
 
