@@ -36,9 +36,8 @@ For the trial runbook, read [TRIALS.md](.agents/TRIALS.md).
 8. Write declarative transforms with `map`, `filter`, `flatMap` and `reduce` over `const` bindings ([North Star §9](docs/NORTH_STAR.md#9-declarative-over-imperative)). Review holds the remaining judgment under [REVIEW.md](REVIEW.md#scope-and-simplicity); see [ADR 0061](.agents/decisions/0061-refine-the-software-factory-philosophy.md) for the limits of lint.
 
 For tasks longer than three steps, checkpoint in the PR body.
-Use Ponytail for coding, review, refactor, and design tasks unless the user says
-otherwise. Default level: `full`. Prefer deletion, existing patterns, and stdlib
-or native platform features before abstractions or dependencies.
+Prefer deletion, existing patterns, and stdlib or native platform features
+before abstractions or dependencies.
 
 ## Before you push
 

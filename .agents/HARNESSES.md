@@ -41,6 +41,7 @@ Claude Code reads the tracked byte copy in `.claude/skills/`.
 Edit skills in `.agents/skills/`, run `pnpm skills:sync`; `pnpm check:context` fails when `.claude/skills/` differs.
 
 - `adopt-the-factory`: adopt or audit guidance, gates, CI, and PR proof in another repo.
+- `ponytail`: (optional) the simplicity discipline as a skill.
 - `run-e2e-tests`: map a behaviour to a Playwright test and run it.
 - `write-unit-tests`: test behaviour with Jest and React Testing Library.
 - `pr-quality-contract`: prepare PR proof, local checks, inline screenshots, risk, and gaps.
@@ -48,8 +49,7 @@ Edit skills in `.agents/skills/`, run `pnpm skills:sync`; `pnpm check:context` f
 - `verify-agentic-template`: drive the app in Chromium and capture screenshots, ARIA snapshots, and video.
 
 Install external skills separately. Fallow helps interpret code-intelligence
-findings. Ponytail is the global simplicity plugin (`/ponytail lite|full|ultra`);
-[AGENTS.md](../AGENTS.md) sets the default discipline.
+findings.
 
 ## Layer model
 
