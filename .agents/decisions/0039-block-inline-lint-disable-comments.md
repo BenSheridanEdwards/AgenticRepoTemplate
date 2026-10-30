@@ -9,6 +9,7 @@
   now blocks every one
 - **Follows:** [0033](0033-result-diagrams-and-structure-validation.md), which
   left `noInlineConfig` for a separate change
+- **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
@@ -32,7 +33,7 @@ no `eslint-disable`, `eslint-disable-line`, `eslint-disable-next-line`,
 `eslint-enable`, `/* eslint <rule>: off */`, `/* eslint-env */`,
 `/* global */` or `/* exported */` comment, and
 reports each one as a warning. `pnpm lint:policy` runs `eslint
---max-warnings=0 .`, and so do `pnpm verify`, `scripts/verify-gates.sh` and the
+--max-warnings=0 .`, and so do `pnpm verify`, `scripts/verify-gates.sh` (removed in 2026-10; see ADR 0082) and the
 CI `quality` job through it, so each comment fails the run. The rule finding
 the comment tried to silence is reported too.
 
@@ -76,7 +77,7 @@ This change is about ESLint comments only, so `biome-ignore` and
   config, and asserts ESLint fails on each line. It asserts that a named,
   reasoned disable leaves its finding reported, and that `eslint .` lints every
   tracked source file. Each of these tests fails on the previous config.
-- ESLint's ignore list (build output, `coverage/`, `graphify-out/` and the rest)
+- ESLint's ignore list (build output, `coverage/`, `graphify-out/` (removed in 2026-10; see ADR 0082) and the rest)
   gains `.cache/`, the gitignored output of
   `pnpm typecheck`, `pnpm api:report` and `pnpm arch:diagram`, because the wider file globs would
   otherwise lint its generated `.d.ts` files. A source file committed under an
