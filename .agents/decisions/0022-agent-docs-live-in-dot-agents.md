@@ -2,6 +2,7 @@
 
 - **Status:** Accepted; points 1 and 2 superseded by [0053](0053-root-pointers-name-start-here.md); point 1 superseded by [0078](0078-agents-md-is-the-root-contract.md)
 - **Date:** 2026-10-17
+- **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
@@ -9,7 +10,7 @@
 `.agents/` but kept the operating contract in `AGENTS.md` and the Claude layer
 in `CLAUDE.md`. Agent docs still sat at the root: `AGENTS.md`,
 `CLAUDE.md`, `NORTH_STAR.md` and an OpenAI manifest.
-GitNexus wrote the same 50-line block into both `AGENTS.md` and `CLAUDE.md`.
+GitNexus (removed in 2026-10; see ADR 0082) wrote the same 50-line block into both `AGENTS.md` and `CLAUDE.md`.
 An agent had to read two root files to find out where to start.
 
 ## Decision
@@ -21,8 +22,8 @@ An agent had to read two root files to find out where to start.
    used to: what the repo is, the commands, the golden rules, and a map of
    everything else in `.agents/`.
 3. **Every other agent doc moves into `.agents/`:** `CLAUDE_CODE.md` (the
-   Claude Code notes), `GITNEXUS.md` (the GitNexus guidance) and `NORTH_STAR.md`.
-4. **GitNexus re-indexes with `--skip-agents-md`**, so it no longer rewrites
+   Claude Code notes), `GITNEXUS.md` (removed in 2026-10; see ADR 0082) (the GitNexus (removed in 2026-10; see ADR 0082) guidance) and `NORTH_STAR.md`.
+4. **GitNexus (removed in 2026-10; see ADR 0082) re-indexes with `--skip-agents-md`**, so it no longer rewrites
    the root pointers.
 
 `pnpm check:context` enforces the chain: `CLAUDE.md` defers to `AGENTS.md`,
@@ -35,5 +36,5 @@ This record supersedes point 2 of ADR 0004. Points 1 and 3 stand.
 - An agent reads one short file at the root and lands in `.agents/`.
 - Agents that load only `AGENTS.md` see a pointer, not the rules. They must
   follow the link; the rules are one hop away.
-- A plain `gitnexus analyze` re-adds its block to the root files. Re-index with
-  the flag, and copy any new generated guidance into `.agents/GITNEXUS.md`.
+- A plain `gitnexus analyze` (removed in 2026-10; see ADR 0082) re-adds its block to the root files. Re-index with
+  the flag, and copy any new generated guidance into `.agents/GITNEXUS.md` (removed in 2026-10; see ADR 0082).

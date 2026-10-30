@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-17
+- **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
@@ -36,7 +37,7 @@ ask for an ADR with each new dependency, and nothing checked that either.
   with the base ref against `HEAD`. It fails when a dependency name is new in any
   dependency field and no ADR added in the same change names it. Version bumps
   pass. An unresolvable base fails closed.
-- `pnpm verify`, `scripts/verify-gates.sh`, and the CI quality job run
+- `pnpm verify`, `scripts/verify-gates.sh` (removed in 2026-10; see ADR 0082), and the CI quality job run
   `pnpm check:adr`. The quality job checks out full history so the merge base
   resolves.
 - Both checks are repository scripts with no new dependency.

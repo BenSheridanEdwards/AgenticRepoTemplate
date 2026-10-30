@@ -2,6 +2,7 @@
 
 - **Status:** Accepted; point 2 superseded by [0022](0022-agent-docs-live-in-dot-agents.md)
 - **Date:** 2026-06-17
+- **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
@@ -9,7 +10,7 @@ Agent instructions tend to sprawl across `CLAUDE.md`, `AGENTS.md`, Cursor rules,
 and assorted docs, which then drift out of sync. At the same time, several tools
 expect specific entry files (`AGENTS.md`, `CLAUDE.md`). We want one place to
 maintain detail and still satisfy those entry points. We also use external skill
-libraries (ArchitectPlaybook, Fallow skills, graphify) that are maintained — and
+libraries (ArchitectPlaybook (removed in 2026-10; see ADR 0082), Fallow skills, graphify (removed in 2026-10; see ADR 0082)) that are maintained — and
 self-improve — in their own repositories.
 
 ## Decision

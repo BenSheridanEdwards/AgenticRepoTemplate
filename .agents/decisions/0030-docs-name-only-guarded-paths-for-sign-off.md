@@ -3,6 +3,7 @@
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md)
+- **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
@@ -32,7 +33,7 @@ prose helpers, and fails when a claim mentions sign-off and names a path the
 gate leaves unguarded.
 
 - A claim is one sentence or `;` clause of a paragraph, list item or heading,
-  or one cell of a table row. Fenced code and the generated GitNexus block are
+  or one cell of a table row. Fenced code and the generated GitNexus (removed in 2026-10; see ADR 0082) block are
   skipped. "Sign-off", "sign off", "signs off" and "signed off" all count.
 - Each path-shaped code span in the claim is checked with the gate's own path
   rules, through the `guardedPaths` function that

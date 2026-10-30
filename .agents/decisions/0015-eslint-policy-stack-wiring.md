@@ -4,6 +4,7 @@
 - **Date:** 2026-10-15
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
   for Biome lint ownership; implementation follows in separate PRs.
+- **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
@@ -68,7 +69,7 @@ The scan passes with the network removed and reports identical diagnostics
 on repeated runs.
 
 **Where it runs.** `pnpm lint:policy` and `pnpm react-doctor` run in
-`pnpm verify` right after `pnpm check`, in `scripts/verify-gates.sh`, and as
+`pnpm verify` right after `pnpm check`, in `scripts/verify-gates.sh` (removed in 2026-10; see ADR 0082), and as
 steps in the CI `quality` job ("Type check · lint · format") after
 `pnpm check`. `scripts/eslint-policy.test.ts` drives the real ESLint CLI to
 prove hooks, React Compiler, and React Doctor findings block while general lint

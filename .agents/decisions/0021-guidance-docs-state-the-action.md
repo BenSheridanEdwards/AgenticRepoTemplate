@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-17
+- **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
@@ -21,13 +22,13 @@ brings it back.
   or `avoid`, or that starts with `No`, and the message asks for the
   positive form.
 - The check reads prose only. Inline code spans, fenced code, inline link
-  targets, and the generated GitNexus block pass. A fence closes only on the marker that opened
+  targets, and the generated GitNexus (removed in 2026-10; see ADR 0082) block pass. A fence closes only on the marker that opened
   it.
 - ADRs are records that are superseded, not edited, so `.agents/decisions/` is
-  out of scope. The generated GitNexus skills and the vendored, hash-pinned
+  out of scope. The generated GitNexus (removed in 2026-10; see ADR 0082) skills and the vendored, hash-pinned
   `show-me/SKILL.md` are out of scope too. The repository's own notes beside
   it, such as `show-me/REPOSITORY.md`, are checked.
-- `pnpm verify`, `scripts/verify-gates.sh`, and the CI quality job run
+- `pnpm verify`, `scripts/verify-gates.sh` (removed in 2026-10; see ADR 0082), and the CI quality job run
   `pnpm check:docs`. The script is a repository script with no new dependency.
 
 ## Consequences
