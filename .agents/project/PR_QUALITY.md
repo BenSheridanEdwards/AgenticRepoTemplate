@@ -84,7 +84,7 @@ Run the checks and report results and gaps as required by [Evidence rules](#evid
 
 ## Proposing a PRD change
 
-Use the [PRD change issue form](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/new?template=prd-change.yml) for behaviour or intent changes. Name the conflicting or superseded `docs/prd/<feature>.md`, or write `None: new PRD for <feature>`. Link the branch compare or draft PR editing it, explain the North Star outcome, and list E2E tests that would change when known.
+Use the [PRD change issue form](../../.github/ISSUE_TEMPLATE/prd-change.yml) (open it from **Issues → New issue → PRD change**) for behaviour or intent changes. Name the conflicting or superseded `docs/prd/<feature>.md`, or write `None: new PRD for <feature>`. Link the branch compare or draft PR editing it, explain the North Star outcome, and list E2E tests that would change when known.
 GitHub requires PRD, proposed diff, and outcome answers. `scripts/issue-forms.test.ts`, run by `pnpm test` and `pnpm verify`, protects these requirements and keeps blank issues available. Review checks that path, diff, and outcome match the proposal ([ADR 0056](../decisions/0056-prd-changes-start-from-an-issue-form.md)).
 
 ## PR size
