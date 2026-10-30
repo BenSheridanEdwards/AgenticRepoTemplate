@@ -52,7 +52,6 @@ git log -1 --format=%H <head> -- docs/NORTH_STAR.md. -->
 - Definition of Done (`.agents/project/PR_QUALITY.md`) satisfied, or each gap named:
 - [ ] `pnpm verify`
 - [ ] `pnpm e2e`
-- [ ] `pnpm lint:anti-slop:changed` prints no finding for this branch.
 - [ ] Behaviour is covered by the E2E map when user-visible behaviour changed.
 - [ ] Logic is unit-tested where logic changed.
 - [ ] Accessibility considered and verified for interactive/UI changes.

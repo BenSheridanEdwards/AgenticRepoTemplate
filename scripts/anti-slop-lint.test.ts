@@ -10,9 +10,9 @@ function write(path: string, contents: string) {
   mkdirSync(dirname(join(directory, path)), { recursive: true });
   writeFileSync(join(directory, path), contents);
 }
-function lint(advisory = false, extra: string[] = []) {
+function lint(extra: string[] = []) {
   const { scripts } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-  const command: string = scripts[advisory ? 'lint:anti-slop:advisory' : 'lint:anti-slop'];
+  const command: string = scripts['lint:anti-slop'];
   const [executable, ...args] = command.split(' ');
   const result = spawnSync(executable, [...args, '--format', 'json', ...extra, '.'], {
     cwd: directory,
@@ -31,7 +31,6 @@ beforeEach(() => {
       jsPlugins: config.jsPlugins.map((path: string) => resolve(ROOT, path)),
     }),
   );
-  write('anti-slop.advisory.mjs', readFileSync(join(ROOT, 'anti-slop.advisory.mjs'), 'utf8'));
 });
 afterEach(() => rmSync(directory, { recursive: true, force: true }));
 it.each`
@@ -62,12 +61,11 @@ it.each`
       expect.objectContaining({ code: rule, severity: 'error' }),
     ]),
   });
-  expect(lint(true).status).toBe(1);
   write('apps/web/src/example.ts', good);
   expect(lint()).toMatchObject({ status: 0, diagnostics: [] });
 });
 
-it('skips agent, vendor and recorded trial directories in both configs', () => {
+it('skips agent, vendor and recorded trial directories', () => {
   const ignored = `.agent .agents .claude .codex .continue .cursor .gemini .opencode .pi .roo .windsurf vendor
 showcase/todo-01 showcase/todo-02 showcase/todo-03 showcase/todo-codex-01 showcase/todo-codex-02 showcase/todo-codex-03
 showcase/notes-01 showcase/any-result`;
@@ -76,16 +74,13 @@ showcase/notes-01 showcase/any-result`;
   });
   write('clean.ts', 'export const count = 1;\n\ndebugger;');
   expect(lint()).toMatchObject({ status: 0, diagnostics: [] });
-  expect(lint(true)).toMatchObject({ status: 0, diagnostics: [] });
 });
 
-it('allows typeof in tooling and rejects it in package source in both configs', () => {
+it('allows typeof in tooling and rejects it in package source', () => {
   write('scripts/example.ts', 'typeof value === "string";');
   expect(lint()).toMatchObject({ status: 0, diagnostics: [] });
-  expect(lint(true)).toMatchObject({ status: 0, diagnostics: [] });
   write('apps/web/src/example.ts', 'typeof value === "string";');
   expect(lint().status).toBe(1);
-  expect(lint(true).status).toBe(1);
 });
 
 it('explicit config and --no-ignore prevent nested config and eslintignore bypasses', () => {

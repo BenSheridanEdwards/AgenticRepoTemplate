@@ -22,7 +22,7 @@ function lintSeed(path: string, source: string) {
     copyFileSync(join(REPOSITORY_ROOT, '.gitignore'), join(directory, '.gitignore'));
     mkdirSync(dirname(join(directory, path)), { recursive: true });
     writeFileSync(join(directory, path), source);
-    const run = spawnSync(BIOME_BIN, ['lint', path, '--reporter=json'], {
+    const run = spawnSync(BIOME_BIN, ['check', path, '--reporter=json'], {
       cwd: directory,
       encoding: 'utf8',
     });
@@ -56,4 +56,11 @@ describe('Biome naming overrides', () => {
     const result = lintSeed('scripts/bad_name.ts', 'export const bad_name = 1;\n');
     expect(result).toEqual({ status: 0, rules: [] });
   });
+});
+
+it('rejects var declarations and increment operators', () => {
+  const result = lintSeed('scripts/example.ts', 'var x = 1; x++;\n');
+  expect(result.status).toBe(1);
+  expect(result.rules).toContain('lint/suspicious/noVar');
+  expect(result.rules).toContain('lint/style/noIncrementDecrement');
 });
