@@ -3,7 +3,7 @@
 - **Result:** __the result that ships it, such as the reference result, `apps/`__
 - **Decision:** [ADR 0045](../../.agents/decisions/0045-prds-state-intent-and-link-their-specs.md)
 - **Covers:** `apps/web/src/routes/__feature__/**`, `apps/api/src/features/__feature__/**`
-- Propose a behaviour or intent change with the [PRD change issue form](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/new?template=prd-change.yml).
+- Propose a behaviour or intent change with the [PRD change issue form](../../.github/ISSUE_TEMPLATE/prd-change.yml) (open it from **Issues → New issue → PRD change**).
 
 ## Intent
 
