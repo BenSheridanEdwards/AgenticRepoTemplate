@@ -87,12 +87,15 @@ The baseline-head CI and CodeQL runs succeeded; the ledger links the actual runs
 and preserves job outcomes. A job's successful execution is distinct from the
 status it sets. A clean local run is distinct from GitHub Actions.
 
-**Visible setup gap:** the captured branch protection requires `Required gates`
-but omits `Visual regression`, which the source inventory expects. It also omits
-`enforcement-approval`; the aggregate does not include that status either.
+**Deliberate beta checks:** `enforcement-approval` and `Visual regression` report
+results in testing mode and remain nonblocking. The captured branch protection
+requires `Required gates`, while these two checks remain outside the required
+checks; the aggregate also excludes `enforcement-approval`.
 The read-only [configuration comparison](proof/software-factory-tour/protection.txt)
-fails. These settings remain unchanged and need authorised administration.
-The tour therefore makes no claim of complete hosted merge enforcement.
+fails because the source inventory expects Visual regression to be required.
+That historical output is preserved exactly as observed. Its mismatch describes
+the deliberate beta configuration, rather than a defect or a request to promote
+either check. Existing settings remain unchanged; beta exit criteria are unspecified.
 
 ## 5. Protect standards · 5:00–6:45
 
@@ -116,8 +119,8 @@ head, another user's tick refused, and a new head reset to waiting.
 [The existing regression suite](../scripts/enforcement-approval.test.ts) also checks
 forged edits, race conditions and stale events.
 
-These are synthetic approval fixtures, not a human sign-off. The status is not
-currently a required merge check. Guarded paths are explicit, not every config:
+These are synthetic approval fixtures, not a human sign-off. The approval status
+is deliberately nonblocking during beta testing. Guarded paths are explicit, not every config:
 [ADR 0023](../.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md)
 leaves the Fallow role map to reviewed diffs and diagram freshness.
 
@@ -154,7 +157,7 @@ The repeatable method is to identify an enterprise's conventions, encode the use
 ones, put each check at the right point, and preserve human ownership of changes to
 the standards. Tools are building blocks. The factory is their working integration.
 
-For this reference, local controls and baseline CI have real receipts. Hosted setup
-gaps remain explicit. Adoption, customer outcomes and faster delivery are not inferred
-from a passing repository. Review the proof, approve the necessary setup separately,
-and adapt the system to the enterprise rather than copying the example application.
+For this reference, local controls and baseline CI have real receipts. Established
+required gates and the two deliberate beta checks remain distinct. Adoption, customer
+outcomes and faster delivery are not inferred from a passing repository. Review the
+proof and adapt the system to the enterprise rather than copying the example application.

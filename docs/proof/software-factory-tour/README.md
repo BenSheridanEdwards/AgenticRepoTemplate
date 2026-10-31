@@ -11,14 +11,14 @@ The delivery PR's checks panel supplies its own exact-head hosted status.
 | Pre-commit checks staged changes | Local runtime | [complete staged hook and each step](receipts.json), five repetitions of a staged source parameter rename | [Hook source](../../../.husky/pre-commit) scopes Biome/gitleaks to staged files; typecheck/Oxlint are wider; Fallow checks touched files |
 | Every observed step is under 30 seconds | Measurement, not enforcement | [all samples, first/warm medians, maxima](timings.json) | No observed miss; no cold-machine trial; no equivalent ESLint comparison |
 | Full local gates run before push | Source + baseline runtime | [pre-push](../../../.husky/pre-push), `pnpm verify` and `pnpm e2e` [output](baseline.txt) | Baseline command times are not a measured full push. Delivery head is rechecked separately |
-| CI runs and aggregates expected lanes | Actual hosted baseline status + synthetic regression suite | [run/job URLs and exact SHA](hosted.json) | [aggregate rejection tests](focused-controls.txt); hosted setup gaps in [protection comparison](protection.txt) |
+| CI runs and aggregates expected lanes | Actual hosted baseline status + synthetic regression suite | [run/job URLs and exact SHA](hosted.json) | [aggregate rejection tests](focused-controls.txt); deliberate beta configuration recorded in [protection comparison](protection.txt) |
 | Common bypass text is rejected | Actual local guard process | Legitimate commit text returns 0 in [probes](probes.json) | Three bypass strings each return 2; only the guard executes, receiving strings as JSON data |
 | Supported harness entry points call the guard | Source + integration tests | [guard tests](focused-controls.txt), [harness docs](../../../.agents/HARNESSES.md) | No live Claude/Codex trust activation is asserted; [known gaps](../../../.agents/decisions/0027-block-common-hook-bypasses.md) remain |
 | Guarded lint weakening is detected | Pure checker on synthetic file contents | README prose change produces no problem in [probes](probes.json) | ESLint `error` to `off` produces a guarded lint-config problem; real config unchanged |
 | Named-user approval is exact-head | Synthetic pure/core and stubbed API tests | Ben User tick produces success in [probes](probes.json) | Wrong user and new head produce failure; [464 focused tests](focused-controls.txt) include stale, forged and race cases; no real human sign-off claimed |
 | Prohibited value imports fail | Real Fallow process on temporary HEAD archive | Clean and restored fixtures exit 0 in [probes](probes.json) | Domain-to-application value re-export exits 1 with exact boundary finding and cycle; config unchanged |
 | Architecture diagrams are fresh | Local runtime + synthetic stale fixtures | `diagram.mjs --check` reports two matching diagrams in [receipts](receipts.json) | [diagram tests](focused-controls.txt) exercise stale/missing/extra outputs and regeneration |
-| Hosted protection matches source intent | Read-only hosted configuration | Required gates and main freshness are configured in [snapshot](hosted.json) | **Not fully satisfied:** Visual regression and enforcement-approval are absent as required checks. No settings changed |
+| Established required gates and beta checks have distinct roles | Read-only hosted configuration | Required gates and main freshness are configured in [snapshot](hosted.json) | Visual regression and enforcement-approval deliberately remain beta/nonblocking; existing settings are preserved |
 
 ## Environment and timings
 
@@ -98,8 +98,11 @@ gh api repos/BenSheridanEdwards/AgenticRepoTemplate/branches/main/protection/req
 node scripts/enforcement-approval.mjs --git origin/main HEAD
 ```
 
-The protection comparison is expected to fail against the captured configuration.
-Its missing Visual regression requirement needs an authorised settings change.
-Adding enforcement-approval to merge protection is also an explicit administration
-boundary; the source aggregate currently does not require it. Ordinary PR review
-and configured status checks remain distinct from actual human approval.
+The protection comparison is expected to fail against the captured configuration:
+the source inventory expects Visual regression to be required, while Visual regression
+and enforcement-approval deliberately remain nonblocking during beta testing.
+The source aggregate also excludes enforcement-approval. Historical output remains
+unchanged; this explanatory context distinguishes the intentional beta state from a
+configuration defect or a request to make either check compulsory. Beta exit criteria
+are unspecified. Ordinary PR review and configured status checks remain distinct from
+actual human approval.
