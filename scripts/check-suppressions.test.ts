@@ -3,10 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  checkSuppressions,
-  findUnreasonedSuppressions as findSuppressions,
-} from './check-suppressions.mjs';
+import { checkSuppressions, findSuppressions } from './check-suppressions.mjs';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const DIRECTIVES = [
@@ -118,6 +115,7 @@ describe('Oxlint directives', () => {
     [`const value = \`hello ${'${'} /* ${OXLINT}-disable */ name}\`;`, 'oxlint-disable'],
     [`/*\n * ${OXLINT}-disable\n */`, 'oxlint-disable'],
     [`/*\n${OXLINT}-enable\n*/`, 'oxlint-enable'],
+    [`/**\n * ${OXLINT}-disable\n */`, 'oxlint-disable'],
   ])('rejects %j even with a reason', (comment, kind) => {
     expect(findSuppressions(`const before = 1;\n${comment}\n`)).toEqual([
       { line: comment.includes('\n') ? 3 : 2, kind },

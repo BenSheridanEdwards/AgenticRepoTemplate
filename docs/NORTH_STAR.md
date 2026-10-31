@@ -88,12 +88,10 @@ and E2E tests:
 - **ESLint disable comments are ignored.** ESLint sets `noInlineConfig`, so it
   applies no inline `eslint-disable` comment and fails the run on each one
   ([ADR 0039](../.agents/decisions/0039-block-inline-lint-disable-comments.md)). An
-  ESLint exception lives in `eslint.config.js` with its reason. The other
-  engines accept a suppression that names its reason (`biome-ignore`,
-  `@ts-expect-error`, `fallow-ignore`) outside result roots. The structure
-  check's `suppression` rule rejects those directives, ESLint directives and
-  coverage pragmas in both `apps/` and `showcase/<id>/`. Coverage pragmas
-  outside those roots remain a review concern.
+  ESLint exception lives in `eslint.config.js` with its reason.
+  `pnpm check:suppressions` rejects every other inline suppression and coverage
+  pragma across the repo; an exception lives in its reviewed allowlist
+  ([ADR 0084](../.agents/decisions/0084-reject-every-inline-suppression.md)).
 
 Skills are agent operating procedures. They teach an agent how to run a
 workflow, and they are valuable. Most ship with the agent, and the repo adds
