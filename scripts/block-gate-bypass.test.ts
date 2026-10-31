@@ -190,6 +190,61 @@ describe('.codex/hooks.json', () => {
   });
 });
 
+function runCursorHook(input: string) {
+  const hooks = JSON.parse(readFileSync(resolve(ROOT, '.cursor/hooks.json'), 'utf8'));
+  const [hook] = hooks.hooks.beforeShellExecution;
+  const result = spawnSync('sh', ['-c', hook.command], {
+    cwd: ROOT,
+    input,
+    encoding: 'utf8',
+  });
+  expect(result.status).toBe(0);
+  expect(result.stderr).toBe('');
+  return JSON.parse(result.stdout);
+}
+
+describe('.cursor/hooks.json', () => {
+  it('runs the adaptor before shell execution and fails closed on hook failures', () => {
+    const hooks = JSON.parse(readFileSync(resolve(ROOT, '.cursor/hooks.json'), 'utf8'));
+    expect(hooks.version).toBe(1);
+    expect(hooks.hooks.beforeShellExecution).toEqual([
+      { command: 'sh .agents/hooks/cursor-gate-bypass.sh', failClosed: true },
+    ]);
+    expect(existsSync(resolve(ROOT, '.agents/hooks/cursor-gate-bypass.sh'))).toBe(true);
+  });
+
+  it.each([
+    'git commit --no-verify -m "probe"',
+    'HUSKY=0 git commit -m x',
+  ])('denies %j with the guard message for both the user and agent', (command) => {
+    const response = runCursorHook(JSON.stringify({ command, cwd: ROOT, sandbox: false }));
+    expect(response.permission).toBe('deny');
+    expect(response.user_message).toContain('switches off the quality gates');
+    expect(response.agent_message).toBe(response.user_message);
+  });
+
+  it('allows a normal commit', () => {
+    expect(
+      runCursorHook(
+        JSON.stringify({ command: 'git commit -m "fix: probe"', cwd: ROOT, sandbox: false }),
+      ),
+    ).toEqual({ permission: 'allow' });
+  });
+
+  it.each([
+    'not json',
+    '{}',
+    'null',
+    '{"command":42}',
+    '{"command":""}',
+  ])('denies an unreadable command payload %j', (input) => {
+    const response = runCursorHook(input);
+    expect(response.permission).toBe('deny');
+    expect(response.user_message).toContain('could not read the command');
+    expect(response.agent_message).toBe(response.user_message);
+  });
+});
+
 describe('.claude/settings.json', () => {
   it('resolves the git hook, refuses bypasses, and allows normal commits', () => {
     const settings = JSON.parse(readFileSync(resolve(ROOT, '.claude/settings.json'), 'utf8'));
