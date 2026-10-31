@@ -43,10 +43,10 @@ Ben's lint decision: every rule becomes an error or is removed, including Fallow
 not finished yet. Jest and Playwright console warnings still pass; warnings-as-failures across
 every tool remains a target.
 
-ESLint rejects inline config; keep reasoned exceptions in `eslint.config.js`. Other engines accept reasoned
-`biome-ignore`, `@ts-expect-error` and `fallow-ignore` outside result roots. Structure checks reject these,
-ESLint directives and coverage pragmas in `apps/` and `showcase/<id>/`; review holds coverage pragmas
-elsewhere. [Conventions](../.agents/project/CONVENTIONS.md) names the enforcers.
+ESLint rejects inline config; keep reasoned exceptions in `eslint.config.js`. `pnpm check:suppressions`
+rejects every other inline suppression and coverage pragma across the repo; an exception lives in its reviewed
+allowlist ([ADR 0084](../.agents/decisions/0084-reject-every-inline-suppression.md)).
+[Conventions](../.agents/project/CONVENTIONS.md) names the enforcers.
 
 Label standards without gates as targets. Close aliases, re-exports, inline disables and config edits around
 a rule before calling it finished. Changes that loosen or rewrite enforcement need Ben's sign-off on the

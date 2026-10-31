@@ -3,7 +3,7 @@
  */
 import { symlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { findUnreasonedSuppressions as findSuppressions } from '../../scripts/check-suppressions.mjs';
+import { findSuppressions } from '../../scripts/check-suppressions.mjs';
 import { validateStructure } from './structure.mjs';
 import { createMonorepo, loadRepositoryContract, resultFiles, runTool } from './temporary-monorepo';
 

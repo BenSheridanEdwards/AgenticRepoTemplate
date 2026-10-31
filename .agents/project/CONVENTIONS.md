@@ -41,7 +41,7 @@ The ESLint rules and Biome naming override run on `{apps,packages}/*/src/**` and
 | `interface` for object shapes, `type` for unions and aliases. | Biome `style/useConsistentTypeDefinitions` |
 | Import order. | Biome `organizeImports` |
 | Every block has a body; a handled error does something observable. | Biome `suspicious/noEmptyBlockStatements` |
-| Outside result roots, every `fallow-ignore` comment names its reason. | Fallow `require-suppression-reason`; the structure check rejects this directive in `apps/` and `showcase/<id>/`. |
+| Use no `fallow-ignore` comment. | `pnpm check:suppressions`; the structure check also rejects this directive in result roots. |
 | Accessible, labelled controls and status regions. | Biome `a11y/*`, jest-axe, `@axe-core/playwright`, Lighthouse |
 
 Comment groups count physical lines and adjacent mixed syntaxes together. Imports within a role still follow slice isolation.
