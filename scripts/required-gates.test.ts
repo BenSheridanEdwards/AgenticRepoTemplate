@@ -397,6 +397,7 @@ describe('checkContract', () => {
       'the decision step is deleted',
       /\n {6}- name: Every required lane passed[\s\S]*--decide\n/,
       '\n',
+      'pnpm verify',
     ],
     [
       'the decision step can fail quietly',
@@ -408,9 +409,12 @@ describe('checkContract', () => {
       /(Every required lane passed\n {8})if: always\(\)/,
       '$1if: !cancelled()',
     ],
-  ])('fails when %s', (_label, from, to) => {
+  ])('fails when %s', (_label, from, to, missingCommand) => {
     const errors = contractErrors((files) => ({ 'ci.yml': files['ci.yml'].replace(from, to) }));
-    expect(errors).toContainEqual(expect.stringContaining('differs from the contract'));
+    expect(errors).toEqual([
+      expect.stringContaining('differs from the contract'),
+      ...(missingCommand ? [expect.stringContaining('`.husky/pre-push` runs `pnpm verify`')] : []),
+    ]);
   });
 
   it.each([
@@ -448,6 +452,7 @@ describe('checkContract', () => {
       'run: pnpm test:coverage\n',
       'run: pnpm test:coverage || true\n',
       'job `test` step "pnpm test:coverage || true" ignores its exit code with `|| true`',
+      'pnpm test:coverage',
     ],
     [
       'a lane command ends in || :',
@@ -455,6 +460,7 @@ describe('checkContract', () => {
       'run: pnpm build\n',
       'run: pnpm build || :\n',
       'job `build` step "pnpm build || :" ignores its exit code with `|| :`',
+      'pnpm build',
     ],
     [
       'a lane command ends in || exit 0',
@@ -470,11 +476,16 @@ describe('checkContract', () => {
       '          set +e\n          expected="fallow',
       'job `fallow` step "Assert the Fallow CLI matches the package.json pin" ignores its exit code with `set +e`',
     ],
-  ])('fails when %s', (_label, workflow, from, to, message) => {
+  ])('fails when %s', (_label, workflow, from, to, message, missingCommand) => {
     const errors = contractErrors((files) => ({
       [workflow]: files[workflow].replace(from, to),
     }));
-    expect(errors).toContainEqual(expect.stringContaining(message));
+    expect(errors).toEqual([
+      expect.stringContaining(message),
+      ...(missingCommand
+        ? [expect.stringContaining(`\`package.json verify\` runs \`${missingCommand}\``)]
+        : []),
+    ]);
   });
 
   it.each([
