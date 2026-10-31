@@ -8,7 +8,7 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 
 | Where it runs | Owning hook, workflow or tool | Gate | Local mirror |
 | --- | --- | --- | --- |
-| Agent commands | `.agents/hooks/block-gate-bypass.sh` | Common hook bypasses are refused; scope and gaps are in [ADR 0027](../decisions/0027-block-common-hook-bypasses.md). | Command guard; see ADR 0027 for gaps |
+| Claude Code, trusted Codex Bash sessions and Cursor agents | `.agents/hooks/block-gate-bypass.sh` (Cursor uses `.agents/hooks/cursor-gate-bypass.sh`) | Common hook bypasses are refused; scope and gaps are in [ADR 0027](../decisions/0027-block-common-hook-bypasses.md) and [Cursor runs the gate-bypass hook](../decisions/0088-cursor-runs-the-gate-bypass-hook.md). | Command guard; see ADR 0027 for gaps |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. | commitlint via commit-msg |
 | Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome (lint + format + imports), `pnpm lint:anti-slop`, `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). | Run the hook commands below |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main (the one local up-to-date check), then `pnpm verify` (the full local gate suite, including the production build) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. | `pnpm verify` + `pnpm e2e` |
