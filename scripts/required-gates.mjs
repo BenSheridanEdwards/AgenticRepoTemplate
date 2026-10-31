@@ -69,6 +69,13 @@ export const REQUIRED_GATES = [
     local: '`pnpm verify`, pre-push hook',
   },
   {
+    check: 'Changed-file coverage',
+    workflow: 'ci.yml',
+    job: 'coverage',
+    judgedBy: 'aggregate',
+    local: '`pnpm coverage:changed`',
+  },
+  {
     check: 'Production build',
     workflow: 'ci.yml',
     job: 'build',
@@ -229,6 +236,17 @@ export const HOOK_STEPS = [
       { run: 'pnpm arch:gate' },
       { run: 'pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd' },
       { run: 'pnpm api:check' },
+    ],
+  },
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm coverage:changed',
+    workflow: 'ci.yml',
+    job: 'coverage',
+    steps: [
+      {
+        run: 'changed="$(git -c core.quotePath=false diff --name-only HEAD^1..."$HEAD_SHA")" && CHANGED="$changed" node scripts/confidence-label.mjs --coverage-gate',
+      },
     ],
   },
   ...[

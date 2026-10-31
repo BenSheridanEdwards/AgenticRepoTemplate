@@ -17,9 +17,8 @@
  * - **Unit line coverage.** Each changed source meets Jest's line threshold.
  * - **Import blast radius.** Fallow importers stay within one unit and the count threshold.
  *
- * A PR whose required checks all pass grades `green` with no gap, or `amber`
- * with one or more named gaps. The label grades a PR that is already green; the
- * gates themselves stay the fail-closed merge bar (ADR 0017).
+ * Coverage gaps grade `red` and fail the Changed-file coverage lane. PRD and
+ * import blast-radius gaps grade `amber`; a PR with no gaps grades `green`.
  *
  * CLI modes:
  *   --decide   Grade the PR. Reads `CHECK_RUNS` (the head commit's check runs as
@@ -29,6 +28,8 @@
  *              (default: cwd), prints the level and reasons, and writes
  *              `level` and `label` to `GITHUB_OUTPUT` and a summary to
  *              `GITHUB_STEP_SUMMARY`.
+ *   --coverage-gate  Check CHANGED sources and slices against COVERAGE_FILE and
+ *                    specs in PR_ROOT (default: cwd). Exit 1 on gaps or missing coverage.
  *   --labels   Print the three label definitions (name, colour, description) as
  *              JSON, so the workflow can create any that the repository lacks.
  */
@@ -282,22 +283,30 @@ export function requiredCheckResults(checkRuns, checkNames = requiredCheckNames(
 }
 
 /**
- * Grade red when evidence is unavailable or a required check is not success;
- * `amber` when there is a gap and `green` when there is none. Pure.
+ * Grade coverage gaps, missing evidence and failed checks red; PRD and import
+ * gaps amber; no gaps green. Pure.
  *
- * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], coverageUnavailable?: boolean, blastRadiusUnavailable?: boolean }} input
+ * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], blockingGaps?: string[], coverageUnavailable?: boolean, blastRadiusUnavailable?: boolean }} input
  */
 export function decideConfidence({
   requiredChecks,
   gaps,
+  blockingGaps = [],
   coverageUnavailable = false,
   blastRadiusUnavailable = false,
 }) {
   const failing = requiredChecks.filter((check) => check.conclusion !== 'success');
-  if (failing.length > 0 || coverageUnavailable || blastRadiusUnavailable) {
+  if (
+    failing.length > 0 ||
+    blockingGaps.length > 0 ||
+    coverageUnavailable ||
+    blastRadiusUnavailable
+  ) {
     return {
       level: 'red',
       reasons: [
+        ...blockingGaps,
+        ...gaps,
         ...failing.map((check) => `Required check \`${check.name}\` is ${check.conclusion}.`),
         ...(coverageUnavailable
           ? ["The head's CI coverage artifact is missing or malformed: `coverage unavailable`."]
@@ -391,10 +400,14 @@ function runDecide() {
       .filter((path) => matchesGlob(path, glob))
       .map((path) => ({ path, text: filesystem.readText(path) }));
   const slices = collectSlices(changed);
-  const gaps = [...coverageGaps(slices, read(SPEC_GLOB)), ...prdGaps(slices, read(PRD_GLOB))];
+  const blockingGaps = [
+    ...coverageGaps(slices, read(SPEC_GLOB)),
+    ...(coverage ? lineCoverageGaps(sources, coverage) : []),
+  ];
   const decision = decideConfidence({
     requiredChecks: requiredCheckResults(checkRuns),
-    gaps: [...gaps, ...(coverage ? lineCoverageGaps(sources, coverage) : []), ...blastRadius.gaps],
+    gaps: [...prdGaps(slices, read(PRD_GLOB)), ...blastRadius.gaps],
+    blockingGaps,
     coverageUnavailable: !coverage,
     blastRadiusUnavailable: !evidence,
   });
@@ -416,13 +429,46 @@ function runDecide() {
   }
 }
 
+function runCoverageGate() {
+  const changed = (process.env.CHANGED ?? '').split('\n').filter(Boolean);
+  const root = resolve(process.env.PR_ROOT ?? process.cwd());
+  const filesystem = createNodeFilesystem(root);
+  const coverage = readCoverage();
+  if (!coverage) {
+    console.error('coverage unavailable: COVERAGE_FILE must contain valid coverage JSON.');
+    process.exitCode = 1;
+    return;
+  }
+  const sources = changed.filter(
+    (file) => isCoveredSource(file) && existsSync(resolve(root, file)),
+  );
+  const specs = filesystem
+    .listFiles()
+    .filter((path) => matchesGlob(path, SPEC_GLOB))
+    .map((path) => ({ path, text: filesystem.readText(path) }));
+  const gaps = [
+    ...lineCoverageGaps(sources, coverage),
+    ...coverageGaps(collectSlices(changed), specs),
+  ];
+  if (gaps.length > 0) {
+    gaps.forEach((gap) => {
+      console.error(gap);
+    });
+    process.exitCode = 1;
+  } else {
+    console.log('Changed-file coverage passed.');
+  }
+}
+
 function runCli(mode) {
   if (mode === '--decide') {
     runDecide();
+  } else if (mode === '--coverage-gate') {
+    runCoverageGate();
   } else if (mode === '--labels') {
     console.log(JSON.stringify(Object.values(CONFIDENCE_LABEL_DEFS)));
   } else {
-    console.error('Usage: confidence-label.mjs --decide | --labels');
+    console.error('Usage: confidence-label.mjs --decide | --coverage-gate | --labels');
     process.exitCode = 1;
   }
 }

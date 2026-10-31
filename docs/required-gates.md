@@ -12,6 +12,7 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 | Type check · lint · format | `ci.yml` `quality` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Code intelligence (Fallow) | `ci.yml` `fallow` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Unit + component tests | `ci.yml` `test` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
+| Changed-file coverage | `ci.yml` `coverage` | `Required gates` | Every run. | `pnpm coverage:changed` |
 | Production build | `ci.yml` `build` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | End-to-end behaviour map | `ci.yml` `e2e` | `Required gates` | Every run. | `pnpm e2e`, pre-push hook |
 | Security audit | `ci.yml` `security` | `Required gates` | Every run. | Hosted only. Pre-commit scans staged files for secrets. |
@@ -52,6 +53,7 @@ the full tree and history rather than staged files.
 | `.husky/commit-msg` | `pnpm exec commitlint --edit "$1"` | `pr-quality.yml` `pr-body` | `node scripts/validate-pr-body.mjs` |
 | `package.json verify` | `pnpm gates:check` | `ci.yml` `required-gates` | `node scripts/required-gates.mjs --check` |
 | `package.json verify` | `pnpm arch:check` | `ci.yml` `fallow` | `pnpm arch:gate`<br>`pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd`<br>`pnpm api:check` |
+| `package.json verify` | `pnpm coverage:changed` | `ci.yml` `coverage` | `changed="$(git -c core.quotePath=false diff --name-only HEAD^1..."$HEAD_SHA")" && CHANGED="$changed" node scripts/confidence-label.mjs --coverage-gate` |
 | `package.json verify` | `pnpm test:coverage` | `ci.yml` `test` | `pnpm test:coverage` |
 | `package.json verify` | `pnpm build` | `ci.yml` `build` | `pnpm build` |
 | `package.json verify` | `pnpm size` | `ci.yml` `build` | `pnpm size` |

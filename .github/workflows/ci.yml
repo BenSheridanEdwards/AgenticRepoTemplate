@@ -133,6 +133,27 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  coverage:
+    name: Changed-file coverage
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage-final
+          path: coverage/
+      - name: Changed sources and slices have tests
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          COVERAGE_FILE: coverage/coverage-final.json
+        run: changed="$(git -c core.quotePath=false diff --name-only HEAD^1..."$HEAD_SHA")" && CHANGED="$changed" node scripts/confidence-label.mjs --coverage-gate
+
   build:
     name: Production build
     runs-on: ubuntu-latest
@@ -217,7 +238,7 @@ jobs:
   required-gates:
     name: Required gates
     if: always()
-    needs: [up-to-date, quality, fallow, test, build, e2e, security]
+    needs: [up-to-date, quality, fallow, test, coverage, build, e2e, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
