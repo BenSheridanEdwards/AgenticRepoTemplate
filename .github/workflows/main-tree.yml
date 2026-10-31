@@ -1,0 +1,42 @@
+name: Main tree check
+
+# A push to main reruns CI only for a tree no PR has passed (ADR 0088). A
+# squash merge of an up-to-date PR has the PR head's exact tree, which that
+# PR's `Required gates` run already judged. Anything else dispatches full CI.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  decide:
+    name: Rerun CI only for a new tree
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Did a merged PR already pass this exact tree?
+        id: tree
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: node scripts/main-tree-passed.mjs >> "$GITHUB_OUTPUT"
+      - name: Run the full CI for a new tree
+        if: steps.tree.outputs.passed != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: gh workflow run ci.yml --repo "$REPO" --ref main
