@@ -12,10 +12,10 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. | commitlint via commit-msg |
 | Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome (lint + format + imports), `pnpm lint:anti-slop`, `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). | Run the hook commands below |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main (the one local up-to-date check), then `pnpm verify` (the full local gate suite, including the production build) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. | `pnpm verify` + `pnpm e2e` |
-| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression policy, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. | `pnpm verify` + `pnpm e2e` |
+| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression policy, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage per result and changed source, slice E2E mapping, build, size, E2E. | `pnpm verify` + `pnpm e2e` |
 | Vendored anti-slop | `.oxlintrc.json` (`pnpm lint:anti-slop`) | Clean generic and Effect tag rules at `error`, with `--deny-warnings`, in pre-commit, `pnpm verify` and the existing CI quality job. `pnpm check:suppressions` rejects inline Oxlint rule directives. | `pnpm lint:anti-slop` |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Operating contract, harness wiring, project docs, house skills, ADR naming and unique context sections. | `pnpm check:context` |
-| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression policy, positive doc phrasing, PRD links, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. The E2E lane starts after unit tests pass ([ADR 0065](../decisions/0065-e2e-waits-for-unit-tests.md)). | `pnpm verify` + `pnpm e2e`; security audit is hosted |
+| CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression policy, positive doc phrasing, PRD links, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, changed-file coverage and slice E2E mapping, build, security. `Required gates` judges every lane and checks the contract. The E2E lane starts after unit tests pass ([ADR 0065](../decisions/0065-e2e-waits-for-unit-tests.md)). | `pnpm verify` + `pnpm e2e`; security audit is hosted |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. | Hosted only |
 | CI nonfunctional | `.github/workflows/lighthouse.yml` | Lighthouse budgets (median of three runs) on PRs that touch UI-relevant files, as decided by the tested `scripts/lighthouse-scope.mjs`; other PRs report the same check green with audits skipped. | `pnpm lhci` on request |
 | PR contract | `.github/workflows/pr-quality.yml` (`scripts/validate-pr-body.mjs`) | Template proof, title, branch and portable paths; [PR quality](PR_QUALITY.md) owns the body requirements. | `pnpm validate:pr` with PR environment fields |
@@ -24,10 +24,11 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | New dependency names appear in an ADR added with the change ([ADR 0020](../decisions/0020-pr-process-checks.md)). | `pnpm check:adr` |
 | Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract, and every hook command and `verify` step has a required CI equivalent. | `pnpm gates:check` |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | Head-specific approval for enforcement or product-intent changes; see [Enforcement approval](#enforcement-approval). | `node scripts/enforcement-approval.mjs --git origin/main HEAD` |
-| Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Advisory green, amber or red label from gates, E2E/PRD coverage, unit coverage and import blast radius; gates nothing. | `node scripts/confidence-label.mjs --decide` with head evidence |
+| Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Green, amber or red label from gates, E2E/PRD coverage, unit coverage and import blast radius. Coverage gaps grade red and fail the required coverage lane. | `node scripts/confidence-label.mjs --decide` with head evidence |
 | `pnpm verify`, CI | Lockfile checker | Stable installs | `pnpm check:lockfile` |
 | Unit tests in verify/CI | Jest (`tooling/trial/`) | Result inclusion and trial protocol | `pnpm test` |
 | `pnpm verify`, CI | Jest and `tooling/coverage-by-result.mjs` | Coverage per result | `pnpm test:coverage` (80% in every metric per result) |
+| `pnpm verify`, CI | Changed-file coverage | Each changed source meets Jest's global line threshold; each changed slice has a named E2E spec. Missing coverage fails. | `pnpm coverage:changed` |
 | E2E in pre-push and CI | Playwright `<id>-acceptance` | Todo acceptance | `pnpm e2e` |
 | CI visual | `.github/workflows/visual.yml` (Playwright) | Reference desktop/mobile screenshot comparison on the shared UI scope; other PRs pass through its scope rule. | `pnpm visual` on Linux |
 
@@ -148,12 +149,22 @@ the configured approver and the current head; a new head resets it.
 
 ## Merge confidence
 
-The advisory label and job summary explain coverage and import gaps. Read
-[ADR 0064](../decisions/0064-merge-confidence-label.md) for grading,
-[ADR 0067](../decisions/0067-grade-merge-confidence-on-changed-file-line-coverage.md)
-for unit coverage, and
-[ADR 0068](../decisions/0068-grade-merge-confidence-on-import-blast-radius.md)
-for blast-radius evidence. The required gates remain the merge bar.
+The label and job summary explain coverage and import gaps. Changed source files
+must meet Jest's `coverageThreshold.global.lines` (80%) and changed route or
+feature slices must have an E2E spec that names them in their own result.
+`Changed-file coverage` runs after unit tests, reads their `coverage-final`
+artifact and fails on either gap or unavailable coverage. `Required gates`
+judges that lane; `pnpm coverage:changed` repeats it locally after
+`pnpm test:coverage` in `verify`.
+
+Coverage gaps grade red. PRD and import blast-radius gaps stay amber. There is
+no human override. A threshold change goes through review in `jest.config.ts`.
+[Thin coverage blocks the merge](../decisions/0089-thin-coverage-blocks-the-merge.md)
+amends the grading in
+[Merge confidence label](../decisions/0064-merge-confidence-label.md) and
+[Grade merge confidence on changed-file line coverage](../decisions/0067-grade-merge-confidence-on-changed-file-line-coverage.md).
+[Grade merge confidence on import blast radius](../decisions/0068-grade-merge-confidence-on-import-blast-radius.md)
+records the import evidence.
 
 For trial commands and harness details, use [the trial runbook](../TRIALS.md),
 [ADR 0034](../decisions/0034-trial-harness-and-evidence.md) and
