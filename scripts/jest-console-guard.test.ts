@@ -19,7 +19,7 @@ function runTest(environment: string, body: string) {
   writeFileSync(file, body);
   const config = {
     rootDir: directory,
-    testEnvironment: require.resolve(`jest-environment-${environment}`),
+    testEnvironment: environment === 'node' ? 'node' : require.resolve('jest-environment-jsdom'),
     setupFilesAfterEnv: [join(root, 'tooling/jest/jest.setup.ts')],
     transform: {
       '^.+\\.tsx?$': [require.resolve('@swc/jest'), { jsc: { parser: { syntax: 'typescript' } } }],
@@ -47,9 +47,8 @@ describe.each(['node', 'jsdom'])('the Jest console guard in %s', (environment) =
   it('fails a test that emits a Node deprecation warning', () => {
     const result = runTest(
       environment,
-      `it('warns', async () => {
+      `it('warns', () => {
         process.emitWarning('old', 'DeprecationWarning');
-        await new Promise(resolve => setTimeout(resolve, 0));
       });`,
     );
     expect(result.output).toContain('DeprecationWarning: old');

@@ -8,7 +8,7 @@
 // WHAT the product does, not HOW it is built.
 // See .agents/skills/run-e2e-tests/SKILL.md.
 
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 
 async function submit__Value__(page: Page, value: string) {
   await page.goto('/');
@@ -34,7 +34,8 @@ test.describe('__Route__', () => {
     await expect(page.getByRole('alert')).toHaveText('__validation message__');
   });
 
-  test('says so when the api fails', async ({ page }) => {
+  test('says so when the api fails', async ({ page, expectConsole }) => {
+    expectConsole(/Failed to load resource: .*500/);
     await page.route('**/trpc/**', (route) =>
       route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
     );

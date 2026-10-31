@@ -20,6 +20,12 @@ post-feature check before Done.
    `<result>/web/e2e/<route-name>.spec.ts`. Put one `test` per distinct journey
    inside a route-named `test.describe`. Add an axe scan of new states to the
    result's `accessibility.spec.ts`.
+   Import `test`, `expect` and `Page` from `./fixtures`; copy the reference's
+   `fixtures.ts` into a new result's E2E folder. Its automatic guard fails on
+   page console warnings, console errors and uncaught errors. For a deliberate
+   error, declare its message with `expectConsole(/message/)` inside that test,
+   or `test.use({ expectedConsole: [/message/] })` within its describe block.
+   Each expected pattern must appear; fix unexpected messages at their cause.
 3. Drive the UI through the accessibility tree, preferably `getByRole(role, { name })`.
    Assert what the user sees; leave CSS classes and internal state to unit tests.
 4. Assert outcomes with `expect(locator).toHaveText(...)`, `toBeVisible()`,
