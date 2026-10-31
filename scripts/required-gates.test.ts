@@ -2,8 +2,8 @@
  * @jest-environment node
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
   AGGREGATE,
   checkContract,
@@ -47,6 +47,10 @@ function repoFile(path: string) {
 }
 
 const REAL_FILES = {
+  '.husky/pre-commit': repoFile('.husky/pre-commit'),
+  '.husky/pre-push': repoFile('.husky/pre-push'),
+  '.husky/commit-msg': repoFile('.husky/commit-msg'),
+  'package.json': repoFile('package.json'),
   'ci.yml': repoFile('.github/workflows/ci.yml'),
   'codeql.yml': repoFile('.github/workflows/codeql.yml'),
   'lighthouse.yml': repoFile('.github/workflows/lighthouse.yml'),
@@ -60,6 +64,7 @@ function contractErrors(
   const files = { ...REAL_FILES, ...edit(REAL_FILES) };
   return checkContract({
     readWorkflow: (name: keyof typeof REAL_FILES) => files[name],
+    readFile: (name: keyof typeof REAL_FILES) => files[name],
     inventory: renderInventory(),
   });
 }
@@ -180,6 +185,69 @@ describe('checkContract', () => {
   it('holds for the committed workflows and inventory', () => {
     expect(contractErrors()).toEqual([]);
     expect(repoFile('docs/required-gates.md')).toBe(renderInventory());
+  });
+
+  it('names the pre-commit gate when its CI command is removed', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
+    }));
+    expect(errors).toContainEqual(
+      expect.stringMatching(/\.husky\/pre-commit.*pnpm lint:anti-slop/),
+    );
+  });
+
+  it('requires a CI mapping for a new pre-commit command', () => {
+    const errors = contractErrors((files) => ({
+      '.husky/pre-commit': `${files['.husky/pre-commit']}pnpm check:new\n`,
+    }));
+    expect(errors).toContain(
+      '`.husky/pre-commit` runs `pnpm check:new`, but no Required-gates lane re-runs it. ' +
+        'Add the step to CI and a row to HOOK_STEPS.',
+    );
+  });
+
+  it('requires a CI mapping for a new verify step', () => {
+    const errors = contractErrors((files) => {
+      const manifest = JSON.parse(files['package.json']);
+      manifest.scripts.verify += ' && pnpm check:new';
+      return { 'package.json': JSON.stringify(manifest) };
+    });
+    expect(errors).toContainEqual(expect.stringMatching(/verify.*pnpm check:new.*HOOK_STEPS/));
+  });
+
+  it('requires the Fallow action to run audit', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace('command: audit', 'command: dead-code'),
+    }));
+    expect(errors).toContainEqual(
+      expect.stringMatching(/\.husky\/pre-commit.*pnpm fallow:audit.*audit/),
+    );
+  });
+
+  it('exits 1 from --check on a copy missing the CI anti-slop command', () => {
+    mkdirSync(join(process.cwd(), '.scratch'), { recursive: true });
+    const root = mkdtempSync(join(process.cwd(), '.scratch/required-gates-'));
+    try {
+      const files = {
+        ...REAL_FILES,
+        'ci.yml': REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
+        'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+        'docs/required-gates.md': renderInventory(),
+      };
+      Object.entries(files).forEach(([name, text]) => {
+        const path = join(root, name.endsWith('.yml') ? `.github/workflows/${name}` : name);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, text);
+      });
+      const result = spawnSync('node', [join(root, 'scripts/required-gates.mjs'), '--check'], {
+        encoding: 'utf8',
+        env: { PATH: process.env.PATH },
+      });
+      expect(result.status).toBe(1);
+      expect(result.stdout + result.stderr).toMatch(/\.husky\/pre-commit.*pnpm lint:anti-slop/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('fails when a required lane is dropped from the aggregate needs', () => {
@@ -435,6 +503,7 @@ describe('checkContract', () => {
   it('fails when the inventory is stale', () => {
     const errors = checkContract({
       readWorkflow: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
+      readFile: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
       inventory: renderInventory().replace('Security audit', 'Security'),
     });
     expect(errors.join('\n')).toContain('pnpm gates:inventory');
