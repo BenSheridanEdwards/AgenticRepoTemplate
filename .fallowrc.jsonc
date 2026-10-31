@@ -174,10 +174,10 @@
         ]
       }
     ],
-    // `allow` lists the roles a role may import by value. `allowTypeOnly` lists
-    // every other role, so a type-only import (`import type`, `export type ...
-    // from`) between any two roles passes (ADR 0037). A role is never listed
-    // for itself: sibling slices stay isolated for types too.
+    // `allow` lists the roles a role may import by value. For every role except
+    // ui, `allowTypeOnly` lists the remaining roles (ADR 0085 amends ADR 0037).
+    // ui imports no other role, types included. A role is never listed for
+    // itself: sibling slices stay isolated for types too.
     "rules": [
       // The composition root mounts the routes inside the api providers.
       {
@@ -243,22 +243,11 @@
           "api-integrations"
         ]
       },
-      // UI primitives import no other role by value.
+      // UI primitives import no other role, types included.
       {
         "from": "ui",
         "allow": [],
-        "allowTypeOnly": [
-          "web-app",
-          "web-api-client",
-          "web-routes",
-          "web-features",
-          "api-app",
-          "api-trpc",
-          "api-procedures",
-          "api-application",
-          "api-domain",
-          "api-integrations"
-        ]
+        "allowTypeOnly": []
       },
       // The api composition root mounts the feature routers on the tRPC base.
       {

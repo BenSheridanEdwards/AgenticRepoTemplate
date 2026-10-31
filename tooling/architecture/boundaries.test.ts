@@ -192,6 +192,18 @@ describe('Fallow contract over the reference result', () => {
       'boundary ui -> web-api-client',
     ],
     [
+      'a ui primitive type-imports the api client',
+      'packages/ui/src/index.ts',
+      "import type { ApiProvider } from '../../../apps/web/src/api-client';\nexport type Provider = typeof ApiProvider;\nexport const Button = 1;\n",
+      'boundary ui -> web-api-client',
+    ],
+    [
+      'a ui primitive type-imports the api router',
+      'packages/ui/src/index.ts',
+      "import type { AppRouter } from '../../../apps/api/src/router.ts';\nexport type Router = AppRouter;\nexport const Button = 1;\n",
+      'boundary ui -> api-app',
+    ],
+    [
       'procedures call domain code',
       `${GREETING}/procedures.ts`,
       "import { formatGreeting } from './domain.ts';\nimport { router } from '../../trpc.ts';\nexport const greetingRouter = router(formatGreeting);\n",

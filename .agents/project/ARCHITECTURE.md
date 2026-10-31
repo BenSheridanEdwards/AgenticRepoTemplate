@@ -15,7 +15,7 @@ feature's shape ([ADR 0032](../decisions/0032-api-ui-greeting-and-contract.md)).
 
 [`.fallowrc.jsonc`](../../.fallowrc.jsonc) maps roles to Fallow zones through
 `{apps,showcase/*}`. Value imports follow the table; `coverage.requireAllFiles`
-requires a role for every source file. Type-only imports may cross roles,
+requires a role for every source file. Type-only imports may cross roles except into `ui`,
 subject to route co-location and sibling-slice isolation
 ([ADR 0037](../decisions/0037-type-only-edges-and-flagged-re-exports.md)).
 Write `import type` or mark every specifier `type`; Fallow treats an unmarked
@@ -28,7 +28,7 @@ to a result root (`apps/` or `showcase/<id>/`).
 | `web-api-client` | `web/src/api-client/**` | no other role |
 | `web-routes` | `web/src/routes/<route>/**` | own route, api-client public surface, `@repo/ui`, external npm packages |
 | `web-features` | legacy Fallow zone; rejected in every result by structure | keep web feature code inside its route |
-| `ui` | `packages/ui/src/**` | no other role |
+| `ui` | `packages/ui/src/**` | no other role, types included |
 | `api-app` | `api/src/server.ts`, `api/src/router.ts` | `api-trpc`, `api-procedures` |
 | `api-trpc` | `api/src/trpc.ts` | no other role |
 | `api-procedures` | `api/src/features/<name>/{index,procedures}.ts`, `features/<name>/procedures/**` | `api-trpc`, `api-application` |
@@ -150,7 +150,7 @@ each check's message names the fix.
 | The domain is pure, and application knows no tRPC. | Fallow `api-domain`; `contract/domain-pure`, `contract/application-without-trpc`; `tsconfig.domain.json` (no Node types) | `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck` |
 | Effects run only in integrations or the api composition root. | `contract/effects-in-integrations`, `contract/io-effects-in-integrations`, `contract/node-io-in-integrations` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | The web reaches the api only by type: `import type` of the router type. | Fallow `allowTypeOnly` (a value import of `api-app` fails); the `types`-only export of `@repo/api`; `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` | `pnpm arch:gate`, `pnpm fallow:audit` |
-| UI primitives hold no business logic. | Fallow `ui` imports nothing by value; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
+| UI primitives hold no business logic. | Fallow `ui` imports no other role, types included; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | One React component per file. | ESLint `policy/one-component-per-file` | `pnpm lint:policy` |
 | State, server state and form state live in `use*` hooks. | ESLint `policy/state-and-effects-in-hooks` | `pnpm lint:policy` |
 | Forms validate with Effect Schema. | ESLint `policy/form-uses-effect-schema` | `pnpm lint:policy` |
