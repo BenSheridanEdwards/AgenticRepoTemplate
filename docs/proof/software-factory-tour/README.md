@@ -12,7 +12,7 @@ The delivery PR's checks panel supplies its own exact-head hosted status.
 | Every observed step is under 30 seconds | Measurement, not enforcement | [all samples, first/warm medians, maxima](timings.json) | No observed miss; no cold-machine trial; no equivalent ESLint comparison |
 | Full local gates run before push | Source + baseline runtime | [pre-push](../../../.husky/pre-push), `pnpm verify` and `pnpm e2e` [output](baseline.txt) | Baseline command times are not a measured full push. Delivery head is rechecked separately |
 | CI runs and aggregates expected lanes | Actual hosted baseline status + synthetic regression suite | [run/job URLs and exact SHA](hosted.json) | [aggregate rejection tests](focused-controls.txt); hosted setup gaps in [protection comparison](protection.txt) |
-| Common bypass text is rejected | Actual local guard process | Legitimate commit text returns 0 in [probes](probes.json) | Three bypass strings each return 2; strings are JSON data, never executed |
+| Common bypass text is rejected | Actual local guard process | Legitimate commit text returns 0 in [probes](probes.json) | Three bypass strings each return 2; only the guard executes, receiving strings as JSON data |
 | Supported harness entry points call the guard | Source + integration tests | [guard tests](focused-controls.txt), [harness docs](../../../.agents/HARNESSES.md) | No live Claude/Codex trust activation is asserted; [known gaps](../../../.agents/decisions/0027-block-common-hook-bypasses.md) remain |
 | Guarded lint weakening is detected | Pure checker on synthetic file contents | README prose change produces no problem in [probes](probes.json) | ESLint `error` to `off` produces a guarded lint-config problem; real config unchanged |
 | Named-user approval is exact-head | Synthetic pure/core and stubbed API tests | Ben User tick produces success in [probes](probes.json) | Wrong user and new head produce failure; [464 focused tests](focused-controls.txt) include stale, forged and race cases; no real human sign-off claimed |
@@ -32,14 +32,15 @@ to `displayName` in `apps/api/src/features/greeting/domain.ts`. The change prese
 behaviour and was restored after timing. Biome really checked a staged source file;
 this was not an empty-index benchmark. All samples include process startup. The
 first sample is first in this series after baseline verification, not cold cache.
-No OS caches were flushed. Later samples are labelled warm, not independent hosts.
+OS caches remained intact. Later samples are labelled warm, not independent hosts.
 The typecheck command forces rebuilds. Timings are observations, not universal SLAs.
 
 The baseline passed 56 suites / 2034 tests and 7 E2E tests. Full private logs were
 retained; public [baseline.txt](baseline.txt) explicitly labels its verify excerpt.
 [focused-controls.txt](focused-controls.txt) preserves the full focused test output.
 Other output is retained in the JSON receipts, with ANSI removed and machine paths
-replaced. No runtime output has been invented. Fallow's nonblocking empty-zone
+replaced. Trailing whitespace is trimmed in the baseline excerpt. Runtime output comes
+from the observed processes. Fallow's nonblocking empty-zone
 warnings remain visible, so this is not a claim that every tool warning is fatal.
 
 ## Repeatable commands

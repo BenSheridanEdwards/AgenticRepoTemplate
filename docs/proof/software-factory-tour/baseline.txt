@@ -78,15 +78,15 @@ apps/web build: dist/assets/index-Dpqzeo_9.js   356.00 kB │ gzip: 113.57 kB
 apps/web build: ✓ built in 1.12s
 apps/web build: Done
 $ size-limit
-  
+
   app bundle (JS, brotli)
   Size limit: 110 kB
   Size:       99.44 kB brotlied
-  
+
   app styles (CSS, brotli)
   Size limit: 5 kB
   Size:       578 B brotlied
-  
+
 
 
 baseline-e2e
