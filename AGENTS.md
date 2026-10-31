@@ -67,7 +67,7 @@ the code-level rules and their checks.
 | A new dependency arrives with an ADR. | `pnpm check:adr` |
 | Secrets stay out of commits. | gitleaks in pre-commit and CI |
 | An ESLint exception lives in `eslint.config.js` with its reason; an inline `eslint-disable*`, `/* eslint <rule>: off */` or `/* global */` comment fails lint in every source file. | `pnpm lint:policy` (`noInlineConfig`, [ADR 0039](.agents/decisions/0039-block-inline-lint-disable-comments.md)) |
-| Biome, ESLint and React Doctor fail on a warning. | Biome `--error-on-warnings`, ESLint `--max-warnings=0`, React Doctor `--blocking warning` ([ADR 0046](.agents/decisions/0046-fail-lint-on-warnings.md)); Fallow has no warn-level rule. |
+| Biome, ESLint and React Doctor fail on a warning; a console warning or error fails a Jest test and a Playwright page. | Biome `--error-on-warnings`, ESLint `--max-warnings=0`, React Doctor `--blocking warning` ([ADR 0046](.agents/decisions/0046-fail-lint-on-warnings.md)); Jest setup and Playwright fixtures ([ADR 0086](.agents/decisions/0086-console-warnings-fail-tests.md)); Fallow has no warn-level rule. |
 | Each comment group in package TypeScript source keeps to four lines; longer reasoning goes in an ADR or doc. | ESLint `policy/no-large-comments` ([ADR 0050](.agents/decisions/0050-anti-slop-lint-policies.md)) |
 | Every inline suppression (TypeScript, Biome, Oxlint, ESLint, Fallow, coverage pragma) fails the gate. An exception lives in `ALLOWED_SUPPRESSIONS` in `scripts/check-suppressions.mjs`, which needs sign-off. | `pnpm check:suppressions`, plus the structure check in result roots. |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
