@@ -403,11 +403,13 @@ describe('checkContract', () => {
       'the decision step can fail quietly',
       'run: node scripts/required-gates.mjs --decide',
       'run: node scripts/required-gates.mjs --decide\n        continue-on-error: true',
+      undefined,
     ],
     [
       'the decision step skips on cancellation',
       /(Every required lane passed\n {8})if: always\(\)/,
       '$1if: !cancelled()',
+      undefined,
     ],
   ])('fails when %s', (_label, from, to, missingCommand) => {
     const errors = contractErrors((files) => ({ 'ci.yml': files['ci.yml'].replace(from, to) }));
@@ -424,6 +426,7 @@ describe('checkContract', () => {
       '      - run: pnpm test:coverage\n',
       "      - run: pnpm test:coverage\n        if: github.event_name == 'push'\n",
       'job `test` step "pnpm test:coverage" has `if: github.event_name == \'push\'`',
+      undefined,
     ],
     [
       'a stand-alone check step never runs',
@@ -431,6 +434,7 @@ describe('checkContract', () => {
       '      - name: Validate\n',
       '      - name: Validate\n        if: false\n',
       'job `pr-body` step "Validate" has `if: false`',
+      undefined,
     ],
     [
       'a lane step runs only after a failure',
@@ -438,6 +442,7 @@ describe('checkContract', () => {
       '      - run: pnpm e2e\n',
       '      - run: pnpm e2e\n        if: failure()\n',
       'job `e2e` step "pnpm e2e" has `if: failure()`',
+      undefined,
     ],
     [
       'a lane step reports failure as success',
@@ -445,6 +450,7 @@ describe('checkContract', () => {
       '      - run: pnpm e2e\n',
       '      - run: pnpm e2e\n        continue-on-error: true\n',
       'job `e2e` step "pnpm e2e" sets `continue-on-error`',
+      undefined,
     ],
     [
       'a lane command ends in || true',
@@ -468,6 +474,7 @@ describe('checkContract', () => {
       '      - uses: github/codeql-action/analyze@v4\n',
       '      - run: npx tsc || exit 0\n      - uses: github/codeql-action/analyze@v4\n',
       'job `analyze` step "npx tsc || exit 0" ignores its exit code with `|| exit 0`',
+      undefined,
     ],
     [
       'a multi-line run block turns off errexit',
@@ -475,6 +482,7 @@ describe('checkContract', () => {
       '          expected="fallow',
       '          set +e\n          expected="fallow',
       'job `fallow` step "Assert the Fallow CLI matches the package.json pin" ignores its exit code with `set +e`',
+      undefined,
     ],
   ])('fails when %s', (_label, workflow, from, to, message, missingCommand) => {
     const errors = contractErrors((files) => ({
