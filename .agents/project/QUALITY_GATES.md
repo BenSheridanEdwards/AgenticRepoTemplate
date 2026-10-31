@@ -22,7 +22,7 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 | Doc phrasing | `scripts/check-doc-phrasing.mjs` and `scripts/check-sign-off-docs.mjs` (`pnpm check:docs`) | Positive rules and guarded sign-off paths ([ADR 0021](../decisions/0021-guidance-docs-state-the-action.md), [ADR 0030](../decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)). | `pnpm check:docs` |
 | PRD links | `scripts/check-prd-conflicts.mjs` (`pnpm check:docs`) | PRD behaviours link running E2E tests ([ADR 0045](../decisions/0045-prds-state-intent-and-link-their-specs.md)). | `pnpm check:docs` |
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | New dependency names appear in an ADR added with the change ([ADR 0020](../decisions/0020-pr-process-checks.md)). | `pnpm check:adr` |
-| Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. | `pnpm gates:check` |
+| Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract, and every hook command and `verify` step has a required CI equivalent. | `pnpm gates:check` |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | Head-specific approval for enforcement or product-intent changes; see [Enforcement approval](#enforcement-approval). | `node scripts/enforcement-approval.mjs --git origin/main HEAD` |
 | Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Advisory green, amber or red label from gates, E2E/PRD coverage, unit coverage and import blast radius; gates nothing. | `node scripts/confidence-label.mjs --decide` with head evidence |
 | `pnpm verify`, CI | Lockfile checker | Stable installs | `pnpm check:lockfile` |
@@ -119,6 +119,15 @@ Recorded trial exclusions are documented in
 [`scripts/required-gates.mjs`](../../scripts/required-gates.mjs) owns the check
 contract and generates [the inventory](../../docs/required-gates.md) with
 `pnpm gates:inventory`. `pnpm gates:check` checks workflow and inventory freshness.
+Its `HOOK_STEPS` table maps every command in the three local hooks and every
+step of `verify` to the required lane and CI step that repeats its check.
+Add the CI step and its mapping together when adding a local gate. A missing
+mapping, CI step or required lane fails the check
+([CI re-runs every local hook step](../decisions/0087-ci-re-runs-every-local-hook-step.md)).
+Staged Biome maps to the full-tree check, staged secrets to the history scan,
+and commitlint to PR-title validation because the title becomes the squash
+commit message. `verify` runs across the aggregate's lanes; each child step
+has its own mapping.
 Require the aggregate and the inventory's stand-alone checks in branch protection;
 see [ADR 0017](../decisions/0017-required-gates-aggregate.md) for aggregate
 semantics and [hosted prerequisites](../../.github/SECURITY.md) for setup.
