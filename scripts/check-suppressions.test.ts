@@ -10,6 +10,9 @@ const DIRECTIVES = [
   ['// @ts-expect-error the value is checked at runtime', '@ts-expect-error'],
   ['// @ts-ignore', '@ts-ignore'],
   ['// @ts-nocheck', '@ts-nocheck'],
+  ['/// @ts-expect-error the value is checked at runtime', '@ts-expect-error'],
+  ['/// @ts-ignore', '@ts-ignore'],
+  ['/// @ts-nocheck', '@ts-nocheck'],
   ['// biome-ignore lint/style/useNamingConvention: reason', 'biome-ignore'],
   ['/* biome-ignore-all lint/x: y */', 'biome-ignore-all'],
   ['/* biome-ignore-start lint/x: y */', 'biome-ignore-start'],
@@ -37,6 +40,10 @@ describe('findSuppressions', () => {
   it.each(DIRECTIVES)('passes %s inside string and template literals', (comment) => {
     expect(findSuppressions(`const text = ${JSON.stringify(comment)};`)).toEqual([]);
     expect(findSuppressions(`const text = \`${comment}\`;`)).toEqual([]);
+  });
+
+  it('passes a triple-slash reference directive', () => {
+    expect(findSuppressions('/// <reference types="node" />')).toEqual([]);
   });
 
   it.each([
