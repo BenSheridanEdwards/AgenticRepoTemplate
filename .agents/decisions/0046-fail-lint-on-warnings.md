@@ -1,6 +1,7 @@
 # 46. Fail the lint gates on warnings
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted, 2026-10-31 (Ben, 31 Oct 2026 09:31 GMT: "All are ticked and can be merged when up to date with main")
+- **Status note:** [Pin canonical routes and keep their code co-located](0075-canonical-colocated-routes.md) later reversed the web-feature amendment (dropping `web-features` autoDiscover and giving the reference app a web feature).
 - **Date:** 2026-10-20
 - **Amends:** [0032](0032-api-ui-greeting-and-contract.md), dropping the
   `apps/web/src/features` autoDiscover from the `web-features` zone and giving
