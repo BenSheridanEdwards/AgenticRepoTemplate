@@ -68,15 +68,13 @@ export function findSuppressions(text, fileName = 'source.tsx') {
   return comments
     .flatMap(({ pos, end }) => {
       const block = text.startsWith('/*', pos);
-      const body = text.slice(
-        pos + 2,
-        block && text.slice(pos, end).endsWith('*/') ? end - 2 : end,
-      );
+      const start = pos + (text.startsWith('///', pos) ? 3 : 2);
+      const body = text.slice(start, block && text.slice(pos, end).endsWith('*/') ? end - 2 : end);
       const directive = body.match(DIRECTIVE) ?? (block ? body.match(BLOCK_CONFIG) : null);
 
       if (!directive) return [];
 
-      const position = pos + 2 + directive[0].lastIndexOf(directive[1]);
+      const position = start + directive[0].lastIndexOf(directive[1]);
       return [{ line: text.slice(0, position).split(/\r\n?|\n/).length, kind: directive[1] }];
     })
     .sort((a, b) => a.line - b.line);
