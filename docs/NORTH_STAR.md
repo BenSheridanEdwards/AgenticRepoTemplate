@@ -83,8 +83,9 @@ and E2E tests:
   `--error-on-warnings`, ESLint with `--max-warnings=0`, and React Doctor with
   `--blocking warning`
   ([ADR 0046](../.agents/decisions/0046-fail-lint-on-warnings.md)). Fallow warning-level
-  findings remain nonblocking; Jest and Playwright console warnings also
-  pass. Warnings-as-failures across every tool remains a target.
+  findings remain nonblocking. A console warning or error fails a Jest test or a
+  Playwright page ([ADR 0086](../.agents/decisions/0086-console-warnings-fail-tests.md)).
+  Warnings-as-failures across every tool remains a target.
 - **ESLint disable comments are ignored.** ESLint sets `noInlineConfig`, so it
   applies no inline `eslint-disable` comment and fails the run on each one
   ([ADR 0039](../.agents/decisions/0039-block-inline-lint-disable-comments.md)). An

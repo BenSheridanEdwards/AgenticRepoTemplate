@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 
 /**
  * The greeting behaviour, end to end: the page in Chromium, the Vite server's
@@ -50,7 +50,8 @@ test.describe('Greeting', () => {
     expect(await response.json()).toMatchObject({ error: { data: { code: 'BAD_REQUEST' } } });
   });
 
-  test('says so when the api fails', async ({ page }) => {
+  test('says so when the api fails', async ({ page, expectConsole }) => {
+    expectConsole(/Failed to load resource: .*500/);
     await page.route('**/trpc/**', (route) =>
       route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
     );
