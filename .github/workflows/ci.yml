@@ -63,6 +63,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
       - uses: fallow-rs/fallow@v3.33.1
         with:
           version: "3.33.1"
@@ -78,12 +84,6 @@ jobs:
           echo "pinned: ${expected}"
           echo "ran:    ${actual}"
           test "${actual}" = "${expected}"
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
       - name: Architecture gate (forbidden imports)
         run: pnpm arch:gate
       - name: Role diagram matches the rules file

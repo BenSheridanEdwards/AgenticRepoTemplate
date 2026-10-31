@@ -51,11 +51,13 @@
       "style": {
         "useImportType": "error",
         "useConst": "error",
-        "noNonNullAssertion": "warn",
+        "noNonNullAssertion": "error",
+        "noIncrementDecrement": "error",
         "useConsistentTypeDefinitions": "error"
       },
       "suspicious": {
         "noExplicitAny": "error",
+        "noVar": "error",
         "noEmptyBlockStatements": "error"
       }
     }

@@ -18,8 +18,8 @@ Read `.agents/project/PR_QUALITY.md`, `.github/pull_request_template.md`,
 1. Confirm the base, branch, and changed files. Keep unrelated changes out.
 2. Run local proof per [.agents/project/PR_QUALITY.md](../../../.agents/project/PR_QUALITY.md#evidence-rules).
    Prefer `pnpm verify` and `pnpm e2e`. Explain any narrower check and what it
-   leaves unproven. Before each push, clear `pnpm lint:anti-slop` and
-   `pnpm lint:anti-slop:changed` on the committed branch; list both results.
+   leaves unproven. Before each push, clear `pnpm lint:anti-slop`
+   on the committed branch and list the result.
 3. Collect screenshots or video for UI-visible or CSS changes. Otherwise,
    write `Not applicable` with the technical reason.
 4. State local proof, deploy/runtime proof, and unverified gaps separately.

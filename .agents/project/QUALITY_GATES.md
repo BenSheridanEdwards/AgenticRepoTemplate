@@ -114,15 +114,6 @@ outputs are recorded in [ADR 0014](../decisions/0014-fallow-owns-architecture-ch
 Recorded trial exclusions are documented in
 [ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md).
 
-## Advisory lint
-
-`pnpm lint:anti-slop:advisory` and `pnpm lint:declarative` stay outside hooks,
-`pnpm verify` and CI gates. See
-[ADR 0070](../decisions/0070-vendored-anti-slop-oxlint-rules.md) for the Oxlint
-rule split and [ADR 0063](../decisions/0063-advisory-declarative-style-lint.md)
-for declarative lint. ESLint's separate policy rules are described in
-[ADR 0050](../decisions/0050-anti-slop-lint-policies.md).
-
 ## Required gates
 
 [`scripts/required-gates.mjs`](../../scripts/required-gates.mjs) owns the check

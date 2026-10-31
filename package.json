@@ -18,7 +18,6 @@
     "format": "biome format --write .",
     "check": "biome check --error-on-warnings .",
     "lint:policy": "eslint --max-warnings=0 .",
-    "lint:declarative": "eslint -c tooling/declarative-lint/eslint.declarative.config.js . && biome lint --config-path=tooling/declarative-lint/biome.declarative.json --only=suspicious/noVar --only=style/noIncrementDecrement --only=style/useConst --only=complexity/useArrowFunction --only=suspicious/useIterableCallbackReturn .",
     "react-doctor": "react-doctor . --no-lint --no-supply-chain --no-telemetry --blocking warning --yes",
     "fallow:audit": "bash scripts/fallow-audit.sh",
     "arch:gate": "fallow architecture -q && node tooling/architecture/structure.mjs && node tooling/architecture/diagram.mjs --check",
@@ -50,8 +49,6 @@
     "prepare": "husky",
     "visual": "VISUAL=1 E2E_BUILD=1 playwright test",
     "lint:anti-slop": "env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings",
-    "lint:anti-slop:advisory": "env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config anti-slop.advisory.mjs",
-    "lint:anti-slop:changed": "node scripts/anti-slop-changed.mjs",
     "visual:update": "pnpm visual --update-snapshots"
   },
   "size-limit": [
