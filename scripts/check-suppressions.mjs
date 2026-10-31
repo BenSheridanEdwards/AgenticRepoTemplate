@@ -1,46 +1,33 @@
 #!/usr/bin/env node
-/**
- * Every TypeScript suppression is a `@ts-expect-error` with its reason.
- *
- * TypeScript cannot hold this rule itself: a directive silences the error that
- * would report it. This script reads every tracked source file, so it covers
- * every workspace package, `scripts/`, `tooling/`, and the root configs.
- * ESLint ignores and reports every inline `eslint-disable*` comment
- * (`noInlineConfig`, ADR 0039), and Biome refuses a `biome-ignore` without a
- * reason. Inline Oxlint rule directives are rejected here.
- */
+/** Reject inline suppressions in tracked source and config comments. */
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
+import { extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
-const SOURCE_FILES = ['*.ts', '*.tsx', '*.mts', '*.cts', '*.js', '*.jsx', '*.mjs', '*.cjs'];
-const TS_DIRECTIVE = /\/\/\s*@ts-(ignore|nocheck|expect-error)\b(.*)$/;
-const MINIMUM_REASON_LENGTH = 10;
+/** @type {{ path: string, directive: string, reason: string }[]} */
+export const ALLOWED_SUPPRESSIONS = [];
 
-const MESSAGES = {
-  oxlint:
-    'changes Oxlint rules inline. Fix the code instead of disabling or enabling rules in comments.',
-  reason:
-    'has no reason. Add it, for example `// @ts-expect-error <why this line is the exception>`.',
-  'ts-ignore': 'is `@ts-ignore`. Use `// @ts-expect-error <reason>`, which fails once fixed.',
-  'ts-nocheck': 'turns off type checking for the file. Fix the types instead.',
-};
-
-function typeScriptKind(directive, rest) {
-  if (directive !== 'expect-error') {
-    return `ts-${directive}`;
-  }
-
-  return rest.replace(/^[\s:-]+/, '').trim().length < MINIMUM_REASON_LENGTH ? 'reason' : undefined;
-}
-
-function kindOf(line) {
-  const typeScript = line.match(TS_DIRECTIVE);
-
-  return typeScript ? typeScriptKind(typeScript[1], typeScript[2]) : undefined;
-}
+const SOURCE_FILES = [
+  '*.ts',
+  '*.tsx',
+  '*.mts',
+  '*.cts',
+  '*.js',
+  '*.jsx',
+  '*.mjs',
+  '*.cjs',
+  '*.css',
+  '*.json',
+  '*.jsonc',
+];
+const DIRECTIVE =
+  /^(?:\s|\*)*(@ts-(?:expect-error|ignore|nocheck)\b|biome-ignore(?:-(?:all|start|end))?\b|(?:oxlint|eslint)-(?:disable|enable)(?:-next-line|-line)?\b|fallow-ignore[\w-]*|(?:istanbul|c8|v8)\s+ignore\b)/;
+const BLOCK_CONFIG = /^(?:\s|\*)*(eslint(?:-env)?|globals?)(?=\s)/;
+const FIX =
+  'Fix the cause. An exception goes in ALLOWED_SUPPRESSIONS in scripts/check-suppressions.mjs, which needs enforcement sign-off.';
 
 function commentPositions(node) {
   const children = node.getChildren();
@@ -52,60 +39,85 @@ function commentPositions(node) {
       : [node.pos];
 }
 
-function oxlintSuppressions(text, fileName) {
+function sourceComments(text, fileName) {
   const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
-
   const ranges = [...new Set(commentPositions(source))].flatMap((position) => [
     ...(ts.getLeadingCommentRanges(text, position) ?? []),
     ...(ts.getTrailingCommentRanges(text, position) ?? []),
   ]);
 
-  const comments = new Map(ranges.map((range) => [range.pos, range]));
-
-  return [...comments.values()].flatMap(({ pos, end }) => {
-    const directive = text.slice(pos + 2, end).match(/^\s*\*?\s*(oxlint-(?:disable|enable)\b)/m);
-
-    if (!directive) {
-      return [];
-    }
-
-    const position = pos + 2 + directive.index + directive[0].indexOf(directive[1]);
-
-    return [{ line: source.getLineAndCharacterOfPosition(position).line + 1, kind: 'oxlint' }];
-  });
+  return [...new Map(ranges.map((range) => [range.pos, range])).values()];
 }
 
-/** Report type suppression violations and inline Oxlint directives in actual comments. */
-export function findUnreasonedSuppressions(text, fileName = 'source.tsx') {
-  const typeScript = text
-    .split('\n')
-    .map((line, index) => ({ line: index + 1, kind: kindOf(line) }))
-    .filter(({ kind }) => kind);
+function configComments(text, fileName) {
+  const tokens = fileName.endsWith('.css')
+    ? /"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\/\*[\s\S]*?(?:\*\/|$)/g
+    : /"(?:\\[\s\S]|[^"\\])*"|\/\/[^\r\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
 
-  return [...typeScript, ...oxlintSuppressions(text, fileName)].sort((a, b) => a.line - b.line);
+  return [...text.matchAll(tokens)]
+    .filter(([token]) => token.startsWith('/'))
+    .map(({ index, 0: token }) => ({ pos: index, end: index + token.length }));
+}
+
+/** Report directives only at the beginning of a real comment's body. */
+export function findSuppressions(text, fileName = 'source.tsx') {
+  const comments = ['.css', '.json', '.jsonc'].includes(extname(fileName))
+    ? configComments(text, fileName)
+    : sourceComments(text, fileName);
+
+  return comments
+    .flatMap(({ pos, end }) => {
+      const block = text.startsWith('/*', pos);
+      const start = pos + (text.startsWith('///', pos) ? 3 : 2);
+      const body = text.slice(start, block && text.slice(pos, end).endsWith('*/') ? end - 2 : end);
+      const directive = body.match(DIRECTIVE) ?? (block ? body.match(BLOCK_CONFIG) : null);
+
+      if (!directive) return [];
+
+      const position = start + directive[0].lastIndexOf(directive[1]);
+      return [{ line: text.slice(0, position).split(/\r\n?|\n/).length, kind: directive[1] }];
+    })
+    .sort((a, b) => a.line - b.line);
+}
+
+/** Apply reviewed exceptions and reject entries that no longer match a directive. */
+export function checkSuppressions(files, allowed = ALLOWED_SUPPRESSIONS) {
+  const directives = files.flatMap(({ path, text }) =>
+    findSuppressions(text, path).map((directive) => ({ path, ...directive })),
+  );
+  const matches = (entry, found) =>
+    entry.path === found.path && entry.directive === found.kind && entry.reason.trim().length > 0;
+
+  return [
+    ...directives.filter((found) => !allowed.some((entry) => matches(entry, found))),
+    ...allowed
+      .filter((entry) => !directives.some((found) => matches(entry, found)))
+      .map((entry) => ({
+        path: entry.path,
+        line: 1,
+        kind: `stale allowlist entry: ${entry.directive}`,
+      })),
+  ];
 }
 
 function runCli() {
-  const paths = execFileSync('git', ['ls-files', ...SOURCE_FILES], { encoding: 'utf8' })
-    .split('\n')
+  const paths = execFileSync('git', ['ls-files', '-z', '--', ...SOURCE_FILES], { encoding: 'utf8' })
+    .split('\0')
     .filter((path) => path && !path.startsWith('vendor/'));
-
-  const failures = paths.flatMap((path) =>
-    findUnreasonedSuppressions(readFileSync(path, 'utf8'), path).map(
-      ({ line, kind }) => `  ✗ ${path}:${line} ${MESSAGES[kind]}`,
-    ),
+  const failures = checkSuppressions(
+    paths.map((path) => ({ path, text: readFileSync(path, 'utf8') })),
   );
 
   if (failures.length === 0) {
     console.log(
-      `OK: ${paths.length} source files have reasoned type suppressions and no inline Oxlint directives.`,
+      `OK: ${paths.length} source and config files have no unallowlisted inline suppressions.`,
     );
-
     return;
   }
 
   console.error('Suppression policy violations:\n');
-  console.error(failures.join('\n'));
+  console.error(failures.map(({ path, line, kind }) => `✗ ${path}:${line} ${kind}`).join('\n'));
+  console.error(`\n${FIX}`);
   process.exitCode = 1;
 }
 
