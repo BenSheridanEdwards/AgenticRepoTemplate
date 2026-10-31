@@ -19,3 +19,9 @@ it.each([
 it.each(['', '   '])('asks for a name when it is %j', (name) => {
   expect(validate(name)).toEqual({ issues: [{ path: ['name'], message: 'Enter a name' }] });
 });
+
+it('encodes a normalized name without changing it', () => {
+  expect(Schema.encodeSync(greetingFormSchema)({ name: 'Ada Lovelace' })).toEqual({
+    name: 'Ada Lovelace',
+  });
+});
