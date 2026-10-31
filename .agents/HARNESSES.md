@@ -10,7 +10,7 @@ harness entry points, settings, hooks, and skills to their owners.
 | Codex | Root `AGENTS.md`, with nearer instructions for subdirectories. |
 | Claude Code | `.claude/CLAUDE.md` imports `AGENTS.md` with `@../AGENTS.md`. |
 | Claude Code Review | Root `REVIEW.md` includes the adjacent `AGENTS.md`. |
-| Cursor | Root and nested `AGENTS.md`; Bugbot reads `.cursor/BUGBOT.md`, which points to `REVIEW.md`. |
+| Cursor | Root and nested `AGENTS.md`; `.cursor/hooks.json` guards shell commands; Bugbot reads `.cursor/BUGBOT.md`, which points to `REVIEW.md`. |
 | GitHub Copilot | `AGENTS.md`; code review also reads root `REVIEW.md`. |
 | VS Code Chat | Root `AGENTS.md` with `chat.useAgentsMdFile` enabled (the default). |
 | Gemini CLI | Configure `context.fileName` to read `AGENTS.md`; this repo has no Gemini settings. |
@@ -25,12 +25,16 @@ verifies the Claude import and the AGENTS/REVIEW/BUGBOT wiring.
 hook for Bash commands running `git`, `env`, `sh`, or `bash`.
 `.codex/hooks.json` calls the same `.agents/hooks/block-gate-bypass.sh` guard
 for Bash in Codex sessions that trust and enable project hooks.
+`.cursor/hooks.json` runs `.agents/hooks/cursor-gate-bypass.sh` before shell
+execution in trusted workspaces. It adapts Cursor JSON to the shared guard
+and returns allow or deny; hook failures block commands.
 
 The guard refuses `--no-verify`, `git commit -n`, `HUSKY=0`, and writes to
 `core.hooksPath`, git aliases, or config includes. Its scope and gaps are in
 [ADR 0027](decisions/0027-block-common-hook-bypasses.md), amending
-[0005](decisions/0005-scope-claude-hooks-to-gate-bypass.md). CI on a clean
-checkout remains the backstop. Review changes to `.claude/` settings and hooks;
+[0005](decisions/0005-scope-claude-hooks-to-gate-bypass.md). Cursor wiring and
+gaps are in [Cursor runs the gate-bypass hook](decisions/0088-cursor-runs-the-gate-bypass-hook.md).
+CI on a clean checkout remains the backstop. Review changes to `.claude/` settings and hooks;
 they sit outside enforcement sign-off.
 
 ## Skills
