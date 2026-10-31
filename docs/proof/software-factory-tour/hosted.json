@@ -1,0 +1,115 @@
+{
+  "sourceHead": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+  "observedAt": "2026-10-31T14:40:49.958508+00:00",
+  "commandIdentity": "BenSheridanEdwards",
+  "runQueryTotal": 45,
+  "enumeratedRunCount": 45,
+  "runs": [
+    {
+      "id": 41153897866,
+      "name": "CodeQL",
+      "event": "push",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897866",
+      "created_at": "2026-10-31T01:09:02Z"
+    },
+    {
+      "id": 41153897831,
+      "name": "CI",
+      "event": "push",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831",
+      "created_at": "2026-10-31T01:09:02Z"
+    }
+  ],
+  "ciJobs": [
+    {
+      "name": "Unit + component tests",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124396347125",
+      "started_at": "2026-10-31T01:09:06Z",
+      "completed_at": "2026-10-31T01:12:59Z"
+    },
+    {
+      "name": "Security audit",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124396347338",
+      "started_at": "2026-10-31T01:09:06Z",
+      "completed_at": "2026-10-31T01:09:42Z"
+    },
+    {
+      "name": "Code intelligence (Fallow)",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124396347348",
+      "started_at": "2026-10-31T01:09:06Z",
+      "completed_at": "2026-10-31T01:10:37Z"
+    },
+    {
+      "name": "Type check \u00b7 lint \u00b7 format",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124396347351",
+      "started_at": "2026-10-31T01:09:06Z",
+      "completed_at": "2026-10-31T01:09:54Z"
+    },
+    {
+      "name": "Production build",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124396347377",
+      "started_at": "2026-10-31T01:09:06Z",
+      "completed_at": "2026-10-31T01:09:37Z"
+    },
+    {
+      "name": "Branch contains main",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124396348169",
+      "started_at": "2026-10-31T01:09:03Z",
+      "completed_at": "2026-10-31T01:09:03Z"
+    },
+    {
+      "name": "End-to-end behaviour map",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124397393287",
+      "started_at": "2026-10-31T01:13:02Z",
+      "completed_at": "2026-10-31T01:14:07Z"
+    },
+    {
+      "name": "Required gates",
+      "head_sha": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "conclusion": "success",
+      "html_url": "https://github.com/BenSheridanEdwards/AgenticRepoTemplate/actions/runs/41153897831/job/124397696003",
+      "started_at": "2026-10-31T01:14:10Z",
+      "completed_at": "2026-10-31T01:14:16Z"
+    }
+  ],
+  "requiredChecks": [
+    "Analyze (javascript-typescript)",
+    "Type check \u00b7 lint \u00b7 format",
+    "Code intelligence (Fallow)",
+    "Unit + component tests",
+    "Production build",
+    "End-to-end behaviour map",
+    "Security audit",
+    "Validate PR body and title",
+    "Lighthouse budgets",
+    "Required gates"
+  ],
+  "strict": true,
+  "enforceAdmins": true,
+  "branchRules": [],
+  "gaps": [
+    "Visual regression expected by source inventory is not required by branch protection",
+    "enforcement-approval status is absent from branch protection and source aggregate"
+  ],
+  "unchanged": true
+}
