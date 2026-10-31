@@ -15,9 +15,11 @@ and which test proves each promise.
 ## Behaviours
 
 - **Greets the visitor by name.** The visitor enters a name and selects Greet.
-  The api answers, and the page announces `Hello, <name>!` with the spaces
-  around the name trimmed.
+  The api answers, and the page announces `Hello, <name>!` with the whitespace
+  around the name trimmed and each run of inner whitespace collapsed to one
+  space.
   - Proved by [greets a name through the api](../../apps/web/e2e/greeting.spec.ts)
+  - Proved by [collapses runs of inner whitespace in the name](../../apps/web/e2e/greeting.spec.ts)
 - **Asks for a name before it calls the api.** A blank name shows `Enter a
   name`, marks the field invalid, and sends the api no request.
   - Proved by [asks for a name and sends no request when the name is blank](../../apps/web/e2e/greeting.spec.ts)
