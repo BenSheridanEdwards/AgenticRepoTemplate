@@ -144,15 +144,21 @@ describe("the repository's contract, read through Fallow", () => {
     ]);
   });
 
-  it('lets every role reach every other role, by value or by type', () => {
+  it('lets every role except ui reach every other role, by value or by type', () => {
     const reach = new Set(repository.directions.map(({ from, to }) => `${from} ${to}`));
-    const missing = repository.roles.flatMap((from: string) =>
-      repository.roles
-        .filter((to: string) => to !== from && !reach.has(`${from} ${to}`))
-        .map((to: string) => `${from} ${to}`),
-    );
+    const missing = repository.roles
+      .filter((role: string) => role !== 'ui')
+      .flatMap((from: string) =>
+        repository.roles
+          .filter((to: string) => to !== from && !reach.has(`${from} ${to}`))
+          .map((to: string) => `${from} ${to}`),
+      );
     expect(missing).toEqual([]);
     expect(repository.directions.filter(({ from, to }) => from === to)).toEqual([]);
+  });
+
+  it('lets ui reach no other role, by value or by type', () => {
+    expect(repository.directions.filter(({ from }) => from === 'ui')).toEqual([]);
   });
 
   it('allows value imports along exactly the listed directions', () => {
