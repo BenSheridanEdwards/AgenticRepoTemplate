@@ -4,8 +4,8 @@
  *
  * `docs/architecture/roles.mmd` is the canonical diagram: every role in
  * `.fallowrc.jsonc` and every direction its rules allow by value. A type-only
- * import between any two roles is allowed (ADR 0037), so the canonical diagram
- * leaves those out; a result diagram dashes an edge whose pair the contract
+ * import from any role except ui is allowed (ADR 0085 amends ADR 0037), so the
+ * canonical diagram leaves those out; a result diagram dashes an edge whose pair the contract
  * allows for types only. Each result gets
  * `<root>/architecture.mmd`: the roles its files hold and the role edges its
  * imports resolve to. Both use one set of conventions (node ids, labels,
@@ -68,7 +68,7 @@ export function renderContractDiagram(contract) {
   );
   return renderDiagram(
     contract,
-    `${GENERATOR}: every role and value direction in .fallowrc.jsonc; any role may import types from any other role`,
+    `${GENERATOR}: every role and value direction in .fallowrc.jsonc; any role except ui may import types from any other role`,
     new Set(contract.roles),
     edges.values(),
   );

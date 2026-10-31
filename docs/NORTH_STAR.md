@@ -121,7 +121,7 @@ application; application calls domain and integrations; the domain and the UI
 package import no other role by value. Fallow fails a value import the table
 leaves out, and `coverage.requireAllFiles` fails an in-scope source file in
 no role (`pnpm arch:gate`).
-A type-only import may cross between any two roles
+A type-only import may cross between any two roles except into the UI package
 ([ADR 0037](../.agents/decisions/0037-type-only-edges-and-flagged-re-exports.md)), so the
 downward rule holds for values between roles. Imports within a role remain
 allowed subject to slice isolation. Tests, E2E specs, configs, scripts and
