@@ -58,7 +58,7 @@ Fix failures with existing thresholds and gates at full strength. Describe exter
 Run changed scripts or hooks directly where practical, then the target's
 aggregate verification and E2E commands. Here, use `pnpm check:context`,
 `pnpm check:docs`, `pnpm verify`, and `pnpm e2e`. Validate skill frontmatter.
-Before a push, clear `pnpm lint:anti-slop` and `pnpm lint:anti-slop:changed`
+Before a push, clear `pnpm lint:anti-slop`
 findings on the committed head.
 
 Use `pr-quality-contract` and [`.agents/project/PR_QUALITY.md`](../../../.agents/project/PR_QUALITY.md)

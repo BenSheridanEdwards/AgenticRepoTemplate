@@ -108,7 +108,6 @@ describe('GUARDS', () => {
     'scripts/required-gates.mjs',
     'docs/required-gates.md',
     'tooling/anything.json',
-    'tooling/anti-slop/advisory.json',
     'vendor/anti-slop-other/index.ts',
     '.oxlintrc.json.bak',
     'oxlint.config.ts/unrelated.ts',

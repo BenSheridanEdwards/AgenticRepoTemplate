@@ -13,8 +13,6 @@ pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
-pnpm lint:anti-slop:advisory  # gate rules plus noisy rules at warn; outside the gates
-pnpm lint:anti-slop:changed   # advisory findings on committed changed lines; run before every push
 pnpm arch:check       # architecture gate, structure check, diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd and each result's architecture.mmd
 pnpm api:report       # regenerate each package's etc/*.api.md after an intended export change
@@ -43,16 +41,12 @@ before abstractions or dependencies.
 
 Builders, including Codex, follow these steps before every push:
 
-1. Commit the final changes, then run `pnpm lint:anti-slop` and
-   `pnpm lint:anti-slop:changed` on the clean tracked tree. The changed-lines
-   check compares `origin/main...HEAD`. Fix every finding it prints, commit
-   the fixes and run both commands again.
+1. Commit the final changes, then run `pnpm lint:anti-slop` on the clean tracked tree.
 2. Fix the cause. Keep every anti-slop rule, severity and ignore as it is, and
-   add no `oxlint-disable` or `eslint-disable` comment.
+   add no `oxlint-disable` or `eslint-disable` comment. Commit fixes and rerun the gate.
 3. Write `// SAFETY: <the checked invariant>` above a type assertion only when
    the code beside it checks that invariant; otherwise remove the assertion.
-4. Leave advisory findings on lines you did not change for their rollout PRs.
-5. Run `pnpm verify` and `pnpm e2e`; `pnpm verify` runs `pnpm lint:anti-slop`.
+4. Run `pnpm verify` and `pnpm e2e`; `pnpm verify` runs `pnpm lint:anti-slop`.
 
 For review findings, follow [REVIEW.md](REVIEW.md#anti-slop-findings).
 
@@ -73,7 +67,7 @@ the code-level rules and their checks.
 | A new dependency arrives with an ADR. | `pnpm check:adr` |
 | Secrets stay out of commits. | gitleaks in pre-commit and CI |
 | An ESLint exception lives in `eslint.config.js` with its reason; an inline `eslint-disable*`, `/* eslint <rule>: off */` or `/* global */` comment fails lint in every source file. | `pnpm lint:policy` (`noInlineConfig`, [ADR 0039](.agents/decisions/0039-block-inline-lint-disable-comments.md)) |
-| Biome, ESLint and React Doctor fail on a warning. | Biome `--error-on-warnings`, ESLint `--max-warnings=0`, React Doctor `--blocking warning` ([ADR 0046](.agents/decisions/0046-fail-lint-on-warnings.md)); Fallow warnings remain nonblocking. |
+| Biome, ESLint and React Doctor fail on a warning. | Biome `--error-on-warnings`, ESLint `--max-warnings=0`, React Doctor `--blocking warning` ([ADR 0046](.agents/decisions/0046-fail-lint-on-warnings.md)); Fallow has no warn-level rule. |
 | Each comment group in package TypeScript source keeps to four lines; longer reasoning goes in an ADR or doc. | ESLint `policy/no-large-comments` ([ADR 0050](.agents/decisions/0050-anti-slop-lint-policies.md)) |
 | Outside result roots, every type suppression is a `@ts-expect-error` with its reason, and every `biome-ignore` carries its reason. In `apps/` and `showcase/<id>/`, fix the cause of a suppression. | `pnpm check:suppressions`; Biome for `biome-ignore`; the structure check's `suppression` rule rejects these directives and coverage pragmas in result roots. |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |

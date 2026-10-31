@@ -40,7 +40,6 @@
 
 ## Anti-slop findings
 
-- Reviewers, including Claude Opus, run `pnpm lint:anti-slop:changed` on the clean, checked-out PR head. Raise every printed finding as a change request naming file, line, and rule; it adds a pattern the rollout is removing.
 - Flag new `// SAFETY:` comments whose invariant the nearby code fails to check.
-- Flag changes that only hide findings: renaming a symbol that still means "shape", splitting an assertion across bindings, moving `typeof` into a helper, or laundering a value through `unknown`.
+- Flag changes that only hide findings: splitting an assertion across bindings, moving `typeof` into a helper, or laundering a value through `unknown`.
 - Check `vendor/anti-slop/UPSTREAM.md` for provenance and flag vendored source edits that differ from pinned upstream bytes.
