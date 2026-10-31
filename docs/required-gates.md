@@ -20,6 +20,42 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 | Visual regression | `visual.yml` `visual` | Branch protection | Pull requests. Reference screenshots run on the same UI-relevant changes as Lighthouse; other changes pass without capturing. | `pnpm visual` (Linux Chromium) |
 | Validate PR body and title | `pr-quality.yml` `pr-body` | Branch protection | Pull requests not opened by a bot account. | `pnpm validate:pr` with `PR_TITLE` and `PR_BODY` set |
 
+## Hook steps CI re-runs
+
+Every hook command and every `verify` step has a required CI equivalent.
+`pnpm verify` is spread across the lanes judged by `Required gates`; each
+child command is checked below. The PR title is the squash commit message,
+so title validation repeats commitlint. CI Biome and secret scans cover
+the full tree and history rather than staged files.
+
+| Hook or script | Local command | Workflow job | CI step |
+| --- | --- | --- | --- |
+| `package.json verify` | `pnpm check:lockfile` | `ci.yml` `quality` | `pnpm check:lockfile` |
+| `package.json verify` | `pnpm check:context` | `ci.yml` `quality` | `pnpm check:context` |
+| `package.json verify` | `pnpm check:suppressions` | `ci.yml` `quality` | `pnpm check:suppressions` |
+| `package.json verify` | `pnpm check:docs` | `ci.yml` `quality` | `pnpm check:docs` |
+| `package.json verify` | `pnpm check:adr` | `ci.yml` `quality` | `pnpm check:adr` |
+| `package.json verify` | `pnpm lint:policy` | `ci.yml` `quality` | `pnpm lint:policy` |
+| `package.json verify` | `pnpm react-doctor` | `ci.yml` `quality` | `pnpm react-doctor` |
+| `.husky/pre-commit` | `pnpm typecheck` | `ci.yml` `quality` | `pnpm typecheck` |
+| `package.json verify` | `pnpm typecheck` | `ci.yml` `quality` | `pnpm typecheck` |
+| `.husky/pre-commit` | `pnpm lint:anti-slop` | `ci.yml` `quality` | `pnpm lint:anti-slop` |
+| `package.json verify` | `pnpm lint:anti-slop` | `ci.yml` `quality` | `pnpm lint:anti-slop` |
+| `.husky/pre-commit` | `pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .` | `ci.yml` `quality` | `pnpm check` |
+| `package.json verify` | `pnpm check` | `ci.yml` `quality` | `pnpm check` |
+| `.husky/pre-commit` | `pnpm fallow:audit` | `ci.yml` `fallow` | `fallow-rs/fallow@v3.33.1 with.command: audit` |
+| `package.json verify` | `pnpm fallow:audit` | `ci.yml` `fallow` | `fallow-rs/fallow@v3.33.1 with.command: audit` |
+| `.husky/pre-commit` | `pnpm secret-scan` | `ci.yml` `security` | `bash scripts/secret-scan-ci.sh` |
+| `.husky/pre-push` | `sh scripts/require-up-to-date-main.sh --pushed-refs` | `ci.yml` `up-to-date` | `sh scripts/require-up-to-date-main.sh` |
+| `.husky/pre-push` | `pnpm verify` | `ci.yml` `required-gates` | `node scripts/required-gates.mjs --decide` |
+| `.husky/pre-push` | `pnpm e2e` | `ci.yml` `e2e` | `pnpm e2e` |
+| `.husky/commit-msg` | `pnpm exec commitlint --edit "$1"` | `pr-quality.yml` `pr-body` | `node scripts/validate-pr-body.mjs` |
+| `package.json verify` | `pnpm gates:check` | `ci.yml` `required-gates` | `node scripts/required-gates.mjs --check` |
+| `package.json verify` | `pnpm arch:check` | `ci.yml` `fallow` | `pnpm arch:gate`<br>`pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd`<br>`pnpm api:check` |
+| `package.json verify` | `pnpm test:coverage` | `ci.yml` `test` | `pnpm test:coverage` |
+| `package.json verify` | `pnpm build` | `ci.yml` `build` | `pnpm build` |
+| `package.json verify` | `pnpm size` | `ci.yml` `build` | `pnpm size` |
+
 ## Step rules
 
 Inside every job above, `pnpm gates:check` also fails on a step that:

@@ -133,6 +133,117 @@ export const REQUIRED_GATES = [
   },
 ];
 
+/** Local commands and the required CI steps that repeat their checks. */
+export const HOOK_STEPS = [
+  ...[
+    'check:lockfile',
+    'check:context',
+    'check:suppressions',
+    'check:docs',
+    'check:adr',
+    'lint:policy',
+    'react-doctor',
+  ].map((script) => ({
+    sources: ['package.json verify'],
+    command: `pnpm ${script}`,
+    workflow: 'ci.yml',
+    job: 'quality',
+    steps: [{ run: `pnpm ${script}` }],
+  })),
+  ...['typecheck', 'lint:anti-slop'].map((script) => ({
+    sources: ['.husky/pre-commit', 'package.json verify'],
+    command: `pnpm ${script}`,
+    workflow: 'ci.yml',
+    job: 'quality',
+    steps: [{ run: `pnpm ${script}` }],
+  })),
+  {
+    sources: ['.husky/pre-commit'],
+    command: 'pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .',
+    workflow: 'ci.yml',
+    job: 'quality',
+    steps: [{ run: 'pnpm check' }],
+  },
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm check',
+    workflow: 'ci.yml',
+    job: 'quality',
+    steps: [{ run: 'pnpm check' }],
+  },
+  {
+    sources: ['.husky/pre-commit', 'package.json verify'],
+    command: 'pnpm fallow:audit',
+    workflow: 'ci.yml',
+    job: 'fallow',
+    steps: [{ uses: 'fallow-rs/fallow@v3.33.1', command: 'audit' }],
+  },
+  {
+    sources: ['.husky/pre-commit'],
+    command: 'pnpm secret-scan',
+    workflow: 'ci.yml',
+    job: 'security',
+    steps: [{ run: 'bash scripts/secret-scan-ci.sh' }],
+  },
+  {
+    sources: ['.husky/pre-push'],
+    command: 'sh scripts/require-up-to-date-main.sh --pushed-refs',
+    workflow: 'ci.yml',
+    job: 'up-to-date',
+    steps: [{ run: 'sh scripts/require-up-to-date-main.sh' }],
+  },
+  {
+    sources: ['.husky/pre-push'],
+    command: 'pnpm verify',
+    workflow: 'ci.yml',
+    job: 'required-gates',
+    steps: [{ run: 'node scripts/required-gates.mjs --decide' }],
+  },
+  {
+    sources: ['.husky/pre-push'],
+    command: 'pnpm e2e',
+    workflow: 'ci.yml',
+    job: 'e2e',
+    steps: [{ run: 'pnpm e2e' }],
+  },
+  {
+    sources: ['.husky/commit-msg'],
+    command: 'pnpm exec commitlint --edit "$1"',
+    workflow: 'pr-quality.yml',
+    job: 'pr-body',
+    steps: [{ run: 'node scripts/validate-pr-body.mjs' }],
+  },
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm gates:check',
+    workflow: 'ci.yml',
+    job: 'required-gates',
+    steps: [{ run: 'node scripts/required-gates.mjs --check' }],
+  },
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm arch:check',
+    workflow: 'ci.yml',
+    job: 'fallow',
+    steps: [
+      { run: 'pnpm arch:gate' },
+      { run: 'pnpm arch:diagram && git diff --exit-code docs/architecture/roles.mmd' },
+      { run: 'pnpm api:check' },
+    ],
+  },
+  ...[
+    ['test:coverage', 'test'],
+    ['build', 'build'],
+    ['size', 'build'],
+  ].map(([script, job]) => ({
+    sources: ['package.json verify'],
+    command: `pnpm ${script}`,
+    workflow: 'ci.yml',
+    job,
+    steps: [{ run: `pnpm ${script}` }],
+  })),
+];
+
 const AGGREGATED = REQUIRED_GATES.filter((gate) => gate.judgedBy === 'aggregate');
 const STAND_ALONE = REQUIRED_GATES.filter((gate) => gate.judgedBy === 'branch protection');
 
@@ -296,6 +407,19 @@ function readStepLine(state, line, indent) {
 }
 
 function readNested(state, line) {
+  if (state.nested === 'with') {
+    const command = line.match(/^ {10}command:\s+(.+?)\s*$/)?.[1];
+    if (command === undefined) return { state, ok: true };
+    const step = { ...state.step, with: { ...state.step.with, command } };
+    return {
+      state: {
+        ...state,
+        step,
+        job: { ...state.job, steps: [...state.job.steps.slice(0, -1), step] },
+      },
+      ok: true,
+    };
+  }
   if (state.nested === 'run') {
     const step = { ...state.step, run: `${state.step.run}${line.slice(10)}\n` };
     return {
@@ -318,7 +442,7 @@ function readNested(state, line) {
 function setField(state, target, key, value) {
   if (value === undefined) {
     return {
-      state: { ...state, nested: 'opaque' },
+      state: { ...state, nested: key === 'with' ? 'with' : 'opaque' },
       ok: !['run', 'if', 'continue-on-error', 'name'].includes(key),
     };
   }
@@ -500,11 +624,76 @@ function checkAggregateJob(ciJobs, ciText, errors) {
   }
 }
 
+function hookCommands(text) {
+  return text
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .flatMap((line) => line.split(/&&|\|\|?|;|&/))
+    .map((command) => command.trim())
+    .filter((command) => command && !/^(#|(?:echo|set|unset)(?:\s|$))/.test(command));
+}
+
+function ciStepText(step) {
+  return step.run ?? `${step.uses} with.command: ${step.command}`;
+}
+
+function checkHookSteps(readFile, jobsByWorkflow, hookSteps, errors) {
+  const sources = [
+    ...['.husky/pre-commit', '.husky/pre-push', '.husky/commit-msg'].map((source) => ({
+      source,
+      text: readFile(source),
+    })),
+    { source: 'package.json verify', text: JSON.parse(readFile('package.json')).scripts.verify },
+  ];
+  sources.forEach(({ source, text }) => {
+    hookCommands(text).forEach((command) => {
+      const mapping = hookSteps.find(
+        (row) => row.sources.includes(source) && row.command === command,
+      );
+      const where = `\`${source}\` runs \`${command}\``;
+      if (!mapping) {
+        errors.push(
+          `${where}, but no Required-gates lane re-runs it. Add the step to CI and a row to HOOK_STEPS.`,
+        );
+        return;
+      }
+      const { workflow, job, steps } = mapping;
+      const lane = jobsByWorkflow.get(workflow)?.get(job);
+      const gate = REQUIRED_GATES.find((gate) => gate.workflow === workflow && gate.job === job);
+      const aggregate = workflow === AGGREGATE.workflow && job === AGGREGATE.job;
+      const judged =
+        gate?.judgedBy === 'aggregate'
+          ? parseNeeds(jobsByWorkflow.get(AGGREGATE.workflow).get(AGGREGATE.job)?.needs)?.includes(
+              job,
+            )
+          : SELECTABLE_CHECKS.includes(aggregate ? AGGREGATE.check : gate?.check);
+      if (!judged) {
+        errors.push(
+          `${where}, but ${workflow} job \`${job}\` is neither judged by Required gates nor listed for branch protection.`,
+        );
+      }
+      steps.forEach((expected) => {
+        const found = lane?.steps.some((step) =>
+          expected.run
+            ? step.run?.trim() === expected.run
+            : step.uses === expected.uses && step.with?.command === expected.command,
+        );
+        if (!found) {
+          errors.push(
+            `${where}, but ${workflow} job \`${job}\` is missing \`${ciStepText(expected)}\`.`,
+          );
+        }
+      });
+    });
+  });
+}
+
 /**
  * Check the workflows and the generated inventory against the contract.
- * `readWorkflow(fileName)` returns a workflow's text. Returns error strings.
+ * `readWorkflow(fileName)` reads workflows; `readFile(path)` reads hooks and the manifest.
+ * Returns error strings.
  */
-export function checkContract({ readWorkflow, inventory }) {
+export function checkContract({ readWorkflow, readFile, inventory, hookSteps = HOOK_STEPS }) {
   const errors = [];
   const jobsByWorkflow = new Map();
   REQUIRED_GATES.forEach((gate) => {
@@ -526,6 +715,8 @@ export function checkContract({ readWorkflow, inventory }) {
       );
     }
   });
+
+  checkHookSteps(readFile, jobsByWorkflow, hookSteps, errors);
 
   if (inventory !== renderInventory()) {
     errors.push(`${INVENTORY_PATH} is stale. Run \`pnpm gates:inventory\` and commit the result.`);
@@ -592,6 +783,23 @@ export function renderInventory() {
     '| Check | Workflow job | Judged by | Applies when | Local mirror |',
     '| --- | --- | --- | --- | --- |',
     ...rows,
+    '',
+    '## Hook steps CI re-runs',
+    '',
+    'Every hook command and every `verify` step has a required CI equivalent.',
+    '`pnpm verify` is spread across the lanes judged by `Required gates`; each',
+    'child command is checked below. The PR title is the squash commit message,',
+    'so title validation repeats commitlint. CI Biome and secret scans cover',
+    'the full tree and history rather than staged files.',
+    '',
+    '| Hook or script | Local command | Workflow job | CI step |',
+    '| --- | --- | --- | --- |',
+    ...HOOK_STEPS.flatMap((row) =>
+      row.sources.map(
+        (source) =>
+          `| \`${source}\` | \`${row.command}\` | \`${row.workflow}\` \`${row.job}\` | ${row.steps.map((step) => `\`${ciStepText(step)}\``).join('<br>')} |`,
+      ),
+    ),
     '',
     '## Step rules',
     '',
@@ -667,6 +875,7 @@ function runCli(mode) {
   } else if (mode === '--check') {
     const errors = checkContract({
       readWorkflow: (name) => readRepositoryFile(`.github/workflows/${name}`),
+      readFile: readRepositoryFile,
       inventory: readRepositoryFile(INVENTORY_PATH),
     });
     report(errors, 'Required-gate contract matches the workflows and the inventory.');

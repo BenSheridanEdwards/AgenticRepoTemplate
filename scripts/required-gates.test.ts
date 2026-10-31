@@ -9,6 +9,7 @@ import {
   checkContract,
   compareProtection,
   decideRequiredGates,
+  HOOK_STEPS,
   REQUIRED_GATES,
   renderInventory,
 } from './required-gates.mjs';
@@ -60,11 +61,13 @@ const REAL_FILES = {
 
 function contractErrors(
   edit: (files: typeof REAL_FILES) => Partial<typeof REAL_FILES> = () => ({}),
+  hookSteps = HOOK_STEPS,
 ) {
   const files = { ...REAL_FILES, ...edit(REAL_FILES) };
   return checkContract({
     readWorkflow: (name: keyof typeof REAL_FILES) => files[name],
     readFile: (name: keyof typeof REAL_FILES) => files[name],
+    hookSteps,
     inventory: renderInventory(),
   });
 }
@@ -215,6 +218,73 @@ describe('checkContract', () => {
     expect(errors).toContainEqual(expect.stringMatching(/verify.*pnpm check:new.*HOOK_STEPS/));
   });
 
+  it.each([
+    '.husky/pre-commit',
+    'package.json verify',
+  ])('accepts a new command in %s only with both a mapping and a required CI step', (source) => {
+    const mapping = {
+      sources: [source],
+      command: 'pnpm check:new',
+      workflow: 'ci.yml',
+      job: 'quality',
+      steps: [{ run: 'pnpm check:new' }],
+    };
+    const edit = (files: typeof REAL_FILES) => {
+      const manifest = JSON.parse(files['package.json']);
+      manifest.scripts.verify += ' && pnpm check:new';
+      return source === '.husky/pre-commit'
+        ? { '.husky/pre-commit': `${files['.husky/pre-commit']}pnpm check:new\n` }
+        : { 'package.json': JSON.stringify(manifest) };
+    };
+    expect(contractErrors(edit, [...HOOK_STEPS, mapping])).toContainEqual(
+      expect.stringContaining('missing `pnpm check:new`'),
+    );
+    expect(
+      contractErrors(
+        (files) => ({
+          ...edit(files),
+          'ci.yml': files['ci.yml'].replace(
+            '      - run: pnpm check:docs\n',
+            '      - run: pnpm check:docs\n      - run: pnpm check:new\n',
+          ),
+        }),
+        [...HOOK_STEPS, mapping],
+      ),
+    ).toEqual([]);
+  });
+
+  it('rejects a mapping to a lane outside Required gates and branch protection', () => {
+    const hookSteps = HOOK_STEPS.map((row) =>
+      row.command === 'pnpm lint:anti-slop'
+        ? { ...row, workflow: 'pr-quality.yml', job: 'unrequired' }
+        : row,
+    );
+    const errors = contractErrors(
+      (files) => ({
+        'pr-quality.yml': `${files['pr-quality.yml']}\n  unrequired:\n    steps:\n      - run: pnpm lint:anti-slop\n`,
+      }),
+      hookSteps,
+    );
+    expect(errors).toContainEqual(
+      expect.stringContaining('neither judged by Required gates nor listed for branch protection'),
+    );
+  });
+
+  it('ignores comments and standalone echo, set and unset commands', () => {
+    expect(
+      contractErrors((files) => ({
+        '.husky/pre-commit': `${files['.husky/pre-commit']}\n# comment; pnpm ignored\necho "status"\nset -e\nunset EXAMPLE\n`,
+      })),
+    ).toEqual([]);
+  });
+
+  it.each(['&&', '||', ';', '|', '&'])('checks a command after echo joined by %s', (operator) => {
+    const errors = contractErrors((files) => ({
+      '.husky/pre-commit': `${files['.husky/pre-commit']}echo status ${operator} pnpm check:new\n`,
+    }));
+    expect(errors).toContainEqual(expect.stringContaining('runs `pnpm check:new`'));
+  });
+
   it('requires the Fallow action to run audit', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace('command: audit', 'command: dead-code'),
@@ -340,7 +410,7 @@ describe('checkContract', () => {
     ],
   ])('fails when %s', (_label, from, to) => {
     const errors = contractErrors((files) => ({ 'ci.yml': files['ci.yml'].replace(from, to) }));
-    expect(errors).toEqual([expect.stringContaining('differs from the contract')]);
+    expect(errors).toContainEqual(expect.stringContaining('differs from the contract'));
   });
 
   it.each([
@@ -404,7 +474,7 @@ describe('checkContract', () => {
     const errors = contractErrors((files) => ({
       [workflow]: files[workflow].replace(from, to),
     }));
-    expect(errors).toEqual([expect.stringContaining(message)]);
+    expect(errors).toContainEqual(expect.stringContaining(message));
   });
 
   it.each([
