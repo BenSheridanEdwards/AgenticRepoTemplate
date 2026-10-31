@@ -1,0 +1,40 @@
+{
+  "scope": "One staged source parameter rename, no behaviour change; original restored after probes. Installed baseline previously verified; five fresh CLI processes per step, sequential, same host. OS/dependency caches not purged. First sample is first-in-series, not cold machine. Samples 2-5 are warm repetitions. Typecheck script forces rebuild every time. No concurrent deliberate benchmark workloads. Includes pnpm/process startup. No equivalent ESLint workload was constructed, so no comparative speedup claim.",
+  "steps": {
+    "typecheck": {
+      "samplesSeconds": [4.331787, 4.038306, 6.098924, 4.44924, 4.861123],
+      "medianSeconds": 4.44924,
+      "warmMedianSeconds": 4.655181499999999,
+      "maximumSeconds": 6.098924,
+      "under30SecondsEverySample": true
+    },
+    "staged-biome": {
+      "samplesSeconds": [1.051739, 1.041157, 2.548926, 1.319433, 1.022725],
+      "medianSeconds": 1.051739,
+      "warmMedianSeconds": 1.180295,
+      "maximumSeconds": 2.548926,
+      "under30SecondsEverySample": true
+    },
+    "oxlint": {
+      "samplesSeconds": [1.355502, 1.373537, 2.961635, 1.828049, 1.786877],
+      "medianSeconds": 1.786877,
+      "warmMedianSeconds": 1.807463,
+      "maximumSeconds": 2.961635,
+      "under30SecondsEverySample": true
+    },
+    "fallow": {
+      "samplesSeconds": [2.050106, 2.504133, 2.304172, 2.199172, 2.115756],
+      "medianSeconds": 2.199172,
+      "warmMedianSeconds": 2.251672,
+      "maximumSeconds": 2.504133,
+      "under30SecondsEverySample": true
+    },
+    "secrets": {
+      "samplesSeconds": [0.973053, 1.309934, 0.924211, 1.015818, 1.335772],
+      "medianSeconds": 1.015818,
+      "warmMedianSeconds": 1.162876,
+      "maximumSeconds": 1.335772,
+      "under30SecondsEverySample": true
+    }
+  }
+}

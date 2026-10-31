@@ -1,0 +1,510 @@
+Running one project: tooling
+PASS tooling scripts/block-gate-bypass.test.ts (15.519 s)
+  block-gate-bypass hook under sh
+    ✓ blocks "git commit --no-verify -m \"x\"" (75 ms)
+    ✓ blocks "git push --no-verify" (82 ms)
+    ✓ blocks "git commit --no-veri -m x" (92 ms)
+    ✓ blocks "git push --no-ver''ify" (86 ms)
+    ✓ blocks "git push --no-\\verify" (79 ms)
+    ✓ blocks "git commit -n -m x" (80 ms)
+    ✓ blocks "git commit -nm x" (75 ms)
+    ✓ blocks "git commit -anm x" (76 ms)
+    ✓ blocks "git commit --amend -n" (78 ms)
+    ✓ blocks "git commit -m \"x\" -n" (84 ms)
+    ✓ blocks "git commit \"-n\" -m x" (78 ms)
+    ✓ blocks "git commit -m x \"-n\"" (75 ms)
+    ✓ blocks "git commit -m \"$(git commit -n -m y)\"" (75 ms)
+    ✓ blocks "git -C apps/web commit -n -m x" (74 ms)
+    ✓ blocks "git commit\n-n -m x" (73 ms)
+    ✓ blocks "cd apps && git commit -n -m x" (75 ms)
+    ✓ blocks "git push 'x -m ' --no-verify ' y'" (78 ms)
+    ✓ blocks "HUSKY=0 git commit -m x" (106 ms)
+    ✓ blocks "HUSKY=0 git push" (94 ms)
+    ✓ blocks "HUSKY=\"0\" git push" (92 ms)
+    ✓ blocks "HUSKY='0' git push" (107 ms)
+    ✓ blocks "HUSKY=''0 git push" (93 ms)
+    ✓ blocks "HU\"\"SKY=0 git push" (98 ms)
+    ✓ blocks "HUSKY=\\0 git push" (89 ms)
+    ✓ blocks "HUSKY=$(echo 0) git push" (86 ms)
+    ✓ blocks "HUSKY=${X:-0} git push" (93 ms)
+    ✓ blocks "HUSKY=`echo 0` git push" (82 ms)
+    ✓ blocks "export HUSKY=0; git push" (82 ms)
+    ✓ blocks "env HUSKY=0 git push" (76 ms)
+    ✓ blocks "git -c core.hooksPath=/dev/null commit -m x" (85 ms)
+    ✓ blocks "git -c core.hookspath=/dev/null push" (85 ms)
+    ✓ blocks "git -c core.hooks''Path=/dev/null push" (84 ms)
+    ✓ blocks "git --config-env core.hooksPath=EMPTY push" (89 ms)
+    ✓ blocks "git config core.hooksPath /dev/null" (87 ms)
+    ✓ blocks "git config \"core.hooksPath\" /dev/null" (90 ms)
+    ✓ blocks "git config core.hooks\\Path /dev/null" (109 ms)
+    ✓ blocks "git config --global core.hooksPath /tmp/none" (109 ms)
+    ✓ blocks "git config --unset core.hooksPath" (100 ms)
+    ✓ blocks "git config core.hooksPath .husky-off" (103 ms)
+    ✓ blocks "git config --get core.hooksPath && git config core.hooksPath /dev/null" (94 ms)
+    ✓ blocks "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git push" (98 ms)
+    ✓ blocks "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/x git push" (95 ms)
+    ✓ blocks "git config alias.ci 'commit -n'" (75 ms)
+    ✓ blocks "git config --global alias.p \"push --no-verify\"" (75 ms)
+    ✓ blocks "git -c alias.ci='commit -n' ci -m x" (96 ms)
+    ✓ blocks "git config include.path /tmp/evil.gitconfig" (113 ms)
+    ✓ blocks "git config includeIf.gitdir:~/.path /tmp/evil.gitconfig" (138 ms)
+    ✓ blocks "git -c include.path=/tmp/evil.gitconfig commit -m x" (120 ms)
+    ✓ blocks "bash -c 'git push --no-verify'" (82 ms)
+    ✓ blocks "sh -c \"git commit -n -m x\"" (82 ms)
+    ✓ blocks "bash -c 'HUSKY=0 git push'" (96 ms)
+    ✓ allows "git status" (108 ms)
+    ✓ allows "git commit -m \"feat: add thing\"" (106 ms)
+    ✓ allows "git commit -m \"fix: y\"" (136 ms)
+    ✓ allows "git commit -m \"docs: explain -n\"" (93 ms)
+    ✓ allows "git commit -m 'docs: explain -nm'" (94 ms)
+    ✓ allows "git commit -m \"docs: mention --no-verify and HUSKY=0\"" (94 ms)
+    ✓ allows "git commit --message=\"docs: -n flag\"" (103 ms)
+    ✓ allows "git commit -m \"$(cat <<'EOF'\nfix: y\n\nLonger body.\nEOF\n)\"" (106 ms)
+    ✓ allows "git commit -mn" (89 ms)
+    ✓ allows "git commit -uno -m x" (90 ms)
+    ✓ allows "git commit --no-edit --amend" (88 ms)
+    ✓ allows "git commit -F msg.txt" (96 ms)
+    ✓ allows "git push" (93 ms)
+    ✓ allows "git push -n" (94 ms)
+    ✓ allows "git push origin HEAD" (108 ms)
+    ✓ allows "git config --get core.hooksPath" (97 ms)
+    ✓ allows "git config core.hooksPath" (93 ms)
+    ✓ allows "git config core.hooksPath .husky" (89 ms)
+    ✓ allows "git config core.hooksPath .husky/_" (87 ms)
+    ✓ allows "git config --local core.hooksPath .husky/_ && git push" (109 ms)
+    ✓ allows "git config --get alias.ci" (91 ms)
+    ✓ allows "git config --get-regexp '^alias\\.'" (91 ms)
+    ✓ allows "git config --list" (95 ms)
+    ✓ allows "git config --get include.path" (91 ms)
+    ✓ allows "git log --oneline -n 5" (89 ms)
+    ✓ allows "HUSKY=1 git push" (91 ms)
+    ✓ allows "git config --get core.hooksPath" described as "Read core.hooksPath" (91 ms)
+    ✓ allows "git commit -m \"fix: y\"" described as "Commit -n changes without --no-verify" (110 ms)
+    ✓ allows "git push" described as "Push without HUSKY=0" (109 ms)
+    ✓ allows "git status" described as "Check whether alias.ci or include.path is set" (94 ms)
+    ✓ blocks when the payload is not JSON (73 ms)
+  block-gate-bypass hook under bash
+    ✓ blocks "git commit --no-verify -m \"x\"" (106 ms)
+    ✓ blocks "git push --no-verify" (80 ms)
+    ✓ blocks "git commit --no-veri -m x" (73 ms)
+    ✓ blocks "git push --no-ver''ify" (71 ms)
+    ✓ blocks "git push --no-\\verify" (71 ms)
+    ✓ blocks "git commit -n -m x" (70 ms)
+    ✓ blocks "git commit -nm x" (71 ms)
+    ✓ blocks "git commit -anm x" (70 ms)
+    ✓ blocks "git commit --amend -n" (73 ms)
+    ✓ blocks "git commit -m \"x\" -n" (72 ms)
+    ✓ blocks "git commit \"-n\" -m x" (73 ms)
+    ✓ blocks "git commit -m x \"-n\"" (71 ms)
+    ✓ blocks "git commit -m \"$(git commit -n -m y)\"" (73 ms)
+    ✓ blocks "git -C apps/web commit -n -m x" (74 ms)
+    ✓ blocks "git commit\n-n -m x" (81 ms)
+    ✓ blocks "cd apps && git commit -n -m x" (80 ms)
+    ✓ blocks "git push 'x -m ' --no-verify ' y'" (68 ms)
+    ✓ blocks "HUSKY=0 git commit -m x" (77 ms)
+    ✓ blocks "HUSKY=0 git push" (80 ms)
+    ✓ blocks "HUSKY=\"0\" git push" (74 ms)
+    ✓ blocks "HUSKY='0' git push" (73 ms)
+    ✓ blocks "HUSKY=''0 git push" (75 ms)
+    ✓ blocks "HU\"\"SKY=0 git push" (78 ms)
+    ✓ blocks "HUSKY=\\0 git push" (71 ms)
+    ✓ blocks "HUSKY=$(echo 0) git push" (78 ms)
+    ✓ blocks "HUSKY=${X:-0} git push" (106 ms)
+    ✓ blocks "HUSKY=`echo 0` git push" (104 ms)
+    ✓ blocks "export HUSKY=0; git push" (80 ms)
+    ✓ blocks "env HUSKY=0 git push" (73 ms)
+    ✓ blocks "git -c core.hooksPath=/dev/null commit -m x" (89 ms)
+    ✓ blocks "git -c core.hookspath=/dev/null push" (85 ms)
+    ✓ blocks "git -c core.hooks''Path=/dev/null push" (85 ms)
+    ✓ blocks "git --config-env core.hooksPath=EMPTY push" (82 ms)
+    ✓ blocks "git config core.hooksPath /dev/null" (81 ms)
+    ✓ blocks "git config \"core.hooksPath\" /dev/null" (81 ms)
+    ✓ blocks "git config core.hooks\\Path /dev/null" (82 ms)
+    ✓ blocks "git config --global core.hooksPath /tmp/none" (77 ms)
+    ✓ blocks "git config --unset core.hooksPath" (80 ms)
+    ✓ blocks "git config core.hooksPath .husky-off" (81 ms)
+    ✓ blocks "git config --get core.hooksPath && git config core.hooksPath /dev/null" (78 ms)
+    ✓ blocks "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git push" (80 ms)
+    ✓ blocks "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/x git push" (77 ms)
+    ✓ blocks "git config alias.ci 'commit -n'" (70 ms)
+    ✓ blocks "git config --global alias.p \"push --no-verify\"" (68 ms)
+    ✓ blocks "git -c alias.ci='commit -n' ci -m x" (89 ms)
+    ✓ blocks "git config include.path /tmp/evil.gitconfig" (89 ms)
+    ✓ blocks "git config includeIf.gitdir:~/.path /tmp/evil.gitconfig" (92 ms)
+    ✓ blocks "git -c include.path=/tmp/evil.gitconfig commit -m x" (87 ms)
+    ✓ blocks "bash -c 'git push --no-verify'" (66 ms)
+    ✓ blocks "sh -c \"git commit -n -m x\"" (70 ms)
+    ✓ blocks "bash -c 'HUSKY=0 git push'" (74 ms)
+    ✓ allows "git status" (91 ms)
+    ✓ allows "git commit -m \"feat: add thing\"" (89 ms)
+    ✓ allows "git commit -m \"fix: y\"" (95 ms)
+    ✓ allows "git commit -m \"docs: explain -n\"" (94 ms)
+    ✓ allows "git commit -m 'docs: explain -nm'" (92 ms)
+    ✓ allows "git commit -m \"docs: mention --no-verify and HUSKY=0\"" (101 ms)
+    ✓ allows "git commit --message=\"docs: -n flag\"" (162 ms)
+    ✓ allows "git commit -m \"$(cat <<'EOF'\nfix: y\n\nLonger body.\nEOF\n)\"" (123 ms)
+    ✓ allows "git commit -mn" (110 ms)
+    ✓ allows "git commit -uno -m x" (96 ms)
+    ✓ allows "git commit --no-edit --amend" (94 ms)
+    ✓ allows "git commit -F msg.txt" (89 ms)
+    ✓ allows "git push" (92 ms)
+    ✓ allows "git push -n" (87 ms)
+    ✓ allows "git push origin HEAD" (98 ms)
+    ✓ allows "git config --get core.hooksPath" (100 ms)
+    ✓ allows "git config core.hooksPath" (103 ms)
+    ✓ allows "git config core.hooksPath .husky" (97 ms)
+    ✓ allows "git config core.hooksPath .husky/_" (93 ms)
+    ✓ allows "git config --local core.hooksPath .husky/_ && git push" (90 ms)
+    ✓ allows "git config --get alias.ci" (91 ms)
+    ✓ allows "git config --get-regexp '^alias\\.'" (89 ms)
+    ✓ allows "git config --list" (91 ms)
+    ✓ allows "git config --get include.path" (87 ms)
+    ✓ allows "git log --oneline -n 5" (85 ms)
+    ✓ allows "HUSKY=1 git push" (83 ms)
+    ✓ allows "git config --get core.hooksPath" described as "Read core.hooksPath" (87 ms)
+    ✓ allows "git commit -m \"fix: y\"" described as "Commit -n changes without --no-verify" (84 ms)
+    ✓ allows "git push" described as "Push without HUSKY=0" (84 ms)
+    ✓ allows "git status" described as "Check whether alias.ci or include.path is set" (83 ms)
+    ✓ blocks when the payload is not JSON (66 ms)
+  .codex/hooks.json
+    ✓ runs the same script for ^Bash$ through git rev-parse (1 ms)
+    ✓ blocks git commit --no-verify and allows normal commits and git status, run from <repo>/ (335 ms)
+    ✓ blocks git commit --no-verify and allows normal commits and git status, run from <repo>/tooling/trial (319 ms)
+  .claude/settings.json
+    ✓ resolves the git hook, refuses bypasses, and allows normal commits (171 ms)
+    ✓ spawns the hook for git, env, sh, and bash commands (1 ms)
+
+PASS tooling tooling/architecture/boundaries.test.ts (11.259 s)
+  Fallow contract over the reference result
+    ✓ passes the clean layout, including fetch in an integration and Node IO in the api root (247 ms)
+    ✓ checks an integration importing its own domain by value (212 ms)
+    ✓ checks an integration importing its own domain by type (214 ms)
+    ✓ fails when a route imports another route (196 ms)
+    ✓ fails when a feature imports a route (202 ms)
+    ✓ fails when the app imports a feature (201 ms)
+    ✓ fails when the api client value-imports the router (216 ms)
+    ✓ fails when a route value-imports the router (203 ms)
+    ✓ fails when the api root value re-exports domain code (197 ms)
+    ✓ fails when a route type-imports a sibling route (209 ms)
+    ✓ fails when a ui primitive imports the api client (197 ms)
+    ✓ fails when procedures call domain code (206 ms)
+    ✓ fails when the api root imports application logic (206 ms)
+    ✓ fails when the domain imports application logic (202 ms)
+    ✓ fails when an integration imports application logic (207 ms)
+    ✓ passes when a route type-imports the api package, a type-only import between roles (223 ms)
+    ✓ passes when the domain type-imports application logic, a type-only import between roles (243 ms)
+    ✓ passes when an integration type-imports application logic, a type-only import between roles (218 ms)
+    ✓ passes when the api root type-imports application logic, a type-only import between roles (207 ms)
+    ✓ passes when the app type-imports a feature, a type-only import between roles (197 ms)
+    ✓ passes when a feature type-imports a route, a type-only import between roles (202 ms)
+    ✓ passes when the api root re-exports a domain type, a type-only import between roles (218 ms)
+    ✓ fails when a loose file directly under features composes several features, a file outside every role (258 ms)
+    ✓ fails when a loose file sits directly under routes, a file outside every role (212 ms)
+    ✓ fails when the api grows a stray layer, a file outside every role (192 ms)
+    ✓ fails when the api hides a stray layer in an etc folder, a file outside every role (197 ms)
+    ✓ fails when the web app grows a stray layer, a file outside every role (220 ms)
+    ✓ fails when a new package appears, a file outside every role (215 ms)
+    ✓ fails when the domain imports tRPC (225 ms)
+    ✓ fails when the domain imports Effect (202 ms)
+    ✓ fails when the domain loads Node through createRequire (220 ms)
+    ✓ fails when application logic imports tRPC (233 ms)
+    ✓ fails when application logic calls fetch (218 ms)
+    ✓ fails when application logic runs an Effect program (210 ms)
+    ✓ fails when application logic runs an Effect program through a namespace import (226 ms)
+    ✓ fails when application logic runs an Effect program through a named import (221 ms)
+    ✓ fails when application logic runs an Effect program with services through Effect 4 runPromiseWith (203 ms)
+    ✓ fails when application logic runs an Effect program through a named Effect 4 runSyncWith import (223 ms)
+    ✓ fails when application logic runs an Effect program through a ManagedRuntime (229 ms)
+    ✓ fails when application logic makes a ManagedRuntime through a named import (209 ms)
+    ✓ fails when application logic calls globalThis.fetch (215 ms)
+    ✓ fails when application logic imports Node DNS (216 ms)
+    ✓ fails when application logic opens an HTTPS request (231 ms)
+    ✓ fails when a procedure imports Node file IO (219 ms)
+    ✓ fails when a route calls fetch (218 ms)
+    ✓ fails when a route calls self.fetch (228 ms)
+    ✓ fails when a route wires its own tRPC client (222 ms)
+    ✓ fails when a feature imports the tRPC server (258 ms)
+    ✓ fails when a ui primitive imports TanStack Query (220 ms)
+    ✓ fails when a ui primitive imports React Hook Form (221 ms)
+    ✓ applies the rule pack to a showcase result, which the workspace lists (209 ms)
+    ✓ fails a fallow-ignore suppression that gives no reason (164 ms)
+
+PASS tooling tooling/architecture/diagram.test.ts (6.084 s)
+  renderContractDiagram
+    ✓ draws every role in the web, api and ui subgraphs and only the value directions
+  renderResultDiagram
+    ✓ draws the roles present and the role edges of the import graph, with the same conventions
+    ✓ differs between two results of the same shape only in the header (1 ms)
+    ✓ leaves out the edges of other results and an empty subgraph
+    ✓ draws a cross-role edge the contract forbids as a solid edge, so the diagram shows it
+    ✓ dedupes and sorts edges whatever the graph order
+  planDiagrams and diffDiagrams
+    ✓ plans the canonical diagram and one diagram per result
+    ✓ reports a missing, a stale and an extra diagram, and claims no other .mmd file (1 ms)
+    ✓ reports nothing when every planned diagram is on disk and current
+  parseDotGraph
+    ✓ gives the file-to-file edges of `fallow viz --viz-format dot`
+    ✓ throws when the dot text has no labelled nodes, so a format change fails loudly (4 ms)
+    ✓ throws when the dot text has no edges
+  node tooling/architecture/diagram.mjs on a temporary monorepo
+    ✓ writes the canonical diagram and one diagram per result, the showcase result included (754 ms)
+    ✓ fails --check on a missing diagram, and a write converges (1486 ms)
+    ✓ fails --check on a stale diagram, and a write converges (1507 ms)
+    ✓ fails on a diagram no result owns, and keeps the file for a person to remove (1097 ms)
+    ✓ leaves a hand-written diagram beside the generated ones alone (1187 ms)
+
+PASS tooling scripts/required-gates.test.ts
+  the committed CI order
+    ✓ starts the E2E lane only after unit tests succeed
+  decideRequiredGates
+    ✓ passes when every required lane succeeded (1 ms)
+    ✓ fails a lane whose result is failure
+    ✓ fails a lane whose result is cancelled
+    ✓ fails a required lane that reported no result (1 ms)
+    ✓ fails a result it does not recognise
+    ✓ fails a lane that was skipped although it applies to every event
+    ✓ fails the up-to-date lane when it is skipped on a pull request into main
+    ✓ accepts the up-to-date lane as skipped on a push to main, where it does not apply
+    ✓ accepts the up-to-date lane as skipped on a pull request into another branch, where it does not apply (1 ms)
+  the --decide CLI that the Required gates job runs
+    ✓ exits 0 when every lane passed (67 ms)
+    ✓ exits 1 and names both lanes when unit tests fail and E2E is skipped (66 ms)
+    ✓ exits 1 and names the lane when one was cancelled (64 ms)
+    ✓ exits 1 when the event name is missing, so no skip can be excused (64 ms)
+    ✓ exits 1 when the needs payload is missing (66 ms)
+  checkContract
+    ✓ holds for the committed workflows and inventory (3 ms)
+    ✓ fails when a required lane is dropped from the aggregate needs (1 ms)
+    ✓ fails when the aggregate no longer runs on cancellation or failure (1 ms)
+    ✓ fails when a required job is renamed
+    ✓ fails when ci.yml gains a job the contract does not list (1 ms)
+    ✓ fails when a lane gains a condition the contract does not declare
+    ✓ fails when a lane reports failure as success through continue-on-error (1 ms)
+    ✓ rejects a bypass of the visual scope decision
+    ✓ rejects a bypass of the visual comparison failure (1 ms)
+    ✓ rejects a bypass of the visual comparison execution
+    ✓ fails when Lighthouse stops deciding its skip with the tested rule (1 ms)
+    ✓ fails when the decision step is deleted
+    ✓ fails when the decision step can fail quietly (1 ms)
+    ✓ fails when the decision step skips on cancellation
+    ✓ fails when a lane step only runs on some events
+    ✓ fails when a stand-alone check step never runs (1 ms)
+    ✓ fails when a lane step runs only after a failure
+    ✓ fails when a lane step reports failure as success (1 ms)
+    ✓ fails when a lane command ends in || true
+    ✓ fails when a lane command ends in || :
+    ✓ fails when a lane command ends in || exit 0 (1 ms)
+    ✓ fails when a multi-line run block turns off errexit
+    ✓ fails when a run block turns off errexit with set +ex (1 ms)
+    ✓ fails when a run block turns off errexit with set +o errexit
+    ✓ fails closed when its steps are indented less than the repo layout (3 ms)
+    ✓ fails closed when a command continues onto the next line
+    ✓ fails closed when a run block has an indent indicator
+    ✓ fails closed when a run block body sits off the layout (1 ms)
+    ✓ fails closed when a step is written in flow style
+    ✓ fails closed when a step condition is a block scalar (1 ms)
+    ✓ passes a step that sets continue-on-error to false
+    ✓ fails when a lane borrows another gate's skip condition
+    ✓ passes evidence uploads that run on failure and may not fail the lane (1 ms)
+    ✓ passes steps that run in more cases than the default (1 ms)
+    ✓ fails when the inventory is stale
+  compareProtection
+    ✓ passes when branch protection requires the aggregate and every stand-alone check
+    ✓ names the checks branch protection still needs to require
+    ✓ flags a required context that no workflow job reports
+
+PASS tooling scripts/enforcement-approval.test.ts
+  GUARDS
+    ✓ checks the guarded areas in a fixed order, first match wins
+    ✓ guards .github/workflows/enforcement-approval.yml as Enforcement-approval gate (1 ms)
+    ✓ guards scripts/enforcement-approval.mjs as Enforcement-approval gate
+    ✓ guards scripts/enforcement-approval.test.ts as Enforcement-approval gate
+    ✓ guards .oxlintrc.json as Oxlint config (1 ms)
+    ✓ guards apps/web/.oxlintrc.json as Oxlint config
+    ✓ guards vendor/anti-slop/index.ts as Vendored lint rules
+    ✓ guards oxlint.config.ts as Vendored lint rules
+    ✓ guards apps/web/oxlint.config.json as Vendored lint rules
+    ✓ guards .github/workflows/ci.yml as CI workflows
+    ✓ guards .husky/pre-commit as Git hooks
+    ✓ guards eslint.config.js as Lint config (1 ms)
+    ✓ guards commitlint.config.ts as Lint config
+    ✓ guards tooling/eslint-plugin-policy.js as Lint config
+    ✓ guards scripts/check-suppressions.mjs as Lint config
+    ✓ guards biome.json as Biome config
+    ✓ guards docs/prd/greeting.md as Product intent
+    ✓ guards docs/prd/nested/feature.md as Product intent
+    ✓ guards docs/NORTH_STAR.md as Product intent
+    ✓ leaves src/App.tsx unguarded
+    ✓ leaves AGENTS.md unguarded
+    ✓ leaves .agents/x.md unguarded (1 ms)
+    ✓ leaves .agents/START_HERE.md unguarded
+    ✓ leaves docs/NORTH_STAR.md.bak unguarded
+    ✓ leaves docs/prd-other/feature.md unguarded
+    ✓ leaves package.json unguarded
+    ✓ leaves pnpm-lock.yaml unguarded
+    ✓ leaves CLAUDE.md unguarded
+    ✓ leaves .github/pull_request_template.md unguarded
+    ✓ leaves .claude/settings.json unguarded
+    ✓ leaves .claude/hooks/block-gate-bypass.sh unguarded (1 ms)
+    ✓ leaves .claude/skills/show-me/SKILL.md unguarded
+    ✓ leaves scripts/required-gates.mjs unguarded
+    ✓ leaves docs/required-gates.md unguarded
+    ✓ leaves tooling/anything.json unguarded
+    ✓ leaves vendor/anti-slop-other/index.ts unguarded
+    ✓ leaves .oxlintrc.json.bak unguarded
+    ✓ leaves oxlint.config.ts/unrelated.ts unguarded
+    ✓ leaves apps/web/eslint.config.mts unguarded
+    ✓ leaves apps/web/biome.jsonc unguarded
+    ✓ leaves .fallowrc.jsonc unguarded
+    ✓ leaves tsconfig.json unguarded
+    ✓ leaves jest.config.ts unguarded (1 ms)
+    ✓ leaves .gitignore unguarded
+  guardedPaths
+    ✓ lists both sides of a rename once each, sorted
+    ✓ reads a file renamed out of a guarded path as deleted
+  rewrite judge
+    ✓ reads null → "npx lint-staged" as "adds enforcement code"
+    ✓ reads "npx lint-staged" → "true" as "edits enforcement code"
+    ✓ reads "npx lint-staged" → null as "deletes the file"
+    ✓ names an edit to the gate itself in .github/workflows/enforcement-approval.yml
+    ✓ names an edit to the gate itself in scripts/enforcement-approval.mjs
+    ✓ names an edit to the gate itself in scripts/enforcement-approval.test.ts
+  anti-slop enforcement
+    ✓ requires sign-off for every addition, edit and deletion of vendor/anti-slop/rules/no-module-mocking.ts
+    ✓ requires sign-off for every addition, edit and deletion of vendor/anti-slop/.oxlintrc.json (1 ms)
+    ✓ requires sign-off for every addition, edit and deletion of oxlint.config.ts
+    ✓ requires sign-off for every addition, edit and deletion of apps/web/oxlint.config.mjs
+    ✓ requires sign-off for every addition, edit and deletion of oxlint.config.json
+    ✓ judges JSON loosening and tightening in .oxlintrc.json (1 ms)
+    ✓ judges JSON loosening and tightening in apps/web/.oxlintrc.json (1 ms)
+  product intent
+    ✓ requires sign-off for every addition, edit and deletion of docs/prd/greeting.md
+    ✓ requires sign-off for every addition, edit and deletion of docs/NORTH_STAR.md
+    ✓ requires sign-off for a rename from docs/prd/greeting.md to docs/greeting.md
+    ✓ requires sign-off for a rename from docs/greeting.md to docs/prd/greeting.md (1 ms)
+    ✓ requires sign-off for a rename from docs/prd/greeting.md to docs/prd/renamed.md
+    ✓ requires sign-off for a rename from docs/NORTH_STAR.md to .agents/archived.md
+    ✓ requires sign-off for a rename from .agents/draft.md to docs/NORTH_STAR.md
+  json judge
+    ✓ judges a lowered severity in biome.json
+    ✓ judges a raised severity in biome.json (1 ms)
+    ✓ judges a rule added at error in biome.json (1 ms)
+    ✓ judges a rule added at off in biome.json
+    ✓ judges a removed off rule in biome.json
+    ✓ judges a removed error rule in biome.json
+    ✓ judges an added negated include in biome.json
+    ✓ judges a removed positive include in biome.json
+    ✓ judges a removed negated include in biome.json (1 ms)
+    ✓ judges a disabled linter in biome.json
+    ✓ judges a change to the files an override covers in biome.json
+    ✓ judges a neutral formatter change in biome.json
+    ✓ judges a $schema change in biome.json
+    ✓ parses JSONC with comments and trailing commas
+    ✓ refuses to rank a file that is not valid JSON
+    ✓ reads a deleted config as deleted (1 ms)
+    ✓ caps the reasons for one file at ten
+  coverage lists created from nothing
+    ✓ flags a new Biome linter.includes, which narrows linting from every file
+    ✓ asks when Biome import sorting is turned off
+  Biome flags that turn checking off
+    ✓ flags {"linter":{"enabled":null}}
+    ✓ flags {"linter":{"enabled":true},"vcs":{"useIgnoreFile":true}}
+  enforcementProblems
+    ✓ orders problems by path and ignores unguarded changes
+  londonTime
+    ✓ formats a BST afternoon on the hour
+    ✓ formats a GMT afternoon with minutes
+    ✓ formats midnight in GMT
+    ✓ formats noon in BST
+    ✓ formats the last GMT half hour before the clocks go forward
+    ✓ formats the first BST half hour after the clocks go forward (1 ms)
+    ✓ formats a UTC date that is already tomorrow in London
+    ✓ writes day 1 as 1st
+    ✓ writes day 2 as 2nd
+    ✓ writes day 3 as 3rd
+    ✓ writes day 4 as 4th
+    ✓ writes day 11 as 11th
+    ✓ writes day 12 as 12th
+    ✓ writes day 13 as 13th
+    ✓ writes day 21 as 21st
+    ✓ writes day 22 as 22nd
+    ✓ writes day 23 as 23rd
+    ✓ writes day 24 as 24th
+    ✓ writes day 31 as 31st
+  approvalLabel
+    ✓ names the approver, their login, and the London time in small italics
+    ✓ falls back to the login when the profile name is null (1 ms)
+    ✓ falls back to the login when the profile name is ""
+    ✓ falls back to the login when the profile name is "   "
+    ✓ renders a hostile profile name as plain text on one line
+  signoffComment
+    ✓ lists the problems and carries one unticked box bound to the head commit
+    ✓ ticks the box and puts the label on the same line when given an approval
+    ✓ shows at most 100 rows (1 ms)
+    ✓ renders a hostile path inert, keeping a single approval line
+  planApproval
+    ✓ plans no comment and a green status when nothing loosens enforcement
+    ✓ clears an existing comment to a body without a checkbox when nothing loosens enforcement
+    ✓ asks for sign-off when the comment is missing
+    ✓ accepts only the configured approver when ENFORCEMENT_APPROVER is set (1 ms)
+    ✓ approves a fresh tick by the approver and labels the box with who and when
+    ✓ approves a fresh [X] tick
+    ✓ approves a fresh CRLF tick
+    ✓ approves a fresh a trailing newline tick
+    ✓ falls back to the login when the approver has no profile name (1 ms)
+    ✓ clears a tick by a Bot that shares the approver login, shows no label, and names them in the comment
+    ✓ clears a tick by github-actions, shows no label, and names them in the comment
+    ✓ clears a tick by another user, shows no label, and names them in the comment
+    ✓ clears a tick by a lowercased login, shows no label, and names them in the comment
+    ✓ approves a fresh tick on a comment that names a cleared tick, and drops the note (1 ms)
+    ✓ clears an approver edit that changes other text and keeps the tick
+    ✓ clears an approver edit that re-saves an approved comment without the label
+    ✓ clears a tick that rewrites the head commit in the box line
+    ✓ clears a label typed into the comment, whoever types it
+    ✓ clears a tick on the comment for an earlier head
+    ✓ clears a body edit the event reports without a previous body
+    ✓ removes the label when the approver unticks
+    ✓ lets an untick win over the label the gate wrote for the tick just before it
+    ✓ does not approve a tick the comment has since moved past (1 ms)
+    ✓ does not approve a tick when the comment was edited again since, even back to the same body
+    ✓ keeps the label and posts no status when the tick run is rerun
+    ✓ keeps the label for its head on a PR event and posts no status
+    ✓ clears a label on a PR event when the gate has not signed off this head
+    ✓ rewrites an approved comment for an earlier head unticked for the new head
+    ✓ clears a bare tick found on a PR event
+    ✓ keeps every status description inside the 140-character limit (1 ms)
+  run
+    ✓ requires a fresh Ben tick for product intent at each head
+    ✓ posts one sign-off comment and a red status on the head, then stays idle on a rerun (1 ms)
+    ✓ reads a file absent at the merge base as added
+    ✓ fails loudly when reading a file fails for any reason but absence (3 ms)
+    ✓ labels the box with the approver and the London time of the tick, and turns the head green (1 ms)
+    ✓ accepts the trailing newline a GitHub checkbox click appends
+    ✓ writes nothing and posts no status when the tick run is rerun
+    ✓ does not re-approve when a tick run is rerun after the approver unticked
+    ✓ does not re-approve a rerun tick after someone restores the ticked body over an untick (1 ms)
+    ✓ keeps the label on a later PR event for the same head and posts no status
+    ✓ clears a label typed into the comment on the next PR event when its own run never ran
+    ✓ removes the label and turns red when the approver unticks
+    ✓ clears a tick by anyone else with no label, names them in the one comment, and keeps the status red (1 ms)
+    ✓ reclaims a gate comment whose marker an edit removed when that edit run never ran
+    ✓ keeps the status red and clears a label typed into the comment
+    ✓ re-renders unticked with no label for a new head after an approval (2 ms)
+    ✓ clears a tick on the old head comment that races a push
+    ✓ ends unticked when an untick and a re-tick both land before either run reads the comment (1 ms)
+    ✓ restores the sign-off comment when an edit removes its marker
+    ✓ ignores a ticked lookalike comment that a person posted
+    ✓ asks for sign-off when the PR lists as many files as the API returns (2 ms)
+    ✓ sets a green status and posts nothing when nothing loosens enforcement
+    ✓ posts the status on the live head, not the head the event names
+  enforcement-approval workflow
+    ✓ runs on PR events and on edited PR comments
+    ✓ checks out only the default branch copy of the script and runs no PR code (1 ms)
+    ✓ queues gate runs per PR only for jobs that run, so an unrelated comment edit cancels nothing
+    ✓ lets every edit of the gate comment reach the script, whoever made it
+
+Test Suites: 5 passed, 5 total
+Tests:       464 passed, 464 total
+Snapshots:   0 total
+Time:        33.739 s, estimated 93 s
+Ran all test suites within paths "scripts/block-gate-bypass.test.ts", "scripts/enforcement-approval.test.ts", "scripts/required-gates.test.ts", "tooling/architecture/boundaries.test.ts", "tooling/architecture/diagram.test.ts".

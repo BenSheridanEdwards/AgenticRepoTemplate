@@ -1,0 +1,2 @@
+Also required directly (allowed): Type check · lint · format, Code intelligence (Fallow), Unit + component tests, Production build, End-to-end behaviour map, Security audit.
+  ✗ Branch protection does not require "Visual regression". Select it as a required check.

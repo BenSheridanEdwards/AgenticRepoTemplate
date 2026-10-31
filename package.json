@@ -28,6 +28,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage && node tooling/coverage-by-result.mjs",
+    "tour:probe": "node scripts/software-factory-probes.mjs",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",

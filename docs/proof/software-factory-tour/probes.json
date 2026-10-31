@@ -1,0 +1,105 @@
+{
+  "sourceHead": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+  "evidenceType": "LOCAL RUNTIME AND SYNTHETIC FIXTURES, NOT AUTHENTICATED HUMAN APPROVAL",
+  "guard": [
+    {
+      "name": "no-verify",
+      "input": "{\"tool_input\":{\"command\":\"git commit --no-verify -m probe\"}}",
+      "expectedExit": 2,
+      "command": ["sh", ".agents/hooks/block-gate-bypass.sh"],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "Blocked: --no-verify switches off the quality gates.\nFix what the gate reports instead; see .agents/project/PR_QUALITY.md#definition-of-done.\nIf a commit message only names the flag, write it to a file and use git commit -F <file>.\n",
+      "elapsedSeconds": 0.06886004200000001
+    },
+    {
+      "name": "commit-n",
+      "input": "{\"tool_input\":{\"command\":\"git commit -n -m probe\"}}",
+      "expectedExit": 2,
+      "command": ["sh", ".agents/hooks/block-gate-bypass.sh"],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "Blocked: git commit -n switches off the quality gates.\nFix what the gate reports instead; see .agents/project/PR_QUALITY.md#definition-of-done.\nIf a commit message only names the flag, write it to a file and use git commit -F <file>.\n",
+      "elapsedSeconds": 0.06993912500000002
+    },
+    {
+      "name": "husky-zero",
+      "input": "{\"tool_input\":{\"command\":\"HUSKY=0 git commit -m probe\"}}",
+      "expectedExit": 2,
+      "command": ["sh", ".agents/hooks/block-gate-bypass.sh"],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "Blocked: HUSKY=0 switches off the quality gates.\nFix what the gate reports instead; see .agents/project/PR_QUALITY.md#definition-of-done.\nIf a commit message only names the flag, write it to a file and use git commit -F <file>.\n",
+      "elapsedSeconds": 0.073467375
+    },
+    {
+      "name": "legitimate-control",
+      "input": "{\"tool_input\":{\"command\":\"git commit -m \\\"docs: explain gates\\\"\"}}",
+      "expectedExit": 0,
+      "command": ["sh", ".agents/hooks/block-gate-bypass.sh"],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsedSeconds": 0.08658874999999998
+    }
+  ],
+  "lint": {
+    "before": "export default [{ rules: { 'policy/state-and-effects-in-hooks': 'error' } }];",
+    "after": "export default [{ rules: { 'policy/state-and-effects-in-hooks': 'off' } }];",
+    "problems": [
+      {
+        "path": "eslint.config.js",
+        "area": "Lint config",
+        "reason": "edits enforcement code"
+      }
+    ],
+    "proseControl": []
+  },
+  "approval": {
+    "namedUser": {
+      "commentBody": "<!-- enforcement-approval -->\n## Enforcement sign-off\n\nThis PR loosens or rewrites what the gates enforce, or changes product intent:\n\n| File | Area | Change |\n| --- | --- | --- |\n| `eslint.config.js` | Lint config | edits enforcement code |\n\n@BenSheridanEdwards signs off by ticking the box below in GitHub. The tick counts for commit `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` only. A new push clears it, and a tick from any other account is cleared.\n- [x] Approve these enforcement changes at `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` <sub><i>Approved by Synthetic fixture @BenSheridanEdwards on Saturday, the 31st of October, at 12 pm</i></sub>\n",
+      "status": {
+        "state": "success",
+        "description": "BenSheridanEdwards signed off at aaaaaaa"
+      }
+    },
+    "wrongUser": {
+      "commentBody": "<!-- enforcement-approval -->\n## Enforcement sign-off\n\nThis PR loosens or rewrites what the gates enforce, or changes product intent:\n\n| File | Area | Change |\n| --- | --- | --- |\n| `eslint.config.js` | Lint config | edits enforcement code |\n\nA tick by `another-user` was cleared. Only BenSheridanEdwards signs off enforcement changes.\n\n@BenSheridanEdwards signs off by ticking the box below in GitHub. The tick counts for commit `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` only. A new push clears it, and a tick from any other account is cleared.\n- [ ] Approve these enforcement changes at `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`\n",
+      "status": {
+        "state": "failure",
+        "description": "BenSheridanEdwards ticks the box in the enforcement comment for this commit"
+      }
+    },
+    "newHead": {
+      "commentBody": "<!-- enforcement-approval -->\n## Enforcement sign-off\n\nThis PR loosens or rewrites what the gates enforce, or changes product intent:\n\n| File | Area | Change |\n| --- | --- | --- |\n| `eslint.config.js` | Lint config | edits enforcement code |\n\n@BenSheridanEdwards signs off by ticking the box below in GitHub. The tick counts for commit `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb` only. A new push clears it, and a tick from any other account is cleared.\n- [ ] Approve these enforcement changes at `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`\n",
+      "status": {
+        "state": "failure",
+        "description": "BenSheridanEdwards ticks the box in the enforcement comment for this commit"
+      }
+    }
+  },
+  "fallow": {
+    "fixture": "HEAD archive with installed dependencies linked; only a value re-export in domain.ts is added, then restored. Gate configuration is unchanged.",
+    "valid": {
+      "command": ["<repo>/node_modules/.bin/fallow", "architecture", "-q", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"kind\":\"architecture\",\"schema_version\":1,\"version\":\"3.33.1\",\"elapsed_ms\":112,\"total_issues\":0,\"entry_points\":{\"total\":105,\"sources\":{\"default_index\":1,\"package.json\":29,\"plugin\":75}},\"summary\":{\"total_issues\":0,\"unused_files\":0,\"unused_exports\":0,\"unused_types\":0,\"private_type_leaks\":0,\"deprecated_exports_in_use\":0,\"unused_dependencies\":0,\"unused_enum_members\":0,\"unused_class_members\":0,\"unused_store_members\":0,\"unprovided_injects\":0,\"unrendered_components\":0,\"unused_component_props\":0,\"absent_component_props\":0,\"unused_component_emits\":0,\"unused_component_inputs\":0,\"unused_component_outputs\":0,\"unused_svelte_events\":0,\"unused_server_actions\":0,\"unused_load_data_keys\":0,\"unresolved_imports\":0,\"unlisted_dependencies\":0,\"duplicate_exports\":0,\"type_only_dependencies\":0,\"test_only_dependencies\":0,\"dev_dependencies_in_production\":0,\"circular_dependencies\":0,\"re_export_cycles\":0,\"package_cycles\":0,\"boundary_violations\":0,\"boundary_coverage_violations\":0,\"boundary_call_violations\":0,\"policy_violations\":0,\"stale_suppressions\":0,\"unused_catalog_entries\":0,\"empty_catalog_groups\":0,\"unresolved_catalog_references\":0,\"unused_dependency_overrides\":0,\"misconfigured_dependency_overrides\":0,\"invalid_client_exports\":0,\"mixed_client_server_barrels\":0,\"misplaced_directives\":0,\"route_collisions\":0,\"dynamic_segment_name_conflicts\":0},\"unused_files\":[],\"unused_exports\":[],\"unused_types\":[],\"private_type_leaks\":[],\"deprecated_exports_in_use\":[],\"unused_dependencies\":[],\"unused_dev_dependencies\":[],\"unused_optional_dependencies\":[],\"unused_enum_members\":[],\"unused_class_members\":[],\"unresolved_imports\":[],\"unlisted_dependencies\":[],\"duplicate_exports\":[],\"type_only_dependencies\":[],\"test_only_dependencies\":[],\"dev_dependencies_in_production\":[],\"circular_dependencies\":[],\"re_export_cycles\":[],\"package_cycles\":[],\"boundary_violations\":[],\"boundary_coverage_violations\":[],\"boundary_call_violations\":[],\"policy_violations\":[],\"stale_suppressions\":[],\"unused_catalog_entries\":[],\"empty_catalog_groups\":[],\"unresolved_catalog_references\":[],\"unused_dependency_overrides\":[],\"misconfigured_dependency_overrides\":[],\"invalid_client_exports\":[],\"mixed_client_server_barrels\":[],\"misplaced_directives\":[],\"route_collisions\":[],\"dynamic_segment_name_conflicts\":[],\"gate_outcomes\":{\"error-severity-findings\":{\"status\":\"pass\",\"enforced\":true,\"observed\":0.0,\"threshold_label\":\"error\"}},\"_meta\":{\"telemetry\":{\"analysis_run_id\":\"run_d1a61a9dea5237a5\"}}}\n",
+      "stderr": "\u001b[2m   0.099271542s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n\u001b[2m   0.099298375s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n\u001b[2m   0.099302750s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\n",
+      "elapsedSeconds": 0.249325583
+    },
+    "prohibited": {
+      "command": ["<repo>/node_modules/.bin/fallow", "architecture", "-q", "--format", "json"],
+      "exitCode": 1,
+      "stdout": "{\"kind\":\"architecture\",\"schema_version\":1,\"version\":\"3.33.1\",\"elapsed_ms\":121,\"total_issues\":2,\"entry_points\":{\"total\":105,\"sources\":{\"default_index\":1,\"package.json\":29,\"plugin\":75}},\"summary\":{\"total_issues\":2,\"unused_files\":0,\"unused_exports\":0,\"unused_types\":0,\"private_type_leaks\":0,\"deprecated_exports_in_use\":0,\"unused_dependencies\":0,\"unused_enum_members\":0,\"unused_class_members\":0,\"unused_store_members\":0,\"unprovided_injects\":0,\"unrendered_components\":0,\"unused_component_props\":0,\"absent_component_props\":0,\"unused_component_emits\":0,\"unused_component_inputs\":0,\"unused_component_outputs\":0,\"unused_svelte_events\":0,\"unused_server_actions\":0,\"unused_load_data_keys\":0,\"unresolved_imports\":0,\"unlisted_dependencies\":0,\"duplicate_exports\":0,\"type_only_dependencies\":0,\"test_only_dependencies\":0,\"dev_dependencies_in_production\":0,\"circular_dependencies\":1,\"re_export_cycles\":0,\"package_cycles\":0,\"boundary_violations\":1,\"boundary_coverage_violations\":0,\"boundary_call_violations\":0,\"policy_violations\":0,\"stale_suppressions\":0,\"unused_catalog_entries\":0,\"empty_catalog_groups\":0,\"unresolved_catalog_references\":0,\"unused_dependency_overrides\":0,\"misconfigured_dependency_overrides\":0,\"invalid_client_exports\":0,\"mixed_client_server_barrels\":0,\"misplaced_directives\":0,\"route_collisions\":0,\"dynamic_segment_name_conflicts\":0},\"unused_files\":[],\"unused_exports\":[],\"unused_types\":[],\"private_type_leaks\":[],\"deprecated_exports_in_use\":[],\"unused_dependencies\":[],\"unused_dev_dependencies\":[],\"unused_optional_dependencies\":[],\"unused_enum_members\":[],\"unused_class_members\":[],\"unresolved_imports\":[],\"unlisted_dependencies\":[],\"duplicate_exports\":[],\"type_only_dependencies\":[],\"test_only_dependencies\":[],\"dev_dependencies_in_production\":[],\"circular_dependencies\":[{\"files\":[\"apps/api/src/features/greeting/application.ts\",\"apps/api/src/features/greeting/domain.ts\"],\"length\":2,\"line\":1,\"col\":9,\"edges\":[{\"path\":\"apps/api/src/features/greeting/application.ts\",\"line\":1,\"col\":9},{\"path\":\"apps/api/src/features/greeting/domain.ts\",\"line\":1,\"col\":0}],\"finding_id\":\"dc1:circular-dependency:6bc8b7f680681d9f\",\"actions\":[{\"type\":\"refactor-cycle\",\"auto_fixable\":false,\"description\":\"Extract shared logic into a separate module to break the cycle\",\"note\":\"Circular imports can cause initialization issues and make code harder to reason about\"},{\"type\":\"suppress-line\",\"auto_fixable\":false,\"description\":\"Suppress with an inline comment above the line\",\"comment\":\"// fallow-ignore-next-line circular-dependency\"}],\"effective_severity\":\"error\"}],\"re_export_cycles\":[],\"package_cycles\":[],\"boundary_violations\":[{\"from_path\":\"apps/api/src/features/greeting/domain.ts\",\"to_path\":\"apps/api/src/features/greeting/application.ts\",\"from_zone\":\"api-domain\",\"to_zone\":\"api-application\",\"import_specifier\":\"apps/api/src/features/greeting/application.ts\",\"line\":1,\"col\":0,\"finding_id\":\"dc1:boundary-violation:c75f788d4e4fac1b\",\"actions\":[{\"type\":\"refactor-boundary\",\"auto_fixable\":false,\"description\":\"Move the import through an allowed zone or restructure the dependency\",\"note\":\"This import crosses an architecture boundary that is not permitted by the configured rules\"},{\"type\":\"suppress-line\",\"auto_fixable\":false,\"description\":\"Suppress with an inline comment above the line\",\"comment\":\"// fallow-ignore-next-line boundary-violation\"}],\"effective_severity\":\"error\"}],\"boundary_coverage_violations\":[],\"boundary_call_violations\":[],\"policy_violations\":[],\"stale_suppressions\":[],\"unused_catalog_entries\":[],\"empty_catalog_groups\":[],\"unresolved_catalog_references\":[],\"unused_dependency_overrides\":[],\"misconfigured_dependency_overrides\":[],\"invalid_client_exports\":[],\"mixed_client_server_barrels\":[],\"misplaced_directives\":[],\"route_collisions\":[],\"dynamic_segment_name_conflicts\":[],\"gate_outcomes\":{\"error-severity-findings\":{\"status\":\"fail\",\"enforced\":true,\"observed\":2.0,\"threshold_label\":\"error\"}},\"_meta\":{\"telemetry\":{\"analysis_run_id\":\"run_8b28681007f42eab\"}}}\n",
+      "stderr": "\u001b[2m   0.111706833s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n\u001b[2m   0.111723083s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n\u001b[2m   0.111725542s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\n[X] Exit code 1: gate error-severity-findings (2 at or above error) failed. To report a finding type without a failure, set its rule to \"warn\".\n",
+      "elapsedSeconds": 0.278027375
+    },
+    "restored": {
+      "command": ["<repo>/node_modules/.bin/fallow", "architecture", "-q", "--format", "json"],
+      "exitCode": 0,
+      "stdout": "{\"kind\":\"architecture\",\"schema_version\":1,\"version\":\"3.33.1\",\"elapsed_ms\":91,\"total_issues\":0,\"entry_points\":{\"total\":105,\"sources\":{\"default_index\":1,\"package.json\":29,\"plugin\":75}},\"summary\":{\"total_issues\":0,\"unused_files\":0,\"unused_exports\":0,\"unused_types\":0,\"private_type_leaks\":0,\"deprecated_exports_in_use\":0,\"unused_dependencies\":0,\"unused_enum_members\":0,\"unused_class_members\":0,\"unused_store_members\":0,\"unprovided_injects\":0,\"unrendered_components\":0,\"unused_component_props\":0,\"absent_component_props\":0,\"unused_component_emits\":0,\"unused_component_inputs\":0,\"unused_component_outputs\":0,\"unused_svelte_events\":0,\"unused_server_actions\":0,\"unused_load_data_keys\":0,\"unresolved_imports\":0,\"unlisted_dependencies\":0,\"duplicate_exports\":0,\"type_only_dependencies\":0,\"test_only_dependencies\":0,\"dev_dependencies_in_production\":0,\"circular_dependencies\":0,\"re_export_cycles\":0,\"package_cycles\":0,\"boundary_violations\":0,\"boundary_coverage_violations\":0,\"boundary_call_violations\":0,\"policy_violations\":0,\"stale_suppressions\":0,\"unused_catalog_entries\":0,\"empty_catalog_groups\":0,\"unresolved_catalog_references\":0,\"unused_dependency_overrides\":0,\"misconfigured_dependency_overrides\":0,\"invalid_client_exports\":0,\"mixed_client_server_barrels\":0,\"misplaced_directives\":0,\"route_collisions\":0,\"dynamic_segment_name_conflicts\":0},\"unused_files\":[],\"unused_exports\":[],\"unused_types\":[],\"private_type_leaks\":[],\"deprecated_exports_in_use\":[],\"unused_dependencies\":[],\"unused_dev_dependencies\":[],\"unused_optional_dependencies\":[],\"unused_enum_members\":[],\"unused_class_members\":[],\"unresolved_imports\":[],\"unlisted_dependencies\":[],\"duplicate_exports\":[],\"type_only_dependencies\":[],\"test_only_dependencies\":[],\"dev_dependencies_in_production\":[],\"circular_dependencies\":[],\"re_export_cycles\":[],\"package_cycles\":[],\"boundary_violations\":[],\"boundary_coverage_violations\":[],\"boundary_call_violations\":[],\"policy_violations\":[],\"stale_suppressions\":[],\"unused_catalog_entries\":[],\"empty_catalog_groups\":[],\"unresolved_catalog_references\":[],\"unused_dependency_overrides\":[],\"misconfigured_dependency_overrides\":[],\"invalid_client_exports\":[],\"mixed_client_server_barrels\":[],\"misplaced_directives\":[],\"route_collisions\":[],\"dynamic_segment_name_conflicts\":[],\"gate_outcomes\":{\"error-severity-findings\":{\"status\":\"pass\",\"enforced\":true,\"observed\":0.0,\"threshold_label\":\"error\"}},\"_meta\":{\"telemetry\":{\"analysis_run_id\":\"run_a1d8e2080a105769\"}}}\n",
+      "stderr": "\u001b[2m   0.080689583s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n\u001b[2m   0.080704167s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n\u001b[2m   0.080706917s\u001b[0m \u001b[33m WARN\u001b[0m boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\n",
+      "elapsedSeconds": 0.24660991699999998
+    }
+  }
+}
