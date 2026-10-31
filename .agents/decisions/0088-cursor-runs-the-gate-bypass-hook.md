@@ -32,6 +32,8 @@ so test payloads never run as shell commands. Trial enforcement includes
 Cursor-specific gaps remain:
 
 - Project hooks require workspace trust and a Cursor version supporting hooks.
+- Every shell command reaches the guard, so a non-git command using a blocked
+  flag can be denied too.
 - Commands run outside `beforeShellExecution`, including commands launched by
   other tools or committed scripts, receive no separate shell inspection.
 - File edits can alter hooks or git config without shell execution.
