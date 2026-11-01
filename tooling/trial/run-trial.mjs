@@ -1267,8 +1267,18 @@ function resolveCheckout(scaffold) {
   return { root, scaffoldRev };
 }
 
-/** Where `path` really is, through any symlink, once it exists. */
-const located = (path) => (existsSync(path) ? realpathSync(path) : resolve(path));
+/** Resolve existing ancestors before appending any missing path segments. */
+function located(path) {
+  const absolute = resolve(path);
+  try {
+    return realpathSync(absolute);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    const parent = dirname(absolute);
+    if (parent === absolute) throw error;
+    return join(located(parent), basename(absolute));
+  }
+}
 
 /**
  * A shared cache from the caller's environment, which must really sit inside

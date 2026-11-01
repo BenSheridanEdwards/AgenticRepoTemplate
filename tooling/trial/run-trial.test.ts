@@ -1808,6 +1808,52 @@ while (!(await listening())) { await new Promise((wait) => setTimeout(wait, 50))
 });
 
 describe('the run-trial CLI', () => {
+  it.each([
+    'missing',
+    'existing',
+    'outside',
+    'parent',
+    'escape',
+    'escape/missing',
+  ])('guards COREPACK_HOME with a symlinked cache: %s', (kind) => {
+    const fixture = mkdtempSync(join(sandbox, 'cache-guard-'));
+    const home = join(fixture, 'home');
+    const cache = join(fixture, 'target');
+    const outside = join(fixture, 'outside');
+    mkdirSync(home);
+    mkdirSync(join(cache, 'existing'), { recursive: true });
+    mkdirSync(outside);
+    symlinkSync(cache, join(home, '.cache'));
+    symlinkSync(outside, join(cache, 'escape'));
+    const path =
+      kind === 'outside'
+        ? outside
+        : kind === 'parent'
+          ? join(home, '.cache', '..', 'elsewhere')
+          : join(home, '.cache', kind);
+    const run = spawnSync(
+      process.execPath,
+      [CLI, '--trial', '1', '--scaffold', scaffold, '--dry-run'],
+      {
+        cwd: source,
+        env: {
+          ...gitEnv,
+          HOME: home,
+          COREPACK_HOME: path,
+          PLAYWRIGHT_BROWSERS_PATH: join(home, '.cache', 'browsers'),
+        },
+        encoding: 'utf8',
+      },
+    );
+    if (kind === 'missing' || kind === 'existing') {
+      expect(run.stderr).toBe('');
+      expect(run.status).toBe(0);
+    } else {
+      expect(run.stderr).toContain('COREPACK_HOME must name a folder inside');
+      expect(run.status).toBe(1);
+    }
+  });
+
   it('pins the Notes prompt to the scaffold and names its Codex plan', () => {
     const folder = join(sandbox, 'notes-dry-run');
     git(sandbox, 'clone', '-q', '--shared', source, folder);
