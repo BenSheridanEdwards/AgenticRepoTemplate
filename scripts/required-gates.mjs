@@ -172,6 +172,10 @@ export const REQUIRED_GATES = [
 ];
 
 /** Local commands and the required CI steps that repeat their checks. */
+// Local telemetry preserves the hook result; CI has no commit attempt to record.
+const HOOK_TELEMETRY =
+  'trap \'status=$?; node scripts/lint-usage.mjs --hook-exit "$status" || true; exit "$status"\' EXIT';
+
 export const HOOK_STEPS = [
   {
     sources: ['package.json verify'],
@@ -724,10 +728,11 @@ function checkAggregateJob(ciJobs, ciText, errors) {
   }
 }
 
-function hookCommands(text) {
+function hookCommands(text, source) {
   return text
     .split('\n')
     .filter((line) => !/^\s*#/.test(line))
+    .filter((line) => source !== '.husky/pre-commit' || line !== HOOK_TELEMETRY)
     .flatMap((line) => line.split(/&&|\|\|?|;|&/))
     .map((command) => command.trim())
     .filter((command) => command && !/^(#|(?:echo|set|unset)(?:\s|$))/.test(command));
@@ -746,7 +751,7 @@ function checkHookSteps(readFile, jobsByWorkflow, hookSteps, errors) {
     { source: 'package.json verify', text: JSON.parse(readFile('package.json')).scripts.verify },
   ];
   sources.forEach(({ source, text }) => {
-    hookCommands(text).forEach((command) => {
+    hookCommands(text, source).forEach((command) => {
       const mapping = hookSteps.find(
         (row) => row.sources.includes(source) && row.command === command,
       );

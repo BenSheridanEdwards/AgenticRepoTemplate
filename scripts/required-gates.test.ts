@@ -75,6 +75,24 @@ function contractErrors(
 }
 
 describe('the committed CI order', () => {
+  it('exempts only the exact pre-commit telemetry trap', () => {
+    const trap =
+      'trap \'status=$?; node scripts/lint-usage.mjs --hook-exit "$status" || true; exit "$status"\' EXIT';
+    expect(contractErrors()).toEqual([]);
+    expect(
+      contractErrors((files) => ({
+        '.husky/pre-commit': files['.husky/pre-commit'].replace(
+          trap,
+          trap.replace('|| true', '|| false'),
+        ),
+      })).join('\n'),
+    ).toContain('no Required-gates lane');
+    expect(
+      contractErrors((files) => ({
+        '.husky/pre-push': `${files['.husky/pre-push']}\n${trap}\n`,
+      })).join('\n'),
+    ).toContain('no Required-gates lane');
+  });
   it('requires changed-file coverage after unit tests and judges it in the aggregate', () => {
     expect(REQUIRED_GATES).toContainEqual({
       check: 'Changed-file coverage',

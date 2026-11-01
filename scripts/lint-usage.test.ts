@@ -46,6 +46,14 @@ test('groups reporter diagnostics by rule and unique file', () => {
   });
 });
 
+test('JSON Oxlint invocation keeps the hook config, scope, and environment cleanup', () => {
+  const script = readFileSync('scripts/lint-usage.mjs', 'utf8');
+  const command = JSON.parse(readFileSync('package.json', 'utf8')).scripts['lint:anti-slop'];
+  command.split(' ').forEach((argument: string) => {
+    expect(script).toContain(`'${argument}'`);
+  });
+});
+
 test('appends exactly one complete record for a failing hook', () => {
   const input = options();
   record(input);
@@ -165,4 +173,7 @@ test('real hook retains its failure and logs both linters, then passes after rep
     .map((line) => JSON.parse(line));
   expect(records).toHaveLength(2);
   expect(records[1]).toMatchObject({ passed: true, hookExitCode: 0, total: 0 });
+  writeFileSync(join(folder, 'scripts/lint-usage.mjs'), "throw new Error('broken logger');\n");
+  expect(command('sh', ['.husky/pre-commit']).status).toBe(0);
+  expect(readFileSync(log, 'utf8').trim().split('\n')).toHaveLength(2);
 }, 30000);
