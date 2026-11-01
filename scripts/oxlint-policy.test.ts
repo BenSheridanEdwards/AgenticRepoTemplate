@@ -56,7 +56,7 @@ ${
   component
     ? `export function Wrong({ save }: { save: () => void }) {
   function saveValue() { return save(); }
-  return <button />;
+  return <button aria-label="Save" />;
 }
 function ExtraPage() { return <p />; }`
     : 'export function useWrong() {}'
@@ -137,9 +137,9 @@ function ExtraPage() { return <p />; }`
   },
   ...['apps/web', 'showcase/todo-01/web'].flatMap((root) => [
     ...[
-      '<button />',
-      '<input />',
-      '<input type="text" />',
+      '<button aria-label="Save" />',
+      '<input aria-label="Name" />',
+      '<input type="text" aria-label="Name" />',
       '<input type="checkbox" {...props} />',
       'React.createElement("input", { type: "checkbox", [key]: "text" })',
       'make("button", {})',
@@ -463,6 +463,7 @@ export function Fixture({ label, onSave }: FixtureProps) {
     path: 'apps/web/src/features/policy/Fixture.tsx',
     source: `
 ${header}
+  const Button = 'button';
   return <Button type="button" onClick={save}>Save</Button>;
 ${ending}
 `,

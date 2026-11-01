@@ -138,6 +138,9 @@ importers:
       oxlint:
         specifier: 1.89.0
         version: 1.89.0
+      oxlint-plugin-react-doctor:
+        specifier: 0.9.18
+        version: 0.9.18
       react-doctor:
         specifier: 0.9.18
         version: 0.9.18(@opentelemetry/core@2.12.0(@opentelemetry/api@1.9.1))(eslint@10.12.0(jiti@2.7.0))(react@19.2.7)
