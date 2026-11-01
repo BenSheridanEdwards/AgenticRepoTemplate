@@ -62,7 +62,7 @@ const config: Config = {
     {
       ...shared,
       displayName: 'tooling',
-      testEnvironment: 'jsdom',
+      testEnvironment: 'node',
       roots: existingRoots('scripts', 'tooling'),
       testMatch: ['<rootDir>/scripts/**/*.test.{ts,tsx}', '<rootDir>/tooling/**/*.test.{ts,tsx}'],
     },

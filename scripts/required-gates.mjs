@@ -69,6 +69,13 @@ export const REQUIRED_GATES = [
     local: '`pnpm verify`, pre-push hook',
   },
   {
+    check: `Tooling tests (\${{ matrix.shard }}/2)`,
+    workflow: 'ci.yml',
+    job: 'tooling',
+    judgedBy: 'aggregate',
+    local: '`pnpm verify`, pre-push hook',
+  },
+  {
     check: 'Changed-file coverage',
     workflow: 'ci.yml',
     job: 'coverage',
@@ -249,8 +256,21 @@ export const HOOK_STEPS = [
       },
     ],
   },
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm test:coverage',
+    workflow: 'ci.yml',
+    job: 'test',
+    steps: [{ run: 'pnpm test:coverage:app' }],
+  },
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm test:coverage',
+    workflow: 'ci.yml',
+    job: 'tooling',
+    steps: [{ run: `pnpm test:tooling --shard \${{ matrix.shard }}/2` }],
+  },
   ...[
-    ['test:coverage', 'test'],
     ['build', 'build'],
     ['size', 'build'],
   ].map(([script, job]) => ({
