@@ -245,14 +245,22 @@ describe('a showcase result', () => {
   });
 
   it('gets the same ESLint config as the reference, with every policy rule on', () => {
-    const configOf = (path: string) =>
-      JSON.parse(run(['eslint', '--print-config', path]).stdout).rules;
+    const paths = [WEB_FILE, API_FILE].flatMap((file) => [`showcase/x/${file}`, `apps/${file}`]);
+    const configs = JSON.parse(
+      run([
+        'node',
+        '--input-type=module',
+        '-e',
+        `import { ESLint } from 'eslint';
+const eslint = new ESLint();
+console.log(JSON.stringify(await Promise.all(${JSON.stringify(paths)}.map(async (path) => (await eslint.calculateConfigForFile(path)).rules))));`,
+      ]).stdout,
+    );
 
-    [WEB_FILE, API_FILE].forEach((file) => {
-      const showcase = configOf(`showcase/x/${file}`);
+    [0, 2].forEach((index) => {
+      const showcase = configs[index];
       const policy = Object.entries(showcase).filter(([rule]) => rule.startsWith('policy/'));
-
-      expect(showcase).toEqual(configOf(`apps/${file}`));
+      expect(showcase).toEqual(configs[index + 1]);
       expect(policy.length).toBeGreaterThan(5);
       expect(policy.filter(([, setting]) => JSON.stringify(setting) !== '[2]')).toEqual([]);
     });
