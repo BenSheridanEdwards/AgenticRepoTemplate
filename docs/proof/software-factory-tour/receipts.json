@@ -1,0 +1,337 @@
+{
+  "sourceHead": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+  "capturedOn": "2026-10-31",
+  "sanitisation": "Machine paths replaced; ANSI formatting removed. Outputs remain observed stdout/stderr, not illustrative reconstructions. Baseline excerpts are explicitly labelled.",
+  "environment": {
+    "node": "v26.12.1",
+    "pnpm": "11.3.0",
+    "biome": "Version: 2.5.1",
+    "oxlint": "Version: 1.78.0",
+    "eslint": "v10.12.0",
+    "typescript": "Version 5.9.3",
+    "gitleaks": "8.30.1",
+    "cpu": "Apple M2 Max",
+    "logicalCpus": "12",
+    "memoryBytes": "103079215104",
+    "fallow": "3.33.1",
+    "os": "macOS 26.7.1",
+    "architecture": "arm64"
+  },
+  "records": [
+    {
+      "name": "baseline-install",
+      "command": ["pnpm", "install", "--frozen-lockfile"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 8.471327,
+      "exitCode": 0,
+      "output": "See baseline.txt or focused-controls.txt for sanitised output; complete original output retained privately."
+    },
+    {
+      "name": "baseline-verify",
+      "command": ["pnpm", "verify"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 216.731904,
+      "exitCode": 0,
+      "output": "See baseline.txt or focused-controls.txt for sanitised output; complete original output retained privately."
+    },
+    {
+      "name": "baseline-e2e",
+      "command": ["pnpm", "e2e"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 4.557003,
+      "exitCode": 0,
+      "output": "See baseline.txt or focused-controls.txt for sanitised output; complete original output retained privately."
+    },
+    {
+      "name": "focused-controls",
+      "command": [
+        "pnpm",
+        "exec",
+        "jest",
+        "--selectProjects",
+        "tooling",
+        "--runInBand",
+        "--verbose",
+        "--runTestsByPath",
+        "scripts/block-gate-bypass.test.ts",
+        "scripts/enforcement-approval.test.ts",
+        "scripts/required-gates.test.ts",
+        "tooling/architecture/boundaries.test.ts",
+        "tooling/architecture/diagram.test.ts"
+      ],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 35.306499,
+      "exitCode": 0,
+      "output": "See baseline.txt or focused-controls.txt for sanitised output; complete original output retained privately."
+    },
+    {
+      "name": "staged-precommit",
+      "command": ["sh", ".husky/pre-commit"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 9.73257,
+      "exitCode": 0,
+      "output": "\u203a typecheck\n$ tsc -b --force tsconfig.json && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.domain.json --noEmit\n\u203a biome (lint + format + imports, staged only)\nChecked 1 file in 8ms. No fixes applied.\n\u203a anti-slop (vendored Oxlint rules)\n$ env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings\n\u203a fallow (code intelligence: dead code, cycles, complexity)\n$ bash scripts/fallow-audit.sh\nloaded config: <repo>/.fallowrc.jsonc\n   0.288814667s  WARN boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n   0.289647417s  WARN boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n   0.289689917s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\nnote: using auto-detected coverage at <repo>/coverage/coverage-final.json; pass --coverage explicitly for deterministic CI scores\n\nAudit scope: 1 changed file vs origin/main (6d770ab..HEAD)\nnote: skipped 61 files matching default duplicates ignores\n  (--explain-skipped for the list)\n\u2713 No issues in 1 changed file (0.43s)\n\u203a secret scan (gitleaks, staged content)\n$ bash scripts/secret-scan.sh\n2:47PM INF 0 commits scanned.\n2:47PM INF scanned ~97 bytes (97 bytes) in 44.7ms\n2:47PM INF no leaks found\n"
+    },
+    {
+      "name": "diagram-freshness",
+      "command": ["node", "tooling/architecture/diagram.mjs", "--check"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 0.462866,
+      "exitCode": 0,
+      "output": "OK: 2 diagrams match the contract and the import graph.\n"
+    },
+    {
+      "name": "protection-drift",
+      "command": ["node", "scripts/required-gates.mjs", "--protection"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 0.066426,
+      "exitCode": 1,
+      "output": "Also required directly (allowed): Type check \u00b7 lint \u00b7 format, Code intelligence (Fallow), Unit + component tests, Production build, End-to-end behaviour map, Security audit.\n  \u2717 Branch protection does not require \"Visual regression\". Select it as a required check.\n"
+    },
+    {
+      "name": "timing-typecheck-1",
+      "command": ["pnpm", "typecheck"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 4.331787,
+      "exitCode": 0,
+      "output": "$ tsc -b --force tsconfig.json && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.domain.json --noEmit\n"
+    },
+    {
+      "name": "timing-staged-biome-1",
+      "command": [
+        "pnpm",
+        "exec",
+        "biome",
+        "check",
+        "--error-on-warnings",
+        "--staged",
+        "--no-errors-on-unmatched",
+        "."
+      ],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.051739,
+      "exitCode": 0,
+      "output": "Checked 1 file in 31ms. No fixes applied.\n"
+    },
+    {
+      "name": "timing-oxlint-1",
+      "command": ["pnpm", "lint:anti-slop"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.355502,
+      "exitCode": 0,
+      "output": "$ env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings\n"
+    },
+    {
+      "name": "timing-fallow-1",
+      "command": ["pnpm", "fallow:audit"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 2.050106,
+      "exitCode": 0,
+      "output": "$ bash scripts/fallow-audit.sh\nloaded config: <repo>/.fallowrc.jsonc\n   0.335890458s  WARN boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n   0.335925875s  WARN boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n   0.335931458s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\nnote: using auto-detected coverage at <repo>/coverage/coverage-final.json; pass --coverage explicitly for deterministic CI scores\n\nAudit scope: 1 changed file vs origin/main (6d770ab..HEAD)\nnote: skipped 61 files matching default duplicates ignores\n  (--explain-skipped for the list)\n\u2713 No issues in 1 changed file (0.52s)\n"
+    },
+    {
+      "name": "timing-secrets-1",
+      "command": ["pnpm", "secret-scan"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 0.973053,
+      "exitCode": 0,
+      "output": "$ bash scripts/secret-scan.sh\n2:46PM INF 0 commits scanned.\n2:46PM INF scanned ~97 bytes (97 bytes) in 55.7ms\n2:46PM INF no leaks found\n"
+    },
+    {
+      "name": "timing-typecheck-2",
+      "command": ["pnpm", "typecheck"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 4.038306,
+      "exitCode": 0,
+      "output": "$ tsc -b --force tsconfig.json && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.domain.json --noEmit\n"
+    },
+    {
+      "name": "timing-staged-biome-2",
+      "command": [
+        "pnpm",
+        "exec",
+        "biome",
+        "check",
+        "--error-on-warnings",
+        "--staged",
+        "--no-errors-on-unmatched",
+        "."
+      ],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.041157,
+      "exitCode": 0,
+      "output": "Checked 1 file in 5ms. No fixes applied.\n"
+    },
+    {
+      "name": "timing-oxlint-2",
+      "command": ["pnpm", "lint:anti-slop"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.373537,
+      "exitCode": 0,
+      "output": "$ env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings\n"
+    },
+    {
+      "name": "timing-fallow-2",
+      "command": ["pnpm", "fallow:audit"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 2.504133,
+      "exitCode": 0,
+      "output": "$ bash scripts/fallow-audit.sh\nloaded config: <repo>/.fallowrc.jsonc\n   0.434108208s  WARN boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n   0.434127916s  WARN boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n   0.434132583s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\nnote: using auto-detected coverage at <repo>/coverage/coverage-final.json; pass --coverage explicitly for deterministic CI scores\n\nAudit scope: 1 changed file vs origin/main (6d770ab..HEAD)\nnote: skipped 61 files matching default duplicates ignores\n  (--explain-skipped for the list)\n\u2713 No issues in 1 changed file (0.69s)\n"
+    },
+    {
+      "name": "timing-secrets-2",
+      "command": ["pnpm", "secret-scan"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.309934,
+      "exitCode": 0,
+      "output": "$ bash scripts/secret-scan.sh\n2:47PM INF 0 commits scanned.\n2:47PM INF scanned ~97 bytes (97 bytes) in 58.3ms\n2:47PM INF no leaks found\n"
+    },
+    {
+      "name": "timing-typecheck-3",
+      "command": ["pnpm", "typecheck"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 6.098924,
+      "exitCode": 0,
+      "output": "$ tsc -b --force tsconfig.json && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.domain.json --noEmit\n"
+    },
+    {
+      "name": "timing-staged-biome-3",
+      "command": [
+        "pnpm",
+        "exec",
+        "biome",
+        "check",
+        "--error-on-warnings",
+        "--staged",
+        "--no-errors-on-unmatched",
+        "."
+      ],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 2.548926,
+      "exitCode": 0,
+      "output": "Checked 1 file in 4ms. No fixes applied.\n"
+    },
+    {
+      "name": "timing-oxlint-3",
+      "command": ["pnpm", "lint:anti-slop"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 2.961635,
+      "exitCode": 0,
+      "output": "$ env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings\n"
+    },
+    {
+      "name": "timing-fallow-3",
+      "command": ["pnpm", "fallow:audit"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 2.304172,
+      "exitCode": 0,
+      "output": "$ bash scripts/fallow-audit.sh\nloaded config: <repo>/.fallowrc.jsonc\n   0.328004250s  WARN boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n   0.328037667s  WARN boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n   0.328044625s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\nnote: using auto-detected coverage at <repo>/coverage/coverage-final.json; pass --coverage explicitly for deterministic CI scores\n\nAudit scope: 1 changed file vs origin/main (6d770ab..HEAD)\nnote: skipped 61 files matching default duplicates ignores\n  (--explain-skipped for the list)\n\u2713 No issues in 1 changed file (0.51s)\n"
+    },
+    {
+      "name": "timing-secrets-3",
+      "command": ["pnpm", "secret-scan"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 0.924211,
+      "exitCode": 0,
+      "output": "$ bash scripts/secret-scan.sh\n2:47PM INF 0 commits scanned.\n2:47PM INF scanned ~97 bytes (97 bytes) in 44.6ms\n2:47PM INF no leaks found\n"
+    },
+    {
+      "name": "timing-typecheck-4",
+      "command": ["pnpm", "typecheck"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 4.44924,
+      "exitCode": 0,
+      "output": "$ tsc -b --force tsconfig.json && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.domain.json --noEmit\n"
+    },
+    {
+      "name": "timing-staged-biome-4",
+      "command": [
+        "pnpm",
+        "exec",
+        "biome",
+        "check",
+        "--error-on-warnings",
+        "--staged",
+        "--no-errors-on-unmatched",
+        "."
+      ],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.319433,
+      "exitCode": 0,
+      "output": "Checked 1 file in 2ms. No fixes applied.\n"
+    },
+    {
+      "name": "timing-oxlint-4",
+      "command": ["pnpm", "lint:anti-slop"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.828049,
+      "exitCode": 0,
+      "output": "$ env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings\n"
+    },
+    {
+      "name": "timing-fallow-4",
+      "command": ["pnpm", "fallow:audit"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 2.199172,
+      "exitCode": 0,
+      "output": "$ bash scripts/fallow-audit.sh\nloaded config: <repo>/.fallowrc.jsonc\n   0.354533708s  WARN boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n   0.354608792s  WARN boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n   0.354627458s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\nnote: using auto-detected coverage at <repo>/coverage/coverage-final.json; pass --coverage explicitly for deterministic CI scores\n\nAudit scope: 1 changed file vs origin/main (6d770ab..HEAD)\nnote: skipped 61 files matching default duplicates ignores\n  (--explain-skipped for the list)\n\u2713 No issues in 1 changed file (0.52s)\n"
+    },
+    {
+      "name": "timing-secrets-4",
+      "command": ["pnpm", "secret-scan"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.015818,
+      "exitCode": 0,
+      "output": "$ bash scripts/secret-scan.sh\n2:47PM INF 0 commits scanned.\n2:47PM INF scanned ~97 bytes (97 bytes) in 47.7ms\n2:47PM INF no leaks found\n"
+    },
+    {
+      "name": "timing-typecheck-5",
+      "command": ["pnpm", "typecheck"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 4.861123,
+      "exitCode": 0,
+      "output": "$ tsc -b --force tsconfig.json && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.domain.json --noEmit\n"
+    },
+    {
+      "name": "timing-staged-biome-5",
+      "command": [
+        "pnpm",
+        "exec",
+        "biome",
+        "check",
+        "--error-on-warnings",
+        "--staged",
+        "--no-errors-on-unmatched",
+        "."
+      ],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.022725,
+      "exitCode": 0,
+      "output": "Checked 1 file in 2ms. No fixes applied.\n"
+    },
+    {
+      "name": "timing-oxlint-5",
+      "command": ["pnpm", "lint:anti-slop"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.786877,
+      "exitCode": 0,
+      "output": "$ env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config .oxlintrc.json --deny-warnings\n"
+    },
+    {
+      "name": "timing-fallow-5",
+      "command": ["pnpm", "fallow:audit"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 2.115756,
+      "exitCode": 0,
+      "output": "$ bash scripts/fallow-audit.sh\nloaded config: <repo>/.fallowrc.jsonc\n   0.306556167s  WARN boundary zone 'web-routes' matched 0 files, check your directory structure or pattern\n   0.306637459s  WARN boundary zone 'web-features' matched 0 files, check your directory structure or pattern\n   0.306649125s  WARN boundary zone 'api-integrations' matched 0 files, check your directory structure or pattern\nnote: using auto-detected coverage at <repo>/coverage/coverage-final.json; pass --coverage explicitly for deterministic CI scores\n\nAudit scope: 1 changed file vs origin/main (6d770ab..HEAD)\nnote: skipped 61 files matching default duplicates ignores\n  (--explain-skipped for the list)\n\u2713 No issues in 1 changed file (0.48s)\n"
+    },
+    {
+      "name": "timing-secrets-5",
+      "command": ["pnpm", "secret-scan"],
+      "head": "6d770abee9d9bde51eab6ec0a6d8676bd0efc9c0",
+      "elapsedSeconds": 1.335772,
+      "exitCode": 0,
+      "output": "$ bash scripts/secret-scan.sh\n2:47PM INF 0 commits scanned.\n2:47PM INF scanned ~97 bytes (97 bytes) in 52.1ms\n2:47PM INF no leaks found\n"
+    }
+  ]
+}
