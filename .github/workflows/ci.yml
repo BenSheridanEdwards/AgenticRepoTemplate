@@ -191,7 +191,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm install --frozen-lockfile
       - run: pnpm test:tooling --shard ${{ matrix.shard }}/3
 
   coverage:
