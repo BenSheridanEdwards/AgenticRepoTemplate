@@ -293,10 +293,11 @@ console.log(JSON.stringify(await Promise.all(${JSON.stringify(paths)}.map(async 
       '-e',
       `import config from './oxlint.config.ts';
 import { matchesGlob } from 'node:path';
-console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntries(
-  config.overrides.filter(({ files }) => files.some(pattern => matchesGlob(path, pattern)))
+console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntries([
+  ...Object.entries(config.rules),
+  ...config.overrides.filter(({ files }) => files.some(pattern => matchesGlob(path, pattern)))
     .flatMap(override => Object.entries(override.rules))
-))));`,
+]))));`,
     ]);
     expect(resolved.code).toBe(0);
     const configs: Record<string, string | unknown[]>[] = JSON.parse(resolved.stdout);

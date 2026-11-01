@@ -123,12 +123,14 @@ const loaded = spawnSync(
 );
 expect(loaded.status).toBe(0);
 const config: Config = JSON.parse(loaded.stdout);
+// Oxlint 1.89 prints the same unresolved overrides for every input path.
 const rulesFor = (path: string): Rules =>
-  Object.fromEntries(
-    config.overrides
+  Object.fromEntries([
+    ...Object.entries(config.rules),
+    ...config.overrides
       .filter(({ files }) => files.some((pattern) => matchesGlob(path, pattern)))
       .flatMap((override) => Object.entries(override.rules)),
-  );
+  ]);
 const entries = (rules: Rules) =>
   Object.entries(rules).map(([name, value]) => [name, Array.isArray(value) ? value : [value]]);
 const doctorNames = (rules: Rules) =>
