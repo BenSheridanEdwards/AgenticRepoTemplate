@@ -4,8 +4,8 @@ name: Merge confidence
 # Read the head's CI coverage artifact as JSON data (issue #137, ADR 0067).
 # Read the head's Fallow blast-radius artifact as JSON data (issue #138, ADR 0068).
 # Run main's trusted script; read the PR head only as data, with no credentials
-# persisted in either checkout. Skip stale heads. The label is advisory and the
-# required gates stay the merge bar. Like every workflow_run workflow, this
+# persisted in either checkout. Skip stale heads. Coverage gaps also fail the
+# Changed-file coverage required lane. Like every workflow_run workflow, this
 # grades PRs only once it is on main; the PR that adds it cannot grade itself.
 
 on:
