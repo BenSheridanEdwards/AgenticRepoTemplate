@@ -65,8 +65,20 @@ const commit = (cwd, message) =>
     { ...environment, HUSKY: '0' },
   );
 
+function resolveRef(ref) {
+  const resolve = (name) =>
+    spawnSync('git', ['rev-parse', '--verify', '--quiet', '--end-of-options', `${name}^{commit}`], {
+      cwd: repository,
+      encoding: 'utf8',
+    });
+  const local = resolve(ref);
+  const resolved = local.status === 0 ? local : resolve(`origin/${ref}`);
+  if (resolved.status !== 0) throw new Error(`Unknown comparison ref: ${ref}`);
+  return resolved.stdout.trim();
+}
+
 function prepare(directory, ref) {
-  const archive = spawnSync('git', ['archive', ref], {
+  const archive = spawnSync('git', ['archive', resolveRef(ref)], {
     cwd: repository,
     maxBuffer: 64 * 1024 * 1024,
   });
@@ -87,7 +99,10 @@ function prepare(directory, ref) {
     .trim()
     .split('\n');
   const reference = Object.fromEntries(
-    files.map((path) => [path, readFileSync(join(directory, path), 'utf8')]),
+    files.map((path) => {
+      const content = readFileSync(join(directory, path));
+      return [path, content.includes(0) ? content : content.toString('utf8')];
+    }),
   );
   const plan = planWorkspace({ packages, reference });
   Object.entries(plan).forEach(([path, content]) => {

@@ -68,6 +68,7 @@ function permissionState(text: string) {
 
 const readOnly = [['contents: read']];
 const baseline = {
+  'bench.yml': { workflow: readOnly, jobs: { bench: [] } },
   'ci.yml': {
     workflow: readOnly,
     jobs: {
@@ -106,6 +107,16 @@ const baseline = {
   'pr-quality.yml': { workflow: readOnly, jobs: { 'pr-body': [] } },
   'visual.yml': { workflow: readOnly, jobs: { visual: [] } },
 };
+
+it('keeps the benchmark dispatch-only without cache or artifact downloads', () => {
+  const text = read('.github/workflows/bench.yml');
+  expect(fields(text, 'on')[0]?.body.match(/^ {2}[\w-]+:/gm)).toEqual(['  workflow_dispatch:']);
+  expect(
+    fields(text, 'uses').some(({ value }) => /^actions\/(cache|download-artifact)/.test(value)),
+  ).toBe(false);
+  expect(text).toContain("default: '60'");
+  expect(text).toContain('default: main');
+});
 
 it.each(actionFiles)('%s pins every remote action with a version comment', (path) => {
   expect(invalidPins(read(path))).toEqual([]);

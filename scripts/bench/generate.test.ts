@@ -11,6 +11,7 @@ const reference = {
   'apps/web/src/App.tsx': 'import type { AppRouter } from "@repo/api";',
   'apps/api/src/router.ts': 'export const router = {};',
   'apps/architecture.mmd': 'graph TD',
+  'apps/web/e2e/reference.png': Buffer.from([137, 80, 78, 71, 0, 255]),
 };
 const parse = (text: string) => JSON.parse(text.replace(/\/\/[^\n]*/g, ''));
 
@@ -27,7 +28,7 @@ test('60 packages form 30 deterministic, isolated results in existing zones', ()
   try {
     Object.entries(plan).forEach(([path, content]) => {
       expect(path).toMatch(/^showcase\/bench-\d{3}\/(web\/|api\/|architecture.mmd)/);
-      expect(content).not.toMatch(/@repo\/(web|api)/);
+      expect(String(content)).not.toMatch(/@repo\/(web|api)/);
       const scope = path.split('/')[1];
       Array.from(String(content).matchAll(/@(bench-\d+|repo)\/(web|api|ui)/g)).forEach((match) => {
         expect(match[0] === '@repo/ui' || match[1] === scope).toBe(true);
@@ -42,6 +43,9 @@ test('60 packages form 30 deterministic, isolated results in existing zones', ()
       writeFileSync(join(directory, path), String(content));
     });
     expect(listResults(directory).filter(({ id }) => id.startsWith('bench-'))).toHaveLength(30);
+    expect(plan['showcase/bench-001/web/e2e/reference.png']).toEqual(
+      reference['apps/web/e2e/reference.png'],
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

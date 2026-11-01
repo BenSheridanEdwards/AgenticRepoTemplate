@@ -8,7 +8,9 @@ export function planWorkspace({ packages, reference }) {
       const scope = `bench-${String(index + 1).padStart(3, '0')}`;
       return Object.entries(reference).map(([path, text]) => [
         path.replace(/^apps\//, `showcase/${scope}/`),
-        text.replace(/@repo\/(web|api)\b/g, `@${scope}/$1`),
+        typeof text === 'string'
+          ? text.replace(/@repo\/(web|api)\b/g, `@${scope}/$1`)
+          : Buffer.from(text),
       ]);
     }).flat(),
   );

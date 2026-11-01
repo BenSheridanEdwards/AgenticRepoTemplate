@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 
 // Slow: installs an offline generated workspace and drives the real gates.
-test.each([false, true])('isolated benchmark cleans up (type error: %s)', (inject) => {
+test.each([false, true])('slow: isolated benchmark cleans up (type error: %s)', (inject) => {
   const status = () => spawnSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).stdout;
   const before = status();
   const config = readFileSync('.fallowrc.jsonc', 'utf8');
