@@ -7,13 +7,14 @@ import config from '../jest.config';
 
 const PACKAGE_SOURCE = /^(apps\/[^/]+|packages\/[^/]+|showcase\/[^/]+\/[^/]+)\/src\//;
 
-const trackedFiles = execFileSync('git', ['ls-files', '-z', '--', 'apps', 'packages', 'showcase'], {
-  encoding: 'utf8',
-})
-  .split('\0')
-  .filter((path) => PACKAGE_SOURCE.test(path));
+const workspaceFiles = execFileSync(
+  'git',
+  ['ls-files', '-z', '--', 'apps', 'packages', 'showcase', 'scripts', 'tooling'],
+  { encoding: 'utf8' },
+).split('\0');
+const trackedFiles = workspaceFiles.filter((path) => PACKAGE_SOURCE.test(path));
 
-const isTest = (path: string) => /\.test\.[^/]+$/.test(path);
+const isTest = (path: string) => /\.test\.tsx?$/.test(path);
 const isSource = (path: string) => /\.tsx?$/.test(path) && !isTest(path);
 
 /** Type declarations, the re-export barriers, and the composition roots the E2E map covers. */
@@ -96,7 +97,9 @@ describe('Jest scope over workspace package sources', () => {
   it('runs every test file in exactly one project', () => {
     const runs = testsJestRuns();
     expect(
-      trackedFiles.filter(isTest).filter((path) => runs.filter((run) => run === path).length !== 1),
+      workspaceFiles
+        .filter(isTest)
+        .filter((path) => runs.filter((run) => run === path).length !== 1),
     ).toEqual([]);
     expect(runs.length).toBe(new Set(runs).size);
   });

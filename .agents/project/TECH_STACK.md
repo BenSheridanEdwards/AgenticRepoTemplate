@@ -16,7 +16,7 @@ tool needs an ADR. [QUALITY_GATES.md](QUALITY_GATES.md) lists where each runs.
 | Server state | **TanStack Query** (`@tanstack/react-query`) | Through `useTrpc()` with `queryOptions` and `mutationOptions`, inside `use*` hooks. |
 | Forms | **React Hook Form** + **`@hookform/resolvers`** | `useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema)) })` with `standardSchemaResolver` from `@hookform/resolvers/standard-schema`. |
 | Validation and schemas | **Effect 4 Schema** (`effect`, pinned `^4.0.5`) | Procedure inputs (`Schema.toStandardSchemaV1`), form schemas, and environment parsing. |
-| Unit / component tests | **Jest + React Testing Library** | Three projects: `web` (jsdom), `api` (node), `tooling`. Behaviour through the accessibility tree. |
+| Unit / component / integration tests | **Jest + React Testing Library** | Four projects: `web` (jsdom), `api` (node), `tooling`, and `integration` (node, real HTTP server). Unit and coverage commands select `web api tooling`; `pnpm test:integration` runs the HTTP tests once in `verify` and in its own required CI lane. |
 | End-to-end tests | **Playwright** | The behaviour map: one Chromium project per result, running its api and web servers. |
 | Format, import order, general lint | **Biome** | The one formatter and the general-purpose linter. |
 | Policy, React hooks, React Compiler, and React Doctor lint rules | **ESLint** (`pnpm lint:policy`) | `eslint-plugin-react-hooks`, `eslint-plugin-react-doctor`, and the local `tooling/eslint-plugin-policy.js` on `{apps,packages}/*/src/` and `showcase/*/*/src/`; see ADR 0015 for each rule's owner and ADR 0019 for the local rules. Every other source file is linted for inline config only (ADR 0039). |
