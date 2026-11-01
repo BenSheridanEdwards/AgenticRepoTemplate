@@ -34,9 +34,34 @@ jobs:
       - name: Install dependencies
         if: steps.changes.outputs.ui-changed == 'true'
         run: pnpm install --frozen-lockfile --config.minimum-release-age=0
+      - name: Read Playwright version
+        id: playwright-version
+        if: steps.changes.outputs.ui-changed == 'true'
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const lock = readFileSync('pnpm-lock.yaml', 'utf8');
+          const version = lock.match(/^      '@playwright\/test':\n        specifier: .+\n        version: ([^\s(]+)/m)?.[1];
+          if (!version) throw new Error('Missing resolved @playwright/test version');
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+      - name: Cache Chromium
+        id: browser-cache
+        if: steps.changes.outputs.ui-changed == 'true'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
       - name: Install Chromium
         if: steps.changes.outputs.ui-changed == 'true'
-        run: pnpm e2e:install
+        env:
+          BROWSER_CACHE_HIT: ${{ steps.browser-cache.outputs.cache-hit }}
+        run: |
+          if [ "$BROWSER_CACHE_HIT" = 'true' ]; then
+            pnpm exec playwright install-deps chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
       - name: Compare approved screenshots
         if: steps.changes.outputs.ui-changed == 'true'
         run: pnpm visual
