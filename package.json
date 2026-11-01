@@ -47,6 +47,7 @@
     "check:docs": "node scripts/check-doc-phrasing.mjs && node scripts/check-sign-off-docs.mjs && node scripts/check-prd-conflicts.mjs",
     "gates:inventory": "node scripts/required-gates.mjs --write",
     "gates:check": "node scripts/required-gates.mjs --check",
+    "gates:protection": "node scripts/required-gates.mjs --protection-live",
     "validate:pr": "node scripts/validate-pr-body.mjs",
     "verify": "pnpm check:lockfile && pnpm check:context && pnpm check:suppressions && pnpm check:docs && pnpm gates:check && pnpm check:adr && pnpm typecheck && pnpm check && pnpm lint:policy && pnpm lint:anti-slop && pnpm react-doctor && pnpm fallow:audit && pnpm arch:check && pnpm test:coverage && pnpm coverage:changed && pnpm build && pnpm size",
     "trial": "node tooling/trial/run-trial.mjs",

@@ -129,7 +129,10 @@ Staged Biome maps to the full-tree check, staged secrets to the history scan,
 and commitlint to PR-title validation because the title becomes the squash
 commit message. `verify` runs across the aggregate's lanes; each child step
 has its own mapping.
-Require the aggregate and the inventory's stand-alone checks in branch protection;
+Require the aggregate, the inventory's stand-alone checks and the
+`enforcement-approval` commit status in an active ruleset on `main`.
+Run `pnpm gates:protection` after each hosted settings change to compare the
+union of ruleset and classic protection contexts with the inventory;
 see [ADR 0017](../decisions/0017-required-gates-aggregate.md) for aggregate
 semantics and [hosted prerequisites](../../.github/SECURITY.md) for setup.
 

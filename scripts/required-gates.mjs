@@ -18,11 +18,16 @@
  *   --write       Regenerate `docs/required-gates.md`.
  *   --protection  Compare branch protection's required checks (JSON on stdin)
  *                 with the contract.
+ *   --protection-live  Read rulesets and classic protection through `gh api`.
  */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { STATUS_CONTEXT } from './enforcement-approval.mjs';
+
+export const REQUIRED_STATUSES = [STATUS_CONTEXT];
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INVENTORY_PATH = 'docs/required-gates.md';
@@ -762,17 +767,42 @@ export function checkContract({ readWorkflow, readFile, inventory, hookSteps = H
   return errors;
 }
 
+export function requiredContexts(json) {
+  if (Array.isArray(json)) {
+    return [
+      ...new Set(
+        json
+          .filter((rule) => rule.type === 'required_status_checks')
+          .flatMap((rule) => rule.parameters.required_status_checks.map((check) => check.context)),
+      ),
+    ];
+  }
+  const checks = json.required_status_checks ?? json;
+  return [
+    ...new Set([
+      ...(checks.contexts ?? []),
+      ...(checks.checks ?? []).map((check) => check.context),
+    ]),
+  ];
+}
+
 /**
- * Compare branch protection's required contexts with the contract. Returns
- * `{ errors, alsoRequired }`; `alsoRequired` lists aggregated lanes that are
- * required directly as well, which is allowed.
+ * Compare required contexts with the contract. `alsoRequired` lists aggregated
+ * lanes required directly as well, which is allowed.
  */
-export function compareProtection({ contexts }) {
-  const known = new Set([AGGREGATE.check, ...REQUIRED_GATES.map((gate) => gate.check)]);
+export function compareProtection(protection) {
+  const contexts = requiredContexts(protection);
+  const known = new Set([
+    AGGREGATE.check,
+    ...REQUIRED_GATES.map((gate) => gate.check),
+    ...REQUIRED_STATUSES,
+  ]);
   const errors = [
-    ...SELECTABLE_CHECKS.filter((check) => !contexts.includes(check)).map(
-      (check) => `Branch protection does not require "${check}". Select it as a required check.`,
-    ),
+    ...[...SELECTABLE_CHECKS, ...REQUIRED_STATUSES]
+      .filter((check) => !contexts.includes(check))
+      .map(
+        (check) => `Branch protection does not require "${check}". Select it as a required check.`,
+      ),
     ...contexts
       .filter((context) => !known.has(context))
       .map(
@@ -785,6 +815,34 @@ export function compareProtection({ contexts }) {
     contexts.includes(check),
   );
   return { errors, alsoRequired };
+}
+
+export function compareLiveProtection(readApi) {
+  const sources = ['rules/branches/main', 'branches/main/protection/required_status_checks'];
+  const results = sources.map((source) => {
+    try {
+      return {
+        contexts: requiredContexts(readApi(`repos/{owner}/{repo}/${source}`)),
+        warnings: [],
+      };
+    } catch (error) {
+      const message = String(error.stderr || error.message);
+      if (/\b404\b|Branch not protected/i.test(message)) return { contexts: [], warnings: [] };
+      if (source.startsWith('branches/') && /\b403\b/.test(message)) {
+        return {
+          contexts: [],
+          warnings: [
+            'classic protection needs admin read; rulesets are read with repo read access',
+          ],
+        };
+      }
+      throw error;
+    }
+  });
+  return {
+    ...compareProtection({ contexts: results.flatMap((result) => result.contexts) }),
+    warnings: results.flatMap((result) => result.warnings),
+  };
 }
 
 function renderStepRules() {
@@ -847,10 +905,11 @@ export function renderInventory() {
     '',
     '## Checks to require in branch protection',
     '',
-    ...SELECTABLE_CHECKS.map((check) => `- ${check}`),
+    ...[...SELECTABLE_CHECKS, ...REQUIRED_STATUSES].map((check) => `- ${check}`),
     '',
     'Compare the live settings with',
-    '`gh api repos/OWNER/REPO/branches/main/protection/required_status_checks | node scripts/required-gates.mjs --protection`.',
+    '`pnpm gates:protection`. It unions applicable rulesets and classic protection on `main`.',
+    '`enforcement-approval` is a required commit status, separate from check runs.',
     '',
   ].join('\n');
 }
@@ -899,8 +958,7 @@ function runDecide() {
 
 function runProtection() {
   const input = JSON.parse(readFileSync(0, 'utf8'));
-  const contexts = input.contexts ?? input.required_status_checks?.contexts ?? [];
-  const { errors, alsoRequired } = compareProtection({ contexts });
+  const { errors, alsoRequired } = compareProtection(input);
   if (alsoRequired.length > 0) {
     console.log(`Also required directly (allowed): ${alsoRequired.join(', ')}.`);
   }
@@ -922,8 +980,28 @@ function runCli(mode) {
     console.log(`Wrote ${INVENTORY_PATH}.`);
   } else if (mode === '--protection') {
     runProtection();
+  } else if (mode === '--protection-live') {
+    try {
+      const result = compareLiveProtection((endpoint) =>
+        JSON.parse(
+          execFileSync('gh', ['api', endpoint], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          }),
+        ),
+      );
+      result.warnings.forEach((warning) => {
+        console.warn(warning);
+      });
+      report(result.errors, 'Branch protection requires every check the contract selects.');
+    } catch (error) {
+      report([String(error.stderr || error.message)], '');
+    }
   } else {
-    report(['Usage: required-gates.mjs --decide | --check | --write | --protection'], '');
+    report(
+      ['Usage: required-gates.mjs --decide | --check | --write | --protection | --protection-live'],
+      '',
+    );
   }
 }
 

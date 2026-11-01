@@ -7,11 +7,13 @@ import { dirname, join } from 'node:path';
 import {
   AGGREGATE,
   checkContract,
+  compareLiveProtection,
   compareProtection,
   decideRequiredGates,
   HOOK_STEPS,
   REQUIRED_GATES,
   renderInventory,
+  requiredContexts,
 } from './required-gates.mjs';
 
 type Result = 'success' | 'failure' | 'cancelled' | 'skipped';
@@ -355,6 +357,7 @@ describe('checkContract', () => {
             ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
             : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
         'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+        'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
         'docs/required-gates.md': renderInventory(),
       };
       Object.entries(files).forEach(([name, text]) => {
@@ -657,8 +660,23 @@ describe('checkContract', () => {
 describe('compareProtection', () => {
   const selectable = [
     AGGREGATE.check,
+    'enforcement-approval',
     ...GATES.filter((gate) => gate.judgedBy === 'branch protection').map((gate) => gate.check),
   ];
+
+  it('accepts enforcement-approval as a required status', () => {
+    expect(compareProtection({ contexts: [...selectable, 'enforcement-approval'] }).errors).toEqual(
+      [],
+    );
+  });
+
+  it('fails when enforcement-approval is not required', () => {
+    expect(
+      compareProtection({
+        contexts: selectable.filter((check) => check !== 'enforcement-approval'),
+      }).errors,
+    ).toContainEqual(expect.stringContaining('enforcement-approval'));
+  });
 
   it('passes when branch protection requires the aggregate and every stand-alone check', () => {
     expect(compareProtection({ contexts: selectable }).errors).toEqual([]);
@@ -675,5 +693,99 @@ describe('compareProtection', () => {
   it('flags a required context that no workflow job reports', () => {
     const { errors } = compareProtection({ contexts: [...selectable, 'Visual style'] });
     expect(errors).toEqual([expect.stringContaining('Visual style')]);
+  });
+
+  const required = selectable;
+  const ruleset = (contexts: string[]) => [
+    {
+      type: 'required_status_checks',
+      parameters: { required_status_checks: contexts.map((context) => ({ context })) },
+    },
+  ];
+
+  it('reads required checks from the rules-for-a-branch array', () => {
+    expect(requiredContexts([...ruleset(required), { type: 'deletion' }])).toEqual(required);
+    expect(compareProtection(ruleset(required)).errors).toEqual([]);
+  });
+
+  it.each([
+    { contexts: required },
+    { checks: required.map((context) => ({ context })) },
+    { required_status_checks: { contexts: required } },
+    { required_status_checks: { checks: required.map((context) => ({ context })) } },
+  ])('reads classic protection %j', (protection) => {
+    expect(requiredContexts(protection)).toEqual(required);
+  });
+
+  it('unions classic protection and ruleset contexts', () => {
+    const result = compareLiveProtection((endpoint: string) =>
+      endpoint.includes('/rules/')
+        ? ruleset(selectable.filter((check) => check !== 'enforcement-approval'))
+        : { contexts: ['enforcement-approval', selectable[0]] },
+    );
+    expect(result.errors).toEqual([]);
+  });
+
+  it('names a check the ruleset is missing', () => {
+    expect(
+      compareProtection(ruleset(required.filter((check) => check !== AGGREGATE.check))).errors,
+    ).toEqual([expect.stringContaining(AGGREGATE.check)]);
+  });
+
+  it('passes with 404 classic protection and a full ruleset', () => {
+    const result = compareLiveProtection((endpoint: string) => {
+      if (endpoint.includes('/rules/')) return ruleset(required);
+      throw new Error('HTTP 404: Not Found');
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  it('reports missing Required gates after 403 classic protection', () => {
+    const result = compareLiveProtection((endpoint: string) => {
+      if (endpoint.includes('/rules/'))
+        return ruleset(required.filter((check) => check !== AGGREGATE.check));
+      throw new Error('HTTP 403: Forbidden');
+    });
+    expect(result.errors).toEqual([expect.stringContaining(AGGREGATE.check)]);
+    expect(result.warnings).toEqual([
+      'classic protection needs admin read; rulesets are read with repo read access',
+    ]);
+  });
+
+  it.each([
+    'HTTP 404: Not Found',
+    'Branch not protected',
+  ])('accepts absent rulesets: %s', (message) => {
+    expect(
+      compareLiveProtection((endpoint: string) => {
+        if (endpoint.includes('/rules/')) throw new Error(message);
+        return { contexts: required };
+      }).errors,
+    ).toEqual([]);
+  });
+
+  it('fails on unexpected API errors', () => {
+    expect(() =>
+      compareLiveProtection(() => {
+        throw new Error('HTTP 500');
+      }),
+    ).toThrow('HTTP 500');
+    expect(() =>
+      compareLiveProtection(() => {
+        throw new Error('HTTP 403');
+      }),
+    ).toThrow('HTTP 403');
+  });
+
+  it.each([false, true])('--protection reads ruleset stdin with missing check: %s', (missing) => {
+    const result = spawnSync('node', [SCRIPT, '--protection'], {
+      input: JSON.stringify(
+        ruleset(required.filter((check) => !missing || check !== AGGREGATE.check)),
+      ),
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH },
+    });
+    expect(result.status).toBe(missing ? 1 : 0);
+    if (missing) expect(result.stderr).toContain(AGGREGATE.check);
   });
 });
