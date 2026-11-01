@@ -788,6 +788,30 @@ const fixtures: Fixture[] = [
 let directory: string;
 let diagnostics: Diagnostic[];
 let elapsed: number;
+it('proves every rule ESLint enables except React rules and inline config', () => {
+  const reported = new Set(
+    diagnostics.filter(({ severity }) => severity === 'error').map(({ code }) => code),
+  );
+  ['apps/web/src/App.tsx', 'apps/api/src/router.ts', 'scripts/x.mjs'].forEach((path) => {
+    const result = spawnSync(join(ROOT, 'node_modules/.bin/eslint'), ['--print-config', path], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    expect(result.status).toBe(0);
+    const config = JSON.parse(result.stdout);
+    Object.entries(config.rules).forEach(([name, setting]) => {
+      if (!Array.isArray(setting) || setting[0] === 0 || /^(react-hooks|react-doctor)\//.test(name))
+        return;
+      const codes =
+        name === 'no-restricted-syntax'
+          ? ['policy(no-loops)', 'policy(no-hand-written-globs)']
+          : [name.includes('/') ? `${name.replace('/', '(')})` : `eslint(${name})`];
+      codes.forEach((code) => {
+        expect(reported).toContain(code);
+      });
+    });
+  });
+});
 it('matches all 349 React Doctor errors and settings from ESLint for App.tsx', () => {
   const result = spawnSync(
     process.execPath,
