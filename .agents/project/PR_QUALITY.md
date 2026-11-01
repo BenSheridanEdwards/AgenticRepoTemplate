@@ -56,7 +56,8 @@ The [template](../../.github/pull_request_template.md) is the review-facing vers
 
 ## PR contract checks
 
-- Keep four template sections in order, each with real content: `Why does this feature exist?`, `What changed?`, `Behavioural Proof (with video and screenshots)`, and `Verification Summary`.
+- Keep five template sections in order, each with real content: `Why does this feature exist?`, `What changed?`, `Behavioural Proof (with video and screenshots)`, `Verification Summary`, and `PRD Behaviours to Review`.
+- In `PRD Behaviours to Review`, list every behaviour of each cited PRD at the PR head as ``- `docs/prd/<feature>.md`: <summary exactly as bolded in the PRD> Evidence: <at least two words>``. Name the test, proof or reason it is unchanged. When `PRDs checked` is `None: <reason>`, write exactly `- None`.
 - Embed screenshots inline as `![alt](url)` in the proof section, rather than linking to them, or write `Not applicable` with the technical reason on the same or next line. Every inline image uses an absolute `https://` URL; GitHub blob URLs end in `?raw=1` so they render.
 - Use a Conventional Commits title, `type(scope): summary`, without an agent or tool prefix, and a `<type>/<short-kebab-summary>` head branch.
 - Include exactly one `- Head commit:` line in Verification Summary, naming one full or short SHA of the PR head. Re-check the whole body and update this line after each push; a moved head fails until rechecked ([ADR 0029](../decisions/0029-pr-body-names-its-head-commit.md)).
@@ -64,7 +65,7 @@ The [template](../../.github/pull_request_template.md) is the review-facing vers
 - Include exactly one `- PRD impact:` line there: `None`, or `No behaviour change: <reason>` with at least two words. List every PRD whose `Covers` globs or linked specs match a changed path in `PRDs checked`; update it in the same PR or explain unchanged behaviour. `None` passes when all affected PRDs change or no paths are covered. Both paths of a rename count; local validation compares `origin/main...HEAD` ([ADR 0066](../decisions/0066-prd-impact-in-the-pr-body.md)).
 - Include exactly one `- North Star commit:` line there: one SHA of 7–40 hex characters, optionally in balanced backticks, matching a prefix of the last commit to change `docs/NORTH_STAR.md` at the PR head. Read it with `git log -1 --format=%H <head> -- docs/NORTH_STAR.md`.
 
-The workflow checks these references at the PR head ([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md)). Review checks that the PRDs and stated outcome fit the change. Re-check these fields after every push along with the head commit.
+The workflow checks these references at the PR head ([ADR 0057](../decisions/0057-pr-body-names-its-prds-and-north-star-commit.md)). Review checks each listed behaviour against the diff and evidence and records `pass` or `fail` with a reason per behaviour ([Reviewers check each cited PRD behaviour listed in the PR body](../decisions/0095-reviewers-check-each-cited-prd-behaviour.md)). Re-check these fields after every push along with the head commit.
 
 ## Proof judgment
 
