@@ -360,6 +360,17 @@ describe('checkContract', () => {
     );
   });
 
+  it('requires the pinned aggregate and Fallow commits', () => {
+    expect(contractErrors()).toEqual([]);
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replaceAll(
+        'fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1',
+        'fallow-rs/fallow@v3.33.1',
+      ),
+    }));
+    expect(errors).toContainEqual(expect.stringContaining('pnpm fallow:audit'));
+  });
+
   it.each([
     'anti-slop command',
     'coverage job',
@@ -553,8 +564,8 @@ describe('checkContract', () => {
     [
       'a lane command ends in || exit 0',
       'codeql.yml',
-      '      - uses: github/codeql-action/analyze@v4\n',
-      '      - run: npx tsc || exit 0\n      - uses: github/codeql-action/analyze@v4\n',
+      '      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1\n',
+      '      - run: npx tsc || exit 0\n      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1\n',
       'job `analyze` step "npx tsc || exit 0" ignores its exit code with `|| exit 0`',
       undefined,
     ],
