@@ -68,6 +68,7 @@ function ExtraPage() { return <p />; }`
         'policy(state-and-effects-in-hooks)',
         'policy(form-uses-effect-schema)',
         'policy(slice-isolation)',
+        'react-hooks(rules-of-hooks)',
         ...(api ? ['policy(procedure-input-schema)'] : []),
         ...(component
           ? [
@@ -608,12 +609,13 @@ const loops = [
 ];
 // Oxlint-specific fixtures cover globals, preserve-manual-memoization, static-components
 // and async use-memo: their React examples emit different or no native diagnostics.
+// Source: oxc-project/oxc at oxlint_v1.89.0, crates/oxc_linter/src/rules/react/*.rs.
 const reactFixtures: Fixture[] = [
   ...[
     [
       'rules-of-hooks',
-      "import { useState } from 'react'; export function useToggle(enabled) { if (enabled) { useState(0); } return enabled; }",
-      "import { useState } from 'react'; export function useToggle(enabled) { useState(0); return enabled; }",
+      "import { useState } from 'react'; export function Toggle({ enabled }: { enabled: boolean }) { if (enabled) { useState(0); } return <p>toggle</p>; }",
+      "import { useState } from 'react'; export function Toggle({ enabled }: { enabled: boolean }) { useState(0); return <p>{String(enabled)}</p>; }",
     ],
     [
       'exhaustive-deps',
@@ -690,6 +692,12 @@ const reactFixtures: Fixture[] = [
       path: `apps/web/src/react${index}/Fixture.tsx`,
       source: invalid ?? '',
       code: `${['rules-of-hooks', 'exhaustive-deps'].includes(rule ?? '') ? 'react-hooks' : 'react'}(${rule})`,
+      codes:
+        rule === 'preserve-manual-memoization'
+          ? ['react(preserve-manual-memoization)', 'react-hooks(exhaustive-deps)']
+          : rule === 'use-memo'
+            ? ['react(use-memo)', 'react(void-use-memo)']
+            : undefined,
       reactOnly: true,
     },
     { path: `apps/web/src/react-valid${index}/Fixture.tsx`, source: valid ?? '', reactOnly: true },
@@ -801,6 +809,7 @@ it('matches all 349 React Doctor errors and settings from ESLint for App.tsx', (
       severities: doctor.map(([, value]) => value),
       settings: config.settings,
       expectedSettings: eslint.settings,
+      react: Object.entries(rules).filter(([name]) => name.startsWith('react/')),
     }));
   `,
     ],
@@ -812,6 +821,13 @@ it('matches all 349 React Doctor errors and settings from ESLint for App.tsx', (
   expect(report.actual).toEqual(report.expected);
   expect(new Set(report.severities)).toEqual(new Set(['error']));
   expect(report.settings).toEqual(report.expectedSettings);
+  expect(report.react).toHaveLength(15);
+  expect(report.react.sort()).toEqual(
+    reactFixtures
+      .filter(({ code }) => code)
+      .map(({ code }) => [code?.replace(/^(?:react|react-hooks)\((.+)\)$/, 'react/$1'), 'error'])
+      .sort(),
+  );
 });
 function write(path: string, source: string) {
   mkdirSync(dirname(join(directory, path)), { recursive: true });
