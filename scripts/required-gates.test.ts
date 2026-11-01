@@ -550,14 +550,20 @@ describe('checkContract', () => {
     const errors = contractErrors((files) => ({
       [workflow]: files[workflow].replace(from, to),
     }));
-    expect(errors).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining(message),
-        ...(missingCommand
-          ? [expect.stringContaining(`\`package.json verify\` runs \`${missingCommand}\``)]
-          : []),
-      ]),
-    );
+    expect(errors).toEqual([
+      ...(_label === 'a lane step only runs on some events' ||
+      _label === 'a lane step runs only after a failure' ||
+      _label === 'a lane command ends in || exit 0'
+        ? [expect.stringContaining('must use the exact docs-only scope condition')]
+        : []),
+      expect.stringContaining(message),
+      ...(_label === 'a lane step reports failure as success'
+        ? [expect.stringContaining('must use the exact docs-only scope condition')]
+        : []),
+      ...(missingCommand
+        ? [expect.stringContaining(`\`package.json verify\` runs \`${missingCommand}\``)]
+        : []),
+    ]);
   });
 
   it.each([
@@ -634,7 +640,10 @@ describe('checkContract', () => {
         "      - run: pnpm e2e\n        if: steps.changes.outputs.ui-changed == 'true'\n",
       ),
     }));
-    expect(errors).toContainEqual(expect.stringContaining('job `e2e` step "pnpm e2e" has `if:'));
+    expect(errors).toEqual([
+      expect.stringContaining('must use the exact docs-only scope condition'),
+      expect.stringContaining('job `e2e` step "pnpm e2e" has `if:'),
+    ]);
   });
 
   it('passes evidence uploads that run on failure and may not fail the lane', () => {
