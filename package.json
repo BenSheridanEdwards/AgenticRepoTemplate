@@ -27,6 +27,8 @@
     "api:check": "node scripts/api-report.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:coverage:app": "jest --coverage --selectProjects web api && node tooling/coverage-by-result.mjs",
+    "test:tooling": "jest --selectProjects tooling",
     "test:coverage": "jest --coverage && node tooling/coverage-by-result.mjs",
     "coverage:changed": "changed=\"$(git -c core.quotePath=false diff --name-only origin/main...HEAD)\" && CHANGED=\"$changed\" COVERAGE_FILE=coverage/coverage-final.json node scripts/confidence-label.mjs --coverage-gate",
     "tour:probe": "node scripts/software-factory-probes.mjs",

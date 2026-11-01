@@ -184,6 +184,14 @@ describe('the --decide CLI that the Required gates job runs', () => {
     expect(result.stdout + result.stderr).toContain('Changed-file coverage: failure');
   });
 
+  it.each([
+    'failure',
+    'cancelled',
+    'skipped',
+  ] as const)('fails closed when the combined tooling matrix result is %s', (result) => {
+    expect(decide(needsWith({ tooling: result })).status).toBe(1);
+  });
+
   it('exits 0 when every lane passed', () => {
     expect(decide(needsWith()).status).toBe(0);
   });
@@ -470,9 +478,9 @@ describe('checkContract', () => {
     [
       'a lane step only runs on some events',
       'ci.yml',
-      '      - run: pnpm test:coverage\n',
-      "      - run: pnpm test:coverage\n        if: github.event_name == 'push'\n",
-      'job `test` step "pnpm test:coverage" has `if: github.event_name == \'push\'`',
+      '      - run: pnpm test:coverage:app\n',
+      "      - run: pnpm test:coverage:app\n        if: github.event_name == 'push'\n",
+      'job `test` step "pnpm test:coverage:app" has `if: github.event_name == \'push\'`',
       undefined,
     ],
     [
@@ -502,9 +510,9 @@ describe('checkContract', () => {
     [
       'a lane command ends in || true',
       'ci.yml',
-      'run: pnpm test:coverage\n',
-      'run: pnpm test:coverage || true\n',
-      'job `test` step "pnpm test:coverage || true" ignores its exit code with `|| true`',
+      'run: pnpm test:coverage:app\n',
+      'run: pnpm test:coverage:app || true\n',
+      'job `test` step "pnpm test:coverage:app || true" ignores its exit code with `|| true`',
       'pnpm test:coverage',
     ],
     [
@@ -629,8 +637,8 @@ describe('checkContract', () => {
   it('passes steps that run in more cases than the default', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(
-        '      - run: pnpm test:coverage\n',
-        '      - run: pnpm test:coverage\n        if: always()\n',
+        '      - run: pnpm test:coverage:app\n',
+        '      - run: pnpm test:coverage:app\n        if: always()\n',
       ),
     }));
     expect(errors).toEqual([]);
