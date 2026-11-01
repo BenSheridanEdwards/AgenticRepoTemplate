@@ -65,7 +65,7 @@ the full tree and history rather than staged files.
 Inside every job above, `pnpm gates:check` also fails on a step that:
 
 - Sets `continue-on-error`, unless it is an evidence upload (`actions/upload-artifact`).
-- Has an `if:` other than `always()`, `!cancelled()`, `failure()` on an evidence upload, or the job's declared skip condition (Lighthouse budgets: `steps.changes.outputs.ui-changed == 'true'`; Visual regression: `steps.changes.outputs.ui-changed == 'true'`).
+- Has an `if:` other than `always()`, `!cancelled()`, `failure()` on an evidence upload, or the job's declared skip condition (Code intelligence (Fallow): `steps.scope.outputs.docs-only != 'true'`; Unit + component tests: `steps.scope.outputs.docs-only != 'true'`; Changed-file coverage: `steps.scope.outputs.docs-only != 'true'`; Production build: `steps.scope.outputs.docs-only != 'true'`; End-to-end behaviour map: `steps.scope.outputs.docs-only != 'true'`; Analyze (javascript-typescript): `steps.scope.outputs.docs-only != 'true'`; Lighthouse budgets: `steps.changes.outputs.ui-changed == 'true'`; Visual regression: `steps.changes.outputs.ui-changed == 'true'`).
 - Ignores a command's exit code with any of `|| true`, `|| :`, `|| exit 0`, `set +e`.
 
 ## Checks to require in branch protection

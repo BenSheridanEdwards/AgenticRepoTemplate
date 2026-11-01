@@ -80,6 +80,10 @@ describe('the committed CI order', () => {
       check: 'Changed-file coverage',
       workflow: 'ci.yml',
       job: 'coverage',
+      skipRule: {
+        run: 'node scripts/docs-only-scope.mjs',
+        when: "steps.scope.outputs.docs-only != 'true'",
+      },
       judgedBy: 'aggregate',
       local: '`pnpm coverage:changed`',
     });
@@ -481,7 +485,7 @@ describe('checkContract', () => {
     [
       'a lane step only runs on some events',
       'ci.yml',
-      '      - run: pnpm test:coverage:app\n',
+      "      - run: pnpm test:coverage:app\n        if: steps.scope.outputs.docs-only != 'true'\n",
       "      - run: pnpm test:coverage:app\n        if: github.event_name == 'push'\n",
       'job `test` step "pnpm test:coverage:app" has `if: github.event_name == \'push\'`',
       undefined,
@@ -497,7 +501,7 @@ describe('checkContract', () => {
     [
       'a lane step runs only after a failure',
       'ci.yml',
-      '      - run: pnpm e2e\n',
+      "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
       '      - run: pnpm e2e\n        if: failure()\n',
       'job `e2e` step "pnpm e2e" has `if: failure()`',
       undefined,
@@ -505,7 +509,7 @@ describe('checkContract', () => {
     [
       'a lane step reports failure as success',
       'ci.yml',
-      '      - run: pnpm e2e\n',
+      "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
       '      - run: pnpm e2e\n        continue-on-error: true\n',
       'job `e2e` step "pnpm e2e" sets `continue-on-error`',
       undefined,
@@ -546,12 +550,14 @@ describe('checkContract', () => {
     const errors = contractErrors((files) => ({
       [workflow]: files[workflow].replace(from, to),
     }));
-    expect(errors).toEqual([
-      expect.stringContaining(message),
-      ...(missingCommand
-        ? [expect.stringContaining(`\`package.json verify\` runs \`${missingCommand}\``)]
-        : []),
-    ]);
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(message),
+        ...(missingCommand
+          ? [expect.stringContaining(`\`package.json verify\` runs \`${missingCommand}\``)]
+          : []),
+      ]),
+    );
   });
 
   it.each([
@@ -577,31 +583,31 @@ describe('checkContract', () => {
     [
       'a command continues onto the next line',
       'ci.yml',
-      '      - run: pnpm e2e\n',
+      "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
       '      - run: pnpm e2e\n          || true\n',
     ],
     [
       'a run block has an indent indicator',
       'ci.yml',
-      '      - run: pnpm e2e\n',
+      "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
       '      - run: |2\n          pnpm e2e || true\n',
     ],
     [
       'a run block body sits off the layout',
       'ci.yml',
-      '      - run: pnpm e2e\n',
+      "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
       '      - run: |\n         pnpm e2e || true\n',
     ],
     [
       'a step is written in flow style',
       'ci.yml',
-      '      - run: pnpm e2e\n',
+      "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
       '      - { run: pnpm e2e || true }\n',
     ],
     [
       'a step condition is a block scalar',
       'ci.yml',
-      '      - run: pnpm e2e\n',
+      "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
       '      - run: pnpm e2e\n        if: >-\n          false\n',
     ],
   ])('fails closed when %s', (_label, workflow, from, to) => {
@@ -614,8 +620,8 @@ describe('checkContract', () => {
   it('passes a step that sets continue-on-error to false', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(
-        '      - run: pnpm e2e\n',
-        '      - run: pnpm e2e\n        continue-on-error: false\n',
+        "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
+        "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n        continue-on-error: false\n",
       ),
     }));
     expect(errors).toEqual([]);
@@ -624,24 +630,26 @@ describe('checkContract', () => {
   it("fails when a lane borrows another gate's skip condition", () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(
-        '      - run: pnpm e2e\n',
+        "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
         "      - run: pnpm e2e\n        if: steps.changes.outputs.ui-changed == 'true'\n",
       ),
     }));
-    expect(errors).toEqual([expect.stringContaining('job `e2e` step "pnpm e2e" has `if:')]);
+    expect(errors).toContainEqual(expect.stringContaining('job `e2e` step "pnpm e2e" has `if:'));
   });
 
   it('passes evidence uploads that run on failure and may not fail the lane', () => {
     const ci = REAL_FILES['ci.yml'];
-    expect(ci).toMatch(/upload-artifact@v7\n {8}if: failure\(\)\n {8}continue-on-error: true/);
+    expect(ci).toMatch(
+      /upload-artifact@v7\n {8}if: failure\(\) && steps.scope.outputs.docs-only != 'true'\n {8}continue-on-error: true/,
+    );
     expect(contractErrors()).toEqual([]);
   });
 
   it('passes steps that run in more cases than the default', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(
-        '      - run: pnpm test:coverage:app\n',
-        '      - run: pnpm test:coverage:app\n        if: always()\n',
+        "      - run: pnpm test:coverage:app\n        if: steps.scope.outputs.docs-only != 'true'\n",
+        "      - run: pnpm test:coverage:app\n        if: always() && steps.scope.outputs.docs-only != 'true'\n",
       ),
     }));
     expect(errors).toEqual([]);

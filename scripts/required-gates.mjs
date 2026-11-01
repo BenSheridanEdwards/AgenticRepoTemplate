@@ -43,6 +43,11 @@ export const AGGREGATE = { check: 'Required gates', workflow: 'ci.yml', job: 're
  * work inside a step names the tested script that decides it in `skipRule.run`,
  * and `skipRule.when` is the one step condition that may skip that work.
  */
+const DOCS_SCOPE = {
+  run: 'node scripts/docs-only-scope.mjs',
+  when: "steps.scope.outputs.docs-only != 'true'",
+};
+
 export const REQUIRED_GATES = [
   {
     check: 'Branch contains main',
@@ -63,6 +68,7 @@ export const REQUIRED_GATES = [
     check: 'Code intelligence (Fallow)',
     workflow: 'ci.yml',
     job: 'fallow',
+    skipRule: DOCS_SCOPE,
     judgedBy: 'aggregate',
     local: '`pnpm verify`, pre-push hook',
   },
@@ -70,6 +76,7 @@ export const REQUIRED_GATES = [
     check: 'Unit + component tests',
     workflow: 'ci.yml',
     job: 'test',
+    skipRule: DOCS_SCOPE,
     judgedBy: 'aggregate',
     local: '`pnpm verify`, pre-push hook',
   },
@@ -84,6 +91,7 @@ export const REQUIRED_GATES = [
     check: 'Changed-file coverage',
     workflow: 'ci.yml',
     job: 'coverage',
+    skipRule: DOCS_SCOPE,
     judgedBy: 'aggregate',
     local: '`pnpm coverage:changed`',
   },
@@ -91,6 +99,7 @@ export const REQUIRED_GATES = [
     check: 'Production build',
     workflow: 'ci.yml',
     job: 'build',
+    skipRule: DOCS_SCOPE,
     judgedBy: 'aggregate',
     local: '`pnpm verify`, pre-push hook',
   },
@@ -98,6 +107,7 @@ export const REQUIRED_GATES = [
     check: 'End-to-end behaviour map',
     workflow: 'ci.yml',
     job: 'e2e',
+    skipRule: DOCS_SCOPE,
     judgedBy: 'aggregate',
     local: '`pnpm e2e`, pre-push hook',
   },
@@ -112,6 +122,7 @@ export const REQUIRED_GATES = [
     check: 'Analyze (javascript-typescript)',
     workflow: 'codeql.yml',
     job: 'analyze',
+    skipRule: DOCS_SCOPE,
     judgedBy: 'branch protection',
     local: 'Hosted only.',
   },
@@ -567,6 +578,21 @@ function allowedStepConditions(gate, isEvidence) {
   ];
 }
 
+function checkDocsScope(gate, step, where, errors, allowed) {
+  if (gate.skipRule === DOCS_SCOPE) {
+    const summary = step.name === 'Docs-only summary';
+    const setup = step.uses?.startsWith('actions/checkout@') || step.id === 'scope';
+    const expected = summary ? "steps.scope.outputs.docs-only == 'true'" : DOCS_SCOPE.when;
+    const combined = ['always()', 'failure()', '!cancelled()'].map(
+      (prefix) => `${prefix} && ${expected}`,
+    );
+    if (!setup && step.if !== expected && !combined.includes(step.if)) {
+      errors.push(`${where} must use the exact docs-only scope condition.`);
+    }
+    allowed.push(expected, ...combined);
+  }
+}
+
 function checkStep(gate, step, where, errors) {
   const isEvidence = STEP_POLICY.evidence.uses.test(step.uses ?? '');
   if (isSet(step['continue-on-error']) && !isEvidence) {
@@ -576,6 +602,7 @@ function checkStep(gate, step, where, errors) {
     );
   }
   const allowed = allowedStepConditions(gate, isEvidence);
+  checkDocsScope(gate, step, where, errors, allowed);
   if (step.if !== undefined && !allowed.includes(step.if)) {
     errors.push(
       `${where} has \`if: ${step.if}\`; a skipped step reads as a pass. ` +

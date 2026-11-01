@@ -172,3 +172,7 @@ records the import evidence.
 For trial commands and harness details, use [the trial runbook](../TRIALS.md),
 [ADR 0034](../decisions/0034-trial-harness-and-evidence.md) and
 [ADR 0048](../decisions/0048-trial-tasks-and-codex.md).
+
+Docs-only pull requests skip work inside application test, coverage, build, E2E,
+Fallow and CodeQL jobs after checkout (ADR 0093). Quality, tooling, security and
+the aggregate still run. CodeQL push and schedule events always analyse.
