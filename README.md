@@ -39,6 +39,7 @@ Follow that slice when adding a feature.
 | [Visual regression](apps/web/e2e/__screenshots__/README.md) | How the reference app's Playwright baselines are captured and updated. |
 | [Skills](.agents/skills/) | Workflows for adoption, tests, browser verification and PR proof. |
 | [Trials](.agents/TRIALS.md) | Running the Todo and Notes trials and reading their evidence. |
+| [Optional local Mini Fleet CI](docs/architecture/OPTIONAL_LOCAL_MINI_FLEET_ARCHITECTURE.md) | Running Linux and macOS CI on your own Macs with Cua Spaces, and a proposed Dagger layer with its benchmarks. |
 
 ## Adopt it
 
