@@ -412,7 +412,7 @@ describe('CLI', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  it('reads the PR checkout as data and writes the amber label and gap summary', () => {
+  it('reads the PR checkout as data and writes the red label and gap summary', () => {
     [greetingSpec, greetingPrd].forEach((file) => {
       const path = join(root, file.path.replaceAll('greeting', 'fixture-covered'));
       mkdirSync(dirname(path), { recursive: true });
@@ -432,10 +432,10 @@ describe('CLI', () => {
       GITHUB_STEP_SUMMARY: summary,
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('confidence: amber');
-    expect(readFileSync(output, 'utf8')).toBe('level=amber\nlabel=confidence: amber\n');
+    expect(result.stdout).toContain('confidence: red');
+    expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
     const reasons = readFileSync(summary, 'utf8');
-    expect(reasons).toContain('## Merge confidence: Amber');
+    expect(reasons).toContain('## Merge confidence: Red');
     expect(reasons).toContain('`page-header`');
     expect(reasons).toContain('no E2E spec');
     expect(reasons).toContain('no PRD');
@@ -444,8 +444,8 @@ describe('CLI', () => {
 
   it.each([
     ['threshold', 'green', [1, 1, 1, 1, 0], true, coveredSource, 'meets the line-coverage'],
-    ['low', 'amber', [1, 1, 1, 0], true, coveredSource, '75%'],
-    ['absent', 'amber', [1], true, 'packages/ui/src/Other.tsx', 'has no entry'],
+    ['low', 'red', [1, 1, 1, 0], true, coveredSource, '75%'],
+    ['absent', 'red', [1], true, 'packages/ui/src/Other.tsx', 'has no entry'],
     ['deleted', 'green', [1], false, 'packages/ui/src/Other.tsx', 'meets the line-coverage'],
     ['excluded', 'green', [1], true, 'jest.config.ts', 'meets the line-coverage'],
   ])('grades %s coverage through workflow outputs', (_, level, counts, exists, changed, reason) => {
@@ -478,6 +478,36 @@ describe('CLI', () => {
     const reasons = readFileSync(summary, 'utf8');
     expect(reasons).toContain(reason);
     if (level === 'amber') expect(reasons).toContain(`\`${changed}\``);
+  });
+
+  it.each([
+    ['thin coverage', [1, 0], true, 1, '50% line coverage, below the 80% threshold'],
+    ['unnamed slice', [1, 1], false, 1, 'no E2E spec'],
+    ['full coverage', [1, 1], true, 0, 'Changed-file coverage passed'],
+  ] as const)('runs the coverage gate for %s', (_, counts, named, status, message) => {
+    const changed = 'apps/web/src/routes/greeting/x.ts';
+    const source = join(root, changed);
+    mkdirSync(dirname(source), { recursive: true });
+    writeFileSync(source, 'throw new Error("PR code must never execute");');
+    if (named) {
+      const spec = join(root, greetingSpec.path);
+      mkdirSync(dirname(spec), { recursive: true });
+      writeFileSync(spec, greetingSpec.text);
+    }
+    const result = run('--coverage-gate', {
+      CHANGED: changed,
+      COVERAGE_FILE: writeCoverage(coverageMap(coverageEntry(changed, [...counts]))),
+    });
+    expect(result.status).toBe(status);
+    expect(result.stdout + result.stderr).toContain(message);
+  });
+
+  it.each(['missing', 'malformed'])('fails the coverage gate with %s JSON', (kind) => {
+    const path = join(root, 'coverage.json');
+    if (kind === 'malformed') writeFileSync(path, 'not JSON');
+    const result = run('--coverage-gate', { CHANGED: '', COVERAGE_FILE: path });
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain('coverage unavailable');
   });
 
   it.each([
@@ -636,13 +666,26 @@ describe('decideConfidence', () => {
     expect(decision.reasons[0]).toContain('Required gates');
   });
 
-  it('grades amber when every check passes but a gap remains', () => {
+  it('keeps PRD and blast-radius gaps amber', () => {
     const decision = decideConfidence({
       requiredChecks: allPassing,
-      gaps: ['The feature slice `page-header` (apps) changed, and no E2E spec names it.'],
+      gaps: [...prdGaps(collectSlices([coveredSource]), []), 'Import blast radius crosses units.'],
     });
     expect(decision.level).toBe('amber');
-    expect(decision.reasons).toHaveLength(1);
+    expect(decision.reasons).toHaveLength(2);
+  });
+
+  it.each([
+    coverageGaps(collectSlices([coveredSource]), []),
+    lineCoverageGaps([coveredSource], coverageMap(coverageEntry(coveredSource, [1, 0]))),
+  ])('grades coverage gaps red: %s', (gap) => {
+    const decision = decideConfidence({
+      requiredChecks: allPassing,
+      gaps: [],
+      blockingGaps: [gap],
+    });
+    expect(decision.level).toBe('red');
+    expect(decision.reasons).toContain(gap);
   });
 
   it('grades green when every check passes and no gap remains', () => {
