@@ -26,6 +26,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          filter: blob:none
       - run: sh scripts/require-up-to-date-main.sh
 
   quality:
@@ -35,6 +36,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          filter: blob:none
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -64,6 +66,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          filter: blob:none
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -178,7 +181,6 @@ jobs:
 
   e2e:
     name: End-to-end behaviour map
-    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -188,7 +190,31 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Read Playwright version
+        id: playwright-version
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const lock = readFileSync('pnpm-lock.yaml', 'utf8');
+          const version = lock.match(/^      '@playwright\/test':\n        specifier: .+\n        version: ([^\s(]+)/m)?.[1];
+          if (!version) throw new Error('Missing resolved @playwright/test version');
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+      - name: Cache Chromium
+        id: browser-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ env.ImageOS }}-playwright-${{ steps.playwright-version.outputs.version }}
+      - name: Install Chromium
+        env:
+          BROWSER_CACHE_HIT: ${{ steps.browser-cache.outputs.cache-hit }}
+        run: |
+          if [ "$BROWSER_CACHE_HIT" = 'true' ]; then
+            pnpm exec playwright install-deps chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
       - run: pnpm e2e
       - uses: actions/upload-artifact@v7
         if: failure()
@@ -205,6 +231,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          # Gitleaks reads every historical blob; keep a full clone to avoid lazy fetches.
           fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6

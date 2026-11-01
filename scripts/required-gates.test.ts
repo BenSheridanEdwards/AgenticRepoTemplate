@@ -91,9 +91,24 @@ describe('the committed CI order', () => {
     expect(aggregate).toMatch(/needs: \[[^\]]*\bcoverage\b/);
   });
 
-  it('starts the E2E lane only after unit tests succeed', () => {
+  it.each(['ci.yml', 'visual.yml'])('caches browsers with mandatory installation in %s', (file) => {
+    const workflow = REAL_FILES[file];
+    expect(workflow).toContain('actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0');
+    expect(workflow).toContain('path: ~/.cache/ms-playwright');
+    expect(workflow).toContain(
+      'key: $' +
+        '{{ runner.os }}-$' +
+        '{{ runner.arch }}-$' +
+        '{{ env.ImageOS }}-playwright-$' +
+        '{{ steps.playwright-version.outputs.version }}',
+    );
+    expect(workflow).toContain('pnpm exec playwright install-deps chromium');
+    expect(workflow).toContain('pnpm exec playwright install --with-deps chromium');
+  });
+
+  it('starts the E2E lane independently of unit tests', () => {
     const e2e = REAL_FILES['ci.yml'].split('\n  e2e:\n')[1]?.split(/\n {2}[\w-]+:\n/)[0];
-    expect(e2e).toMatch(/^ {4}needs: \[test\]$/m);
+    expect(e2e).not.toMatch(/^ {4}needs:/m);
     expect(e2e).not.toMatch(/^ {4}if:/m);
   });
 });

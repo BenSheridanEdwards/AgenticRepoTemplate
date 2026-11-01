@@ -1,6 +1,7 @@
 # 65. The E2E lane starts only after unit tests pass
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
+- **Superseded by:** [ADR 0091](0091-parallel-e2e-and-browser-cache.md)
 - **Date:** 2026-10-25
 - **Builds on:** [0017](0017-required-gates-aggregate.md)
 
