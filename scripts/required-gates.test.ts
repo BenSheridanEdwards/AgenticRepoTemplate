@@ -93,10 +93,14 @@ describe('the committed CI order', () => {
 
   it.each(['ci.yml', 'visual.yml'])('caches browsers with mandatory installation in %s', (file) => {
     const workflow = REAL_FILES[file];
-    expect(workflow).toContain('actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0');
+    expect(workflow).toContain('actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0');
     expect(workflow).toContain('path: ~/.cache/ms-playwright');
     expect(workflow).toContain(
-      'key: $' + '{{ runner.os }}-playwright-$' + '{{ steps.playwright-version.outputs.version }}',
+      'key: $' +
+        '{{ runner.os }}-$' +
+        '{{ runner.arch }}-$' +
+        '{{ env.ImageOS }}-playwright-$' +
+        '{{ steps.playwright-version.outputs.version }}',
     );
     expect(workflow).toContain('pnpm exec playwright install-deps chromium');
     expect(workflow).toContain('pnpm exec playwright install --with-deps chromium');

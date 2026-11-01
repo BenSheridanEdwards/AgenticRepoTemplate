@@ -13,7 +13,7 @@ Chromium installation takes about 24 seconds in each browser lane.
 ## Decision
 
 Run E2E independently of unit tests. Keep both lanes in Required gates.
-Use GitHub's first-party actions/cache v5.1.0, pinned to its commit, in E2E
+Use GitHub's first-party actions/cache v6.1.0, pinned to its commit, in E2E
 and visual regression. Key the browser cache by runner OS and the exact
 Playwright version in the lockfile. Install OS dependencies on a cache hit;
 install Chromium and its dependencies on a miss.
