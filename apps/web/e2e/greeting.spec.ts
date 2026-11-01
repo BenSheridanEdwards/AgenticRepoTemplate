@@ -22,6 +22,14 @@ test.describe('Greeting', () => {
     await expect(page.getByRole('status')).toHaveText('Hello, Ada!');
   });
 
+  test('collapses runs of inner whitespace in the name', async ({ page }) => {
+    await submitName(page, 'Ada    Lovelace');
+
+    const greeting = page.getByRole('status');
+    await expect(greeting).toHaveText(/^Hello, /);
+    expect(await greeting.textContent()).toBe('Hello, Ada Lovelace!');
+  });
+
   test('asks for a name and sends no request when the name is blank', async ({ page }) => {
     const apiCalls: string[] = [];
     page.on('request', (request) => {
