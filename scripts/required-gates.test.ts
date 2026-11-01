@@ -112,10 +112,11 @@ describe('the committed CI order', () => {
     expect(workflow).toContain('pnpm exec playwright install --with-deps chromium');
   });
 
-  it('starts the E2E lane independently of unit tests', () => {
-    const e2e = REAL_FILES['ci.yml'].split('\n  e2e:\n')[1]?.split(/\n {2}[\w-]+:\n/)[0];
-    expect(e2e).not.toMatch(/^ {4}needs:/m);
-    expect(e2e).not.toMatch(/^ {4}if:/m);
+  it.each(['test', 'integration', 'e2e'])('starts the %s lane independently', (job) => {
+    const lane = REAL_FILES['ci.yml'].split(`\n  ${job}:\n`)[1]?.split(/\n {2}[\w-]+:\n/)[0];
+    expect(lane).toBeDefined();
+    expect(lane).not.toMatch(/^ {4}needs:/m);
+    expect(lane).not.toMatch(/^ {4}if:/m);
   });
 });
 
