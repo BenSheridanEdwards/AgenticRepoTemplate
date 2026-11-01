@@ -1,4 +1,4 @@
-# 93. API integration tests run as their own required lane
+# 94. API integration tests run as their own required lane
 
 - **Status:** Proposed
 - **Date:** 2026-11-01
@@ -39,5 +39,5 @@ There is a short race between reserving a free port and starting the API;
 a competing bind fails the test with startup output. Coverage collection,
 thresholds and product behaviour stay unchanged.
 
-Numbers through 0092 were occupied on main, so this record uses 0093
+Numbers through 0093 were occupied on main, so this record uses 0094
 instead of the plan's reserved 0090.
