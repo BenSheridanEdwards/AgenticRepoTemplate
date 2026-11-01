@@ -164,6 +164,19 @@ jobs:
         if: steps.scope.outputs.docs-only == 'true'
         run: echo "Docs-only change; lane work skipped." >> "$GITHUB_STEP_SUMMARY"
 
+  integration:
+    name: API integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm test:integration
+
   tooling:
     name: Tooling tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
@@ -349,7 +362,7 @@ jobs:
   required-gates:
     name: Required gates
     if: always()
-    needs: [up-to-date, quality, fallow, test, tooling, coverage, build, e2e, security]
+    needs: [up-to-date, quality, fallow, test, integration, tooling, coverage, build, e2e, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -112,10 +112,17 @@ describe('the committed CI order', () => {
     expect(workflow).toContain('pnpm exec playwright install --with-deps chromium');
   });
 
-  it('starts the E2E lane independently of unit tests', () => {
-    const e2e = REAL_FILES['ci.yml'].split('\n  e2e:\n')[1]?.split(/\n {2}[\w-]+:\n/)[0];
-    expect(e2e).not.toMatch(/^ {4}needs:/m);
-    expect(e2e).not.toMatch(/^ {4}if:/m);
+  it.each(['test', 'integration', 'e2e'])('starts the %s lane independently', (job) => {
+    const lane = REAL_FILES['ci.yml'].split(`\n  ${job}:\n`)[1]?.split(/\n {2}[\w-]+:\n/)[0];
+    expect(lane).toBeDefined();
+    expect(lane).not.toMatch(/^ {4}needs:/m);
+    expect(lane).not.toMatch(/^ {4}if:/m);
+  });
+
+  it('requires the unit, integration and E2E lanes in the aggregate', () => {
+    const aggregate = REAL_FILES['ci.yml'].split('\n  required-gates:\n')[1];
+    const needs = aggregate?.match(/^ {4}needs: \[(.*)\]$/m)?.[1]?.split(', ');
+    expect(needs).toEqual(expect.arrayContaining(['test', 'integration', 'e2e']));
   });
 });
 
@@ -188,6 +195,12 @@ describe('the --decide CLI that the Required gates job runs', () => {
     const result = decide(needsWith({ coverage: 'failure' }));
     expect(result.status).toBe(1);
     expect(result.stdout + result.stderr).toContain('Changed-file coverage: failure');
+  });
+
+  it('exits 1 and names API integration tests when integration fails', () => {
+    const result = decide(needsWith({ integration: 'failure' }));
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain('API integration tests: failure');
   });
 
   it.each([
@@ -350,6 +363,7 @@ describe('checkContract', () => {
   it.each([
     'anti-slop command',
     'coverage job',
+    'integration job',
   ])('exits 1 from --check without the %s', (missing) => {
     mkdirSync(join(process.cwd(), '.scratch'), { recursive: true });
     const root = mkdtempSync(join(process.cwd(), '.scratch/required-gates-'));
@@ -357,9 +371,11 @@ describe('checkContract', () => {
       const files = {
         ...REAL_FILES,
         'ci.yml':
-          missing === 'coverage job'
-            ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
-            : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
+          missing === 'integration job'
+            ? REAL_FILES['ci.yml'].replace(/\n {2}integration:\n[\s\S]*?(?=\n {2}[\w-]+:\n)/, '')
+            : missing === 'coverage job'
+              ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
+              : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
         'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
         'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
         'docs/required-gates.md': renderInventory(),
@@ -375,7 +391,11 @@ describe('checkContract', () => {
       });
       expect(result.status).toBe(1);
       expect(result.stdout + result.stderr).toMatch(
-        missing === 'coverage job' ? /coverage/ : /\.husky\/pre-commit.*pnpm lint:anti-slop/,
+        missing === 'integration job'
+          ? /integration/
+          : missing === 'coverage job'
+            ? /coverage/
+            : /\.husky\/pre-commit.*pnpm lint:anti-slop/,
       );
     } finally {
       rmSync(root, { recursive: true, force: true });

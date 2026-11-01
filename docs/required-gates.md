@@ -12,6 +12,7 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 | Type check · lint · format | `ci.yml` `quality` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Code intelligence (Fallow) | `ci.yml` `fallow` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Unit + component tests | `ci.yml` `test` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
+| API integration tests | `ci.yml` `integration` | `Required gates` | Every run. | `pnpm verify`, `pnpm test:integration`, pre-push hook |
 | Tooling tests (${{ matrix.shard }}/3) | `ci.yml` `tooling` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Changed-file coverage | `ci.yml` `coverage` | `Required gates` | Every run. | `pnpm coverage:changed` |
 | Production build | `ci.yml` `build` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
@@ -32,6 +33,7 @@ the full tree and history rather than staged files.
 
 | Hook or script | Local command | Workflow job | CI step |
 | --- | --- | --- | --- |
+| `package.json verify` | `pnpm test:integration` | `ci.yml` `integration` | `pnpm test:integration` |
 | `package.json verify` | `pnpm check:lockfile` | `ci.yml` `quality` | `pnpm check:lockfile` |
 | `package.json verify` | `pnpm check:context` | `ci.yml` `quality` | `pnpm check:context` |
 | `package.json verify` | `pnpm check:suppressions` | `ci.yml` `quality` | `pnpm check:suppressions` |

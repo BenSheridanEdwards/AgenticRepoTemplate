@@ -81,6 +81,13 @@ export const REQUIRED_GATES = [
     local: '`pnpm verify`, pre-push hook',
   },
   {
+    check: 'API integration tests',
+    workflow: 'ci.yml',
+    job: 'integration',
+    judgedBy: 'aggregate',
+    local: '`pnpm verify`, `pnpm test:integration`, pre-push hook',
+  },
+  {
     check: `Tooling tests (\${{ matrix.shard }}/3)`,
     workflow: 'ci.yml',
     job: 'tooling',
@@ -166,6 +173,13 @@ export const REQUIRED_GATES = [
 
 /** Local commands and the required CI steps that repeat their checks. */
 export const HOOK_STEPS = [
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm test:integration',
+    workflow: 'ci.yml',
+    job: 'integration',
+    steps: [{ run: 'pnpm test:integration' }],
+  },
   ...[
     'check:lockfile',
     'check:context',

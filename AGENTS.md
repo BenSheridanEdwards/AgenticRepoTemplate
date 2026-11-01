@@ -16,6 +16,7 @@ pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any find
 pnpm arch:check       # architecture gate, structure check, diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd and each result's architecture.mmd
 pnpm api:report       # regenerate each package's etc/*.api.md after an intended export change
+pnpm test:integration # exercise the real API server over HTTP in its own Jest project
 pnpm verify           # the full local gate suite (typecheck → biome → eslint → react doctor → fallow → architecture → tests → build)
 pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```
