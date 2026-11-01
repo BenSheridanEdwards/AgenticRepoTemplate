@@ -14,7 +14,7 @@ coverage-summary.json and coverage-final.json on this branch.
 
 Keep the test job and its Unit + component tests check name. Run web/api
 coverage and coverage-by-result there, preserving both coverage artifacts.
-Run tooling without coverage in two shards, judged by Required gates through
+Run tooling without coverage in three weighted shards, judged by Required gates through
 the single combined tooling needs result. Keep local test:coverage and verify
 running all projects with coverage. Use Node as tooling's default environment;
 DOM references in tooling tests are fixture text or explicitly configured
