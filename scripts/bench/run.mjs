@@ -59,6 +59,7 @@ const commit = (cwd, message) =>
       '-c',
       'user.email=bensheridanedwards@gmail.com',
       'commit',
+      '--allow-empty',
       '-m',
       message,
     ],
