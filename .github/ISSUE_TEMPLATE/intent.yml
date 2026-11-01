@@ -1,0 +1,36 @@
+{
+  "name": "Intent",
+  "description": "Propose a bug fix, gate, tooling or docs change that does not edit a PRD.",
+  "body": [
+    {
+      "type": "textarea",
+      "id": "intent",
+      "attributes": {
+        "label": "Intent",
+        "description": "What should change, for whom, and why.",
+        "placeholder": "Describe the change, who needs it and the problem it solves."
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "input",
+      "id": "prd",
+      "attributes": {
+        "label": "PRD",
+        "description": "The `docs/prd/<feature>.md` this touches, or `None: <reason>`.",
+        "placeholder": "docs/prd/greeting.md, or None: tooling change with no product impact"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "outcome",
+      "attributes": {
+        "label": "North Star outcome",
+        "description": "The North Star outcome in `docs/NORTH_STAR.md` this moves, and how.",
+        "placeholder": "Name the North Star outcome and explain how this change moves it."
+      },
+      "validations": { "required": true }
+    }
+  ]
+}

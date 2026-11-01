@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "sh .agents/hooks/cursor-gate-bypass.sh",
+        "failClosed": true
+      }
+    ]
+  }
+}

@@ -13,6 +13,8 @@ coverage/
 playwright-report/
 test-results/
 .swc/
+# Throwaway repo copies some tests write inside the checkout (scripts/required-gates.test.ts)
+.scratch/
 
 # Lighthouse CI output
 .lighthouseci/

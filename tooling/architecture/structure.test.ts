@@ -3,6 +3,7 @@
  */
 import { symlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { findSuppressions } from '../../scripts/check-suppressions.mjs';
 import { validateStructure } from './structure.mjs';
 import { createMonorepo, loadRepositoryContract, resultFiles, runTool } from './temporary-monorepo';
 
@@ -590,13 +591,20 @@ describe('validateStructure', () => {
   });
 
   it.each([
+    '// @ts-expect-error the value is checked at runtime',
+    '// @ts-ignore',
+    '// @ts-nocheck',
+    '// eslint-disable-next-line no-console -- reason',
+    '/* biome-ignore lint/x: y */',
+    '// fallow-ignore-next-line unused-export -- reason',
     '/* eslint policy/one-component-per-file: off */',
     '/* eslint-env node */',
     '/* global document */',
     '/* istanbul ignore next */',
     '/* c8 ignore next */',
     '/* v8 ignore next */',
-  ])('fails the inline config or coverage pragma %s', (directive) => {
+  ])('keeps both suppression gates aligned on %s', (directive) => {
+    expect(findSuppressions(directive)).toHaveLength(1);
     expect(
       validate({ 'showcase/todo-01/web/src/App.tsx': `${directive}\nexport const App = 1;\n` }),
     ).toEqual([{ kind: 'suppression', path: 'showcase/todo-01/web/src/App.tsx', line: 1 }]);

@@ -1,16 +1,16 @@
 /**
  * @jest-environment node
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { globSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ESLint } from 'eslint';
 import { Linter } from 'eslint';
 import policy from '../tooling/eslint-plugin-policy.js';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const ESLINT_BIN = resolve(REPOSITORY_ROOT, 'node_modules/.bin/eslint');
 
 interface LintMessage {
   severity: number;
@@ -26,25 +26,100 @@ interface LintResult {
   output: string;
 }
 
-/** Lints `source` through the real ESLint CLI as if it lived at `filename`. */
-function lintPolicy(
+// One ESLint process for the whole file: it loads eslint.config.js once, as the CLI
+// does, outside Jest's VM (which cannot load the ESM config), one JSON line per request.
+const WORKER = `
+import { createInterface } from 'node:readline';
+import { ESLint } from 'eslint';
+const eslint = new ESLint();
+const ops = {
+  lintText: ({ source, filePath }) => eslint.lintText(source, { filePath }),
+  lintFiles: ({ patterns }) => eslint.lintFiles(patterns),
+  config: async ({ filePath }) => (await eslint.calculateConfigForFile(filePath)) ?? null,
+};
+for await (const line of createInterface({ input: process.stdin })) {
+  const { id, ...request } = JSON.parse(line);
+  try {
+    const result = await ops[request.op](request);
+    process.stdout.write(JSON.stringify({ id, result }) + '\\n');
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ id, error: String(error?.stack ?? error) }) + '\\n');
+  }
+}
+`;
+
+interface PrintedConfig {
+  rules: Record<string, [number, ...string[]]>;
+}
+
+type WorkerRequest =
+  | { op: 'lintText'; source: string; filePath: string }
+  | { op: 'lintFiles'; patterns: string[] }
+  | { op: 'config'; filePath: string };
+
+interface WorkerReply {
+  id: number;
+  result?: ESLint.LintResult[] | PrintedConfig | null;
+  error?: string;
+}
+
+const worker = spawn(process.execPath, ['--input-type=module', '-e', WORKER], {
+  cwd: REPOSITORY_ROOT,
+  stdio: ['pipe', 'pipe', 'inherit'],
+});
+const pending = new Map<number, (reply: WorkerReply) => void>();
+let nextId = 0;
+let buffered = '';
+worker.stdout.setEncoding('utf8');
+worker.stdout.on('data', (chunk: string) => {
+  const lines = `${buffered}${chunk}`.split('\n');
+  buffered = lines.pop() ?? '';
+  lines.forEach((line) => {
+    const reply: WorkerReply = JSON.parse(line);
+    pending.get(reply.id)?.(reply);
+    pending.delete(reply.id);
+  });
+});
+afterAll(() => worker.kill());
+
+function ask(request: WorkerRequest): Promise<WorkerReply['result']> {
+  const id = nextId;
+  nextId += 1;
+  return new Promise((resolve, reject) => {
+    pending.set(id, (reply) => {
+      if (reply.error === undefined) resolve(reply.result);
+      else reject(new Error(reply.error));
+    });
+    worker.stdin.write(`${JSON.stringify({ id, ...request })}\n`);
+  });
+}
+
+const asResults = (result: WorkerReply['result']): ESLint.LintResult[] =>
+  Array.isArray(result) ? result : [];
+
+const lintFiles = async (patterns: string[]) => asResults(await ask({ op: 'lintFiles', patterns }));
+
+/** Lints `source` through the real ESLint config as if it lived at `filename`. */
+async function lintPolicy(
   source: string,
   filename = 'apps/web/src/features/policy/Fixture.tsx',
-): LintResult {
-  const run = spawnSync(
-    ESLINT_BIN,
-    ['--max-warnings=0', '--format=json', '--stdin', '--stdin-filename', filename],
-    { cwd: REPOSITORY_ROOT, input: source, encoding: 'utf8' },
+): Promise<LintResult> {
+  const results = asResults(
+    await ask({ op: 'lintText', source, filePath: join(REPOSITORY_ROOT, filename) }),
   );
-  const output = `${run.stdout}${run.stderr}`;
-  let messages: LintMessage[] = [];
-  try {
-    [{ messages }] = JSON.parse(run.stdout);
-  } catch {
-    messages = [];
-  }
+  const messages: LintMessage[] = results.flatMap((result) => result.messages);
+  const problems = results.reduce(
+    (sum, result) => sum + result.errorCount + result.warningCount,
+    0,
+  );
   const ruleIds = messages.map((message) => message.ruleId ?? 'parse-error');
-  return { exitCode: run.status, ruleIds, messages, output };
+  return { exitCode: problems > 0 ? 1 : 0, ruleIds, messages, output: JSON.stringify(results) };
+}
+
+/** The resolved config for `path`, as `eslint --print-config` prints it; undefined when ignored. */
+async function printConfig(path: string): Promise<PrintedConfig | undefined> {
+  const config = await ask({ op: 'config', filePath: join(REPOSITORY_ROOT, path) });
+  return config === null || Array.isArray(config) ? undefined : config;
 }
 
 describe('ESLint policy stack', () => {
@@ -59,46 +134,34 @@ describe('ESLint policy stack', () => {
     'jsx',
     'mjs',
     'cjs',
-  ])('rejects parameter mutation and accepts a returned copy in %s', (extension) => {
+  ])('rejects parameter mutation and accepts a returned copy in %s', async (extension) => {
     const filename = `scripts/parameter-fixture.${extension}`;
-    const mutation = lintPolicy('function f(item) { item.x = 1; }', filename);
+    const mutation = await lintPolicy('function f(item) { item.x = 1; }', filename);
     expect(mutation.exitCode).toBe(1);
     expect(mutation.ruleIds).toEqual(['no-param-reassign']);
     expect(mutation.messages[0]?.severity).toBe(2);
-    const copy = lintPolicy('function f(item) { return { ...item, x: 1 }; }', filename);
+    const copy = await lintPolicy('function f(item) { return { ...item, x: 1 }; }', filename);
     expect(copy.exitCode).toBe(0);
     expect(copy.ruleIds).toEqual([]);
   });
 
-  it('turns on every local policy rule as an error for apps/web/src/', () => {
-    const run = spawnSync(ESLINT_BIN, ['--print-config', 'apps/web/src/App.tsx'], {
-      cwd: REPOSITORY_ROOT,
-      encoding: 'utf8',
-    });
-    const { rules }: { rules: Record<string, unknown[]> } = JSON.parse(run.stdout);
+  it('turns on every local policy rule as an error for apps/web/src/', async () => {
+    const { rules } = (await printConfig('apps/web/src/App.tsx')) ?? { rules: {} };
     Object.keys(policy.rules).forEach((rule) => {
       expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
     });
   });
 
-  it('ignores build output inside a workspace package', () => {
-    const run = spawnSync(ESLINT_BIN, ['--print-config', 'apps/web/dist/assets/index.js'], {
-      cwd: REPOSITORY_ROOT,
-      encoding: 'utf8',
-    });
-    expect(run.stdout.trim()).toBe('undefined');
+  it('ignores build output inside a workspace package', async () => {
+    expect(await printConfig('apps/web/dist/assets/index.js')).toBeUndefined();
   });
 
-  it('ignores the gitignored type-check and diagram cache', () => {
-    const run = spawnSync(ESLINT_BIN, ['--print-config', '.cache/types/apps/web/src/App.d.ts'], {
-      cwd: REPOSITORY_ROOT,
-      encoding: 'utf8',
-    });
-    expect(run.stdout.trim()).toBe('undefined');
+  it('ignores the gitignored type-check and diagram cache', async () => {
+    expect(await printConfig('.cache/types/apps/web/src/App.d.ts')).toBeUndefined();
   });
 
-  it('blocks a hook called inside a condition (react-hooks/rules-of-hooks)', () => {
-    const result = lintPolicy(`
+  it('blocks a hook called inside a condition (react-hooks/rules-of-hooks)', async () => {
+    const result = await lintPolicy(`
 import { useState } from 'react';
 export function Toggle({ enabled }: { enabled: boolean }) {
   if (enabled) {
@@ -111,8 +174,8 @@ export function Toggle({ enabled }: { enabled: boolean }) {
     expect(result.ruleIds).toContain('react-hooks/rules-of-hooks');
   });
 
-  it('blocks impure work during render (React Compiler react-hooks/purity)', () => {
-    const result = lintPolicy(`
+  it('blocks impure work during render (React Compiler react-hooks/purity)', async () => {
+    const result = await lintPolicy(`
 export function Lottery() {
   const ticket = Math.random();
   return <p>{ticket}</p>;
@@ -122,8 +185,8 @@ export function Lottery() {
     expect(result.ruleIds).toContain('react-hooks/purity');
   });
 
-  it('blocks a React Doctor finding (react-doctor/no-fetch-in-effect)', () => {
-    const result = lintPolicy(`
+  it('blocks a React Doctor finding (react-doctor/no-fetch-in-effect)', async () => {
+    const result = await lintPolicy(`
 import { useEffect } from 'react';
 export function Loader() {
   useEffect(() => {
@@ -136,8 +199,8 @@ export function Loader() {
     expect(result.ruleIds).toContain('react-doctor/no-fetch-in-effect');
   });
 
-  it('passes a clean component', () => {
-    const result = lintPolicy(`
+  it('passes a clean component', async () => {
+    const result = await lintPolicy(`
 export function Fixture({ name }: { name: string }) {
   return <p>Hello {name}</p>;
 }
@@ -146,8 +209,8 @@ export function Fixture({ name }: { name: string }) {
     expect(result.exitCode).toBe(0);
   });
 
-  it('leaves general lint such as unused variables to Biome', () => {
-    const result = lintPolicy(`
+  it('leaves general lint such as unused variables to Biome', async () => {
+    const result = await lintPolicy(`
 export function Fixture() {
   const unused = 1;
   return <p>Hello</p>;
@@ -160,14 +223,14 @@ export function Fixture() {
   it.each([
     ['for...of', 'for (const value of [1]) { console.log(value); }'],
     ['while', 'while (false) { console.log(1); }'],
-  ])('fails a %s loop', (_, source) => {
-    const result = lintPolicy(source, 'scripts/loop-fixture.js');
+  ])('fails a %s loop', async (_, source) => {
+    const result = await lintPolicy(source, 'scripts/loop-fixture.js');
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toContain('no-restricted-syntax');
   });
 
-  it('passes for await', () => {
-    const result = lintPolicy(
+  it('passes for await', async () => {
+    const result = await lintPolicy(
       'async function consume(values) { for await (const value of values) { console.log(value); } }',
       'scripts/loop-fixture.js',
     );
@@ -175,8 +238,8 @@ export function Fixture() {
     expect(result.messages).toEqual([]);
   });
 
-  it('blocks a second component in one file (policy/one-component-per-file)', () => {
-    const result = lintPolicy(`
+  it('blocks a second component in one file (policy/one-component-per-file)', async () => {
+    const result = await lintPolicy(`
 export function Fixture() {
   return <Badge />;
 }
@@ -201,8 +264,8 @@ function Badge() {
       "import * as React from 'react';",
       'React.useLayoutEffect(() => {}, []);',
     ],
-  ])('blocks %s called directly in a component (policy/state-and-effects-in-hooks)', (_label, importLine, call) => {
-    const result = lintPolicy(`
+  ])('blocks %s called directly in a component (policy/state-and-effects-in-hooks)', async (_label, importLine, call) => {
+    const result = await lintPolicy(`
 ${importLine}
 export function Fixture() {
   ${call}
@@ -213,8 +276,8 @@ export function Fixture() {
     expect(result.ruleIds).toContain('policy/state-and-effects-in-hooks');
   });
 
-  it('passes state and effects inside a named custom hook', () => {
-    const result = lintPolicy(
+  it('passes state and effects inside a named custom hook', async () => {
+    const result = await lintPolicy(
       `
 import { useEffect, useState } from 'react';
 export function useTitle(title: string) {
@@ -231,8 +294,8 @@ export function useTitle(title: string) {
     expect(result.exitCode).toBe(0);
   });
 
-  it('blocks state mirrored from a prop by an effect (react-hooks/set-state-in-effect)', () => {
-    const result = lintPolicy(
+  it('blocks state mirrored from a prop by an effect (react-hooks/set-state-in-effect)', async () => {
+    const result = await lintPolicy(
       `
 import { useEffect, useState } from 'react';
 export function useMirror(value: number) {
@@ -249,8 +312,8 @@ export function useMirror(value: number) {
     expect(result.ruleIds).toContain('react-hooks/set-state-in-effect');
   });
 
-  it('blocks a function inside a component without the handle prefix (policy/handler-names)', () => {
-    const result = lintPolicy(`
+  it('blocks a function inside a component without the handle prefix (policy/handler-names)', async () => {
+    const result = await lintPolicy(`
 import { Button } from '@repo/ui';
 export function Fixture({ onSave }: { onSave: () => void }) {
   const save = () => onSave();
@@ -261,8 +324,8 @@ export function Fixture({ onSave }: { onSave: () => void }) {
     expect(result.ruleIds).toContain('policy/handler-names');
   });
 
-  it('passes handle-prefixed functions and on-prefixed callback props', () => {
-    const result = lintPolicy(`
+  it('passes handle-prefixed functions and on-prefixed callback props', async () => {
+    const result = await lintPolicy(`
 import { Button } from '@repo/ui';
 interface FixtureProps {
   label: string;
@@ -283,8 +346,8 @@ export function Fixture({ label, onSave }: FixtureProps) {
       'a props interface',
       'interface FixtureProps { save(): void }\nexport function Fixture({ save }: FixtureProps) {',
     ],
-  ])('blocks a callback prop without the on prefix in %s (policy/callback-prop-names)', (_label, header) => {
-    const result = lintPolicy(`
+  ])('blocks a callback prop without the on prefix in %s (policy/callback-prop-names)', async (_label, header) => {
+    const result = await lintPolicy(`
 ${header}
   return <Button type="button" onClick={save}>Save</Button>;
 }
@@ -293,8 +356,8 @@ ${header}
     expect(result.ruleIds).toContain('policy/callback-prop-names');
   });
 
-  it('blocks a page component outside apps/web/src/routes (policy/pages-in-routes)', () => {
-    const result = lintPolicy(
+  it('blocks a page component outside apps/web/src/routes (policy/pages-in-routes)', async () => {
+    const result = await lintPolicy(
       `
 export function SettingsPage() {
   return <main>settings</main>;
@@ -306,8 +369,8 @@ export function SettingsPage() {
     expect(result.ruleIds).toContain('policy/pages-in-routes');
   });
 
-  it('blocks a page component under a src/routes folder nested inside a feature', () => {
-    const result = lintPolicy(
+  it('blocks a page component under a src/routes folder nested inside a feature', async () => {
+    const result = await lintPolicy(
       'export function SettingsPage() {\n  return <main>settings</main>;\n}',
       'apps/web/src/features/settings/src/routes/SettingsPage.tsx',
     );
@@ -315,8 +378,8 @@ export function SettingsPage() {
     expect(result.ruleIds).toContain('policy/pages-in-routes');
   });
 
-  it('passes a page component under apps/web/src/routes', () => {
-    const result = lintPolicy(
+  it('passes a page component under apps/web/src/routes', async () => {
+    const result = await lintPolicy(
       `
 export function SettingsPage() {
   return <main>settings</main>;
@@ -339,14 +402,14 @@ export function SettingsPage() {
       'apps/web/src/features/policy/hooks.ts',
       'export function useFixture() {\n  return 1;\n}',
     ],
-  ])('blocks %s in a file of another name (policy/file-matches-export)', (_label, filename, source) => {
-    const result = lintPolicy(source, filename);
+  ])('blocks %s in a file of another name (policy/file-matches-export)', async (_label, filename, source) => {
+    const result = await lintPolicy(source, filename);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toContain('policy/file-matches-export');
   });
 
-  it('blocks a folder that is not kebab-case (policy/folder-names)', () => {
-    const result = lintPolicy(
+  it('blocks a folder that is not kebab-case (policy/folder-names)', async () => {
+    const result = await lintPolicy(
       'export function Fixture() {\n  return <p />;\n}',
       'apps/web/src/features/ThresholdCounter/Fixture.tsx',
     );
@@ -361,8 +424,8 @@ export function SettingsPage() {
     ['common', 'packages/ui/src/common/x.ts', 'src/common'],
     ['shared', 'showcase/todo-02/web/src/shared/x.ts', 'src/shared'],
     ['misc', 'apps/web/src/routes/greeting/parts/misc/x.ts', 'src/routes/greeting/parts/misc'],
-  ])('blocks %s in a catch-all folder (policy/role-named-folders)', (_label, filename, folder) => {
-    const result = lintPolicy('export const x = 1;\n', filename);
+  ])('blocks %s in a catch-all folder (policy/role-named-folders)', async (_label, filename, folder) => {
+    const result = await lintPolicy('export const x = 1;\n', filename);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/role-named-folders']);
     expect(result.messages[0]?.message).toContain(`\`${folder}/\``);
@@ -372,8 +435,8 @@ export function SettingsPage() {
   it.each([
     ['a package named lib', 'packages/lib/src/x.ts'],
     ['a role folder that contains a catch-all word', 'apps/web/src/features/shared-state/x.ts'],
-  ])('passes %s (policy/role-named-folders)', (_label, filename) => {
-    const result = lintPolicy('export const x = 1;\n', filename);
+  ])('passes %s (policy/role-named-folders)', async (_label, filename) => {
+    const result = await lintPolicy('export const x = 1;\n', filename);
     expect(result.ruleIds).toEqual([]);
   });
 
@@ -393,8 +456,8 @@ export function SettingsPage() {
       'apps/web/src/routes/greeting/__tests__/GreetingPage.test.tsx',
       'apps/web/src/routes/greeting/GreetingPage',
     ],
-  ])('blocks %s (policy/test-beside-subject)', (_label, filename, subject) => {
-    const result = lintPolicy('export const value = 1;\n', filename);
+  ])('blocks %s (policy/test-beside-subject)', async (_label, filename, subject) => {
+    const result = await lintPolicy('export const value = 1;\n', filename);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/test-beside-subject']);
     expect(result.messages[0]?.message).toContain(`\`${subject}.ts\` or`);
@@ -404,12 +467,12 @@ export function SettingsPage() {
     ['apps/api/src/features/greeting/domain.test.ts'],
     ['packages/ui/src/Button.test.tsx'],
     ['apps/web/src/routes/greeting/GreetingPage.a11y.test.tsx'],
-  ])('passes %s beside its subject (policy/test-beside-subject)', (filename) => {
-    const result = lintPolicy('export const value = 1;\n', filename);
+  ])('passes %s beside its subject (policy/test-beside-subject)', async (filename) => {
+    const result = await lintPolicy('export const value = 1;\n', filename);
     expect(result.ruleIds).toEqual([]);
   });
 
-  it('passes a showcase test beside its subject (policy/test-beside-subject)', () => {
+  it('passes a showcase test beside its subject (policy/test-beside-subject)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'policy-showcase-'));
     const folder = join(root, 'showcase/todo-01/web/src/routes/todos');
     try {
@@ -430,7 +493,7 @@ export function SettingsPage() {
     }
   });
 
-  it('passes a test beside a dotted subject such as todo.schema.ts (policy/test-beside-subject)', () => {
+  it('passes a test beside a dotted subject such as todo.schema.ts (policy/test-beside-subject)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'policy-dotted-'));
     const folder = join(root, 'apps/api/src/features/todos');
     mkdirSync(folder, { recursive: true });
@@ -455,7 +518,7 @@ export function SettingsPage() {
     }
   });
 
-  it('finds no catch-all folder or misplaced test in the tree', () => {
+  it('finds no catch-all folder or misplaced test in the tree', async () => {
     const files = globSync('{apps,packages,showcase}/**/*.{ts,tsx}', {
       cwd: REPOSITORY_ROOT,
       exclude: ['**/node_modules/**', '**/dist/**'],
@@ -463,13 +526,10 @@ export function SettingsPage() {
     const roots = ['apps', 'packages', 'showcase'].filter((root) =>
       files.some((file) => file.startsWith(`${root}/`)),
     );
-    const run = spawnSync(ESLINT_BIN, ['--format=json', ...roots], {
-      cwd: REPOSITORY_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    expect({ status: run.status, stderr: run.stderr }).toEqual({ status: 0, stderr: '' });
-    const results: { filePath: string; messages: LintMessage[] }[] = JSON.parse(run.stdout);
+    const results = await lintFiles(roots);
+    expect(
+      results.reduce((sum, result) => sum + result.errorCount + result.fatalErrorCount, 0),
+    ).toBe(0);
     const findings = results.flatMap(({ filePath, messages }) =>
       messages
         .filter(({ ruleId }) =>
@@ -488,8 +548,8 @@ export function SettingsPage() {
     );
   });
 
-  it('blocks a class component (react-doctor/prefer-function-component)', () => {
-    const result = lintPolicy(`
+  it('blocks a class component (react-doctor/prefer-function-component)', async () => {
+    const result = await lintPolicy(`
 import { Component } from 'react';
 export class Fixture extends Component {
   render() {
@@ -501,8 +561,8 @@ export class Fixture extends Component {
     expect(result.ruleIds).toContain('react-doctor/prefer-function-component');
   });
 
-  it('blocks a deep import past a public surface (no-restricted-imports)', () => {
-    const result = lintPolicy(
+  it('blocks a deep import past a public surface (no-restricted-imports)', async () => {
+    const result = await lintPolicy(
       "export { useServiceStatus } from '../features/service-status/useServiceStatus';",
       'apps/web/src/routes/home/index.ts',
     );
@@ -510,8 +570,8 @@ export class Fixture extends Component {
     expect(result.ruleIds).toContain('no-restricted-imports');
   });
 
-  it('names the helper, not the exported component, when a helper comes first', () => {
-    const result = lintPolicy(`
+  it('names the helper, not the exported component, when a helper comes first', async () => {
+    const result = await lintPolicy(`
 function Icon() {
   return <span>!</span>;
 }
@@ -523,8 +583,8 @@ export function Fixture() {
     expect(result.output).toContain('Move `Icon` into its own file');
   });
 
-  it('leaves a test harness component alone', () => {
-    const result = lintPolicy(
+  it('leaves a test harness component alone', async () => {
+    const result = await lintPolicy(
       `
 import { useState } from 'react';
 export function Harness() {
@@ -544,8 +604,8 @@ export function Harness() {
       "import { useActionState } from 'react';",
       'useActionState(async (x: number) => x, 0);',
     ],
-  ])('blocks %s in a component (policy/state-and-effects-in-hooks)', (_label, importLine, call) => {
-    const result = lintPolicy(`
+  ])('blocks %s in a component (policy/state-and-effects-in-hooks)', async (_label, importLine, call) => {
+    const result = await lintPolicy(`
 ${importLine}
 export function Fixture() {
   ${call}
@@ -555,8 +615,8 @@ export function Fixture() {
     expect(result.ruleIds).toContain('policy/state-and-effects-in-hooks');
   });
 
-  it('blocks a React.useCallback without the handle prefix (policy/handler-names)', () => {
-    const result = lintPolicy(`
+  it('blocks a React.useCallback without the handle prefix (policy/handler-names)', async () => {
+    const result = await lintPolicy(`
 import * as React from 'react';
 import { Button } from '@repo/ui';
 export function Fixture({ onSave }: { onSave: () => void }) {
@@ -580,8 +640,8 @@ export function Fixture({ onSave }: { onSave: () => void }) {
       'FC<Props>',
       "import type { FC } from 'react';\ninterface FixtureProps { save: () => void }\nexport const Fixture: FC<FixtureProps> = ({ save }) => {",
     ],
-  ])('blocks a callback prop without the on prefix through %s (policy/callback-prop-names)', (_label, header) => {
-    const result = lintPolicy(`
+  ])('blocks a callback prop without the on prefix through %s (policy/callback-prop-names)', async (_label, header) => {
+    const result = await lintPolicy(`
 ${header}
   return <Button type="button" onClick={save}>Save</Button>;
 };
@@ -589,8 +649,8 @@ ${header}
     expect(result.ruleIds).toContain('policy/callback-prop-names');
   });
 
-  it('passes render props and children', () => {
-    const result = lintPolicy(`
+  it('passes render props and children', async () => {
+    const result = await lintPolicy(`
 import type { ReactNode } from 'react';
 interface FixtureProps {
   renderItem: (item: string) => ReactNode;
@@ -603,8 +663,8 @@ export function Fixture({ renderItem, children }: FixtureProps) {
     expect(result.ruleIds).toEqual([]);
   });
 
-  it('passes a __tests__ folder (policy/folder-names)', () => {
-    const result = lintPolicy(
+  it('passes a __tests__ folder (policy/folder-names)', async () => {
+    const result = await lintPolicy(
       'export const value = 1;',
       'apps/web/src/features/policy/__tests__/value.ts',
     );
@@ -620,35 +680,31 @@ describe('ESLint contract rules', () => {
     'packages/ui/src/Button.tsx',
     'showcase/todo-01/web/src/App.tsx',
     'showcase/todo-01/api/src/features/todo/procedures.ts',
-  ])('turns on every local policy rule as an error for %s', (path) => {
-    const run = spawnSync(ESLINT_BIN, ['--print-config', path], {
-      cwd: REPOSITORY_ROOT,
-      encoding: 'utf8',
-    });
-    const { rules }: { rules: Record<string, unknown[]> } = JSON.parse(run.stdout);
+  ])('turns on every local policy rule as an error for %s', async (path) => {
+    const { rules } = (await printConfig(path)) ?? { rules: {} };
     Object.keys(policy.rules).forEach((rule) => {
       expect([`policy/${rule}`, rules[`policy/${rule}`]?.[0]]).toEqual([`policy/${rule}`, 2]);
     });
   });
 
-  it('passes a router that imports a feature through its index.ts with an explicit extension', () => {
-    const result = lintPolicy(
+  it('passes a router that imports a feature through its index.ts with an explicit extension', async () => {
+    const result = await lintPolicy(
       "export { greetingRouter } from './features/greeting/index.ts';",
       'apps/api/src/router.ts',
     );
     expect(result.ruleIds).toEqual([]);
   });
 
-  it('blocks a router that reaches past a feature index.ts (no-restricted-imports)', () => {
-    const result = lintPolicy(
+  it('blocks a router that reaches past a feature index.ts (no-restricted-imports)', async () => {
+    const result = await lintPolicy(
       "export { formatGreeting } from './features/greeting/domain.ts';",
       'apps/api/src/router.ts',
     );
     expect(result.ruleIds).toEqual(['no-restricted-imports']);
   });
 
-  it('blocks a route that reaches past the api client index.ts (no-restricted-imports)', () => {
-    const result = lintPolicy(
+  it('blocks a route that reaches past the api client index.ts (no-restricted-imports)', async () => {
+    const result = await lintPolicy(
       "export { createQueryClient } from '../../api-client/trpc';",
       'apps/web/src/routes/greeting/index.ts',
     );
@@ -658,8 +714,8 @@ describe('ESLint contract rules', () => {
   it.each([
     ['an alias', "export { useQuery as useQ } from '@tanstack/react-query';"],
     ['everything', "export * from 'react-hook-form';"],
-  ])('blocks re-exporting a state hook module as %s (policy/state-and-effects-in-hooks)', (_label, source) => {
-    const result = lintPolicy(source, 'apps/web/src/routes/greeting/hooks.ts');
+  ])('blocks re-exporting a state hook module as %s (policy/state-and-effects-in-hooks)', async (_label, source) => {
+    const result = await lintPolicy(source, 'apps/web/src/routes/greeting/hooks.ts');
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/state-and-effects-in-hooks']);
   });
@@ -697,8 +753,8 @@ describe('ESLint contract rules', () => {
       'apps/web/src/routes/a/A.tsx',
       "import type { AppRouter } from '../../../../api/src/router.ts';",
     ],
-  ])('blocks %s (policy/slice-isolation)', (_label, filename, source) => {
-    const result = lintPolicy(`${source}\nexport const value = 1;\n`, filename);
+  ])('blocks %s (policy/slice-isolation)', async (_label, filename, source) => {
+    const result = await lintPolicy(`${source}\nexport const value = 1;\n`, filename);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/slice-isolation']);
   });
@@ -708,8 +764,8 @@ describe('ESLint contract rules', () => {
     ['apps/web/src/routes/loose.ts'],
     ['apps/api/src/features/loose.ts'],
     ['showcase/todo-01/web/src/features/loose.ts'],
-  ])('blocks the loose file %s directly under a slice folder (policy/slice-isolation)', (filename) => {
-    const result = lintPolicy(
+  ])('blocks the loose file %s directly under a slice folder (policy/slice-isolation)', async (filename) => {
+    const result = await lintPolicy(
       "import { a } from './a';\nimport { b } from './b';\nexport const loose = [a, b];\n",
       filename,
     );
@@ -718,8 +774,8 @@ describe('ESLint contract rules', () => {
     expect(result.output).toContain('into a folder of its own');
   });
 
-  it('passes a route that imports its own files, a feature, the api client and the ui kit', () => {
-    const result = lintPolicy(
+  it('passes a route that imports its own files, a feature, the api client and the ui kit', async () => {
+    const result = await lintPolicy(
       [
         "import { Button } from '@repo/ui';",
         "import { useTrpc } from '../../api-client';",
@@ -738,8 +794,8 @@ describe('ESLint contract rules', () => {
     ['another standard schema', '.input(z.object({ name: z.string() }))'],
     ['a cast through a computed member', "['input']((value) => value as { name: string })"],
     ['the Effect 3 adapter', '.input(Schema.standardSchemaV1(greetInputSchema))'],
-  ])('blocks a procedure input given %s (policy/procedure-input-schema)', (_label, input) => {
-    const result = lintPolicy(
+  ])('blocks a procedure input given %s (policy/procedure-input-schema)', async (_label, input) => {
+    const result = await lintPolicy(
       `
 import { Schema } from 'effect';
 import { z } from 'zod';
@@ -754,8 +810,8 @@ export const unused = [z, greetInputSchema];
     expect(result.ruleIds).toEqual(['policy/procedure-input-schema']);
   });
 
-  it('passes a procedure input wrapped in toStandardSchemaV1 from effect/Schema', () => {
-    const result = lintPolicy(
+  it('passes a procedure input wrapped in toStandardSchemaV1 from effect/Schema', async () => {
+    const result = await lintPolicy(
       `
 import * as Schema from 'effect/Schema';
 import { procedure } from '../../trpc.ts';
@@ -767,8 +823,8 @@ export const greet = procedure.input(Schema.toStandardSchemaV1(greetInputSchema)
     expect(result.ruleIds).toEqual([]);
   });
 
-  it('passes a procedure input wrapped in Schema.toStandardSchemaV1', () => {
-    const result = lintPolicy(
+  it('passes a procedure input wrapped in Schema.toStandardSchemaV1', async () => {
+    const result = await lintPolicy(
       `
 import { Schema } from 'effect';
 import { procedure } from '../../trpc.ts';
@@ -798,8 +854,8 @@ export const greet = procedure.input(Schema.toStandardSchemaV1(greetInputSchema)
       'useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema), undefined, { raw: true }) })',
     ],
     ['the Effect 3 resolver', 'useForm({ resolver: effectTsResolver(schema) })'],
-  ])('blocks a form with %s (policy/form-uses-effect-schema)', (_label, call) => {
-    const result = lintPolicy(
+  ])('blocks a form with %s (policy/form-uses-effect-schema)', async (_label, call) => {
+    const result = await lintPolicy(
       `
 import { effectTsResolver } from '@hookform/resolvers/effect-ts';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
@@ -818,8 +874,8 @@ export function useNameForm() {
     expect(result.ruleIds).toEqual(['policy/form-uses-effect-schema']);
   });
 
-  it('passes a form whose resolver takes Schema.toStandardSchemaV1', () => {
-    const result = lintPolicy(
+  it('passes a form whose resolver takes Schema.toStandardSchemaV1', async () => {
+    const result = await lintPolicy(
       `
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { Schema } from 'effect';
@@ -837,8 +893,8 @@ export function useGreetingForm() {
     expect(result.ruleIds).toEqual([]);
   });
 
-  it('passes a form whose resolver takes toStandardSchemaV1 from effect/Schema', () => {
-    const result = lintPolicy(
+  it('passes a form whose resolver takes toStandardSchemaV1 from effect/Schema', async () => {
+    const result = await lintPolicy(
       `
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toStandardSchemaV1 } from 'effect/Schema';
@@ -871,8 +927,8 @@ export function useGreetingForm() {
     ['useController', 'react-hook-form', 'useController(options);'],
     ['useWatch', 'react-hook-form', 'useWatch(options);'],
     ['useFormState', 'react-hook-form', 'useFormState(options);'],
-  ])('blocks %s called directly in a component (policy/state-and-effects-in-hooks)', (hook, source, call) => {
-    const result = lintPolicy(
+  ])('blocks %s called directly in a component (policy/state-and-effects-in-hooks)', async (hook, source, call) => {
+    const result = await lintPolicy(
       `
 import { ${hook} } from '${source}';
 declare const options: never;
@@ -887,8 +943,8 @@ export function GreetingPage() {
     expect(result.ruleIds).toContain('policy/state-and-effects-in-hooks');
   });
 
-  it('passes server state inside a named custom hook', () => {
-    const result = lintPolicy(
+  it('passes server state inside a named custom hook', async () => {
+    const result = await lintPolicy(
       `
 import { useQuery } from '@tanstack/react-query';
 declare const options: never;
@@ -918,7 +974,7 @@ describe('ESLint inline config', () => {
     'tooling/trial/compare.test.ts',
     'scripts/check-suppressions.mjs',
     'playwright.config.ts',
-  ])('blocks every inline config form in %s', (filename) => {
+  ])('blocks every inline config form in %s', async (filename) => {
     const forms = [
       `/* ${ESLINT}-disable */`,
       `/* ${ESLINT}-enable */`,
@@ -929,7 +985,7 @@ describe('ESLint inline config', () => {
       `/* ${ESLINT}-env node */`,
       '/* exported one */',
     ];
-    const result = lintPolicy(`${forms.join('\n\n')}\n`, filename);
+    const result = await lintPolicy(`${forms.join('\n\n')}\n`, filename);
 
     expect(result.exitCode).toBe(1);
     expect(
@@ -937,8 +993,8 @@ describe('ESLint inline config', () => {
     ).toEqual(forms.map((_, index) => [index * 2 + 1, true]));
   });
 
-  it('keeps a suppressed finding reported when a disable comment names its rule', () => {
-    const result = lintPolicy(`
+  it('keeps a suppressed finding reported when a disable comment names its rule', async () => {
+    const result = await lintPolicy(`
 export function Fixture() {
   return <Badge />;
 }
@@ -951,7 +1007,7 @@ function Badge() {
     expect(result.ruleIds).toContain('policy/one-component-per-file');
   });
 
-  it('lints every tracked source file', () => {
+  it('lints every tracked source file', async () => {
     const tracked = spawnSync(
       'git',
       ['ls-files', '*.ts', '*.tsx', '*.mts', '*.cts', '*.js', '*.jsx', '*.mjs', '*.cjs'],
@@ -959,12 +1015,7 @@ function Badge() {
     )
       .stdout.split('\n')
       .filter((path) => path && !path.startsWith('vendor/'));
-    const run = spawnSync(ESLINT_BIN, ['--format=json', '.'], {
-      cwd: REPOSITORY_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    const results: { filePath: string }[] = JSON.parse(run.stdout);
+    const results = await lintFiles(['.']);
     const linted = results.map(({ filePath }) => filePath.slice(REPOSITORY_ROOT.length + 1));
 
     expect(tracked.length).toBeGreaterThan(100);
@@ -981,11 +1032,11 @@ describe('anti-slop policies', () => {
     'packages/ui/src/fixture.ts',
     'showcase/x/web/src/features/policy/fixture.ts',
     'showcase/x/api/src/features/policy/domain.ts',
-  ])('enforces comment and depth ceilings in %s', (filename) => {
+  ])('enforces comment and depth ceilings in %s', async (filename) => {
     const source =
       '// one\n// two\n// three\n// four\n// five\n' +
       'if (a) { if (b) { if (c) { if (d) { if (e) { work(); } } } } }';
-    const result = lintPolicy(source, filename);
+    const result = await lintPolicy(source, filename);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/no-large-comments', 'max-depth']);
   });
@@ -996,16 +1047,16 @@ describe('anti-slop policies', () => {
     '// one\n/* two */\n// three\n/* four */\n// five',
     '/* one */\n/* two */\n/* three */\n/* four */\n/* five */',
     'work(); // one\n// two\n// three\n// four\n// five',
-  ])('blocks long comments including split syntaxes: %s', (source) => {
-    const result = lintPolicy(source);
+  ])('blocks long comments including split syntaxes: %s', async (source) => {
+    const result = await lintPolicy(source);
     expect(result.exitCode).toBe(1);
     expect(result.ruleIds).toEqual(['policy/no-large-comments']);
     expect(result.messages[0].message).toContain('4 lines or fewer');
   });
 
-  it('keeps the comment policy active under a named inline disable', () => {
+  it('keeps the comment policy active under a named inline disable', async () => {
     const directive = 'eslint';
-    const result = lintPolicy(
+    const result = await lintPolicy(
       `/* ${directive}-disable policy/no-large-comments */\n\n// one\n// two\n// three\n// four\n// five`,
     );
     expect(result.exitCode).toBe(1);
@@ -1013,8 +1064,8 @@ describe('anti-slop policies', () => {
     expect(result.messages.some(({ message }) => message.includes('noInlineConfig'))).toBe(true);
   });
 
-  it('passes the boundaries and comments separated by code or a blank line', () => {
-    const result = lintPolicy(`
+  it('passes the boundaries and comments separated by code or a blank line', async () => {
+    const result = await lintPolicy(`
 // one
 // two
 // three
@@ -1041,8 +1092,8 @@ work(); // separate again
     'make("button", {})',
     'React.createElement("input", { type: "text" })',
     'React.createElement("input", { type: "checkbox", ...props })',
-  ])('requires shared primitives for %s', (control) => {
-    const result = lintPolicy(`
+  ])('requires shared primitives for %s', async (control) => {
+    const result = await lintPolicy(`
 import React, { createElement as make } from 'react';
 const control = ${control};
 `);
@@ -1053,8 +1104,8 @@ const control = ${control};
   it.each([
     'apps/web/src/features/policy/Fixture.tsx',
     'showcase/x/web/src/routes/policy/Fixture.tsx',
-  ])('allows shared components and controls without a primitive in %s', (filename) => {
-    const result = lintPolicy(
+  ])('allows shared components and controls without a primitive in %s', async (filename) => {
+    const result = await lintPolicy(
       `
 import { Button, TextField } from '@repo/ui';
 const controls = [<Button />, <TextField label="Name" />, <input type="checkbox" aria-label="Done" />, <input type={'radio'} aria-label="Choice" />];
@@ -1067,7 +1118,9 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
   it.each([
     'packages/ui/src/Button.tsx',
     'apps/web/src/App.test.tsx',
-  ])('allows native controls in primitive definitions and test harnesses: %s', (filename) => {
-    expect(lintPolicy('const control = <button aria-label="Save" />;', filename).exitCode).toBe(0);
+  ])('allows native controls in primitive definitions and test harnesses: %s', async (filename) => {
+    expect(
+      (await lintPolicy('const control = <button aria-label="Save" />;', filename)).exitCode,
+    ).toBe(0);
   });
 });

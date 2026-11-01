@@ -1,8 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # Pushes to main dispatch CI from main-tree.yml only when the merged tree
+  # is new (ADR 0088).
+  workflow_dispatch:
   pull_request:
 
 # Least privilege by default; jobs that need more ask for it explicitly.

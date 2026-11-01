@@ -28,6 +28,10 @@ the failing test first); and coverage below `jest.config.ts`'s 80% threshold.
   hooks unmocked. Models: `apps/web/src/routes/greeting/GreetingPage.test.tsx`
   and `useGreeting.test.tsx` (`renderHook` with a `TestApiProvider` wrapper).
 - Replace dependencies through their seams. `jest.mock` fails `pnpm lint:anti-slop`.
+- Fix console warnings, console errors and Node process warnings; the Jest
+  setup fails the test when it records one. A test that expects a warning
+  installs `jest.spyOn(console, 'warn').mockImplementation(() => undefined)`
+  itself and asserts the call. Use the same pattern for an expected console error.
 
 ## Process
 
