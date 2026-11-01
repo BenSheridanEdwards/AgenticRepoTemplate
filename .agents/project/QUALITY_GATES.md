@@ -43,6 +43,14 @@ Pre-commit runs these steps in order:
 4. `pnpm fallow:audit`
 5. `pnpm secret-scan`
 
+An EXIT trap records each attempt in `.cache/factory-usage/lint-runs.jsonl`,
+including failed attempts. It reruns staged Biome and the configured anti-slop
+command with JSON reporters and records per-rule counts and unique file paths,
+UTC time, branch, staged tree, HEAD, optional agent/model metadata and hook status.
+Set `FACTORY_USAGE_LOG=0` to turn it off. Collection is local telemetry, not a
+gate: logger errors leave the hook result intact. See
+[Record per-rule lint failures on every pre-commit](../decisions/0100-record-per-rule-lint-failures-on-every-pre-commit.md).
+
 Biome and gitleaks read staged content. Typecheck covers the project; Oxlint
 covers its configured sources. Fallow audits touched files against the last
 fetched `origin/main`, falling back to local `main` when the remote ref is absent.

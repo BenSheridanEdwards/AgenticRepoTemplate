@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -e
+trap 'status=$?; node scripts/lint-usage.mjs --hook-exit "$status" || true; exit "$status"' EXIT
 
 # Pre-commit = the FAST gates; each step finishes in under 30 seconds (ADR 0062).
 # The up-to-date-with-main check runs on pre-push with the slower suite. See

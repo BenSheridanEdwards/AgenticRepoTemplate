@@ -1,0 +1,14 @@
+{
+  "diagnostics": [
+    {
+      "code": "anti-slop(require-safety-comment-for-type-assertion)",
+      "severity": "error",
+      "filename": "scripts/example.ts"
+    },
+    {
+      "code": "anti-slop(require-safety-comment-for-type-assertion)",
+      "severity": "error",
+      "filename": "scripts/other.ts"
+    }
+  ]
+}

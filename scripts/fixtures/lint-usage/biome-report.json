@@ -1,0 +1,15 @@
+{
+  "diagnostics": [
+    {
+      "category": "lint/suspicious/noDebugger",
+      "severity": "error",
+      "location": { "path": "scripts/example.ts" }
+    },
+    {
+      "category": "lint/suspicious/noDebugger",
+      "severity": "error",
+      "location": { "path": "scripts/example.ts" }
+    },
+    { "category": "format", "severity": "error", "location": { "path": "scripts/other.ts" } }
+  ]
+}
