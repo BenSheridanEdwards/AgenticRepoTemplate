@@ -29,7 +29,7 @@ Cover a trimmed greeting, a blank name, an unknown procedure and invalid
 
 Unit, integration and E2E lanes have no job-level `needs` or `if`.
 Required gates needs all three and rejects a failed integration result.
-The contract lane is a separate change and is a separate change.
+The contract lane is a separate change.
 
 ## Consequences
 
@@ -39,5 +39,3 @@ There is a short race between reserving a free port and starting the API;
 a competing bind fails the test with startup output. Coverage collection,
 thresholds and product behaviour stay unchanged.
 
-Numbers through 0093 were occupied on main, so this record uses 0094
-instead of the plan's reserved 0090.
