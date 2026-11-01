@@ -128,7 +128,6 @@ describe('PRD behaviours to review', () => {
     expect(check(section('- None'), 'None: docs only change')).toEqual({ ok: true, errors: [] });
   });
   it.each([
-    ['unknown summary', reviewLines('docs/prd/greeting.md', ['Invented promise.'])],
     ['None while citing a PRD', '- None'],
     [
       'one word of evidence',
@@ -138,10 +137,22 @@ describe('PRD behaviours to review', () => {
       'duplicate behaviour',
       `${reviewLines('docs/prd/greeting.md')}\n${reviewLines('docs/prd/greeting.md', [GREETING_BEHAVIOURS[0]])}`,
     ],
-    ['uncited PRD', reviewLines('docs/prd/todo.md')],
     ['malformed line', '- greeting: checked'],
   ])('rejects %s', (_name, lines) => {
     expect(check(section(lines)).ok).toBe(false);
+  });
+  it.each([
+    [
+      'unknown summary',
+      reviewLines('docs/prd/greeting.md', ['Invented promise.']),
+      'Unknown behaviour "Invented promise." for docs/prd/greeting.md at the PR head.',
+    ],
+    ['uncited PRD', reviewLines('docs/prd/todo.md', ['Invented promise.']), 'names uncited PRD'],
+  ])('rejects %s alongside a complete behaviour list', (_name, extraLine, error) => {
+    const result = check(section(`${reviewLines('docs/prd/greeting.md')}\n${extraLine}`));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(error);
   });
   it('requires exactly None when no PRDs are cited', () => {
     expect(check(section('- None\nextra text'), 'None: docs only change').ok).toBe(false);
