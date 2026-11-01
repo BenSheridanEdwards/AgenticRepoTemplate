@@ -10,9 +10,8 @@ mini (64 GiB), serving four private repos. Paths, hostnames and pool names below
 are that fleet's; replace them with your own.
 
 Part 1 is the setup in use today. Part 2 is a proposed Dagger layer on top of
-it, with the measurements taken so far. Every number comes from a measurement
-file named beside it. Rows marked **Pending (proof running)** are still being
-measured.
+it, with the proof's final measurements. Every number comes from a measurement
+file named beside it.
 
 ## 1. Today: the Spaces runner
 
@@ -191,9 +190,12 @@ Three facts drive the split:
 
 Source for the map: the proof's `PROGRESS.md` (13:38 entry).
 
-Recommended engine caps, cache limit, thin Space size, jobs per Mac and the
-`cpu_budget` adjustment: **Pending (proof running).** They need the burst
-results.
+Recommended from the burst results: engine 4 CPU (6 bought nothing measurable:
+108.8 vs 109.8 jobs/h), engine memory 12 GiB on the Studio and 10 GiB on the
+mini (8 GiB reached 95%), cache GC at 40 GB and 30 GB, thin Spaces of 0.5 to
+1 CPU and 1 GiB, at most 4 Dagger jobs per Mac, and the engine's CPUs taken
+out of `cpu_budget` (8 minus 4). Raise the mini's OrbStack VM from 16 to
+32 GiB first: memory, not CPU, is its limit. Source: proof `REPORT.md` §6.
 
 ## 3. Metrics
 
@@ -201,8 +203,8 @@ Percentiles are nearest-rank; with n = 5 the p90 is the maximum. Status-quo
 replays ran in a fresh 2 CPU / 6 GB Space on the Studio (4 CPU / 12 GB for the
 monorepo). Dagger runs called the mini's engine (6 CPU / 8 GiB) from the host
 over `container://`, so they exclude thin Space and mTLS time.
-The hardware differs, so compare shapes, and wait for the same-hardware rows
-before comparing seconds. Source: `bench/results/{sq,dg}.csv` on each Mac,
+The hardware differs, so compare shapes; the same-hardware status-quo rows on
+the mini are listed below the table. Source: `bench/results/{sq,dg}.csv` on each Mac,
 tabulated by `bench/report_tables.py`.
 
 ### Per job: status quo vs Dagger (seconds, median / p90, n)
@@ -210,10 +212,10 @@ tabulated by `bench/report_tables.py`.
 | Job | Status quo | Dagger cold | Dagger warm | Dagger one-file change |
 | --- | --- | --- | --- | --- |
 | Policy check (small) | 1.3 / 8.1, n 5 | 47.2 / 79.8, n 5 | 0.6 / 0.6, n 5 | 3.2 / 19.1, n 5 |
-| Library verify | 346.5 / 485.4, n 5 | 180.6 / 241.6, n 5 | 0.6 / 1.2, n 5 | Pending (proof running) |
+| Library verify | 346.5 / 485.4, n 5 | 180.6 / 241.6, n 5 | 0.5 / 1.2, n 10 | 141.4 / 155.1, n 5 |
 | Fixture tests | 25.7 / 37.7, n 5 | 67.1 / 69.8, n 5 | 0.5 / 2.4, n 5 | 16.2 / 18.9, n 5 |
 | Site build and test | 139.5 / 199.9, n 5 | 213.9 / 229.2, n 5 | 0.5 / 0.6, n 5 | 57.4 / 94.5, n 5 |
-| Monorepo PR gates | 368.0, n 1 (12 of 13 gates pass) | Pending (proof running) | Pending (proof running) | Pending (proof running) |
+| Monorepo PR gates | 368.0 / 485.9, n 5 (12 of 13 gates pass) | 388.6 / 422.8, n 5 | 1.0 / 1.3, n 5 | 268.4 / 271.0, n 5 |
 
 - Warm runs were full cache hits (cache-hit ratio 1.00); cold and change runs
   had none.
@@ -224,7 +226,12 @@ tabulated by `bench/report_tables.py`.
   The rerun edits a test file instead.
 - Engine memory peaked at 3,928 MiB (library verify, cold) and 4,243 MiB (site,
   change).
-- Same-hardware status-quo rows on the mini: Pending (proof running).
+- Same-hardware status-quo rows on the mini (median / p90, n 5): policy check
+  1.4 / 1.9, library verify 275.3 / 295.6, site build and test 121.3 / 131.6,
+  monorepo PR gates 303.1 / 312.1. The mini is faster per job than the Studio.
+- Dagger loses on cold runs (site 213.9 vs 139.5 s, monorepo 388.6 vs 368.0 s,
+  policy check 47.2 vs 1.3 s) and on trivial jobs; it wins on repeated or
+  incremental work.
 
 ### Burst baseline: real queue on 29 Oct
 
@@ -245,8 +252,15 @@ time to green.
 
 | Replay | Jobs/hour | Queue median / p90 | Makespan | Peak load per CPU |
 | --- | --- | --- | --- | --- |
-| Status quo, full Spaces | Pending (proof running) | Pending (proof running) | Pending (proof running) | Pending (proof running) |
-| Dagger, thin Spaces | Pending (proof running) | Pending (proof running) | Pending (proof running) | Pending (proof running) |
+| Status quo, full Spaces (mini, 2 at once) | 94.6 | 263.8 / 381.3 s | 31.7 min | 0.90 |
+| Dagger, thin Spaces (mini, 4 at once) | 113.2 | 20.1 / 83.9 s | 26.5 min | 0.69 |
+
+Same Mac, same 50 jobs, both 48/50 correct (the two misses need a PR body the
+replay has no way to supply, and fail identically on both paths). Dagger's peak memory
+was 6,874 MiB against 2,427 MiB, and the engine reached 83 to 95% of an 8 GiB
+cap. The burst cache-hit ratio was only 0.04 to 0.15, so the gain comes from
+cheap admission of thin Spaces, not from caching. Makespan barely moves because
+the 1,434 s arrival span dominates.
 
 ### Engine access proof
 
@@ -257,4 +271,24 @@ time to green.
 | Listener scope | `127.0.0.1:8443` only, on both Macs | proof `PROGRESS.md` |
 | Engine container | Privileged, no published ports | proof `PROGRESS.md` |
 | Two-job smoke burst (mini, 0.5 CPU / 1 GB thin Spaces) | Space ready 7.4 s; one job passed in 37.2 s; the other returned rc 1 against an expected 0 | `burst-smoke.json` |
-| mTLS overhead against a host `container://` run | Pending (proof running) | |
+| mTLS overhead against a host `container://` run | +2.9 s per call, plus 11.6 to 12.5 s to create the thin Space and upload source, n 3 | `bench/results/mtls.csv` |
+
+### Final status (31 Oct 2026)
+
+The proof session was stopped on purpose at 19:43 GMT with enough data; only
+the Studio's monorepo one-file-change reps are incomplete (n 1). After the proof,
+a capped engine (4 CPU; 10 GiB on the mini, 12 GiB on the Studio) went live on
+both Macs, and three repos moved one Linux job each onto it. Early real-CI
+samples (n 2 per repo, so a signal rather than a result):
+
+| Job | Before: full Spaces, 24 to 31 Oct (run median / p90) | After: Dagger runs |
+| --- | --- | --- |
+| Library verify | 334 / 470 s, n 273 | 163 s, 228 s |
+| Site build and test | 162 / 221 s, n 9 | 73 s, 162 s |
+| Monorepo PR gates | 342 / 520 s, n 64 | 426 s, 323 s (cold) |
+
+The second site run overlapped library verify on the same 4-CPU engine and lost
+its gain, so library verify now uses the other Mac's engine. One more lesson:
+gates with wall-clock budgets fail under heavy host load (a monorepo cold run
+failed its 120 s unit-test budget at load 26.6 while identical code passed
+elsewhere), so keep load headroom when packing jobs.
