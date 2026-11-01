@@ -58,7 +58,8 @@ ESLint where available and through CI otherwise.
 
 [Architecture](../.agents/project/ARCHITECTURE.md) owns the role/folder/import/Fallow zone table. Value
 imports flow downward; Fallow rejects unlisted edges and `coverage.requireAllFiles` rejects unassigned
-source. Type-only imports may cross roles, subject to slice isolation and route co-location. Tests, E2E,
+source. Type-only imports may cross roles except into the UI package, subject to slice isolation and route
+co-location. Tests, E2E,
 configs, scripts and tooling sit outside the table; within-role imports obey slice isolation. A slice
 imports no sibling slice. ESLint checks static relative references, including types, in every result;
 computed specifiers and non-relative aliases remain gaps. Fallow child zones also check `apps/web` routes.
