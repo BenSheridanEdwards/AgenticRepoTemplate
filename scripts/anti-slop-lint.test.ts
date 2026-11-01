@@ -1,10 +1,30 @@
 /** @jest-environment node */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '..');
+it('keeps the seven-day install cooldown and trusted builds', () => {
+  const workspace = readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8');
+  expect(Number(workspace.match(/^minimumReleaseAge: (\d+)$/m)?.[1])).toBeGreaterThanOrEqual(10080);
+  expect(workspace.split('allowBuilds:')[1]?.split('\n\n')[0]).toBe(
+    "\n  '@biomejs/biome': true\n  '@swc/core': true\n  esbuild: true",
+  );
+  const files = readdirSync(join(ROOT, '.github'), { recursive: true, withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        (entry.parentPath.includes('/actions') || entry.parentPath.endsWith('/workflows')),
+    )
+    .map((entry) => readFileSync(join(entry.parentPath, entry.name), 'utf8'));
+  const { scripts } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  [...files, ...Object.values(scripts)].forEach((contents) => {
+    expect(contents).not.toMatch(
+      /minimum-release-age|minimumReleaseAge\s*[:=]\s*(?:0|[1-9]\d{0,3})(?!\d)/,
+    );
+  });
+});
 it('runs the pinned Oxlint 1.89.0', () => {
   const { devDependencies } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   expect(devDependencies.oxlint).toBe('1.89.0');
