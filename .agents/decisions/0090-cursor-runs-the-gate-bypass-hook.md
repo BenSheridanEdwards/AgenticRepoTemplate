@@ -1,4 +1,4 @@
-# 88. Cursor runs the gate-bypass hook
+# 90. Cursor runs the gate-bypass hook
 
 - **Status:** Proposed
 - **Date:** 2026-10-31
