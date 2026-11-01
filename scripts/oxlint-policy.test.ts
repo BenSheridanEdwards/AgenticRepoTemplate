@@ -369,6 +369,214 @@ export function useGreeting() {
   },
 ].map((fixture, index) => ({ ...fixture, caseRoot: `contract-${index}` }));
 const mutation = 'function f(item) { item.x = 1; }';
+const componentFixtures: Fixture[] = [
+  {
+    path: 'apps/web/src/features/policy/Fixture.tsx',
+    source: `
+export function Fixture() {
+  return <Badge />;
+}
+function Badge() {
+  return <span>new</span>;
+}
+`,
+    code: 'policy(one-component-per-file)',
+    messageContains: 'Move `Badge` into its own file',
+  },
+  ...[
+    ["import { useState } from 'react';", 'useState(0);'],
+    ["import { useEffect } from 'react';", 'useEffect(() => {}, []);'],
+    ["import { useReducer as useStore } from 'react';", 'useStore((x: number) => x, 0);'],
+    ["import * as React from 'react';", 'React.useLayoutEffect(() => {}, []);'],
+    ["import { useActionState } from 'react';", 'useActionState(async (x: number) => x, 0);'],
+  ].map(([importLine, call]) => ({
+    path: 'apps/web/src/features/policy/Fixture.tsx',
+    source: `
+${importLine}
+export function Fixture() {
+  ${call}
+  return <p>state</p>;
+}
+`,
+    code: 'policy(state-and-effects-in-hooks)',
+  })),
+  {
+    path: 'apps/web/src/features/policy/useTitle.ts',
+    source: `
+import { useEffect, useState } from 'react';
+export function useTitle(title: string) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+  return { count, handleIncrement: () => setCount((current) => current + 1) };
+}
+`,
+  },
+  ...[
+    'const save = () => onSave();',
+    'const save = React.useCallback(() => onSave(), [onSave]);',
+  ].map((handler) => ({
+    path: 'apps/web/src/features/policy/Fixture.tsx',
+    source: `
+${handler.includes('React.') ? "import * as React from 'react';\n" : ''}import { Button } from '@repo/ui';
+export function Fixture({ onSave }: { onSave: () => void }) {
+  ${handler}
+  return <Button type="button" onClick={save}>Save</Button>;
+}
+`,
+    code: 'policy(handler-names)',
+  })),
+  {
+    path: 'apps/web/src/features/policy/Fixture.tsx',
+    source: `
+import { Button } from '@repo/ui';
+interface FixtureProps {
+  label: string;
+  onSave: () => void;
+}
+export function Fixture({ label, onSave }: FixtureProps) {
+  const handleClick = () => onSave();
+  return <Button type="button" onClick={handleClick}>{label}</Button>;
+}
+`,
+  },
+  ...[
+    ['export function Fixture({ save }: { save: () => void }) {', '}'],
+    [
+      'interface FixtureProps { save(): void }\nexport function Fixture({ save }: FixtureProps) {',
+      '}',
+    ],
+    [
+      'type FixtureProps = { label: string } & { save?: () => void };\nexport function Fixture({ save }: FixtureProps) {',
+      '};',
+    ],
+    [
+      'interface Base { save(): void }\ninterface FixtureProps extends Base { label: string }\nexport function Fixture({ save }: FixtureProps) {',
+      '};',
+    ],
+    [
+      "import type { FC } from 'react';\ninterface FixtureProps { save: () => void }\nexport const Fixture: FC<FixtureProps> = ({ save }) => {",
+      '};',
+    ],
+  ].map(([header, ending]) => ({
+    path: 'apps/web/src/features/policy/Fixture.tsx',
+    source: `
+${header}
+  return <Button type="button" onClick={save}>Save</Button>;
+${ending}
+`,
+    code: 'policy(callback-prop-names)',
+  })),
+  {
+    path: 'apps/web/src/features/policy/Fixture.tsx',
+    source: `
+import type { ReactNode } from 'react';
+interface FixtureProps {
+  renderItem: (item: string) => ReactNode;
+  children: (open: boolean) => ReactNode;
+}
+export function Fixture({ renderItem, children }: FixtureProps) {
+  return <ul>{renderItem('one')}{children(true)}</ul>;
+}
+`,
+  },
+  ...[
+    'apps/web/src/features/settings/SettingsPage.tsx',
+    'apps/web/src/features/settings/src/routes/SettingsPage.tsx',
+    'apps/web/src/routes/settings/SettingsPage.tsx',
+  ].map((path) => ({
+    path,
+    source: path.includes('/features/settings/src/')
+      ? 'export function SettingsPage() {\n  return <main>settings</main>;\n}'
+      : `
+export function SettingsPage() {
+  return <main>settings</main>;
+}
+`,
+    code: path.includes('/features/') ? 'policy(pages-in-routes)' : undefined,
+  })),
+  ...[
+    ['apps/web/src/features/policy/Widget.tsx', 'export function Fixture() {\n  return <p />;\n}'],
+    ['apps/web/src/features/policy/hooks.ts', 'export function useFixture() {\n  return 1;\n}'],
+  ].map(([path, source]) => ({ path, source, code: 'policy(file-matches-export)' })),
+  {
+    path: 'apps/web/src/features/ThresholdCounter/Fixture.tsx',
+    source: 'export function Fixture() {\n  return <p />;\n}',
+    code: 'policy(folder-names)',
+  },
+  {
+    path: 'apps/web/src/features/policy/__tests__/value.ts',
+    source: 'export const value = 1;',
+  },
+  ...[
+    ['apps/web/src/routes/greeting/utils/x.ts', 'src/routes/greeting/utils'],
+    ['apps/web/src/features/name-input/helpers/x.ts', 'src/features/name-input/helpers'],
+    ['apps/api/src/features/greeting/lib/x.ts', 'src/features/greeting/lib'],
+    ['packages/ui/src/common/x.ts', 'src/common'],
+    ['showcase/todo-02/web/src/shared/x.ts', 'src/shared'],
+    ['apps/web/src/routes/greeting/parts/misc/x.ts', 'src/routes/greeting/parts/misc'],
+  ].map(([path, folder]) => ({
+    path,
+    source: 'export const x = 1;\n',
+    code: 'policy(role-named-folders)',
+    messageContains: `\`${folder}/\``,
+  })),
+  ...['packages/lib/src/x.ts', 'apps/web/src/features/shared-state/x.ts'].map((path) => ({
+    path,
+    source: 'export const x = 1;\n',
+  })),
+  ...[
+    ['apps/web/src/routes/greeting/Foo.test.tsx', 'apps/web/src/routes/greeting/Foo'],
+    ['apps/web/src/routes/greeting/Missing.a11y.test.tsx', 'apps/web/src/routes/greeting/Missing'],
+    [
+      'apps/web/src/routes/greeting/__tests__/GreetingPage.test.tsx',
+      'apps/web/src/routes/greeting/GreetingPage',
+    ],
+  ].map(([path, subject]) => ({
+    path,
+    source: 'export const value = 1;\n',
+    code: 'policy(test-beside-subject)',
+    messageContains: `\`${subject}.ts\` or`,
+  })),
+  ...[
+    'apps/api/src/features/greeting/domain.test.ts',
+    'packages/ui/src/Button.test.tsx',
+    'apps/web/src/routes/greeting/GreetingPage.a11y.test.tsx',
+    'showcase/todo-01/web/src/routes/todos/useTodos.test.tsx',
+    'apps/api/src/features/todos/todo.schema.test.ts',
+  ].map((path) => ({ path, source: 'export const value = 1;\n' })),
+  {
+    path: 'apps/api/src/features/todos/todo.other.test.ts',
+    source: 'export const value = 1;\n',
+    code: 'policy(test-beside-subject)',
+    messageContains: '`apps/api/src/features/todos/todo.ts` or',
+  },
+  {
+    path: 'apps/web/src/features/policy/Fixture.tsx',
+    source: `
+function Icon() {
+  return <span>!</span>;
+}
+export function Fixture() {
+  return <Icon />;
+}
+`,
+    code: 'policy(one-component-per-file)',
+    messageContains: 'Move `Icon` into its own file',
+  },
+  {
+    path: 'apps/web/src/App.test.tsx',
+    source: `
+import { useState } from 'react';
+export function Harness() {
+  const [value, setValue] = useState(0);
+  const bump = () => setValue(value + 1);
+  return <button type="button" onClick={bump}>{value}</button>;
+}
+`,
+  },
+].map((fixture, index) => ({ ...fixture, caseRoot: `component-${index}` }));
 const loops = [
   [
     'ForStatement',
@@ -399,6 +607,7 @@ const loops = [
 const fixtures: Fixture[] = [
   ...policyFixtures,
   ...contractFixtures,
+  ...componentFixtures,
   ...'ts tsx mts cts js jsx mjs cjs'.split(' ').flatMap((extension) => [
     { path: `scripts/mutation.${extension}`, source: mutation, code: 'eslint(no-param-reassign)' },
     { path: `scripts/copy.${extension}`, source: 'function f(item) { return { ...item, x: 1 }; }' },
@@ -487,11 +696,23 @@ function lintTree(cases: Fixture[]) {
   cases.forEach((fixture) => {
     write(fixturePath(fixture), fixture.source);
   });
+  componentFixtures.forEach(({ caseRoot }) => {
+    [
+      ['apps/api/src/features/greeting/domain.ts', 'export const value = 1;\n'],
+      ['packages/ui/src/Button.tsx', 'export const value = 1;\n'],
+      ['apps/web/src/routes/greeting/GreetingPage.tsx', 'export const value = 1;\n'],
+      ['showcase/todo-01/web/src/routes/todos/useTodos.ts', 'export const useTodos = () => [];\n'],
+      ['apps/api/src/features/todos/todo.schema.ts', 'export const schema = 1;\n'],
+      ['apps/web/src/App.tsx', 'export const value = 1;\n'],
+    ].forEach(([path, source]) => {
+      write(join(caseRoot ?? '', path), source);
+    });
+  });
   write(
     'oxlint.config.ts',
     `import config from ${JSON.stringify(pathToFileURL(join(ROOT, 'oxlint.config.ts')).href)};
 export default { ...config, overrides: config.overrides.map(override => ({
-  ...override, files: override.files.flatMap(pattern => [pattern, "contract-*/" + pattern])
+  ...override, files: override.files.flatMap(pattern => [pattern, "contract-*/" + pattern, "component-*/" + pattern])
 })) };`,
   );
   write('apps/web/.oxlintrc.json', '{"rules":{"no-param-reassign":"off"}}');
@@ -524,7 +745,10 @@ it.each(fixtures)('$# $path has the expected policy diagnostics', ({
     (codes ?? (code ? [code] : [])).map((rule) => [rule, 'error']).sort(),
   );
   if (message) expect(found[0]?.message).toBe(message);
-  if (messageContains) expect(found[0]?.message).toContain(messageContains);
+  if (messageContains)
+    expect(found[0]?.message.replaceAll(`${caseRoot}/`, '')).toContain(messageContains);
+  if (code === 'policy(role-named-folders)' && caseRoot?.startsWith('component-'))
+    expect(found[0]?.message).toContain('`@repo/ui`');
 });
 it('turns on every policy rule at error in result roots', () => {
   const rules = Object.keys(policy.rules).filter(
@@ -575,6 +799,11 @@ it('the repository passes the Oxlint policy and covers every tracked source file
   expect(result.stderr).toBe('');
   expect(result.status).toBe(0);
   const report = JSON.parse(result.stdout);
+  expect(
+    report.diagnostics.filter(({ code }: Diagnostic) =>
+      ['policy(role-named-folders)', 'policy(test-beside-subject)'].includes(code),
+    ),
+  ).toEqual([]);
   expect(report.diagnostics).toEqual([]);
   const tracked = spawnSync('git', ['ls-files', '-z'], {
     cwd: ROOT,
