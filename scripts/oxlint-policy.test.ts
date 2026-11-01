@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, matchesGlob, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import policy from '../tooling/eslint-plugin-policy.js';
 
 const ROOT = resolve(__dirname, '..');
 const command = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).scripts['lint:policy'];
@@ -18,8 +19,145 @@ interface Fixture {
   path: string;
   source: string;
   code?: string;
+  codes?: string[];
   message?: string;
+  messageContains?: string;
 }
+const policyPaths = [
+  'apps/web/src/App.tsx',
+  'apps/api/src/router.ts',
+  'packages/ui/src/Button.tsx',
+  'showcase/todo-01/web/src/App.tsx',
+  'showcase/todo-01/api/src/features/todo/procedures.ts',
+];
+const roots = [
+  'apps/web',
+  'apps/api',
+  'packages/ui',
+  'showcase/todo-01/web',
+  'showcase/todo-01/api',
+];
+const longComment = '// one\n// two\n// three\n// four\n// five';
+const policyFixtures: Fixture[] = [
+  ...policyPaths.map((path) => {
+    const component = path.endsWith('.tsx');
+    const api = path.includes('/api/');
+    return {
+      path,
+      source: `${longComment}
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import value from '../../../../../../outside';
+useState(0);
+function useBrokenForm() { return useForm(); }
+${api ? 'procedure.input(schema);' : ''}
+${
+  component
+    ? `export function Wrong({ save }: { save: () => void }) {
+  function saveValue() { return save(); }
+  return <button />;
+}
+function ExtraPage() { return <p />; }`
+    : 'export function useWrong() {}'
+}
+`,
+      codes: [
+        'policy(no-large-comments)',
+        'policy(state-and-effects-in-hooks)',
+        'policy(form-uses-effect-schema)',
+        'policy(slice-isolation)',
+        ...(api ? ['policy(procedure-input-schema)'] : []),
+        ...(component
+          ? [
+              'policy(one-component-per-file)',
+              'policy(handler-names)',
+              'policy(callback-prop-names)',
+              'policy(pages-in-routes)',
+              'policy(file-matches-export)',
+              ...(path.includes('packages/ui') ? [] : ['policy(use-ui-primitives)']),
+            ]
+          : ['policy(file-matches-export)']),
+      ],
+    };
+  }),
+  ...roots.flatMap((root) => [
+    {
+      path: `${root}/src/BadFolder/value.ts`,
+      source: 'export const value = 1;',
+      code: 'policy(folder-names)',
+    },
+    {
+      path: `${root}/src/utils/value.ts`,
+      source: 'export const value = 1;',
+      code: 'policy(role-named-folders)',
+    },
+    {
+      path: `${root}/src/missing.test.ts`,
+      source: 'export const value = 1;',
+      code: 'policy(test-beside-subject)',
+    },
+    {
+      path: `${root}/src/export.ts`,
+      source: 'export function useWrong() {}',
+      code: 'policy(file-matches-export)',
+    },
+    {
+      path: `${root}/src/ceilings.ts`,
+      source: `${longComment}\nif (a) { if (b) { if (c) { if (d) { if (e) { work(); } } } } }`,
+      codes: ['policy(no-large-comments)', 'eslint(max-depth)'],
+    },
+  ]),
+  ...[
+    '/* one\n two\n three\n four\n five */',
+    '/**\n * one\n * two\n * three\n */',
+    '// one\n/* two */\n// three\n/* four */\n// five',
+    '/* one */\n/* two */\n/* three */\n/* four */\n/* five */',
+    'work(); // one\n// two\n// three\n// four\n// five',
+  ].map((source, index) => ({
+    path: `apps/web/src/comment${index}.ts`,
+    source,
+    code: 'policy(no-large-comments)',
+    messageContains: '4 lines or fewer',
+  })),
+  {
+    path: 'apps/web/src/separated.ts',
+    source:
+      '// one\n// two\n// three\n// four\nwork();\n/* one\n two\n three\n four */\n\n// separate\nwork(); // another\nwork(); // separate again',
+  },
+  {
+    path: 'apps/web/src/disabled.ts',
+    source: `/* ${'eslint'}-disable policy/no-large-comments */\n\n${longComment}`,
+    code: 'policy(no-large-comments)',
+  },
+  {
+    path: 'apps/web/src/Fixture.tsx',
+    source: `export function Fixture() { return <Badge />; }\n// ${'eslint'}-disable-next-line policy/one-component-per-file -- a stated reason\nfunction Badge() { return <span />; }`,
+    code: 'policy(one-component-per-file)',
+  },
+  ...['apps/web', 'showcase/todo-01/web'].flatMap((root) => [
+    ...[
+      '<button />',
+      '<input />',
+      '<input type="text" />',
+      '<input type="checkbox" {...props} />',
+      'React.createElement("input", { type: "checkbox", [key]: "text" })',
+      'make("button", {})',
+      'React.createElement("input", { type: "text" })',
+      'React.createElement("input", { type: "checkbox", ...props })',
+    ].map((control, index) => ({
+      path: `${root}/src/control${index}.tsx`,
+      source: `import React, { createElement as make } from 'react'; const control = ${control};`,
+      code: 'policy(use-ui-primitives)',
+    })),
+    {
+      path: `${root}/src/allowed.tsx`,
+      source: `import { Button, TextField } from '@repo/ui';
+const controls = [<Button />, <TextField label="Name" />, <input type="checkbox" aria-label="Done" />, <input type={'radio'} aria-label="Choice" />];`,
+    },
+  ]),
+  { path: 'packages/ui/src/native.tsx', source: 'const control = <button aria-label="Save" />;' },
+  { path: 'apps/web/src/App.test.tsx', source: 'const control = <button aria-label="Save" />;' },
+];
 const mutation = 'function f(item) { item.x = 1; }';
 const loops = [
   [
@@ -49,6 +187,7 @@ const loops = [
   ],
 ];
 const fixtures: Fixture[] = [
+  ...policyFixtures,
   ...'ts tsx mts cts js jsx mjs cjs'.split(' ').flatMap((extension) => [
     { path: `scripts/mutation.${extension}`, source: mutation, code: 'eslint(no-param-reassign)' },
     { path: `scripts/copy.${extension}`, source: 'function f(item) { return { ...item, x: 1 }; }' },
@@ -85,7 +224,7 @@ const fixtures: Fixture[] = [
     })),
   ]),
   {
-    path: 'apps/api/src/router.ts',
+    path: 'apps/api/src/public.ts',
     source: "import { greetingRouter } from './features/greeting/index.ts';",
   },
   ...['scripts', 'tooling'].flatMap((root) => [
@@ -151,14 +290,52 @@ beforeAll(() => {
   diagnostics = lintTree(fixtures);
 });
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
-it.each(fixtures)('$path has the expected policy diagnostics', ({ path, code, message }) => {
+it.each(fixtures)('$path has the expected policy diagnostics', ({
+  path,
+  code,
+  codes,
+  message,
+  messageContains,
+}) => {
   const found = diagnostics.filter(
     ({ filename }) => filename.replaceAll('\\', '/').replace(`${directory}/`, '') === path,
   );
-  expect(found.map(({ code: actual, severity }) => [actual, severity])).toEqual(
-    code ? [[code, 'error']] : [],
+  expect(found.map(({ code: actual, severity }) => [actual, severity]).sort()).toEqual(
+    (codes ?? (code ? [code] : [])).map((rule) => [rule, 'error']).sort(),
   );
   if (message) expect(found[0]?.message).toBe(message);
+  if (messageContains) expect(found[0]?.message).toContain(messageContains);
+});
+it('turns on every policy rule at error in result roots', () => {
+  const rules = Object.keys(policy.rules).filter(
+    (rule) => !['no-loops', 'no-hand-written-globs'].includes(rule),
+  );
+  expect(rules).toHaveLength(14);
+  roots.forEach((root) => {
+    const applicable = rules.filter(
+      (rule) =>
+        (![
+          'one-component-per-file',
+          'handler-names',
+          'callback-prop-names',
+          'pages-in-routes',
+        ].includes(rule) ||
+          !root.endsWith('/api')) &&
+        (rule !== 'use-ui-primitives' || (!root.endsWith('/api') && root !== 'packages/ui')) &&
+        (rule !== 'procedure-input-schema' || root.endsWith('/api')),
+    );
+    applicable.forEach((rule) => {
+      expect(diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            filename: expect.stringContaining(`${root}/src/`),
+            code: `policy(${rule})`,
+            severity: 'error',
+          }),
+        ]),
+      );
+    });
+  });
 });
 it('runs the fixture set in under ten seconds', () => expect(elapsed).toBeLessThan(10_000));
 it('rejects duplicate fixture paths', () =>

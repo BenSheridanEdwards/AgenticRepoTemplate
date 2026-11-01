@@ -70,7 +70,8 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
 - Oxlint runs the core policy beside ESLint during the swap (`pnpm lint:policy`),
   before ESLint's policy rules, React hooks rules, React
   Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
-  The repository's own rules live in `tooling/eslint-plugin-policy.js`
+  The repository's policy plugin runs on Oxlint and ESLint until ESLint is retired.
+  Its rules live in `tooling/eslint-plugin-policy.js`
   ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
 - Oxlint (`pnpm lint:anti-slop`) runs the vendored generic and Effect
   anti-slop plugins with built-ins off. Its separate `oxlint.config.ts` runs
