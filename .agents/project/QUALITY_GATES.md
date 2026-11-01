@@ -78,7 +78,9 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
   lint.
 - Oxlint runs the core policy beside ESLint during the swap (`pnpm lint:policy`),
   before ESLint's policy rules, React hooks rules, React
-  Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
+  Compiler rules, and the existing React Doctor rules. Oxlint also runs the
+  same 349 React Doctor rules through `oxlint-plugin-react-doctor` with curated
+  settings until ESLint retires.
   The repository's policy plugin runs on Oxlint and ESLint until ESLint is retired.
   Its rules live in `tooling/eslint-plugin-policy.js`
   ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
@@ -86,7 +88,7 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
   anti-slop plugins with built-ins off. Its separate `oxlint.config.ts` runs
   core policy, including showcase sources ([ADR 0098](../decisions/0098-oxlint-replaces-eslint.md)).
 - React Doctor (`pnpm react-doctor`) owns the project-level checks the
-  ESLint plugin leaves out, such as duplicated JSX across files.
+  per-file plugins leave out, such as duplicated JSX across files.
 - TypeScript owns type semantics through `tsc --noEmit` over four programs:
   `tsconfig.json` (web packages and `packages/ui`, with the DOM and no Node
   types), `tsconfig.node.json` (root configs, Vite configs and e2e specs, on

@@ -56,7 +56,7 @@ ${
   component
     ? `export function Wrong({ save }: { save: () => void }) {
   function saveValue() { return save(); }
-  return <button />;
+  return <button aria-label="Save" />;
 }
 function ExtraPage() { return <p />; }`
     : 'export function useWrong() {}'
@@ -137,9 +137,9 @@ function ExtraPage() { return <p />; }`
   },
   ...['apps/web', 'showcase/todo-01/web'].flatMap((root) => [
     ...[
-      '<button />',
-      '<input />',
-      '<input type="text" />',
+      '<button aria-label="Save" />',
+      '<input aria-label="Name" />',
+      '<input type="text" aria-label="Name" />',
       '<input type="checkbox" {...props} />',
       'React.createElement("input", { type: "checkbox", [key]: "text" })',
       'make("button", {})',
@@ -463,6 +463,7 @@ export function Fixture({ label, onSave }: FixtureProps) {
     path: 'apps/web/src/features/policy/Fixture.tsx',
     source: `
 ${header}
+  const Button = 'button';
   return <Button type="button" onClick={save}>Save</Button>;
 ${ending}
 `,
@@ -605,6 +606,19 @@ const loops = [
   ],
 ];
 const fixtures: Fixture[] = [
+  {
+    path: 'apps/web/src/useRemote.ts',
+    source:
+      "import { useEffect } from 'react'; export function useRemote() { useEffect(() => { void fetch('/api/service-status'); }, []); }",
+    code: 'react-doctor(no-fetch-in-effect)',
+  },
+  {
+    path: 'apps/web/src/Legacy.tsx',
+    source:
+      "import { Component } from 'react'; export class Legacy extends Component { render() { return <p>Hello</p>; } }",
+    code: 'react-doctor(prefer-function-component)',
+  },
+  { path: 'apps/web/src/image.tsx', source: 'const image = <img src="photo.png" />;' },
   ...policyFixtures,
   ...contractFixtures,
   ...componentFixtures,
@@ -675,6 +689,39 @@ const fixtures: Fixture[] = [
 let directory: string;
 let diagnostics: Diagnostic[];
 let elapsed: number;
+it('matches all 349 React Doctor errors and settings from ESLint for App.tsx', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      `
+    import { ESLint } from 'eslint';
+    import config from './oxlint.config.ts';
+    import { matchesGlob } from 'node:path';
+    const path = 'apps/web/src/App.tsx';
+    const eslint = await new ESLint().calculateConfigForFile(path);
+    const rules = Object.assign({}, config.rules, ...config.overrides.filter(override => override.files.some(pattern => matchesGlob(path, pattern))).map(override => override.rules));
+    const doctor = Object.entries(rules).filter(([name]) => name.startsWith('react-doctor/'));
+    process.stdout.write(JSON.stringify({
+      expected: Object.entries(eslint.rules).filter(([name, value]) => name.startsWith('react-doctor/') && value[0] === 2).map(([name]) => name).sort(),
+      actual: doctor.map(([name]) => name).sort(),
+      severities: doctor.map(([, value]) => value),
+      settings: config.settings,
+      expectedSettings: eslint.settings,
+    }));
+  `,
+    ],
+    { cwd: ROOT, encoding: 'utf8' },
+  );
+  expect(result.status).toBe(0);
+  const report = JSON.parse(result.stdout);
+  expect(report.expected).toHaveLength(349);
+  expect(report.actual).toEqual(report.expected);
+  expect(new Set(report.severities)).toEqual(new Set(['error']));
+  expect(report.settings).toEqual(report.expectedSettings);
+});
 function write(path: string, source: string) {
   mkdirSync(dirname(join(directory, path)), { recursive: true });
   writeFileSync(join(directory, path), source);
