@@ -41,7 +41,6 @@ const longComment = '// one\n// two\n// three\n// four\n// five';
 const policyFixtures: Fixture[] = [
   ...policyPaths.map((path) => {
     const component = path.endsWith('.tsx');
-    const name = path.includes('packages/ui') ? 'Button' : 'App';
     const api = path.includes('/api/');
     return {
       path,
@@ -54,7 +53,7 @@ function useBrokenForm() { return useForm(); }
 ${api ? 'procedure.input(schema);' : ''}
 ${
   component
-    ? `export function ${name}({ save }: { save: () => void }) {
+    ? `export function Wrong({ save }: { save: () => void }) {
   function saveValue() { return save(); }
   return <button />;
 }
@@ -74,6 +73,7 @@ function ExtraPage() { return <p />; }`
               'policy(handler-names)',
               'policy(callback-prop-names)',
               'policy(pages-in-routes)',
+              'policy(file-matches-export)',
               ...(path.includes('packages/ui') ? [] : ['policy(use-ui-primitives)']),
             ]
           : ['policy(file-matches-export)']),
@@ -307,17 +307,35 @@ it.each(fixtures)('$path has the expected policy diagnostics', ({
   if (messageContains) expect(found[0]?.message).toContain(messageContains);
 });
 it('turns on every policy rule at error in result roots', () => {
-  const config = readFileSync(join(ROOT, 'oxlint.config.ts'), 'utf8');
-  Object.keys(policy.rules)
-    .filter((rule) => !['no-loops', 'no-hand-written-globs'].includes(rule))
-    .forEach((rule) => {
-      expect(config).toContain(`'policy/${rule}': 'error'`);
-      expect(
-        policyFixtures.some(
-          ({ code, codes }) => code === `policy(${rule})` || codes?.includes(`policy(${rule})`),
-        ),
-      ).toBe(true);
+  const rules = Object.keys(policy.rules).filter(
+    (rule) => !['no-loops', 'no-hand-written-globs'].includes(rule),
+  );
+  expect(rules).toHaveLength(14);
+  roots.forEach((root) => {
+    const applicable = rules.filter(
+      (rule) =>
+        (![
+          'one-component-per-file',
+          'handler-names',
+          'callback-prop-names',
+          'pages-in-routes',
+        ].includes(rule) ||
+          !root.endsWith('/api')) &&
+        (rule !== 'use-ui-primitives' || (!root.endsWith('/api') && root !== 'packages/ui')) &&
+        (rule !== 'procedure-input-schema' || root.endsWith('/api')),
+    );
+    applicable.forEach((rule) => {
+      expect(diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            filename: expect.stringContaining(`${root}/src/`),
+            code: `policy(${rule})`,
+            severity: 'error',
+          }),
+        ]),
+      );
     });
+  });
 });
 it('runs the fixture set in under ten seconds', () => expect(elapsed).toBeLessThan(10_000));
 it('rejects duplicate fixture paths', () =>

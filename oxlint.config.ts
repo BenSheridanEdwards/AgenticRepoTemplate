@@ -30,6 +30,20 @@ export default {
     {
       files: ['{apps,packages}/*/src/**/*.{ts,tsx}', 'showcase/*/*/src/**/*.{ts,tsx}'],
       rules: {
+        'policy/one-component-per-file': 'error',
+        'policy/no-large-comments': 'error',
+        'policy/use-ui-primitives': 'error',
+        'policy/state-and-effects-in-hooks': 'error',
+        'policy/handler-names': 'error',
+        'policy/callback-prop-names': 'error',
+        'policy/pages-in-routes': 'error',
+        'policy/file-matches-export': 'error',
+        'policy/folder-names': 'error',
+        'policy/role-named-folders': 'error',
+        'policy/test-beside-subject': 'error',
+        'policy/slice-isolation': 'error',
+        'policy/procedure-input-schema': 'error',
+        'policy/form-uses-effect-schema': 'error',
         'max-depth': ['error', 4],
         'no-restricted-imports': [
           'error',
