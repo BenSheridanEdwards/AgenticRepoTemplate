@@ -17,6 +17,7 @@ interface Diagnostic {
 }
 interface Fixture {
   path: string;
+  caseRoot?: string;
   source: string;
   code?: string;
   codes?: string[];
@@ -158,6 +159,215 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
   { path: 'packages/ui/src/native.tsx', source: 'const control = <button aria-label="Save" />;' },
   { path: 'apps/web/src/App.test.tsx', source: 'const control = <button aria-label="Save" />;' },
 ];
+const contractFixtures: Fixture[] = [
+  ...[
+    ['an alias', "export { useQuery as useQ } from '@tanstack/react-query';"],
+    ['everything', "export * from 'react-hook-form';"],
+  ].map(([_label, source]) => ({
+    path: 'apps/web/src/routes/greeting/hooks.ts',
+    source: source,
+    code: 'policy(state-and-effects-in-hooks)',
+  })),
+  ...[
+    ['a route imports another route', 'apps/web/src/routes/a/A.tsx', "import { B } from '../b';"],
+    [
+      'a backend feature imports another feature',
+      'apps/api/src/features/a/application.ts',
+      "import { formatB } from '../b/domain.ts';",
+    ],
+    [
+      'a web feature imports another feature',
+      'apps/web/src/features/a/useA.ts',
+      "import { b } from '../b/b';",
+    ],
+    [
+      'a showcase route imports another route',
+      'showcase/todo-01/web/src/routes/a/A.tsx',
+      "import { B } from '../b';",
+    ],
+    ['a route requires another route', 'apps/web/src/routes/a/a.ts', "const b = require('../b');"],
+    [
+      'a route imports another route through a template literal',
+      'apps/web/src/routes/a/a.ts',
+      'const b = import(`../b`);',
+    ],
+    [
+      'a route import-equals another route',
+      'apps/web/src/routes/a/a.ts',
+      "import b = require('../b');",
+    ],
+    [
+      'a relative import leaves its package',
+      'apps/web/src/routes/a/A.tsx',
+      "import type { AppRouter } from '../../../../api/src/router.ts';",
+    ],
+  ].map(([_label, filename, source]) => ({
+    path: filename,
+    source: `${source}\nexport const value = 1;\n`,
+    code: 'policy(slice-isolation)',
+  })),
+  ...[
+    ['apps/web/src/features/loose.ts'],
+    ['apps/web/src/routes/loose.ts'],
+    ['apps/api/src/features/loose.ts'],
+    ['showcase/todo-01/web/src/features/loose.ts'],
+  ].map(([filename]) => ({
+    path: filename,
+    source: "import { a } from './a';\nimport { b } from './b';\nexport const loose = [a, b];\n",
+    code: 'policy(slice-isolation)',
+    messageContains: 'into a folder of its own',
+  })),
+  {
+    path: 'apps/web/src/routes/greeting/value.ts',
+    source: [
+      "import { Button } from '@repo/ui';",
+      "import { useTrpc } from '../../api-client';",
+      "import { nameInput } from '../../features/name-input';",
+      "import { greetingFormSchema } from './greetingFormSchema';",
+      'export const value = [Button, useTrpc, nameInput, greetingFormSchema];',
+    ].join('\n'),
+  },
+  ...[
+    ['a cast instead of a schema', '.input((value) => value as { name: string })'],
+    ['a bare Effect schema', '.input(greetInputSchema)'],
+    ['another standard schema', '.input(z.object({ name: z.string() }))'],
+    ['a cast through a computed member', "['input']((value) => value as { name: string })"],
+    ['the Effect 3 adapter', '.input(Schema.standardSchemaV1(greetInputSchema))'],
+  ].map(([_label, input]) => ({
+    path: 'apps/api/src/features/greeting/procedures.ts',
+    source: `
+import { Schema } from 'effect';
+import { z } from 'zod';
+import { procedure } from '../../trpc.ts';
+const greetInputSchema = Schema.Struct({ name: Schema.String });
+export const greet = procedure${input}.query(({ input }) => input);
+export const unused = [z, greetInputSchema];
+`,
+    code: 'policy(procedure-input-schema)',
+  })),
+  {
+    path: 'apps/api/src/features/greeting/procedures.ts',
+    source: `
+import * as Schema from 'effect/Schema';
+import { procedure } from '../../trpc.ts';
+const greetInputSchema = Schema.Struct({ name: Schema.String });
+export const greet = procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => input);
+`,
+  },
+  {
+    path: 'apps/api/src/features/greeting/procedures.ts',
+    source: `
+import { Schema } from 'effect';
+import { procedure } from '../../trpc.ts';
+const greetInputSchema = Schema.Struct({ name: Schema.String });
+export const greet = procedure.input(Schema.toStandardSchemaV1(greetInputSchema)).query(({ input }) => input);
+`,
+  },
+  ...[
+    ['no options', 'useForm()'],
+    ['no resolver', "useForm({ defaultValues: { name: '' } })"],
+    ['another resolver', 'useForm({ resolver: zodResolver(schema) })'],
+    ['options built elsewhere', 'useForm(options)'],
+    [
+      'a spread after the resolver',
+      'useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema)), ...options })',
+    ],
+    [
+      'a standard schema not built by Effect',
+      'useForm({ resolver: standardSchemaResolver(schema) })',
+    ],
+    [
+      'a resolver that submits the raw input',
+      'useForm({ resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema), undefined, { raw: true }) })',
+    ],
+    ['the Effect 3 resolver', 'useForm({ resolver: effectTsResolver(schema) })'],
+  ].map(([_label, call]) => ({
+    path: 'apps/web/src/routes/greeting/useNameForm.ts',
+    source: `
+import { effectTsResolver } from '@hookform/resolvers/effect-ts';
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Schema } from 'effect';
+import { useForm } from 'react-hook-form';
+declare const schema: never;
+declare const options: never;
+export function useNameForm() {
+  return [${call}, zodResolver, effectTsResolver, standardSchemaResolver, Schema];
+}
+`,
+    code: 'policy(form-uses-effect-schema)',
+  })),
+  {
+    path: 'apps/web/src/routes/greeting/useGreetingForm.ts',
+    source: `
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { Schema } from 'effect';
+import { useForm } from 'react-hook-form';
+import { greetingFormSchema } from './greetingFormSchema';
+export function useGreetingForm() {
+  return useForm({
+    resolver: standardSchemaResolver(Schema.toStandardSchemaV1(greetingFormSchema)),
+    defaultValues: { name: '' },
+  });
+}
+`,
+  },
+  {
+    path: 'apps/web/src/routes/greeting/useGreetingForm.ts',
+    source: `
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { toStandardSchemaV1 } from 'effect/Schema';
+import { useForm } from 'react-hook-form';
+import { greetingFormSchema } from './greetingFormSchema';
+export function useGreetingForm() {
+  return useForm({
+    resolver: standardSchemaResolver(toStandardSchemaV1(greetingFormSchema)),
+    defaultValues: { name: '' },
+  });
+}
+`,
+  },
+  ...[
+    ['useQuery', '@tanstack/react-query', 'useQuery(options);'],
+    ['useSuspenseQuery', '@tanstack/react-query', 'useSuspenseQuery(options);'],
+    ['useInfiniteQuery', '@tanstack/react-query', 'useInfiniteQuery(options);'],
+    ['useQueries', '@tanstack/react-query', 'useQueries(options);'],
+    ['useSuspenseQueries', '@tanstack/react-query', 'useSuspenseQueries(options);'],
+    ['useSuspenseInfiniteQuery', '@tanstack/react-query', 'useSuspenseInfiniteQuery(options);'],
+    ['useMutation', '@tanstack/react-query', 'useMutation(options);'],
+    ['useMutationState', '@tanstack/react-query', 'useMutationState(options);'],
+    ['useTransition', 'react', 'useTransition();'],
+    ['useForm', 'react-hook-form', 'useForm(options);'],
+    ['useFieldArray', 'react-hook-form', 'useFieldArray(options);'],
+    ['useController', 'react-hook-form', 'useController(options);'],
+    ['useWatch', 'react-hook-form', 'useWatch(options);'],
+    ['useFormState', 'react-hook-form', 'useFormState(options);'],
+  ].map(([hook, source, call]) => ({
+    path: 'apps/web/src/routes/greeting/GreetingPage.tsx',
+    source: `
+import { ${hook} } from '${source}';
+declare const options: never;
+export function GreetingPage() {
+  ${call}
+  return <p>greeting</p>;
+}
+`,
+    codes: [
+      'policy(state-and-effects-in-hooks)',
+      ...(hook === 'useForm' ? ['policy(form-uses-effect-schema)'] : []),
+    ],
+  })),
+  {
+    path: 'apps/web/src/routes/greeting/useGreeting.ts',
+    source: `
+import { useQuery } from '@tanstack/react-query';
+declare const options: never;
+export function useGreeting() {
+  return useQuery(options);
+}
+`,
+  },
+].map((fixture, index) => ({ ...fixture, caseRoot: `contract-${index}` }));
 const mutation = 'function f(item) { item.x = 1; }';
 const loops = [
   [
@@ -188,6 +398,7 @@ const loops = [
 ];
 const fixtures: Fixture[] = [
   ...policyFixtures,
+  ...contractFixtures,
   ...'ts tsx mts cts js jsx mjs cjs'.split(' ').flatMap((extension) => [
     { path: `scripts/mutation.${extension}`, source: mutation, code: 'eslint(no-param-reassign)' },
     { path: `scripts/copy.${extension}`, source: 'function f(item) { return { ...item, x: 1 }; }' },
@@ -267,15 +478,21 @@ function run(cwd: string, extra: string[] = []) {
     env: { ...process.env, PATH: `${join(ROOT, 'node_modules/.bin')}:${process.env.PATH}` },
   });
 }
+function fixturePath({ path, caseRoot = '' }: Fixture) {
+  return join(caseRoot, path);
+}
 function lintTree(cases: Fixture[]) {
-  if (new Set(cases.map(({ path }) => path)).size !== cases.length)
+  if (new Set(cases.map(fixturePath)).size !== cases.length)
     throw new Error('Duplicate fixture path');
-  cases.forEach(({ path, source }) => {
-    write(path, source);
+  cases.forEach((fixture) => {
+    write(fixturePath(fixture), fixture.source);
   });
   write(
     'oxlint.config.ts',
-    `export { default } from ${JSON.stringify(pathToFileURL(join(ROOT, 'oxlint.config.ts')).href)};`,
+    `import config from ${JSON.stringify(pathToFileURL(join(ROOT, 'oxlint.config.ts')).href)};
+export default { ...config, overrides: config.overrides.map(override => ({
+  ...override, files: override.files.flatMap(pattern => [pattern, "contract-*/" + pattern])
+})) };`,
   );
   write('apps/web/.oxlintrc.json', '{"rules":{"no-param-reassign":"off"}}');
   const started = performance.now();
@@ -290,15 +507,18 @@ beforeAll(() => {
   diagnostics = lintTree(fixtures);
 });
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
-it.each(fixtures)('$path has the expected policy diagnostics', ({
+it.each(fixtures)('$# $path has the expected policy diagnostics', ({
   path,
+  caseRoot,
   code,
   codes,
   message,
   messageContains,
 }) => {
   const found = diagnostics.filter(
-    ({ filename }) => filename.replaceAll('\\', '/').replace(`${directory}/`, '') === path,
+    ({ filename }) =>
+      filename.replaceAll('\\', '/').replace(`${directory}/`, '') ===
+      fixturePath({ path, caseRoot, source: '' }),
   );
   expect(found.map(({ code: actual, severity }) => [actual, severity]).sort()).toEqual(
     (codes ?? (code ? [code] : [])).map((rule) => [rule, 'error']).sort(),
