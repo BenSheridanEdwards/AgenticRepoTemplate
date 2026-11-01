@@ -28,8 +28,10 @@ These checks are defined in `.github/workflows/`:
   requests and a weekly schedule. Public repositories qualify for code scanning.
   For private repositories, confirm Code Security eligibility and
   enablement alongside workflow permissions.
-- **Dependency updates**: add `.github/dependabot.yml` to configure scheduled
-  Dependabot version updates. The dependency audit above runs in CI.
+- **Action updates**: `.github/dependabot.yml` schedules weekly github-actions
+  updates with a seven-day cooldown. Actions use full commit SHA pins;
+  Dependabot keeps their version comments current. Review updates through the
+  normal gates and human merge process.
 
 Secrets stay out of the repository; the optional `E2E_BASE_URL` override is
 documented in `playwright.config.ts`, and real `.env` files are git-ignored.
@@ -114,8 +116,12 @@ analysis and upload enabled; resolve any entitlement error with the repository
 owner. Local CodeQL CLI use on private code has licensing prerequisites too, so
 confirm those before local analysis.
 
-Add `.github/dependabot.yml` to configure scheduled Dependabot version updates;
-this template currently provides CI auditing. `pnpm audit --audit-level=high`
+Dependabot covers the github-actions ecosystem only. `pnpm audit --audit-level=high`
 remains the dependency vulnerability gate. GitHub-hosted Dependabot
 alerts/security updates and native secret scanning are separate repository
 settings to assess with the owner.
+
+In pull_request_target, issue_comment and workflow_run workflows, pass untrusted
+input through github-script's context or through env. Keep `${{ }}` expressions
+outside run and script bodies. `scripts/action-pins.test.ts` checks this rule,
+the SHA pins, cleared cache/download commits and unchanged workflow permissions.

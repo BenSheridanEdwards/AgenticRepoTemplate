@@ -221,7 +221,12 @@ export const HOOK_STEPS = [
     command: 'pnpm fallow:audit',
     workflow: 'ci.yml',
     job: 'fallow',
-    steps: [{ uses: 'fallow-rs/fallow@v3.33.1', command: 'audit' }],
+    steps: [
+      {
+        uses: 'fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1',
+        command: 'audit',
+      },
+    ],
   },
   {
     sources: ['.husky/pre-commit'],
@@ -653,10 +658,10 @@ export function renderAggregateJob() {
     `    needs: [${AGGREGATED.map((gate) => gate.job).join(', ')}]`,
     '    runs-on: ubuntu-latest',
     '    steps:',
-    '      - uses: actions/checkout@v7',
+    '      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1',
     '        with:',
     '          persist-credentials: false',
-    '      - uses: actions/setup-node@v6',
+    '      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0',
     '        with:',
     '          node-version-file: .nvmrc',
     '      - name: Workflows and inventory match the contract',

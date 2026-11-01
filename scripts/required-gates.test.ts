@@ -89,7 +89,9 @@ describe('the committed CI order', () => {
     });
     const coverage = REAL_FILES['ci.yml'].split('\n  coverage:\n')[1]?.split(/\n {2}[\w-]+:\n/)[0];
     expect(coverage).toMatch(/^ {4}needs: \[test\]$/m);
-    expect(coverage).toContain('actions/download-artifact@v8');
+    expect(coverage).toContain(
+      'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2',
+    );
     expect(coverage).toContain('name: coverage-final');
     expect(coverage).toContain('COVERAGE_FILE: coverage/coverage-final.json');
     expect(coverage).toContain('node scripts/confidence-label.mjs --coverage-gate');
@@ -360,6 +362,17 @@ describe('checkContract', () => {
     );
   });
 
+  it('requires the pinned aggregate and Fallow commits', () => {
+    expect(contractErrors()).toEqual([]);
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replaceAll(
+        'fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1',
+        'fallow-rs/fallow@v3.33.1',
+      ),
+    }));
+    expect(errors).toContainEqual(expect.stringContaining('pnpm fallow:audit'));
+  });
+
   it.each([
     'anti-slop command',
     'coverage job',
@@ -553,8 +566,8 @@ describe('checkContract', () => {
     [
       'a lane command ends in || exit 0',
       'codeql.yml',
-      '      - uses: github/codeql-action/analyze@v4\n',
-      '      - run: npx tsc || exit 0\n      - uses: github/codeql-action/analyze@v4\n',
+      '      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1\n',
+      '      - run: npx tsc || exit 0\n      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1\n',
       'job `analyze` step "npx tsc || exit 0" ignores its exit code with `|| exit 0`',
       undefined,
     ],
@@ -669,7 +682,7 @@ describe('checkContract', () => {
   it('passes evidence uploads that run on failure and may not fail the lane', () => {
     const ci = REAL_FILES['ci.yml'];
     expect(ci).toMatch(
-      /upload-artifact@v7\n {8}if: failure\(\) && steps.scope.outputs.docs-only != 'true'\n {8}continue-on-error: true/,
+      /upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7\.0\.2\n {8}if: failure\(\) && steps.scope.outputs.docs-only != 'true'\n {8}continue-on-error: true/,
     );
     expect(contractErrors()).toEqual([]);
   });
