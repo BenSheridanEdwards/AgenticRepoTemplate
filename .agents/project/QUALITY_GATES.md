@@ -1,5 +1,14 @@
 # Quality gates
 
+## Benchmark
+
+Run `pnpm bench --packages 60 --compare main` to report before/after timings
+for cold, warm and one-change modes. Include the table and machine details in
+performance PRs. The optional [workspace benchmark workflow](../../.github/workflows/bench.yml)
+publishes the table in its run summary. It adds no required gate.
+Generated results stay in a temporary copy. Fallow skips duplication checks on
+these reference clones, so audit timings understate duplication cost at scale.
+
 Use this matrix to find a gate's owner and local command. Shared operating
 rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 [PR quality](PR_QUALITY.md).
