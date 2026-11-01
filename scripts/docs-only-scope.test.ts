@@ -6,20 +6,19 @@ import { join } from 'node:path';
 import { docsOnly } from './docs-only-scope.mjs';
 
 describe('docsOnly', () => {
-  it.each(['docs/guide.txt', 'docs/guides/setup.txt'])('allows %s', (path) => {
+  it.each([
+    'README.md',
+    'docs/foo.md',
+    '.agents/project/CONVENTIONS.md',
+    'docs/guide.txt',
+    'docs/prd/feature.md',
+    'docs/trials/run.txt',
+    'docs/proof/run.txt',
+  ])('allows %s', (path) => {
     expect(docsOnly([path])).toBe(true);
   });
   it.each([
-    'README.md',
-    'docs/guide.md',
-    'docs/NORTH_STAR.md',
-    'docs/GLOSSARY.md',
-    'docs/required-gates.md',
     'docs/architecture/roles.mmd',
-    'docs/proof/run.txt',
-    'docs/prd/feature.txt',
-    'docs/trials/run.txt',
-    '.agents/decisions/0093-test.md',
     'packages/ui/etc/ui.api.md',
     '.github/workflows/ci.yml',
     'scripts/test.mjs',
@@ -27,6 +26,10 @@ describe('docsOnly', () => {
     'package.json',
     'pnpm-lock.yaml',
     'apps/web/src/App.tsx',
+    'apps/web/src/fixture.md',
+    'apps/web/e2e/fixture.md',
+    'tooling/trial/acceptance/fixture.md',
+    'showcase/example/architecture.mmd',
     'docs/../package.json',
     'docs/nested/../../guide.txt',
   ])('rejects %s alone or mixed with prose (including either side of a rename)', (path) => {

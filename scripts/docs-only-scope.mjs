@@ -5,28 +5,32 @@ import { appendFileSync, realpathSync } from 'node:fs';
 import { matchesGlob, posix } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-/* Reader audit (conservatively exclude every Markdown file):
- * scripts/check-doc-phrasing.mjs: root *.md, .agents/**, .github/**, docs/** Markdown.
- * scripts/check-sign-off-docs.mjs: guidance Markdown selected by isGuidanceDoc.
- * scripts/check-context-layer.mjs: AGENTS.md, REVIEW.md, .agents/**,
- * .claude/CLAUDE.md, .cursor/BUGBOT.md, docs/NORTH_STAR.md, docs/GLOSSARY.md.
- * scripts/check-dependency-adr.mjs: .agents/decisions/*.md.
- * scripts/check-prd-conflicts.mjs, confidence-label.mjs, validate-pr-body.mjs:
- * docs/prd/*.md; validate-pr-body also reads docs/NORTH_STAR.md history and proof.
- * scripts/enforcement-approval.mjs: docs/prd/** and docs/NORTH_STAR.md diffs.
- * scripts/required-gates.mjs and its test: docs/required-gates.md.
- * scripts/api-report.mjs, tooling/architecture/structure.mjs,
- * tooling/trial/result-facts.mjs: package etc/*.api.md reports.
- * tooling/architecture/diagram.mjs, package.json, .github/workflows/ci.yml:
- * docs/architecture/roles.mmd and result architecture.mmd.
- * tooling/trial/{compare,evidence,run-trial}.mjs and tests: docs/trials/**,
- * tooling/trial/*-prompt.md, .agents/templates/*.md and agent guidance.
- * scripts/check-anti-slop-vendor.mjs and tests: vendor anti-slop UPSTREAM.md.
- * .agents/ skills and templates reference guidance, proof and E2E behaviour maps.
- * Jest/ESLint/tsconfig configs add no prose allowlist. All scripts, tooling,
- * configs, packages, lockfiles and workflow paths remain outside the allowlist.
+/* Skipped-lane reader audit:
+ * test: jest.config.ts selects web/api src tests and package src tests;
+ * no current app test imports Markdown. Exclude result/package trees for fixtures.
+ * coverage: confidence-label.mjs --coverage-gate reads coverage JSON, changed
+ * source paths and PRD mappings; docs/prd remains covered by always-run confidence.
+ * e2e: playwright.config.ts reads result web/e2e behaviour maps, acceptance
+ * specs in tooling/trial/acceptance and app servers; no prose imports found.
+ * build: recursive package build scripts use tsc/Vite source and public assets;
+ * size-limit reads apps/web/dist assets. No docs or README bundling configured.
+ * fallow: .fallowrc.jsonc analyzes code/config entry points, not Markdown;
+ * this lane also runs arch:diagram and api:check, which read architecture.mmd,
+ * the docs architecture directory and package API reports. Keep those fully checked.
+ * CodeQL: codeql.yml selects javascript-typescript, with no Markdown inputs.
+ * Quality, tooling, PR quality, enforcement and confidence always run, covering
+ * guidance, PRDs, trials, prompts, templates and required-gates documentation.
  */
-const EXCLUDED = ['docs/architecture/**', 'docs/proof/**', 'docs/prd/**', 'docs/trials/**'];
+const EXCLUDED = [
+  'docs/architecture/**',
+  '**/architecture.mmd',
+  '**/etc/*.api.md',
+  'apps/**',
+  'packages/**',
+  'showcase/**',
+  '**/e2e/**',
+  'tooling/trial/acceptance/**',
+];
 
 /** @param {string[]} paths */
 export function docsOnly(paths) {
@@ -36,7 +40,7 @@ export function docsOnly(paths) {
       (path) =>
         posix.normalize(path) === path &&
         !path.includes('\\') &&
-        matchesGlob(path, 'docs/**/*.txt') &&
+        (path.endsWith('.md') || matchesGlob(path, 'docs/**')) &&
         !EXCLUDED.some((pattern) => matchesGlob(path, pattern)),
     )
   );
@@ -64,7 +68,7 @@ function runCli(range) {
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      result ? 'Docs-only: plain text documentation changed.\n' : 'Full CI work required.\n',
+      result ? 'Docs-only: documentation changed.\n' : 'Full CI work required.\n',
     );
   }
 }
