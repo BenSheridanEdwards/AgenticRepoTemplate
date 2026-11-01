@@ -59,6 +59,16 @@ git log -1 --format=%H <head> -- docs/NORTH_STAR.md. -->
 - [ ] No gates were bypassed or weakened.
 - Known risks or skipped checks (with reason, risk, and rollback):
 
+# PRD Behaviours to Review
+
+<!-- List every behaviour of each PRD in PRDs checked, read at the PR head:
+- `docs/prd/<feature>.md`: <summary exactly as bolded in the PRD> Evidence: <at least two words>
+Evidence names the test, proof or reason the behaviour is unchanged.
+Reviewers judge each line against the diff and evidence and record pass or fail
+with a reason. When PRDs checked is None: <reason>, write exactly - None. -->
+
+- None
+
 # PR Proof Law
 
 - [ ] I followed `.agents/project/PR_QUALITY.md` and `.agents/skills/pr-quality-contract/SKILL.md`; the `PR quality` check verifies the proof format.

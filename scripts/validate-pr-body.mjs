@@ -22,7 +22,7 @@ import { matchesGlob, posix } from 'node:path';
 import { coveredPaths, parseBehaviours } from './check-prd-conflicts.mjs';
 
 /**
- * The four template sections, in the order the contract requires them.
+ * The five template sections, in the order the contract requires them.
  * `.github/pull_request_template.md` and
  * `.agents/project/PR_QUALITY.md` are the source of truth for this list.
  */
@@ -31,6 +31,7 @@ export const REQUIRED_SECTIONS = [
   'What changed?',
   'Behavioural Proof (with video and screenshots)',
   'Verification Summary',
+  'PRD Behaviours to Review',
 ];
 
 /** The proof section must contain one of these, or the PR fails. */
@@ -544,9 +545,15 @@ function affectedPrds(changedFiles, prdCoverage) {
   if (!isPathList(changedFiles)) throw new Error('changedFiles must be an array of paths');
   if (
     !Array.isArray(prdCoverage) ||
-    prdCoverage.some((prd) => !prd || typeof prd.path !== 'string' || !isPathList(prd.patterns))
+    prdCoverage.some(
+      (prd) =>
+        !prd ||
+        typeof prd.path !== 'string' ||
+        !isPathList(prd.patterns) ||
+        !isPathList(prd.behaviours),
+    )
   ) {
-    throw new Error('prdCoverage must be an array of { path, patterns } entries');
+    throw new Error('prdCoverage must be an array of { path, patterns, behaviours } entries');
   }
   return prdCoverage.filter(({ patterns }) =>
     changedFiles.some((path) => patterns.some((pattern) => matchesGlob(path, pattern))),
@@ -594,12 +601,70 @@ function collectPrdImpactErrors(verificationBody, headSha, changedFiles, prdCove
   }
 }
 
+/** Check the review list against summaries already read at the PR head. */
+function collectBehaviourReviewErrors(section, prdsChecked, headSha, prdCoverage) {
+  if (section === undefined || prdsChecked === undefined) return [];
+  const content = stripHtmlComments(section).trim();
+  if (/^None:/i.test(prdsChecked)) {
+    return content === '- None'
+      ? []
+      : ['PRD Behaviours to Review must be exactly `- None` when PRDs checked is None.'];
+  }
+  const lines = content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const entries = lines.map((line) =>
+    /^- `(docs\/prd\/[^`/\s]+\.md)`: (.+) Evidence: (.+)$/.exec(line),
+  );
+  const shapeErrors = lines.flatMap((line, index) =>
+    !entries[index] || countWords(entries[index][3]) < 2
+      ? [
+          `Malformed PRD behaviour review line: ${quoteValue(line)}. Use \`- \`docs/prd/<feature>.md\`: <exact summary> Evidence: <at least two words>\`.`,
+        ]
+      : [],
+  );
+  if (headSha === null) return shapeErrors;
+  const named = prdsChecked.split(',').map((path) => path.trim().replace(/^`|`$/g, ''));
+  try {
+    affectedPrds([], prdCoverage);
+    return [
+      ...shapeErrors,
+      ...entries.filter(Boolean).flatMap((entry) => {
+        const [, path, summary] = entry;
+        if (!named.includes(path))
+          return [`PRD behaviour review names uncited PRD ${quoteValue(path)}.`];
+        const prd = prdCoverage.find((candidate) => candidate.path === path);
+        return prd && !prd.behaviours.includes(summary)
+          ? [`Unknown behaviour ${quoteValue(summary)} for ${path} at the PR head.`]
+          : [];
+      }),
+      ...prdCoverage
+        .filter(({ path }) => named.includes(path))
+        .flatMap(({ path, behaviours }) =>
+          behaviours.flatMap((summary) => {
+            const count = entries.filter(
+              (entry) => entry?.[1] === path && entry[2] === summary,
+            ).length;
+            return count === 1
+              ? []
+              : [
+                  `Expected exactly one review line (found ${count}): ${JSON.stringify(`- \`${path}\`: ${summary} Evidence: <at least two words>`)}`,
+                ];
+          }),
+        ),
+    ];
+  } catch (error) {
+    return [...shapeErrors, `Could not check PRD behaviours at the PR head: ${error.message}.`];
+  }
+}
+
 /**
  * Validate a PR title, body, head SHA, and head branch (`branch` is optional).
  * `headSha` is required: a full 40-character SHA, or `null` to check only the
  * fields' shapes. Repository reads use injected `listPrdFiles()` and
- * `northStarCommit(headSha)` ports. Impact uses injected `changedFiles` and
- * `prdCoverage` lists; null heads check shapes only. Returns `{ ok, errors }`.
+ * `northStarCommit(headSha)` ports. Impact and review use injected
+ * `changedFiles` and `prdCoverage` lists. Returns `{ ok, errors }`.
  */
 export function validatePullRequest({
   title,
@@ -624,6 +689,14 @@ export function validatePullRequest({
     ...collectHeadCommitErrors(verificationBody, headSha),
     ...collectReferenceErrors(verificationBody, headSha, listPrdFiles, northStarCommit),
     ...collectPrdImpactErrors(verificationBody, headSha, changedFiles, prdCoverage),
+    ...collectBehaviourReviewErrors(
+      sections[located.foundIndexBySection.get('PRD Behaviours to Review')]?.body,
+      verificationBody === undefined
+        ? undefined
+        : readReferenceField(verificationBody, 'PRDs checked').value,
+      headSha,
+      prdCoverage,
+    ),
     ...collectImageErrors(typeof body === 'string' ? body : ''),
     ...collectLocalPathErrors(typeof body === 'string' ? body : ''),
   ];
@@ -717,7 +790,11 @@ function readPrdCoverage(headSha) {
     if (prd.coverageConflicts.length > 0) throw new Error(prd.coverageConflicts.join('\n'));
     if (prd.unread.length > 0)
       throw new Error(`${path} has unread behaviour lines; run pnpm check:docs.`);
-    return { path, patterns: coveredPaths(prd) };
+    return {
+      path,
+      patterns: coveredPaths(prd),
+      behaviours: prd.behaviours.map(({ summary }) => summary),
+    };
   });
 }
 

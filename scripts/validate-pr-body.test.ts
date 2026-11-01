@@ -56,7 +56,7 @@ const INTENT_PORTS: IntentPorts = {
   })),
 };
 
-// A body that satisfies every rule: all four sections in order, each with real
+// A body that satisfies every rule: all five sections in order, each with real
 // content, inline-image proof, and a head commit naming HEAD.
 const VALID_BODY = [
   '# Why does this feature exist?',
@@ -83,6 +83,10 @@ const VALID_BODY = [
   REVIEW_SECTION,
   '',
   reviewLines('docs/prd/greeting.md'),
+  '',
+  '# PR Proof Law',
+  '',
+  '- Review the evidence.',
 ].join('\n');
 
 const VALID_TITLE = 'feat(pr-quality): validate PR bodies in CI';
@@ -1277,6 +1281,8 @@ describe('PRD coverage impact', () => {
     { prdCoverage: [null] },
     { prdCoverage: [{ path: prd, patterns: 'apps/**' }] },
     { prdCoverage: [{ patterns: ['apps/**'] }] },
+    { prdCoverage: [{ path: prd, patterns: [], behaviours: 'wrong' }] },
+    { prdCoverage: [{ path: prd, patterns: [], behaviours: [42] }] },
   ])('fails closed on malformed evidence: %j', (evidence) => {
     const options = {
       ...INTENT_PORTS,
@@ -1340,7 +1346,18 @@ describe('PRD impact git and CLI', () => {
   };
   const prepare = () => {
     write('docs/NORTH_STAR.md', '# Software factory\n');
-    write(prd, '# Greeting\n- **Covers:** `apps/web/src/routes/greeting/**`\n');
+    write(
+      prd,
+      [
+        '# Greeting',
+        '- **Covers:** `apps/web/src/routes/greeting/**`',
+        '## Behaviours',
+        ...GREETING_BEHAVIOURS.map(
+          (summary) =>
+            `- **${summary}**\n  - Proved by [greeting spec](../../apps/web/e2e/greeting.spec.ts)`,
+        ),
+      ].join('\n'),
+    );
     write(covered, 'original\n');
     const base = commit();
     write(covered, 'changed\n');
@@ -1408,6 +1425,21 @@ describe('PRD impact git and CLI', () => {
     );
     expect(accepted.status).toBe(0);
     expect(accepted.output).toContain('satisfy the quality contract');
+    const missingBehaviour = runCli(
+      base,
+      head,
+      VALID_BODY.replace(
+        '- PRD impact: None',
+        '- PRD impact: No behaviour change: comments only',
+      ).replace(
+        '- `docs/prd/greeting.md`: Says so when the api fails. Evidence: unchanged greeting tests\n',
+        '',
+      ),
+    );
+    expect(missingBehaviour.status).toBe(1);
+    expect(missingBehaviour.output).toContain(
+      '- `docs/prd/greeting.md`: Says so when the api fails. Evidence:',
+    );
   });
   it.each([
     ['# Greeting without coverage\n', 'has no `Covers` line'],

@@ -29,7 +29,13 @@ Read `.agents/project/PR_QUALITY.md`, `.github/pull_request_template.md`,
    `scripts/validate-pr-body.mjs` (the `PR quality` workflow) checks sections,
    content, proof, title, and `- Head commit:`. After each push, re-check the
    whole body against the new head and update that field.
-6. Report completion once latest-sha CI checks are green; keep CI status out of the body.
+6. Fill `PRD Behaviours to Review` after `Verification Summary`. Read every
+   cited PRD at the PR head and list every behaviour as
+   ``- `docs/prd/<feature>.md`: <summary exactly as bolded> Evidence: <at least two words>``.
+   Name the test, proof or reason the behaviour is unchanged. When `PRDs checked`
+   is `None: <reason>`, write exactly `- None`. Reviewers check each line against
+   the diff and evidence and record `pass` or `fail` with a reason per behaviour.
+7. Report completion once latest-sha CI checks are green; keep CI status out of the body.
 
 ## Inline visual proof
 

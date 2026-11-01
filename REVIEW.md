@@ -13,6 +13,12 @@
 - Check tests use the accessibility tree and public API, so they survive refactors that preserve behaviour.
 - Flag tests that pass whether or not the change works; passing on unfixed code proves nothing.
 
+## PRD behaviours
+
+- Read each cited PRD at the PR head. Check every line in `PRD Behaviours to Review` against the diff and its stated evidence, including claims that a behaviour is unchanged.
+- Record `pass` or `fail` with a one-line reason for each behaviour in the review.
+- Request changes on any `fail` or evidence that does not prove the behaviour. The validator checks list completeness and format; the reviewer judges whether the change satisfies each promise.
+
 ## Architecture and layering judgment
 
 - Confirm hooks wire state, components compute derived values during render, and pure functions hold logic. [ARCHITECTURE.md](.agents/project/ARCHITECTURE.md) defines the roles; Fallow gates imports, and review holds their intent.
