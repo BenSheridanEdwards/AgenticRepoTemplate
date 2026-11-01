@@ -181,3 +181,5 @@ For trial commands and harness details, use [the trial runbook](../TRIALS.md),
 Docs-only pull requests skip work inside application test, coverage, build, E2E,
 Fallow and CodeQL jobs after checkout (ADR 0093). Quality, tooling, security and
 the aggregate still run. CodeQL push and schedule events always analyse.
+
+Keep the seven-day minimum release age for local installs, lockfile checks, benchmark installs and CI. Future Renovate or Dependabot configuration must preserve it.

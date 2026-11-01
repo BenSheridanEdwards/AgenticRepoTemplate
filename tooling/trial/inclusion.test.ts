@@ -240,7 +240,7 @@ describe('a showcase result', () => {
     expect(JSON.parse(listed.stdout).map(({ name }: { name: string }) => name)).toEqual(
       expect.arrayContaining(['@x/web', '@x/api']),
     );
-    expect(built.code).toBe(0);
+    expect(built).toMatchObject({ code: 0, output: expect.any(String) });
     expect(existsSync(join(copy, 'showcase/x/web/dist/index.html'))).toBe(true);
   });
 

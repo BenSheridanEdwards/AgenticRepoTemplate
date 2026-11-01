@@ -42,7 +42,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Install leaves the tree clean
         run: git diff --exit-code
       - run: pnpm check:lockfile
@@ -77,7 +77,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
         if: steps.scope.outputs.docs-only != 'true'
       - uses: fallow-rs/fallow@v3.33.1
         if: steps.scope.outputs.docs-only != 'true'
@@ -140,7 +140,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
         if: steps.scope.outputs.docs-only != 'true'
       - run: pnpm test:coverage:app
         if: steps.scope.outputs.docs-only != 'true'
@@ -174,7 +174,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test:integration
 
   tooling:
@@ -191,7 +191,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile
       - run: pnpm test:tooling --shard ${{ matrix.shard }}/3
 
   coverage:
@@ -242,7 +242,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
         if: steps.scope.outputs.docs-only != 'true'
       - run: pnpm build
         if: steps.scope.outputs.docs-only != 'true'
@@ -277,7 +277,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
         if: steps.scope.outputs.docs-only != 'true'
       - name: Read Playwright version
         if: steps.scope.outputs.docs-only != 'true'
@@ -334,7 +334,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --ignore-scripts --config.minimum-release-age=0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Dependency vulnerability audit
         run: pnpm audit --audit-level=high
       - name: License compliance
