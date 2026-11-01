@@ -18,6 +18,13 @@ describe('docsOnly', () => {
     expect(docsOnly([path])).toBe(true);
   });
   it.each([
+    'docs/x.ts',
+    'docs/x.js',
+    'docs/x.json',
+    'apps/.x/a.md',
+    'showcase/.a/b.md',
+    'foo/e2e/.a/b.md',
+    'tooling/trial/acceptance/.x/a.md',
     'docs/architecture/roles.mmd',
     'packages/ui/etc/ui.api.md',
     '.github/workflows/ci.yml',

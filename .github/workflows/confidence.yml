@@ -132,7 +132,8 @@ jobs:
           COVERAGE_FILE: ${{ runner.temp }}/coverage/coverage-final.json
           BLAST_RADIUS_FILE: ${{ runner.temp }}/blast-radius/blast-radius.json
         run: |
-          CHANGED=$(gh api "repos/${REPO}/pulls/${NUMBER}/files" --paginate --jq '.[].filename')
+          # Include the old path so moves from executable inputs keep coverage enabled.
+          CHANGED=$(gh api "repos/${REPO}/pulls/${NUMBER}/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)')
           if CHANGED="$CHANGED" node --input-type=module -e 'import { docsOnly } from "./scripts/docs-only-scope.mjs"; process.exit(docsOnly(process.env.CHANGED.split("\n").filter(Boolean)) ? 0 : 1)'; then
             mkdir -p "$(dirname "$COVERAGE_FILE")"
             echo '{}' > "$COVERAGE_FILE"

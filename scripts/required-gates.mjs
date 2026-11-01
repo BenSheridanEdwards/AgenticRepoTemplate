@@ -123,6 +123,7 @@ export const REQUIRED_GATES = [
     workflow: 'codeql.yml',
     job: 'analyze',
     skipRule: DOCS_SCOPE,
+    appliesWhen: 'All runs; docs-only pull requests skip analysis after classification.',
     judgedBy: 'branch protection',
     local: 'Hosted only.',
   },
@@ -578,14 +579,24 @@ function allowedStepConditions(gate, isEvidence) {
   ];
 }
 
+function docsScopeStep(step) {
+  const summary =
+    step.name === 'Docs-only summary' &&
+    /^echo ['"][^'"\n]*['"] >> "\$GITHUB_STEP_SUMMARY"\s*$/.test(step.run ?? '');
+  const setup =
+    step.uses?.startsWith('actions/checkout@') ||
+    (step.id === 'scope' && step.run === 'node scripts/docs-only-scope.mjs');
+  return { summary, setup };
+}
+
 function checkDocsScope(gate, step, where, errors, allowed) {
   if (gate.skipRule === DOCS_SCOPE) {
-    const summary = step.name === 'Docs-only summary';
-    const setup = step.uses?.startsWith('actions/checkout@') || step.id === 'scope';
+    const { summary, setup } = docsScopeStep(step);
     const expected = summary ? "steps.scope.outputs.docs-only == 'true'" : DOCS_SCOPE.when;
-    const combined = ['always()', 'failure()', '!cancelled()'].map(
-      (prefix) => `${prefix} && ${expected}`,
-    );
+    const combined = [
+      ...(STEP_POLICY.evidence.uses.test(step.uses ?? '') ? ['always()', 'failure()'] : []),
+      '!cancelled()',
+    ].map((prefix) => `${prefix} && ${expected}`);
     if (!setup && step.if !== expected && !combined.includes(step.if)) {
       errors.push(`${where} must use the exact docs-only scope condition.`);
     }

@@ -2,7 +2,7 @@
 /** Decide docs-only scope; unknown inputs keep the full CI work enabled. */
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, realpathSync } from 'node:fs';
-import { matchesGlob, posix } from 'node:path';
+import { posix } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /* Skipped-lane reader audit:
@@ -22,15 +22,16 @@ import { pathToFileURL } from 'node:url';
  * guidance, PRDs, trials, prompts, templates and required-gates documentation.
  */
 const EXCLUDED = [
-  'docs/architecture/**',
-  '**/architecture.mmd',
-  '**/etc/*.api.md',
-  'apps/**',
-  'packages/**',
-  'showcase/**',
-  '**/e2e/**',
-  'tooling/trial/acceptance/**',
+  'docs/architecture/',
+  'apps/',
+  'packages/',
+  'showcase/',
+  'tooling/trial/acceptance/',
 ];
+
+function prosePath(path) {
+  return path.endsWith('.md') || (path.startsWith('docs/') && path.endsWith('.txt'));
+}
 
 /** @param {string[]} paths */
 export function docsOnly(paths) {
@@ -40,8 +41,11 @@ export function docsOnly(paths) {
       (path) =>
         posix.normalize(path) === path &&
         !path.includes('\\') &&
-        (path.endsWith('.md') || matchesGlob(path, 'docs/**')) &&
-        !EXCLUDED.some((pattern) => matchesGlob(path, pattern)),
+        prosePath(path) &&
+        !EXCLUDED.some((prefix) => path.startsWith(prefix)) &&
+        !path.split('/').includes('e2e') &&
+        !path.endsWith('/architecture.mmd') &&
+        !(path.includes('/etc/') && path.endsWith('.api.md')),
     )
   );
 }
@@ -73,6 +77,9 @@ function runCli(range) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
-  runCli(process.argv.length > 2 ? process.argv.slice(2) : ['HEAD^1', 'HEAD']);
+const entryPath = process.argv[1];
+const isEntry = entryPath && pathToFileURL(realpathSync(entryPath)).href === import.meta.url;
+if (isEntry) {
+  const range = process.argv.slice(2);
+  runCli(range.length ? range : ['HEAD^1', 'HEAD']);
 }

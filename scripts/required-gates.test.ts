@@ -645,14 +645,33 @@ describe('checkContract', () => {
     expect(contractErrors()).toEqual([]);
   });
 
-  it('passes steps that run in more cases than the default', () => {
+  it('passes cancellation-aware scoped steps', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(
         "      - run: pnpm test:coverage:app\n        if: steps.scope.outputs.docs-only != 'true'\n",
-        "      - run: pnpm test:coverage:app\n        if: always() && steps.scope.outputs.docs-only != 'true'\n",
+        "      - run: pnpm test:coverage:app\n        if: !cancelled() && steps.scope.outputs.docs-only != 'true'\n",
       ),
     }));
     expect(errors).toEqual([]);
+  });
+
+  it.each([
+    '',
+    "        if: steps.scope.outputs.docs-only == 'true'\n",
+    "        if: failure() && steps.scope.outputs.docs-only != 'true'\n",
+    "        name: Docs-only summary\n        if: steps.scope.outputs.docs-only == 'true'\n",
+    '        id: scope\n',
+  ])('rejects invalid gate scope %s', (condition) => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        "      - run: pnpm e2e\n        if: steps.scope.outputs.docs-only != 'true'\n",
+        `      - run: pnpm e2e\n${condition}`,
+      ),
+    }));
+    expect(errors).toEqual([
+      expect.stringContaining('must use the exact docs-only scope condition'),
+      ...(condition.includes('if:') ? [expect.stringContaining('has `if:')] : []),
+    ]);
   });
 
   it('fails when the inventory is stale', () => {
