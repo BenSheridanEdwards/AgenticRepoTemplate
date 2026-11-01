@@ -41,11 +41,17 @@ const misjudged = (paths: string[]) =>
 
 /** The test files Jest itself would run, as repository-relative paths. */
 function testsJestRuns() {
-  const listed = execFileSync('node_modules/.bin/jest', ['--listTests', '--json'], {
-    encoding: 'utf8',
+  return ['web', 'api', 'tooling', 'integration'].flatMap((project) => {
+    const listed = execFileSync(
+      'node_modules/.bin/jest',
+      ['--listTests', '--json', '--selectProjects', project],
+      {
+        encoding: 'utf8',
+      },
+    );
+    const paths: string[] = JSON.parse(listed);
+    return paths.map((path) => relative(process.cwd(), path));
   });
-  const paths: string[] = JSON.parse(listed);
-  return new Set(paths.map((path) => relative(process.cwd(), path)));
 }
 
 describe('Jest scope over workspace package sources', () => {
@@ -87,8 +93,29 @@ describe('Jest scope over workspace package sources', () => {
     expect(misjudged(['apps/web/src/vite-env.d.ts'])).toEqual([]);
   });
 
-  it('runs every test file', () => {
+  it('runs every test file in exactly one project', () => {
     const runs = testsJestRuns();
-    expect(trackedFiles.filter(isTest).filter((path) => !runs.has(path))).toEqual([]);
+    expect(
+      trackedFiles.filter(isTest).filter((path) => runs.filter((run) => run === path).length !== 1),
+    ).toEqual([]);
+    expect(runs.length).toBe(new Set(runs).size);
+  });
+
+  it.each([
+    'apps',
+    'showcase/todo-01',
+  ])('assigns %s API integration tests only to integration', (result) => {
+    const path = `${result}/api/src/server.integration.test.ts`;
+    const owners = config.projects
+      ?.filter((project) => {
+        if (typeof project !== 'object') return false;
+        return (
+          project.testMatch?.some((pattern) =>
+            matchesGlob(path, pattern.replace('<rootDir>/', '')),
+          ) && !project.testPathIgnorePatterns?.some((pattern) => new RegExp(pattern).test(path))
+        );
+      })
+      .map((project) => (typeof project === 'object' ? project.displayName : project));
+    expect(owners).toEqual(['integration']);
   });
 });
