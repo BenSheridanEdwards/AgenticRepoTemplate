@@ -23,6 +23,7 @@ interface Fixture {
   codes?: string[];
   message?: string;
   messageContains?: string;
+  reactOnly?: boolean;
 }
 const policyPaths = [
   'apps/web/src/App.tsx',
@@ -605,7 +606,97 @@ const loops = [
     'Prefer declarative iteration (map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from) instead of do...while.',
   ],
 ];
+// Oxlint-specific fixtures cover globals, preserve-manual-memoization, static-components
+// and async use-memo: their React examples emit different or no native diagnostics.
+const reactFixtures: Fixture[] = [
+  ...[
+    [
+      'rules-of-hooks',
+      "import { useState } from 'react'; export function useToggle(enabled) { if (enabled) { useState(0); } return enabled; }",
+      "import { useState } from 'react'; export function useToggle(enabled) { useState(0); return enabled; }",
+    ],
+    [
+      'exhaustive-deps',
+      "import { useEffect } from 'react'; export function useCount(count) { useEffect(() => { console.log(count); }, []); }",
+      "import { useEffect } from 'react'; export function useCount(count) { useEffect(() => { console.log(count); }, [count]); }",
+    ],
+    [
+      'error-boundaries',
+      'export function Fixture() { try { return <Child />; } catch (error) { return <div>Error</div>; } }',
+      'export function Fixture() { return <ErrorBoundary><Child /></ErrorBoundary>; }',
+    ],
+    [
+      'globals',
+      'let someGlobal = false; function Component() { const setGlobal = () => { someGlobal = true; }; setGlobal(); return <div>{String(someGlobal)}</div>; }',
+      'export function Fixture({ userId }) { return <div>{userId}</div>; }',
+    ],
+    [
+      'immutability',
+      'export function Fixture({ user }) { user.name = "Bob"; return <div>{user.name}</div>; }',
+      'export function Fixture({ user }) { const updated = { ...user, name: "Bob" }; return <div>{updated.name}</div>; }',
+    ],
+    [
+      'incompatible-library',
+      "import { useForm } from 'react-hook-form'; export function useFixture() { const { watch } = useForm(); return watch('name'); }",
+      'export function useFixture(name) { return name; }',
+    ],
+    [
+      'preserve-manual-memoization',
+      "import { useCallback } from 'react'; function useFoo(props) { const x = []; useHook(); x.push(props); return useCallback(() => { doSomething(); doSomethingElse(); return [x]; }, [x]); }",
+      "import { useMemo } from 'react'; export function useFixture({ a, b }) { return useMemo(() => ({ a, b }), [a, b]); }",
+    ],
+    [
+      'purity',
+      'export function Fixture() { const ticket = Math.random(); return <p>{ticket}</p>; }',
+      'export function Fixture({ ticket }) { return <p>{ticket}</p>; }',
+    ],
+    [
+      'refs',
+      "import { useRef } from 'react'; export function useFixture() { const ref = useRef(0); return ref.current; }",
+      "import { useRef } from 'react'; export function useFixture() { return useRef(0); }",
+    ],
+    [
+      'set-state-in-effect',
+      "import { useEffect, useState } from 'react'; export function useMirror(value) { const [copy, setCopy] = useState(value); useEffect(() => { setCopy(value); }, [value]); return copy; }",
+      'export function useMirror(value) { return value; }',
+    ],
+    [
+      'set-state-in-render',
+      "import { useState } from 'react'; export function useFixture(value) { const [count, setCount] = useState(0); setCount(value); return count; }",
+      "import { useState } from 'react'; export function useFixture(value) { return useState(value); }",
+    ],
+    [
+      'static-components',
+      'function Example(props) { const Component = createComponent(); return <Component />; }',
+      'export function Fixture() { return <div>Hello</div>; }',
+    ],
+    [
+      'void-use-memo',
+      "import { useMemo } from 'react'; export function useFixture(items) { return useMemo(() => { items.filter(Boolean); }, [items]); }",
+      "import { useMemo } from 'react'; export function useFixture(items) { return useMemo(() => items.filter(Boolean), [items]); }",
+    ],
+    [
+      'use-memo',
+      "import { useMemo } from 'react'; function Component({ a }) { const x = useMemo(async () => { await a; }, [a]); return <div>{x}</div>; }",
+      "import { useMemo } from 'react'; function Component({ a }) { const x = useMemo(() => a + 1, [a]); return <div>{x}</div>; }",
+    ],
+    [
+      'unsupported-syntax',
+      'export function Fixture() { const value = eval("1 + 1"); return <div>{value}</div>; }',
+      'export function Fixture() { const value = 1 + 1; return <div>{value}</div>; }',
+    ],
+  ].flatMap(([rule, invalid, valid], index) => [
+    {
+      path: `apps/web/src/react${index}/Fixture.tsx`,
+      source: invalid ?? '',
+      code: `${['rules-of-hooks', 'exhaustive-deps'].includes(rule ?? '') ? 'react-hooks' : 'react'}(${rule})`,
+      reactOnly: true,
+    },
+    { path: `apps/web/src/react-valid${index}/Fixture.tsx`, source: valid ?? '', reactOnly: true },
+  ]),
+];
 const fixtures: Fixture[] = [
+  ...reactFixtures,
   {
     path: 'apps/web/src/useRemote.ts',
     source:
@@ -782,11 +873,13 @@ it.each(fixtures)('$# $path has the expected policy diagnostics', ({
   codes,
   message,
   messageContains,
+  reactOnly,
 }) => {
   const found = diagnostics.filter(
-    ({ filename }) =>
+    ({ filename, code }) =>
       filename.replaceAll('\\', '/').replace(`${directory}/`, '') ===
-      fixturePath({ path, caseRoot, source: '' }),
+        fixturePath({ path, caseRoot, source: '' }) &&
+      (!reactOnly || code.startsWith('react(') || code.startsWith('react-hooks(')),
   );
   expect(found.map(({ code: actual, severity }) => [actual, severity]).sort()).toEqual(
     (codes ?? (code ? [code] : [])).map((rule) => [rule, 'error']).sort(),
