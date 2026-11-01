@@ -130,19 +130,19 @@ a missing handler fails with `TestApiProvider has no handler for <path>`.
 
 ## The rules
 
-Seeded violations in architecture and ESLint policy tests prove these checks;
+Seeded violations in architecture and Oxlint policy tests prove these checks;
 each check's message names the fix.
 
 | Rule | Enforced by | Proved by |
 | --- | --- | --- |
-| Routes own page composition. | ESLint `policy/pages-in-routes`, Fallow `web-routes` | `pnpm lint:policy`, `pnpm arch:gate` |
+| Routes own page composition. | Oxlint `policy/pages-in-routes`, Fallow `web-routes` | `pnpm lint:policy`, `pnpm arch:gate` |
 | Every route owns its code; global primitives are `@repo/ui` and the fixed api-client surface. | Structure `single-route-features`, `route-colocation` | `pnpm arch:gate` |
 | Todo and Notes routes use the exact template files, components and props. | Structure `trial-route-inventory` | `pnpm arch:gate` |
-| Sibling slices stand alone: a route imports no other route, a feature no other feature. | ESLint `policy/slice-isolation` for every result; Fallow child zones for the `apps/web` routes | `pnpm lint:policy`, `pnpm arch:gate` |
+| Sibling slices stand alone: a route imports no other route, a feature no other feature. | Oxlint `policy/slice-isolation` for every result; Fallow child zones for the `apps/web` routes | `pnpm lint:policy`, `pnpm arch:gate` |
 | Every file belongs to one role and one slice. | Fallow `coverage.requireAllFiles`; `policy/slice-isolation` for a loose file under `src/routes/` or `src/features/` | `pnpm arch:gate`, `pnpm lint:policy` |
 | A package reaches another only by its package name. | `policy/slice-isolation` (relative import out of the package) | `pnpm lint:policy` |
-| A module is imported through its `index.ts`. | ESLint `no-restricted-imports`; API reports | `pnpm lint:policy`, `pnpm api:check` |
-| Procedures validate their input with Effect Schema. | ESLint `policy/procedure-input-schema` | `pnpm lint:policy` |
+| A module is imported through its `index.ts`. | Oxlint `no-restricted-imports`; API reports | `pnpm lint:policy`, `pnpm api:check` |
+| Procedures validate their input with Effect Schema. | Oxlint `policy/procedure-input-schema` | `pnpm lint:policy` |
 | Procedures delegate to application logic. | Fallow `api-procedures` value-imports only `api-trpc`, `api-application` | `pnpm arch:gate` |
 | Integrations import domain types only. | Fallow `api-integrations` allows `api-domain` through `allowTypeOnly` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | Each feature's application imports or re-exports a value from its domain. | Structure `application-without-domain-rule` | `pnpm arch:gate` |
@@ -151,9 +151,9 @@ each check's message names the fix.
 | Effects run only in integrations or the api composition root. | `contract/effects-in-integrations`, `contract/io-effects-in-integrations`, `contract/node-io-in-integrations` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | The web reaches the api only by type: `import type` of the router type. | Fallow `allowTypeOnly` (a value import of `api-app` fails); the `types`-only export of `@repo/api`; `contract/trpc-client-in-api-client`, `contract/trpc-server-off-the-web` | `pnpm arch:gate`, `pnpm fallow:audit` |
 | UI primitives hold no business logic. | Fallow `ui` imports no other role, types included; `contract/ui-without-logic` | `pnpm arch:gate`, `pnpm fallow:audit` |
-| One React component per file. | ESLint `policy/one-component-per-file` | `pnpm lint:policy` |
-| State, server state and form state live in `use*` hooks. | ESLint `policy/state-and-effects-in-hooks` | `pnpm lint:policy` |
-| Forms validate with Effect Schema. | ESLint `policy/form-uses-effect-schema` | `pnpm lint:policy` |
+| One React component per file. | Oxlint `policy/one-component-per-file` | `pnpm lint:policy` |
+| State, server state and form state live in `use*` hooks. | Oxlint `policy/state-and-effects-in-hooks` | `pnpm lint:policy` |
+| Forms validate with Effect Schema. | Oxlint `policy/form-uses-effect-schema` | `pnpm lint:policy` |
 | Web code has the DOM and no Node; api code has no DOM and only erasable syntax; domain code has neither. | `tsconfig.json` (web, ui), `tsconfig.api.json` and `tsconfig.domain.json` over `tsconfig.base.json` | `pnpm typecheck` |
 | Behaviour is defined by each result's E2E specs. | Playwright, one project per result | `pnpm e2e` |
 

@@ -1,6 +1,6 @@
 # 98. Oxlint replaces ESLint
 
-- **Status:** Proposed
+- **Status:** Proposed; Completed by ADR 0103
 - **Date:** 2026-11-01
 - **Amends:** 0010, 0015, 0019 and [0073](0073-adopt-the-typescript-toolchain-standard.md). K10 records their supersessions.
 

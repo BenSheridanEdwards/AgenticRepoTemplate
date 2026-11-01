@@ -132,10 +132,10 @@ describe('validateStructure', () => {
   it('fails a config file at any depth below a package root', () => {
     const nested = [
       'showcase/todo-01/api/etc/.npmrc',
-      'showcase/todo-01/web/src/.oxlintrc.json',
-      'showcase/todo-01/web/src/oxlint.config.ts',
       'showcase/todo-01/web/e2e/playwright.config.ts',
+      'showcase/todo-01/web/src/.oxlintrc.json',
       'showcase/todo-01/web/src/biome.json',
+      'showcase/todo-01/web/src/oxlint.config.ts',
       'showcase/todo-01/web/src/package.json',
       'showcase/todo-01/web/src/routes/greeting/tsconfig.json',
     ];
@@ -222,7 +222,7 @@ describe('validateStructure', () => {
       'a script the reference web lacks',
       (fields: Record<string, Record<string, string>>) => ({
         ...fields,
-        scripts: { ...fields.scripts, lint: 'eslint .' },
+        scripts: { ...fields.scripts, lint: 'oxlint .' },
       }),
       /lint/,
     ],
@@ -613,8 +613,8 @@ describe('validateStructure', () => {
   });
 
   it.each([
-    '// eslint flags nested ternaries, so this uses an early return',
-    '// eslint-plugin-policy wants one component per file',
+    '// oxlint flags nested ternaries, so this uses an early return',
+    '// oxlint-plugin-policy wants one component per file',
   ])('passes the prose line comment %s', (comment) => {
     expect(
       validate({ 'showcase/todo-01/web/src/App.tsx': `${comment}\nexport const App = 1;\n` }),

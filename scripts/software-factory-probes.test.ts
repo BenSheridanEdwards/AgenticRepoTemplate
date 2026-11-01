@@ -15,7 +15,11 @@ describe('software factory evidence replay', () => {
       2, 2, 2, 0,
     ]);
     expect(report.lint.problems).toEqual([
-      { path: 'eslint.config.js', area: 'Lint config', reason: 'edits enforcement code' },
+      {
+        path: 'tooling/oxlint-plugin-policy.js',
+        area: 'Lint config',
+        reason: 'edits enforcement code',
+      },
     ]);
     expect(report.lint.proseControl).toEqual([]);
     expect(report.approval.namedUser.status.state).toBe('success');

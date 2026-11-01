@@ -29,7 +29,7 @@ describe('docsOnly', () => {
     'packages/ui/etc/ui.api.md',
     '.github/workflows/ci.yml',
     'scripts/test.mjs',
-    'eslint.config.js',
+    'oxlint.config.ts',
     'package.json',
     'pnpm-lock.yaml',
     'apps/web/src/App.tsx',

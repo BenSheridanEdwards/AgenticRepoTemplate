@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, matchesGlob, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import policy from '../tooling/eslint-plugin-policy.js';
+import policy from '../tooling/oxlint-plugin-policy.js';
 
 const ROOT = resolve(__dirname, '..');
 const command = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).scripts['lint:policy'];
@@ -788,71 +788,6 @@ const fixtures: Fixture[] = [
 let directory: string;
 let diagnostics: Diagnostic[];
 let elapsed: number;
-it('proves every rule ESLint enables except React rules and inline config', () => {
-  const reported = new Set(
-    diagnostics.filter(({ severity }) => severity === 'error').map(({ code }) => code),
-  );
-  ['apps/web/src/App.tsx', 'apps/api/src/router.ts', 'scripts/x.mjs'].forEach((path) => {
-    const result = spawnSync(join(ROOT, 'node_modules/.bin/eslint'), ['--print-config', path], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    });
-    expect(result.status).toBe(0);
-    const config = JSON.parse(result.stdout);
-    Object.entries(config.rules).forEach(([name, setting]) => {
-      if (!Array.isArray(setting) || setting[0] === 0 || /^(react-hooks|react-doctor)\//.test(name))
-        return;
-      const codes =
-        name === 'no-restricted-syntax'
-          ? ['policy(no-loops)', 'policy(no-hand-written-globs)']
-          : [name.includes('/') ? `${name.replace('/', '(')})` : `eslint(${name})`];
-      codes.forEach((code) => {
-        expect(reported).toContain(code);
-      });
-    });
-  });
-});
-it('matches all 349 React Doctor errors and settings from ESLint for App.tsx', () => {
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--experimental-strip-types',
-      '--input-type=module',
-      '-e',
-      `
-    import { ESLint } from 'eslint';
-    import config from './oxlint.config.ts';
-    import { matchesGlob } from 'node:path';
-    const path = 'apps/web/src/App.tsx';
-    const eslint = await new ESLint().calculateConfigForFile(path);
-    const rules = Object.assign({}, config.rules, ...config.overrides.filter(override => override.files.some(pattern => matchesGlob(path, pattern))).map(override => override.rules));
-    const doctor = Object.entries(rules).filter(([name]) => name.startsWith('react-doctor/'));
-    process.stdout.write(JSON.stringify({
-      expected: Object.entries(eslint.rules).filter(([name, value]) => name.startsWith('react-doctor/') && value[0] === 2).map(([name]) => name).sort(),
-      actual: doctor.map(([name]) => name).sort(),
-      severities: doctor.map(([, value]) => value),
-      settings: config.settings,
-      expectedSettings: eslint.settings,
-      react: Object.entries(rules).filter(([name]) => name.startsWith('react/')),
-    }));
-  `,
-    ],
-    { cwd: ROOT, encoding: 'utf8' },
-  );
-  expect(result.status).toBe(0);
-  const report = JSON.parse(result.stdout);
-  expect(report.expected).toHaveLength(349);
-  expect(report.actual).toEqual(report.expected);
-  expect(new Set(report.severities)).toEqual(new Set(['error']));
-  expect(report.settings).toEqual(report.expectedSettings);
-  expect(report.react).toHaveLength(15);
-  expect(report.react.sort()).toEqual(
-    reactFixtures
-      .filter(({ code }) => code)
-      .map(({ code }) => [code?.replace(/^(?:react|react-hooks)\((.+)\)$/, 'react/$1'), 'error'])
-      .sort(),
-  );
-});
 function write(path: string, source: string) {
   mkdirSync(dirname(join(directory, path)), { recursive: true });
   writeFileSync(join(directory, path), source);

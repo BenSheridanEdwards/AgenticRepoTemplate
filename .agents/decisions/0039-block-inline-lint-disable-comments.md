@@ -1,6 +1,6 @@
 # 39. Block inline lint-disable comments
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Superseded by ADR 0103 with ADR 0084
 - **Date:** 2026-10-18
 - **Amends:** [0015](0015-eslint-policy-stack-wiring.md), replacing its
   `reportUnusedDisableDirectives` line, and

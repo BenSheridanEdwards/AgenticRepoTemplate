@@ -46,7 +46,7 @@ const SUPPRESSION =
 
 /** Tool config a result could use to loosen a root gate; allowed only where `LAYOUT` names it. */
 const CONFIG_FILE =
-  /^(?:package\.json|[jt]sconfig.*\.json|biome\.jsonc?|eslint\.config\.[cm]?[jt]s|\.eslintrc.*|\.eslintignore|\.npmrc|\.nvmrc|\.gitignore|\.babelrc.*|\.swcrc|\.prettierrc.*|\.fallowrc.*|fallow\.toml|\.size-limit.*|lighthouserc.*|\.browserslistrc|(?:vite|vitest|jest|playwright|babel|postcss|tailwind|webpack|rollup|prettier|commitlint)\.config\.[cm]?[jt]s)$/;
+  /^(?:package\.json|[jt]sconfig.*\.json|biome\.jsonc?|eslint\.config\.[cm]?[jt]s|\.oxlintrc.*|oxlint\.config\.[cm]?[jt]s|\.eslintrc.*|\.eslintignore|\.npmrc|\.nvmrc|\.gitignore|\.babelrc.*|\.swcrc|\.prettierrc.*|\.fallowrc.*|fallow\.toml|\.size-limit.*|lighthouserc.*|\.browserslistrc|(?:vite|vitest|jest|playwright|babel|postcss|tailwind|webpack|rollup|prettier|commitlint)\.config\.[cm]?[jt]s)$/;
 
 /** A file that can hold a role: source and style, not a test, a declaration or a note. */
 const isRoleSource = (file) =>

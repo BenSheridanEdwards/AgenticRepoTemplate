@@ -113,7 +113,7 @@ export default {
   plugins: ['react'],
   options: { respectEslintDisableDirectives: false },
   jsPlugins: [
-    fileURLToPath(new URL('./tooling/eslint-plugin-policy.js', import.meta.url)),
+    fileURLToPath(new URL('./tooling/oxlint-plugin-policy.js', import.meta.url)),
     {
       name: 'react-doctor',
       specifier: fileURLToPath(import.meta.resolve('oxlint-plugin-react-doctor')),

@@ -23,7 +23,7 @@ When an agent gets something wrong twice, write a rule that blocks the change an
 and skills guide work; lint and CI enforce quality. Keep project skills when they earn their place; most
 skills ship with the agent.
 
-The toolchain combines Biome, ESLint, strict TypeScript over four programs, Fallow boundaries and
+The toolchain combines Biome, Oxlint, strict TypeScript over four programs, Fallow boundaries and
 `contract/<id>` rules, structure checks, and unit and E2E tests. [Quality
 gates](../.agents/project/QUALITY_GATES.md) defines the hook sequence: pre-commit checks types, staged
 formatting/lint, changed-file Fallow complexity and secrets; pre-push requires freshly fetched
@@ -38,13 +38,13 @@ The [bypass hook](../.agents/hooks/block-gate-bypass.sh) refuses common skips, i
 hook sessions and Cursor agents. Its known gaps are in [ADR 0027](../.agents/decisions/0027-block-common-hook-bypasses.md);
 clean-checkout CI and hosted required checks remain the backstop.
 
-Warnings fail Biome, ESLint and React Doctor. [ADR 0079](../.agents/decisions/0079-no-advisory-lint.md) records
+Warnings fail Biome, Oxlint and React Doctor. [ADR 0079](../.agents/decisions/0079-no-advisory-lint.md) records
 Ben's lint decision: every rule becomes an error or is removed, including Fallow's warning tier. That rollout is
 not finished yet. A console warning or error fails a Jest test or a Playwright page
 ([ADR 0086](../.agents/decisions/0086-console-warnings-fail-tests.md)); warnings-as-failures across every
 tool remains a target.
 
-ESLint rejects inline config; keep reasoned exceptions in `eslint.config.js`. `pnpm check:suppressions`
+Oxlint ignores `eslint-*` directives; keep reasoned exceptions in `oxlint.config.ts`. `pnpm check:suppressions`
 rejects every other inline suppression and coverage pragma across the repo; an exception lives in its reviewed
 allowlist ([ADR 0084](../.agents/decisions/0084-reject-every-inline-suppression.md)).
 [Conventions](../.agents/project/CONVENTIONS.md) names the enforcers.
@@ -52,8 +52,7 @@ allowlist ([ADR 0084](../.agents/decisions/0084-reject-every-inline-suppression.
 Label standards without gates as targets. Close aliases, re-exports, inline disables and config edits around
 a rule before calling it finished. Changes that loosen or rewrite enforcement need Ben's sign-off on the
 exact commit ([ADR 0024](../.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md)). Biome
-owns format and general lint; ESLint owns policy, hooks and Compiler rules. React Doctor rules block through
-ESLint where available and through CI otherwise.
+owns format and general lint; Oxlint owns policy, hooks, Compiler and React Doctor rules; the React Doctor CLI owns project checks.
 
 ### 2. Layers import downward, slices stand alone, decisions live in ADRs
 
@@ -62,11 +61,11 @@ imports flow downward; Fallow rejects unlisted edges and `coverage.requireAllFil
 source. Type-only imports may cross roles except into the UI package, subject to slice isolation and route
 co-location. Tests, E2E,
 configs, scripts and tooling sit outside the table; within-role imports obey slice isolation. A slice
-imports no sibling slice. ESLint checks static relative references, including types, in every result;
+imports no sibling slice. Oxlint checks static relative references, including types, in every result;
 computed specifiers and non-relative aliases remain gaps. Fallow child zones also check `apps/web` routes.
 Shared code lives in features or UI; role-named folders make PR scope visible.
 
-Record decisions, alternatives and trade-offs in ADRs; comments explain a line's local reason. ESLint caps
+Record decisions, alternatives and trade-offs in ADRs; comments explain a line's local reason. Oxlint caps
 package TypeScript comment groups at four lines; review judges decision content. The cap elsewhere and an
 ADR check for every new decision remain targets (`pnpm check:adr` covers new dependencies only).
 
@@ -106,8 +105,7 @@ Write transforms over `const` with `map`, `filter`, `flatMap`, `some`, `every`, 
 `Object.fromEntries` instead of loops, `let` accumulators, `push` or in-place mutation. Use `reduce` for one
 value; build arrays and objects with `map`, `flatMap` and `Object.fromEntries`. Biome rejects accumulating
 spread. Biome `style/useConst` and React Hooks immutability, globals and purity rules cover single-assignment
-bindings and mutation during render in package TypeScript. ESLint now rejects loops and parameter
-reassignment, including parameter property mutation
+bindings and mutation during render in package TypeScript. Oxlint rejects loops (`policy/no-loops`) and parameter reassignment, including parameter property mutation
 ([ADR 0079](../.agents/decisions/0079-no-advisory-lint.md)). General reassignment and other mutation remain
 held by [review](../REVIEW.md). Biome's `noForEach` and `useForOf` stay off because they steer
 toward loops.
@@ -118,8 +116,8 @@ toward loops.
 
 1. Protected enforcement paths follow [ADR 0023](../.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md)
    and later amendments, matching [GUARDS](../scripts/enforcement-approval.mjs):
-   `.github/workflows/**`, `.husky/**`, `eslint.config.js`, `commitlint.config.ts`,
-   `tooling/eslint-plugin-policy.js`, `scripts/check-suppressions.mjs`,
+   `.github/workflows/**`, `.husky/**`, `commitlint.config.ts`,
+   `tooling/oxlint-plugin-policy.js`, `scripts/check-suppressions.mjs`,
    `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`,
    `biome.json`, `vendor/anti-slop/**`, any `.oxlintrc.json` or `oxlint.config.*`,
    `docs/prd/**` and `docs/NORTH_STAR.md`. Keep checks against suppressions,
