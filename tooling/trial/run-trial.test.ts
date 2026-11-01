@@ -5,7 +5,6 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -63,7 +62,6 @@ jest.setTimeout(60_000);
 
 let sandbox: string;
 let source: string;
-let preparedCheckout: string;
 let caseDir: string;
 let checkout: string;
 let scaffold: string;
@@ -236,8 +234,6 @@ beforeAll(() => {
   git(source, 'commit', '-q', '-am', 'a scaffold whose hook fails');
   failingHookScaffold = git(source, 'rev-parse', 'HEAD');
   git(source, 'checkout', '-q', scaffold);
-  preparedCheckout = join(sandbox, 'prepared-checkout');
-  git(sandbox, 'clone', '-q', '--shared', source, preparedCheckout);
 });
 
 afterAll(() => {
@@ -460,8 +456,7 @@ describe('runTrial', () => {
     process.env = { ...savedEnv, ...gitEnv };
     caseDir = mkdtempSync(join(sandbox, 'case-'));
     checkout = join(caseDir, 'checkout');
-    // Copy a pristine clone, including its Git metadata, without starting Git per case.
-    cpSync(preparedCheckout, checkout, { recursive: true });
+    git(sandbox, 'clone', '-q', '--shared', source, checkout);
   });
 
   it.each([
