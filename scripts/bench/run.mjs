@@ -111,6 +111,24 @@ function prepare(directory, ref) {
     writeFileSync(join(directory, path), content);
   });
   command(directory, 'git', ['checkout', '-b', 'bench']);
+  // Reuse locked resolutions so offline setup needs no registry metadata.
+  const lockPath = join(directory, 'pnpm-lock.yaml');
+  const lock = readFileSync(lockPath, 'utf8');
+  const importers = Array.from({ length: packages / 2 }, (_, index) =>
+    ['web', 'api']
+      .map((kind) => {
+        const entry = lock.match(
+          new RegExp(`\n  apps/${kind}:\n[\\s\\S]*?(?=\n  \\S|\npackages:)`),
+        );
+        if (!entry) throw new Error(`Missing locked apps/${kind} importer`);
+        return entry[0]
+          .replace(`apps/${kind}:`, `showcase/bench-${String(index + 1).padStart(3, '0')}/${kind}:`)
+          .replace(/@repo\/(web|api)/g, `@bench-${String(index + 1).padStart(3, '0')}/$1`)
+          .replaceAll('link:../../packages/', 'link:../../../packages/');
+      })
+      .join(''),
+  ).join('');
+  writeFileSync(lockPath, lock.replace('\npackages:', `${importers}\npackages:`));
   command(directory, 'pnpm', ['install', '--offline', '--no-frozen-lockfile']);
   command(directory, 'git', ['add', '.']);
   command(directory, 'pnpm', ['arch:diagram']);
