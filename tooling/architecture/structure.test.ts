@@ -4,7 +4,7 @@
 import { symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { findSuppressions } from '../../scripts/check-suppressions.mjs';
-import { validateStructure } from './structure.mjs';
+import { checkStructure, validateStructure } from './structure.mjs';
 import { createMonorepo, loadRepositoryContract, resultFiles, runTool } from './temporary-monorepo';
 
 const contract = loadRepositoryContract();
@@ -706,15 +706,17 @@ describe.each(['todo', 'notes'] as const)('%s canonical route inventory', (brief
     expect(validate(files, options)).toEqual([]);
   });
 
-  it.each(
-    Object.entries(changes),
-  )('rejects %s with a repair instruction in the CLI', (_, edits) => {
+  it.each(Object.entries(changes))('rejects %s with a repair instruction', (_, edits) => {
     const repository = createMonorepo({ ...files, ...edits });
     try {
-      const run = runTool('structure.mjs', repository.directory);
-      expect(run.status).toBe(1);
-      expect(run.output).toContain('trial-route-inventory');
-      expect(run.output).toContain('.agents/templates/list-route');
+      const messages: string[] = [];
+      const report = {
+        error: (message: string) => messages.push(message),
+        log: (message: string) => messages.push(message),
+      };
+      expect(checkStructure(repository.directory, report)).toBe(false);
+      expect(messages.join('\n')).toContain('trial-route-inventory');
+      expect(messages.join('\n')).toContain('.agents/templates/list-route');
       expect(validate({ ...files, ...edits }, options)).toEqual(
         expect.arrayContaining([expect.objectContaining({ kind: 'trial-route-inventory' })]),
       );

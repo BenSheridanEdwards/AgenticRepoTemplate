@@ -537,7 +537,7 @@ export function validateStructure(input) {
   return Object.values(RULES).flatMap((rule) => rule.find(sorted));
 }
 
-function main(root) {
+export function checkStructure(root, report = console) {
   const repository = readRepository(root);
   const manifestPaths = repository.results
     .flatMap((result) => PACKAGE_KINDS.map((kind) => result[kind]))
@@ -553,19 +553,19 @@ function main(root) {
     readText: (path) => readFileSync(join(root, path), 'utf8'),
   });
   if (violations.length > 0) {
-    console.error(
+    report.error(
       violations.map((violation) => RULES[violation.kind].describe(violation)).join('\n'),
     );
     return false;
   }
   const { results } = repository;
   const count = `${results.length} result${results.length === 1 ? '' : 's'}`;
-  console.log(
+  report.log(
     `OK: ${count} checked against the structure contract (${results.map((result) => result.id).join(', ')}).`,
   );
   return true;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runCli(main);
+  runCli(checkStructure);
 }
