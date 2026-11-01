@@ -285,6 +285,54 @@ console.log(JSON.stringify(await Promise.all(${JSON.stringify(paths)}.map(async 
     ]);
   });
 
+  it('gets the same Oxlint rules as the reference, with every policy rule on', () => {
+    const paths = [WEB_FILE, API_FILE].flatMap((file) => [`showcase/x/${file}`, `apps/${file}`]);
+    const resolved = run([
+      'node',
+      '--input-type=module',
+      '-e',
+      `import config from './oxlint.config.ts';
+import { matchesGlob } from 'node:path';
+console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntries([
+  ...Object.entries(config.rules),
+  ...config.overrides.filter(({ files }) => files.some(pattern => matchesGlob(path, pattern)))
+    .flatMap(override => Object.entries(override.rules))
+]))));`,
+    ]);
+    expect(resolved.code).toBe(0);
+    const configs: Record<string, string | unknown[]>[] = JSON.parse(resolved.stdout);
+    [0, 2].forEach((index) => {
+      const showcase = configs[index] ?? {};
+      expect(showcase).toEqual(configs[index + 1]);
+      const policy = Object.entries(showcase).filter(([rule]) => rule.startsWith('policy/'));
+      expect(policy).toHaveLength(16);
+      expect(
+        policy.filter(([, value]) => (Array.isArray(value) ? value[0] : value) !== 'error'),
+      ).toEqual([]);
+    });
+  });
+
+  it('fails the Oxlint policy on a seeded violation and on nothing else', () => {
+    const command = JSON.parse(readFileSync(join(copy, 'package.json'), 'utf8')).scripts[
+      'lint:policy'
+    ].split(' && ')[0];
+    const linted = withSeed(
+      {
+        'showcase/x/web/src/routes/greeting/One.tsx':
+          'export function One() {\n  return <p>one</p>;\n}\n\nexport function Two() {\n  return <p>two</p>;\n}\n',
+      },
+      () => run(['sh', '-c', `${command} --format json showcase/x`]),
+    );
+    const findings = JSON.parse(linted.stdout).diagnostics.map(
+      ({ filename, code }: { filename: string; code: string }) =>
+        `${filename.replaceAll('\\', '/').replace(`${copy}/`, '')} ${code}`,
+    );
+    expect(linted.code).toBe(1);
+    expect(findings).toEqual([
+      'showcase/x/web/src/routes/greeting/One.tsx policy(one-component-per-file)',
+    ]);
+  });
+
   it('is a project React Doctor scans', () => {
     const scanned = run([
       'react-doctor',
