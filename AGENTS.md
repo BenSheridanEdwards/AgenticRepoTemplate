@@ -11,7 +11,7 @@ Read [REVIEW.md](REVIEW.md) before reviewing a pull request.
 ```bash
 pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
-pnpm lint:policy      # ESLint: policy, React hooks, and React Compiler rules
+pnpm lint:policy      # Oxlint, then ESLint: policy, React hooks and React Compiler rules
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
 pnpm arch:check       # architecture gate, structure check, diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd and each result's architecture.mmd

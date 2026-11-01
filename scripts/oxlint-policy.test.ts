@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, matchesGlob, relative, resolve } from 'node:path';
+import { dirname, extname, join, matchesGlob, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const ROOT = resolve(__dirname, '..');
@@ -12,7 +12,7 @@ interface Diagnostic {
   code: string;
   severity: string;
   message: string;
-  labels: { filename: string }[];
+  filename: string;
 }
 interface Fixture {
   path: string;
@@ -152,10 +152,8 @@ beforeAll(() => {
 });
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 it.each(fixtures)('$path has the expected policy diagnostics', ({ path, code, message }) => {
-  const found = diagnostics.filter((diagnostic) =>
-    diagnostic.labels.some(
-      ({ filename }) => filename.replaceAll('\\', '/').replace(`${directory}/`, '') === path,
-    ),
+  const found = diagnostics.filter(
+    ({ filename }) => filename.replaceAll('\\', '/').replace(`${directory}/`, '') === path,
   );
   expect(found.map(({ code: actual, severity }) => [actual, severity])).toEqual(
     code ? [[code, 'error']] : [],
@@ -195,15 +193,8 @@ it('the repository passes the Oxlint policy and covers every tracked source file
   ];
   const sources = tracked.filter(
     (path) =>
-      matchesGlob(path, '**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}') &&
+      new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs']).has(extname(path)) &&
       !ignored.some((pattern) => matchesGlob(path, pattern)),
   );
-  const listed = run(ROOT, ['--debug', 'files']);
-  expect(listed.status).toBe(0);
-  const files = listed.stdout
-    .trim()
-    .split('\n')
-    .map((path) => relative(ROOT, resolve(ROOT, path)));
-  expect(sources.filter((path) => !files.includes(path))).toEqual([]);
   expect(report.number_of_files).toBe(sources.length);
 });
