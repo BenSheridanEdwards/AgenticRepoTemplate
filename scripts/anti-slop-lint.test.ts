@@ -5,6 +5,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '..');
+it('runs the pinned Oxlint 1.89.0', () => {
+  const { devDependencies } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  expect(devDependencies.oxlint).toBe('1.89.0');
+  expect(devDependencies['@oxlint/plugins']).toBe(devDependencies.oxlint);
+  expect(
+    spawnSync(join(ROOT, 'node_modules/.bin/oxlint'), ['--version'], {
+      encoding: 'utf8',
+    }).stdout.trim(),
+  ).toBe('Version: 1.89.0');
+});
 let directory: string;
 function write(path: string, contents: string) {
   mkdirSync(dirname(join(directory, path)), { recursive: true });
