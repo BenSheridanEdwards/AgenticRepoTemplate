@@ -2,13 +2,14 @@
  * @jest-environment node
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
   AGGREGATE,
   checkContract,
   compareProtection,
   decideRequiredGates,
+  HOOK_STEPS,
   REQUIRED_GATES,
   renderInventory,
 } from './required-gates.mjs';
@@ -47,6 +48,10 @@ function repoFile(path: string) {
 }
 
 const REAL_FILES = {
+  '.husky/pre-commit': repoFile('.husky/pre-commit'),
+  '.husky/pre-push': repoFile('.husky/pre-push'),
+  '.husky/commit-msg': repoFile('.husky/commit-msg'),
+  'package.json': repoFile('package.json'),
   'ci.yml': repoFile('.github/workflows/ci.yml'),
   'codeql.yml': repoFile('.github/workflows/codeql.yml'),
   'lighthouse.yml': repoFile('.github/workflows/lighthouse.yml'),
@@ -56,10 +61,13 @@ const REAL_FILES = {
 
 function contractErrors(
   edit: (files: typeof REAL_FILES) => Partial<typeof REAL_FILES> = () => ({}),
+  hookSteps = HOOK_STEPS,
 ) {
   const files = { ...REAL_FILES, ...edit(REAL_FILES) };
   return checkContract({
     readWorkflow: (name: keyof typeof REAL_FILES) => files[name],
+    readFile: (name: keyof typeof REAL_FILES) => files[name],
+    hookSteps,
     inventory: renderInventory(),
   });
 }
@@ -182,6 +190,136 @@ describe('checkContract', () => {
     expect(repoFile('docs/required-gates.md')).toBe(renderInventory());
   });
 
+  it('names the pre-commit gate when its CI command is removed', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
+    }));
+    expect(errors).toContainEqual(
+      expect.stringMatching(/\.husky\/pre-commit.*pnpm lint:anti-slop/),
+    );
+  });
+
+  it('requires a CI mapping for a new pre-commit command', () => {
+    const errors = contractErrors((files) => ({
+      '.husky/pre-commit': `${files['.husky/pre-commit']}pnpm check:new\n`,
+    }));
+    expect(errors).toContain(
+      '`.husky/pre-commit` runs `pnpm check:new`, but no Required-gates lane re-runs it. ' +
+        'Add the step to CI and a row to HOOK_STEPS.',
+    );
+  });
+
+  it('requires a CI mapping for a new verify step', () => {
+    const errors = contractErrors((files) => {
+      const manifest = JSON.parse(files['package.json']);
+      manifest.scripts.verify += ' && pnpm check:new';
+      return { 'package.json': JSON.stringify(manifest) };
+    });
+    expect(errors).toContainEqual(expect.stringMatching(/verify.*pnpm check:new.*HOOK_STEPS/));
+  });
+
+  it.each([
+    '.husky/pre-commit',
+    'package.json verify',
+  ])('accepts a new command in %s only with both a mapping and a required CI step', (source) => {
+    const mapping = {
+      sources: [source],
+      command: 'pnpm check:new',
+      workflow: 'ci.yml',
+      job: 'quality',
+      steps: [{ run: 'pnpm check:new' }],
+    };
+    const edit = (files: typeof REAL_FILES) => {
+      const manifest = JSON.parse(files['package.json']);
+      manifest.scripts.verify += ' && pnpm check:new';
+      return source === '.husky/pre-commit'
+        ? { '.husky/pre-commit': `${files['.husky/pre-commit']}pnpm check:new\n` }
+        : { 'package.json': JSON.stringify(manifest) };
+    };
+    expect(contractErrors(edit, [...HOOK_STEPS, mapping])).toContainEqual(
+      expect.stringContaining('missing `pnpm check:new`'),
+    );
+    expect(
+      contractErrors(
+        (files) => ({
+          ...edit(files),
+          'ci.yml': files['ci.yml'].replace(
+            '      - run: pnpm check:docs\n',
+            '      - run: pnpm check:docs\n      - run: pnpm check:new\n',
+          ),
+        }),
+        [...HOOK_STEPS, mapping],
+      ),
+    ).toEqual([]);
+  });
+
+  it('rejects a mapping to a lane outside Required gates and branch protection', () => {
+    const hookSteps = HOOK_STEPS.map((row) =>
+      row.command === 'pnpm lint:anti-slop'
+        ? { ...row, workflow: 'pr-quality.yml', job: 'unrequired' }
+        : row,
+    );
+    const errors = contractErrors(
+      (files) => ({
+        'pr-quality.yml': `${files['pr-quality.yml']}\n  unrequired:\n    steps:\n      - run: pnpm lint:anti-slop\n`,
+      }),
+      hookSteps,
+    );
+    expect(errors).toContainEqual(
+      expect.stringContaining('neither judged by Required gates nor listed for branch protection'),
+    );
+  });
+
+  it('ignores comments and standalone echo, set and unset commands', () => {
+    expect(
+      contractErrors((files) => ({
+        '.husky/pre-commit': `${files['.husky/pre-commit']}\n# comment; pnpm ignored\necho "status"\nset -e\nunset EXAMPLE\n`,
+      })),
+    ).toEqual([]);
+  });
+
+  it.each(['&&', '||', ';', '|', '&'])('checks a command after echo joined by %s', (operator) => {
+    const errors = contractErrors((files) => ({
+      '.husky/pre-commit': `${files['.husky/pre-commit']}echo status ${operator} pnpm check:new\n`,
+    }));
+    expect(errors).toContainEqual(expect.stringContaining('runs `pnpm check:new`'));
+  });
+
+  it('requires the Fallow action to run audit', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace('command: audit', 'command: dead-code'),
+    }));
+    expect(errors).toContainEqual(
+      expect.stringMatching(/\.husky\/pre-commit.*pnpm fallow:audit.*audit/),
+    );
+  });
+
+  it('exits 1 from --check on a copy missing the CI anti-slop command', () => {
+    mkdirSync(join(process.cwd(), '.scratch'), { recursive: true });
+    const root = mkdtempSync(join(process.cwd(), '.scratch/required-gates-'));
+    try {
+      const files = {
+        ...REAL_FILES,
+        'ci.yml': REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
+        'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+        'docs/required-gates.md': renderInventory(),
+      };
+      Object.entries(files).forEach(([name, text]) => {
+        const path = join(root, name.endsWith('.yml') ? `.github/workflows/${name}` : name);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, text);
+      });
+      const result = spawnSync('node', [join(root, 'scripts/required-gates.mjs'), '--check'], {
+        encoding: 'utf8',
+        env: { PATH: process.env.PATH },
+      });
+      expect(result.status).toBe(1);
+      expect(result.stdout + result.stderr).toMatch(/\.husky\/pre-commit.*pnpm lint:anti-slop/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('fails when a required lane is dropped from the aggregate needs', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(/(needs: \[.*), e2e/, '$1'),
@@ -259,20 +397,26 @@ describe('checkContract', () => {
       'the decision step is deleted',
       /\n {6}- name: Every required lane passed[\s\S]*--decide\n/,
       '\n',
+      'pnpm verify',
     ],
     [
       'the decision step can fail quietly',
       'run: node scripts/required-gates.mjs --decide',
       'run: node scripts/required-gates.mjs --decide\n        continue-on-error: true',
+      undefined,
     ],
     [
       'the decision step skips on cancellation',
       /(Every required lane passed\n {8})if: always\(\)/,
       '$1if: !cancelled()',
+      undefined,
     ],
-  ])('fails when %s', (_label, from, to) => {
+  ])('fails when %s', (_label, from, to, missingCommand) => {
     const errors = contractErrors((files) => ({ 'ci.yml': files['ci.yml'].replace(from, to) }));
-    expect(errors).toEqual([expect.stringContaining('differs from the contract')]);
+    expect(errors).toEqual([
+      expect.stringContaining('differs from the contract'),
+      ...(missingCommand ? [expect.stringContaining('`.husky/pre-push` runs `pnpm verify`')] : []),
+    ]);
   });
 
   it.each([
@@ -282,6 +426,7 @@ describe('checkContract', () => {
       '      - run: pnpm test:coverage\n',
       "      - run: pnpm test:coverage\n        if: github.event_name == 'push'\n",
       'job `test` step "pnpm test:coverage" has `if: github.event_name == \'push\'`',
+      undefined,
     ],
     [
       'a stand-alone check step never runs',
@@ -289,6 +434,7 @@ describe('checkContract', () => {
       '      - name: Validate\n',
       '      - name: Validate\n        if: false\n',
       'job `pr-body` step "Validate" has `if: false`',
+      undefined,
     ],
     [
       'a lane step runs only after a failure',
@@ -296,6 +442,7 @@ describe('checkContract', () => {
       '      - run: pnpm e2e\n',
       '      - run: pnpm e2e\n        if: failure()\n',
       'job `e2e` step "pnpm e2e" has `if: failure()`',
+      undefined,
     ],
     [
       'a lane step reports failure as success',
@@ -303,6 +450,7 @@ describe('checkContract', () => {
       '      - run: pnpm e2e\n',
       '      - run: pnpm e2e\n        continue-on-error: true\n',
       'job `e2e` step "pnpm e2e" sets `continue-on-error`',
+      undefined,
     ],
     [
       'a lane command ends in || true',
@@ -310,6 +458,7 @@ describe('checkContract', () => {
       'run: pnpm test:coverage\n',
       'run: pnpm test:coverage || true\n',
       'job `test` step "pnpm test:coverage || true" ignores its exit code with `|| true`',
+      'pnpm test:coverage',
     ],
     [
       'a lane command ends in || :',
@@ -317,6 +466,7 @@ describe('checkContract', () => {
       'run: pnpm build\n',
       'run: pnpm build || :\n',
       'job `build` step "pnpm build || :" ignores its exit code with `|| :`',
+      'pnpm build',
     ],
     [
       'a lane command ends in || exit 0',
@@ -324,6 +474,7 @@ describe('checkContract', () => {
       '      - uses: github/codeql-action/analyze@v4\n',
       '      - run: npx tsc || exit 0\n      - uses: github/codeql-action/analyze@v4\n',
       'job `analyze` step "npx tsc || exit 0" ignores its exit code with `|| exit 0`',
+      undefined,
     ],
     [
       'a multi-line run block turns off errexit',
@@ -331,12 +482,18 @@ describe('checkContract', () => {
       '          expected="fallow',
       '          set +e\n          expected="fallow',
       'job `fallow` step "Assert the Fallow CLI matches the package.json pin" ignores its exit code with `set +e`',
+      undefined,
     ],
-  ])('fails when %s', (_label, workflow, from, to, message) => {
+  ])('fails when %s', (_label, workflow, from, to, message, missingCommand) => {
     const errors = contractErrors((files) => ({
       [workflow]: files[workflow].replace(from, to),
     }));
-    expect(errors).toEqual([expect.stringContaining(message)]);
+    expect(errors).toEqual([
+      expect.stringContaining(message),
+      ...(missingCommand
+        ? [expect.stringContaining(`\`package.json verify\` runs \`${missingCommand}\``)]
+        : []),
+    ]);
   });
 
   it.each([
@@ -435,6 +592,7 @@ describe('checkContract', () => {
   it('fails when the inventory is stale', () => {
     const errors = checkContract({
       readWorkflow: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
+      readFile: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
       inventory: renderInventory().replace('Security audit', 'Security'),
     });
     expect(errors.join('\n')).toContain('pnpm gates:inventory');

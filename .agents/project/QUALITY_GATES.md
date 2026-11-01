@@ -12,8 +12,8 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. | commitlint via commit-msg |
 | Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome (lint + format + imports), `pnpm lint:anti-slop`, `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). | Run the hook commands below |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main (the one local up-to-date check), then `pnpm verify` (the full local gate suite, including the production build) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. | `pnpm verify` + `pnpm e2e` |
-| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression policy, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. | `pnpm verify` + `pnpm e2e` |
-| Vendored anti-slop | `.oxlintrc.json` (`pnpm lint:anti-slop`) | Clean generic and Effect tag rules at `error`, with `--deny-warnings`, in pre-commit, `pnpm verify` and the existing CI quality job. `pnpm check:suppressions` rejects inline Oxlint rule directives. | `pnpm lint:anti-slop` |
+| Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression policy, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage, build, size, E2E. A console warning or error fails a Jest test or a Playwright page ([ADR 0086](../decisions/0086-console-warnings-fail-tests.md)). | `pnpm verify` + `pnpm e2e` |
+| Vendored anti-slop | `.oxlintrc.json` (`pnpm lint:anti-slop`) | Clean generic and Effect tag rules at `error`, with `--deny-warnings`, in pre-commit, `pnpm verify` and the existing CI quality job. `pnpm check:suppressions` rejects every inline suppression and coverage pragma; an exception lives in `ALLOWED_SUPPRESSIONS` in `scripts/check-suppressions.mjs`, which needs sign-off. | `pnpm lint:anti-slop` |
 | Context layer | `scripts/check-context-layer.mjs` (`pnpm check:context`) | Operating contract, harness wiring, project docs, house skills, ADR naming and unique context sections. | `pnpm check:context` |
 | CI quality | `.github/workflows/ci.yml` | PR head contains main, context layer, suppression policy, positive doc phrasing, PRD links, dependency ADR check, typecheck, Biome, ESLint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture gate, role diagram and API report freshness, tests, build, security. `Required gates` judges every lane and checks the contract. The E2E lane starts after unit tests pass ([ADR 0065](../decisions/0065-e2e-waits-for-unit-tests.md)). | `pnpm verify` + `pnpm e2e`; security audit is hosted |
 | CI security | `.github/workflows/codeql.yml` | CodeQL JavaScript/TypeScript analysis. | Hosted only |
@@ -22,7 +22,7 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 | Doc phrasing | `scripts/check-doc-phrasing.mjs` and `scripts/check-sign-off-docs.mjs` (`pnpm check:docs`) | Positive rules and guarded sign-off paths ([ADR 0021](../decisions/0021-guidance-docs-state-the-action.md), [ADR 0030](../decisions/0030-docs-name-only-guarded-paths-for-sign-off.md)). | `pnpm check:docs` |
 | PRD links | `scripts/check-prd-conflicts.mjs` (`pnpm check:docs`) | PRD behaviours link running E2E tests ([ADR 0045](../decisions/0045-prds-state-intent-and-link-their-specs.md)). | `pnpm check:docs` |
 | Dependency ADR | `scripts/check-dependency-adr.mjs` (`pnpm check:adr`) | New dependency names appear in an ADR added with the change ([ADR 0020](../decisions/0020-pr-process-checks.md)). | `pnpm check:adr` |
-| Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract. | `pnpm gates:check` |
+| Required gates | `scripts/required-gates.mjs` (`pnpm gates:check`) | The `Required gates` job fails unless every `ci.yml` lane passed or legitimately did not apply; the workflows and `docs/required-gates.md` match the contract, and every hook command and `verify` step has a required CI equivalent. | `pnpm gates:check` |
 | Enforcement sign-off | `.github/workflows/enforcement-approval.yml` (`scripts/enforcement-approval.mjs`) | Head-specific approval for enforcement or product-intent changes; see [Enforcement approval](#enforcement-approval). | `node scripts/enforcement-approval.mjs --git origin/main HEAD` |
 | Merge confidence | `.github/workflows/confidence.yml` (`scripts/confidence-label.mjs`) | Advisory green, amber or red label from gates, E2E/PRD coverage, unit coverage and import blast radius; gates nothing. | `node scripts/confidence-label.mjs --decide` with head evidence |
 | `pnpm verify`, CI | Lockfile checker | Stable installs | `pnpm check:lockfile` |
@@ -119,6 +119,15 @@ Recorded trial exclusions are documented in
 [`scripts/required-gates.mjs`](../../scripts/required-gates.mjs) owns the check
 contract and generates [the inventory](../../docs/required-gates.md) with
 `pnpm gates:inventory`. `pnpm gates:check` checks workflow and inventory freshness.
+Its `HOOK_STEPS` table maps every command in the three local hooks and every
+step of `verify` to the required lane and CI step that repeats its check.
+Add the CI step and its mapping together when adding a local gate. A missing
+mapping, CI step or required lane fails the check
+([CI re-runs every local hook step](../decisions/0087-ci-re-runs-every-local-hook-step.md)).
+Staged Biome maps to the full-tree check, staged secrets to the history scan,
+and commitlint to PR-title validation because the title becomes the squash
+commit message. `verify` runs across the aggregate's lanes; each child step
+has its own mapping.
 Require the aggregate and the inventory's stand-alone checks in branch protection;
 see [ADR 0017](../decisions/0017-required-gates-aggregate.md) for aggregate
 semantics and [hosted prerequisites](../../.github/SECURITY.md) for setup.
