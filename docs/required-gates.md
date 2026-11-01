@@ -17,7 +17,7 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 | Production build | `ci.yml` `build` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | End-to-end behaviour map | `ci.yml` `e2e` | `Required gates` | Every run. | `pnpm e2e`, pre-push hook |
 | Security audit | `ci.yml` `security` | `Required gates` | Every run. | Hosted only. Pre-commit scans staged files for secrets. |
-| Analyze (javascript-typescript) | `codeql.yml` `analyze` | Branch protection | Every run. | Hosted only. |
+| Analyze (javascript-typescript) | `codeql.yml` `analyze` | Branch protection | All runs; docs-only pull requests skip analysis after classification. | Hosted only. |
 | Lighthouse budgets | `lighthouse.yml` `lighthouse` | Branch protection | Pull requests. Audits run only when `scripts/lighthouse-scope.mjs` finds UI-relevant files; otherwise the job passes without auditing. | `node scripts/lighthouse-scope.mjs origin/main...HEAD`, then `pnpm build && pnpm lhci` |
 | Visual regression | `visual.yml` `visual` | Branch protection | Pull requests. Reference screenshots run on the same UI-relevant changes as Lighthouse; other changes pass without capturing. | `pnpm visual` (Linux Chromium) |
 | Validate PR body and title | `pr-quality.yml` `pr-body` | Branch protection | Pull requests not opened by a bot account. | `pnpm validate:pr` with `PR_TITLE` and `PR_BODY` set |
@@ -65,7 +65,7 @@ the full tree and history rather than staged files.
 Inside every job above, `pnpm gates:check` also fails on a step that:
 
 - Sets `continue-on-error`, unless it is an evidence upload (`actions/upload-artifact`).
-- Has an `if:` other than `always()`, `!cancelled()`, `failure()` on an evidence upload, or the job's declared skip condition (Lighthouse budgets: `steps.changes.outputs.ui-changed == 'true'`; Visual regression: `steps.changes.outputs.ui-changed == 'true'`).
+- Has an `if:` other than `always()`, `!cancelled()`, `failure()` on an evidence upload, or the job's declared skip condition (Code intelligence (Fallow): `steps.scope.outputs.docs-only != 'true'`; Unit + component tests: `steps.scope.outputs.docs-only != 'true'`; Changed-file coverage: `steps.scope.outputs.docs-only != 'true'`; Production build: `steps.scope.outputs.docs-only != 'true'`; End-to-end behaviour map: `steps.scope.outputs.docs-only != 'true'`; Analyze (javascript-typescript): `steps.scope.outputs.docs-only != 'true'`; Lighthouse budgets: `steps.changes.outputs.ui-changed == 'true'`; Visual regression: `steps.changes.outputs.ui-changed == 'true'`).
 - Ignores a command's exit code with any of `|| true`, `|| :`, `|| exit 0`, `set +e`.
 
 ## Checks to require in branch protection

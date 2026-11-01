@@ -26,9 +26,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: scope
+        name: Detect docs-only changes
+        run: node scripts/docs-only-scope.mjs
       - uses: github/codeql-action/init@v4
+        if: steps.scope.outputs.docs-only != 'true'
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@v4
+        if: steps.scope.outputs.docs-only != 'true'
         with:
           category: '/language:javascript-typescript'
+      - name: Docs-only summary
+        if: steps.scope.outputs.docs-only == 'true'
+        run: echo "Docs-only change; lane work skipped." >> "$GITHUB_STEP_SUMMARY"
