@@ -23,6 +23,7 @@ interface Fixture {
   codes?: string[];
   message?: string;
   messageContains?: string;
+  reactOnly?: boolean;
 }
 const policyPaths = [
   'apps/web/src/App.tsx',
@@ -67,6 +68,7 @@ function ExtraPage() { return <p />; }`
         'policy(state-and-effects-in-hooks)',
         'policy(form-uses-effect-schema)',
         'policy(slice-isolation)',
+        'react-hooks(rules-of-hooks)',
         ...(api ? ['policy(procedure-input-schema)'] : []),
         ...(component
           ? [
@@ -605,7 +607,104 @@ const loops = [
     'Prefer declarative iteration (map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from) instead of do...while.',
   ],
 ];
+// Oxlint-specific fixtures cover globals, preserve-manual-memoization, static-components
+// and async use-memo: their React examples emit different or no native diagnostics.
+// Source: oxc-project/oxc at oxlint_v1.89.0, crates/oxc_linter/src/rules/react/*.rs.
+const reactFixtures: Fixture[] = [
+  ...[
+    [
+      'rules-of-hooks',
+      "import { useState } from 'react'; export function Toggle({ enabled }: { enabled: boolean }) { if (enabled) { useState(0); } return <p>toggle</p>; }",
+      "import { useState } from 'react'; export function Toggle({ enabled }: { enabled: boolean }) { useState(0); return <p>{String(enabled)}</p>; }",
+    ],
+    [
+      'exhaustive-deps',
+      "import { useEffect } from 'react'; export function useCount(count) { useEffect(() => { console.log(count); }, []); }",
+      "import { useEffect } from 'react'; export function useCount(count) { useEffect(() => { console.log(count); }, [count]); }",
+    ],
+    [
+      'error-boundaries',
+      'export function Fixture() { try { return <Child />; } catch (error) { return <div>Error</div>; } }',
+      'export function Fixture() { return <ErrorBoundary><Child /></ErrorBoundary>; }',
+    ],
+    [
+      'globals',
+      'let someGlobal = false; function Component() { const setGlobal = () => { someGlobal = true; }; setGlobal(); return <div>{String(someGlobal)}</div>; }',
+      'export function Fixture({ userId }) { return <div>{userId}</div>; }',
+    ],
+    [
+      'immutability',
+      'export function Fixture({ user }) { user.name = "Bob"; return <div>{user.name}</div>; }',
+      'export function Fixture({ user }) { const updated = { ...user, name: "Bob" }; return <div>{updated.name}</div>; }',
+    ],
+    [
+      'incompatible-library',
+      "import { useForm } from 'react-hook-form'; export function useFixture() { const { watch } = useForm(); return watch('name'); }",
+      'export function useFixture(name) { return name; }',
+    ],
+    [
+      'preserve-manual-memoization',
+      "import { useCallback } from 'react'; function useFoo(props) { const x = []; useHook(); x.push(props); return useCallback(() => { doSomething(); doSomethingElse(); return [x]; }, [x]); }",
+      "import { useMemo } from 'react'; export function useFixture({ a, b }) { return useMemo(() => ({ a, b }), [a, b]); }",
+    ],
+    [
+      'purity',
+      'export function Fixture() { const ticket = Math.random(); return <p>{ticket}</p>; }',
+      'export function Fixture({ ticket }) { return <p>{ticket}</p>; }',
+    ],
+    [
+      'refs',
+      "import { useRef } from 'react'; export function useFixture() { const ref = useRef(0); return ref.current; }",
+      "import { useRef } from 'react'; export function useFixture() { return useRef(0); }",
+    ],
+    [
+      'set-state-in-effect',
+      "import { useEffect, useState } from 'react'; export function useMirror(value) { const [copy, setCopy] = useState(value); useEffect(() => { setCopy(value); }, [value]); return copy; }",
+      'export function useMirror(value) { return value; }',
+    ],
+    [
+      'set-state-in-render',
+      "import { useState } from 'react'; export function useFixture(value) { const [count, setCount] = useState(0); setCount(value); return count; }",
+      "import { useState } from 'react'; export function useFixture(value) { return useState(value); }",
+    ],
+    [
+      'static-components',
+      'function Example(props) { const Component = createComponent(); return <Component />; }',
+      'export function Fixture() { return <div>Hello</div>; }',
+    ],
+    [
+      'void-use-memo',
+      "import { useMemo } from 'react'; export function useFixture(items) { return useMemo(() => { items.filter(Boolean); }, [items]); }",
+      "import { useMemo } from 'react'; export function useFixture(items) { return useMemo(() => items.filter(Boolean), [items]); }",
+    ],
+    [
+      'use-memo',
+      "import { useMemo } from 'react'; function Component({ a }) { const x = useMemo(async () => { await a; }, [a]); return <div>{x}</div>; }",
+      "import { useMemo } from 'react'; function Component({ a }) { const x = useMemo(() => a + 1, [a]); return <div>{x}</div>; }",
+    ],
+    [
+      'unsupported-syntax',
+      'export function Fixture() { const value = eval("1 + 1"); return <div>{value}</div>; }',
+      'export function Fixture() { const value = 1 + 1; return <div>{value}</div>; }',
+    ],
+  ].flatMap(([rule, invalid, valid], index) => [
+    {
+      path: `apps/web/src/react${index}/Fixture.tsx`,
+      source: invalid ?? '',
+      code: `${['rules-of-hooks', 'exhaustive-deps'].includes(rule ?? '') ? 'react-hooks' : 'react'}(${rule})`,
+      codes:
+        rule === 'preserve-manual-memoization'
+          ? ['react(preserve-manual-memoization)', 'react-hooks(exhaustive-deps)']
+          : rule === 'use-memo'
+            ? ['react(use-memo)', 'react(void-use-memo)']
+            : undefined,
+      reactOnly: true,
+    },
+    { path: `apps/web/src/react-valid${index}/Fixture.tsx`, source: valid ?? '', reactOnly: true },
+  ]),
+];
 const fixtures: Fixture[] = [
+  ...reactFixtures,
   {
     path: 'apps/web/src/useRemote.ts',
     source:
@@ -710,6 +809,7 @@ it('matches all 349 React Doctor errors and settings from ESLint for App.tsx', (
       severities: doctor.map(([, value]) => value),
       settings: config.settings,
       expectedSettings: eslint.settings,
+      react: Object.entries(rules).filter(([name]) => name.startsWith('react/')),
     }));
   `,
     ],
@@ -721,6 +821,13 @@ it('matches all 349 React Doctor errors and settings from ESLint for App.tsx', (
   expect(report.actual).toEqual(report.expected);
   expect(new Set(report.severities)).toEqual(new Set(['error']));
   expect(report.settings).toEqual(report.expectedSettings);
+  expect(report.react).toHaveLength(15);
+  expect(report.react.sort()).toEqual(
+    reactFixtures
+      .filter(({ code }) => code)
+      .map(({ code }) => [code?.replace(/^(?:react|react-hooks)\((.+)\)$/, 'react/$1'), 'error'])
+      .sort(),
+  );
 });
 function write(path: string, source: string) {
   mkdirSync(dirname(join(directory, path)), { recursive: true });
@@ -782,11 +889,13 @@ it.each(fixtures)('$# $path has the expected policy diagnostics', ({
   codes,
   message,
   messageContains,
+  reactOnly,
 }) => {
   const found = diagnostics.filter(
-    ({ filename }) =>
+    ({ filename, code }) =>
       filename.replaceAll('\\', '/').replace(`${directory}/`, '') ===
-      fixturePath({ path, caseRoot, source: '' }),
+        fixturePath({ path, caseRoot, source: '' }) &&
+      (!reactOnly || code.startsWith('react(') || code.startsWith('react-hooks(')),
   );
   expect(found.map(({ code: actual, severity }) => [actual, severity]).sort()).toEqual(
     (codes ?? (code ? [code] : [])).map((rule) => [rule, 'error']).sort(),

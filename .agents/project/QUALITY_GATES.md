@@ -77,8 +77,9 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
 - Biome owns formatting, import ordering, and general JavaScript/TypeScript
   lint.
 - Oxlint runs the core policy beside ESLint during the swap (`pnpm lint:policy`),
-  before ESLint's policy rules, React hooks rules, React
-  Compiler rules, and the existing React Doctor rules. Oxlint also runs the
+  including React hooks and Compiler rules (`react/*`) in result sources.
+  Compiler `config` and `gating` remain ESLint-only until retirement.
+  ESLint keeps its existing rules during the overlap. Oxlint also runs the
   same 349 React Doctor rules through `oxlint-plugin-react-doctor` with curated
   settings until ESLint retires.
   The repository's policy plugin runs on Oxlint and ESLint until ESLint is retired.
