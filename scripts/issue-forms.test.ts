@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { matchesGlob, resolve } from 'node:path';
 
 interface IssueField {
   id: string;
   type: string;
-  attributes: { label: string; value?: string };
+  attributes: { label: string; placeholder?: string; value?: string };
   validations?: { required?: boolean };
 }
 
@@ -56,7 +56,56 @@ describe('PRD change issue form', () => {
     ]);
   });
 
-  it('keeps blank issues enabled', () => {
-    expect(config).toEqual(expect.objectContaining({ blank_issues_enabled: true }));
+  it('turns blank issues off', () => {
+    expect(config).toEqual(expect.objectContaining({ blank_issues_enabled: false }));
+  });
+});
+
+const formsDirectory = resolve(__dirname, '../.github/ISSUE_TEMPLATE');
+const requiredFieldsByForm = new Map<string, string[]>([
+  ['prd-change.yml', ['proposed-prd-diff', 'conflicting-prd', 'outcome']],
+  ['intent.yml', ['intent', 'prd', 'outcome']],
+]);
+
+describe('issue intake', () => {
+  it('the intent form requires an intent, a PRD and an outcome', () => {
+    const intentForm: IssueForm = JSON.parse(
+      readFileSync(resolve(formsDirectory, 'intent.yml'), 'utf8'),
+    );
+    expect(intentForm.name).toBe('Intent');
+    expect(intentForm.description).toEqual(expect.stringMatching(/\S/));
+    expect(intentForm.body.map((field) => field.id).sort()).toEqual(['intent', 'outcome', 'prd']);
+    expect(new Set(intentForm.body.map((field) => field.id)).size).toBe(intentForm.body.length);
+    intentForm.body.forEach((field) => {
+      expect(field.validations?.required).toBe(true);
+      expect(field.attributes.placeholder).toEqual(expect.stringMatching(/\S/));
+      expect(field.attributes).not.toHaveProperty('value');
+    });
+  });
+
+  it.each(
+    readdirSync(formsDirectory).filter(
+      (file) => matchesGlob(file, '*.yml') && file !== 'config.yml',
+    ),
+  )('every issue form requires an intent, a PRD link and a North Star outcome: %s', (file) => {
+    const requiredFields = requiredFieldsByForm.get(file);
+    if (!requiredFields)
+      throw new Error(`Map the required intent, PRD and outcome fields for ${file}`);
+    const issueForm: IssueForm = JSON.parse(readFileSync(resolve(formsDirectory, file), 'utf8'));
+    expect(new Set(issueForm.body.map((field) => field.id)).size).toBe(issueForm.body.length);
+    requiredFields.forEach((id) => {
+      const fields = issueForm.body.filter((field) => field.id === id);
+      expect(fields).toHaveLength(1);
+      expect(fields[0]).toEqual(
+        expect.objectContaining({
+          type: expect.stringMatching(/^(input|textarea)$/),
+          attributes: expect.objectContaining({ placeholder: expect.stringMatching(/\S/) }),
+          validations: expect.objectContaining({ required: true }),
+        }),
+      );
+    });
+    issueForm.body.forEach((field) => {
+      expect(field.attributes).not.toHaveProperty('value');
+    });
   });
 });
