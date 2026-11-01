@@ -34,8 +34,9 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: node scripts/main-tree-passed.mjs >> "$GITHUB_OUTPUT"
+      # !cancelled(): a failed tree check must still dispatch CI (fail closed).
       - name: Run the full CI for a new tree
-        if: steps.tree.outputs.passed != 'true'
+        if: ${{ !cancelled() && steps.tree.outputs.passed != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

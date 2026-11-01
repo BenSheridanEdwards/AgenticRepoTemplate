@@ -98,4 +98,10 @@ describe('workflow wiring', () => {
     expect(workflow('main-tree.yml')).toContain('run: node scripts/main-tree-passed.mjs');
     expect(workflow('main-tree.yml')).toContain('gh workflow run ci.yml');
   });
+
+  it('still runs CI on main when the tree check step fails', () => {
+    expect(workflow('main-tree.yml')).toMatch(
+      /^ {8}if: \$\{\{ !cancelled\(\) && steps\.tree\.outputs\.passed != 'true' \}\}$/m,
+    );
+  });
 });
