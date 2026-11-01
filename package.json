@@ -10,6 +10,7 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "bench": "node scripts/bench/run.mjs",
     "dev": "pnpm --parallel --filter @repo/web --filter @repo/api dev",
     "build": "pnpm -r build",
     "preview": "pnpm --filter @repo/web preview",

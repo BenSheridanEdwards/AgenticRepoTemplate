@@ -24,8 +24,9 @@ test.each([false, true])('isolated benchmark cleans up (type error: %s)', (injec
   expect(result.status).toBe(inject ? 1 : 0);
   if (inject) expect(result.stderr).toContain('typecheck');
   else
-    for (const mode of ['cold', 'warm', 'one-change'])
+    ['cold', 'warm', 'one-change'].forEach((mode) => {
       expect(result.stdout).toMatch(new RegExp(`\\| typecheck \\| ${mode} \\| \\d+ \\|`));
+    });
   const directory = result.stdout.match(/Workspace: (.+)/)?.[1];
   expect(directory).toBeDefined();
   expect(existsSync(String(directory))).toBe(false);

@@ -1,0 +1,33 @@
+name: Workspace benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: Number of generated workspace packages (even, at least 2)
+        default: '60'
+      compare:
+        description: Baseline Git ref
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm install --frozen-lockfile
+      - name: Measure workspace gates
+        env:
+          PACKAGES: ${{ inputs.packages }}
+          COMPARE: ${{ inputs.compare }}
+        run: pnpm bench --packages "$PACKAGES" --compare "$COMPARE"

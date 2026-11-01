@@ -10,6 +10,7 @@ Read [REVIEW.md](REVIEW.md) before reviewing a pull request.
 
 ```bash
 pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
+pnpm bench            # measure cold, warm and one-change gates on 60 generated packages
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # Oxlint, then ESLint: policy, React hooks and React Compiler rules
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
