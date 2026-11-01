@@ -49,24 +49,33 @@ settings after copying the workflow definitions.
    enablement before expecting CodeQL results in the Security tab. This is
    separate from Actions permissions and from branch protection.
    See [CodeQL availability](https://docs.github.com/en/code-security/concepts/code-scanning/code-scanning).
-3. Have an authorised maintainer configure and verify the required checks in
-   branch protection or an applicable ruleset. Use the exact check names in
-   [required-gates.md](../docs/required-gates.md), plus `enforcement-approval` for the
-   existing human approval policy. Review bypass permissions as well.
-4. Check a real pull request at its latest head. Confirm the checks run and the
+3. Have an authorised maintainer create an active ruleset targeting `main`, the
+   recommended setup. Require exactly the checks in the generated
+   [inventory](../docs/required-gates.md) and its `enforcement-approval` commit
+   status for the existing human approval policy. Review bypass permissions.
+   Classic branch protection is also supported.
+4. Run `pnpm gates:protection` after each settings change, from the destination
+   repository with an authenticated `gh` session. Check a real pull request at
+   its latest head. Confirm the checks run and the
    platform prevents merging while a required check fails or approval is absent.
 
 Read-only checks (replace `OWNER/REPO` with your repository):
 
 ```sh
 gh api repos/OWNER/REPO/branches/main/protection
-gh api repos/OWNER/REPO/rulesets
+gh api repos/OWNER/REPO/rules/branches/main
 gh api repos/OWNER/REPO/code-scanning/alerts
-gh api repos/OWNER/REPO/branches/main/protection/required_status_checks | node scripts/required-gates.mjs --protection
+pnpm gates:protection
 ```
 
 An upgrade-required response means the platform prerequisite is unmet. An API
 permission error needs investigation; verify installed protection separately.
+The command unions ruleset and classic required contexts. A missing source
+(404 or "Branch not protected") contributes no contexts. Classic protection
+needs admin read; on 403 the command reports that limit and judges the ruleset
+contexts. Rulesets need repository read access. Other API errors fail the check.
+For saved JSON from either endpoint, use
+`node scripts/required-gates.mjs --protection` with the JSON on stdin.
 `pnpm gates:check` validates repository files only. The generated inventory's
 "Branch protection" column identifies the intended enforcement mechanism; verify
 live configuration separately. Until the settings and a failing-check merge

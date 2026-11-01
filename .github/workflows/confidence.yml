@@ -69,6 +69,7 @@ jobs:
             scripts/confidence-label.mjs
             scripts/blast-radius.mjs
             scripts/required-gates.mjs
+            scripts/enforcement-approval.mjs
             jest.config.ts
             .nvmrc
           sparse-checkout-cone-mode: false

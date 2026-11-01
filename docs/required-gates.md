@@ -75,6 +75,8 @@ Inside every job above, `pnpm gates:check` also fails on a step that:
 - Lighthouse budgets
 - Visual regression
 - Validate PR body and title
+- enforcement-approval
 
 Compare the live settings with
-`gh api repos/OWNER/REPO/branches/main/protection/required_status_checks | node scripts/required-gates.mjs --protection`.
+`pnpm gates:protection`. It unions applicable rulesets and classic protection on `main`.
+`enforcement-approval` is a required commit status, separate from check runs.

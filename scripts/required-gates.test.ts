@@ -357,6 +357,7 @@ describe('checkContract', () => {
             ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
             : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
         'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+        'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
         'docs/required-gates.md': renderInventory(),
       };
       Object.entries(files).forEach(([name, text]) => {
@@ -659,6 +660,7 @@ describe('checkContract', () => {
 describe('compareProtection', () => {
   const selectable = [
     AGGREGATE.check,
+    'enforcement-approval',
     ...GATES.filter((gate) => gate.judgedBy === 'branch protection').map((gate) => gate.check),
   ];
 
@@ -669,9 +671,11 @@ describe('compareProtection', () => {
   });
 
   it('fails when enforcement-approval is not required', () => {
-    expect(compareProtection({ contexts: selectable }).errors).toContainEqual(
-      expect.stringContaining('enforcement-approval'),
-    );
+    expect(
+      compareProtection({
+        contexts: selectable.filter((check) => check !== 'enforcement-approval'),
+      }).errors,
+    ).toContainEqual(expect.stringContaining('enforcement-approval'));
   });
 
   it('passes when branch protection requires the aggregate and every stand-alone check', () => {
@@ -691,7 +695,7 @@ describe('compareProtection', () => {
     expect(errors).toEqual([expect.stringContaining('Visual style')]);
   });
 
-  const required = [...selectable, 'enforcement-approval'];
+  const required = selectable;
   const ruleset = (contexts: string[]) => [
     {
       type: 'required_status_checks',
@@ -716,7 +720,7 @@ describe('compareProtection', () => {
   it('unions classic protection and ruleset contexts', () => {
     const result = compareLiveProtection((endpoint: string) =>
       endpoint.includes('/rules/')
-        ? ruleset(selectable)
+        ? ruleset(selectable.filter((check) => check !== 'enforcement-approval'))
         : { contexts: ['enforcement-approval', selectable[0]] },
     );
     expect(result.errors).toEqual([]);
