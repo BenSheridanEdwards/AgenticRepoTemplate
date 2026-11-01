@@ -969,9 +969,9 @@ it('rejects duplicate fixture paths', () =>
       { path: 'x.js', source: '' },
     ]),
   ).toThrow('Duplicate fixture path'));
-it('lint:policy runs Oxlint before ESLint', () => {
+it('lint:policy runs Oxlint alone', () => {
   expect(command).toBe(
-    'env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config oxlint.config.ts --deny-warnings && eslint --max-warnings=0 .',
+    'env -u NAPI_RS_NATIVE_LIBRARY_PATH -u VP_VERSION -u OXLINT_TSGOLINT_PATH oxlint --no-ignore --config oxlint.config.ts --deny-warnings',
   );
 });
 it('the repository passes the Oxlint policy and covers every tracked source file', () => {

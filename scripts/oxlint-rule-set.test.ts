@@ -1,10 +1,49 @@
 /** @jest-environment node */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { matchesGlob, resolve } from 'node:path';
+import { isGuidanceDoc } from './check-doc-phrasing.mjs';
 
 const ROOT = resolve(__dirname, '..');
+const tracked = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' });
+expect(tracked.status).toBe(0);
+const trackedPaths = tracked.stdout.split('\0').filter(Boolean);
+
+it('ESLint is retired', () => {
+  expect(
+    trackedPaths.filter((path) => /(^|\/)(eslint\.config\.[^/]+|\.eslintrc[^/]*)$/.test(path)),
+  ).toEqual([]);
+  const manifest = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
+  const packages = { ...manifest.dependencies, ...manifest.devDependencies };
+  expect(
+    [
+      'eslint',
+      'eslint-plugin-react-doctor',
+      'eslint-plugin-react-hooks',
+      'typescript-eslint',
+    ].filter((name) => Object.hasOwn(packages, name)),
+  ).toEqual([]);
+  const commands = [
+    ...Object.values(manifest.scripts),
+    ...trackedPaths
+      .filter((path) => path.startsWith('.husky/') || path.startsWith('.github/workflows/'))
+      .map((path) => readFileSync(resolve(ROOT, path), 'utf8')),
+  ];
+  expect(commands.filter((command) => /(^|[\s;&|])eslint(\s|$)/.test(String(command)))).toEqual([]);
+});
+
+it('no guidance doc names a retired ESLint file or package', () => {
+  const retired =
+    /eslint\.config\.js|eslint-plugin-policy\.js|eslint-policy\.test\.ts|eslint-plugin-react-hooks|eslint-plugin-react-doctor|typescript-eslint|--max-warnings/;
+  expect(
+    trackedPaths
+      .filter(isGuidanceDoc)
+      .filter((path) => !path.startsWith('docs/trials/') && !path.startsWith('docs/proof/'))
+      .filter((path) => retired.test(readFileSync(resolve(ROOT, path), 'utf8'))),
+  ).toEqual([]);
+});
 const EVERY_FILE = {
   'no-param-reassign': ['error', { props: true }],
   'policy/no-loops': ['error'],

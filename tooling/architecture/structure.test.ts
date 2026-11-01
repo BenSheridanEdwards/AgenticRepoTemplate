@@ -132,6 +132,8 @@ describe('validateStructure', () => {
   it('fails a config file at any depth below a package root', () => {
     const nested = [
       'showcase/todo-01/api/etc/.npmrc',
+      'showcase/todo-01/web/src/.oxlintrc.json',
+      'showcase/todo-01/web/src/oxlint.config.ts',
       'showcase/todo-01/web/e2e/playwright.config.ts',
       'showcase/todo-01/web/src/biome.json',
       'showcase/todo-01/web/src/package.json',
