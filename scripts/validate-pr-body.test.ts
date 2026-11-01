@@ -15,17 +15,45 @@ import {
 // The PR head every body below is checked against.
 const HEAD = '0a21f68d4a57e7998b1357444f2bdad00cea6528';
 const NORTH_STAR = 'abcdef1234567890abcdef1234567890abcdef12';
+const GREETING_BEHAVIOURS = [
+  'Greets the visitor by name.',
+  'Asks for a name before it calls the api.',
+  'The api rejects a blank name.',
+  'Says so when the api fails.',
+  'Works for every visitor.',
+];
+const reviewLines = (path: string, summaries = GREETING_BEHAVIOURS) =>
+  summaries
+    .map((summary) => `- \`${path}\`: ${summary} Evidence: unchanged greeting tests`)
+    .join('\n');
+const REVIEW_SECTION = '# PRD Behaviours to Review';
+const withReview = (body: string, checked: string) =>
+  body.replace(
+    /# PRD Behaviours to Review[\s\S]*$/,
+    `${REVIEW_SECTION}\n\n${
+      checked.startsWith('None:')
+        ? '- None'
+        : checked
+            .split(',')
+            .map((path) => reviewLines(path.trim().replace(/^`|`$/g, '')))
+            .join('\n')
+    }`,
+  );
 interface IntentPorts {
   listPrdFiles: () => string[];
   northStarCommit: () => string;
   changedFiles: string[];
-  prdCoverage: { path: string; patterns: string[] }[];
+  prdCoverage: { path: string; patterns: string[]; behaviours: string[] }[];
 }
 const INTENT_PORTS: IntentPorts = {
   listPrdFiles: () => ['docs/prd/greeting.md', 'docs/prd/todo.md'],
   northStarCommit: () => NORTH_STAR,
   changedFiles: [],
-  prdCoverage: [],
+  prdCoverage: ['docs/prd/greeting.md', 'docs/prd/todo.md'].map((path) => ({
+    path,
+    patterns: [],
+    behaviours: GREETING_BEHAVIOURS,
+  })),
 };
 
 // A body that satisfies every rule: all four sections in order, each with real
@@ -51,9 +79,80 @@ const VALID_BODY = [
   '- North Star commit: abcdef1',
   '- Commands run: `pnpm verify`, `pnpm e2e`.',
   '- Results: all green.',
+  '',
+  REVIEW_SECTION,
+  '',
+  reviewLines('docs/prd/greeting.md'),
 ].join('\n');
 
 const VALID_TITLE = 'feat(pr-quality): validate PR bodies in CI';
+
+describe('PRD behaviours to review', () => {
+  const check = (
+    section: string,
+    checked = 'docs/prd/greeting.md',
+    headSha: string | null = HEAD,
+  ) =>
+    validatePullRequest({
+      ...INTENT_PORTS,
+      title: VALID_TITLE,
+      headSha,
+      body: VALID_BODY.replace(
+        '- PRDs checked: docs/prd/greeting.md',
+        `- PRDs checked: ${checked}`,
+      ).replace(/# PRD Behaviours to Review[\s\S]*$/, section),
+    });
+  const section = (lines: string) => `${REVIEW_SECTION}\n\n${lines}`;
+  it('requires the review section when a PRD is cited', () => {
+    expect(check('').errors.join('\n')).toContain('PRD Behaviours to Review');
+  });
+  it('quotes the missing api failure behaviour', () => {
+    const lines = reviewLines(
+      'docs/prd/greeting.md',
+      GREETING_BEHAVIOURS.filter((summary) => summary !== 'Says so when the api fails.'),
+    );
+    const result = check(section(lines));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain(
+      '- `docs/prd/greeting.md`: Says so when the api fails. Evidence:',
+    );
+  });
+  it('accepts every behaviour with evidence', () => {
+    expect(check(section(reviewLines('docs/prd/greeting.md')))).toEqual({ ok: true, errors: [] });
+  });
+  it('accepts None for a docs only change', () => {
+    expect(check(section('- None'), 'None: docs only change')).toEqual({ ok: true, errors: [] });
+  });
+  it.each([
+    ['unknown summary', reviewLines('docs/prd/greeting.md', ['Invented promise.'])],
+    ['None while citing a PRD', '- None'],
+    [
+      'one word of evidence',
+      reviewLines('docs/prd/greeting.md').replaceAll('unchanged greeting tests', 'unchanged'),
+    ],
+    [
+      'duplicate behaviour',
+      `${reviewLines('docs/prd/greeting.md')}\n${reviewLines('docs/prd/greeting.md', [GREETING_BEHAVIOURS[0]])}`,
+    ],
+    ['uncited PRD', reviewLines('docs/prd/todo.md')],
+    ['malformed line', '- greeting: checked'],
+  ])('rejects %s', (_name, lines) => {
+    expect(check(section(lines)).ok).toBe(false);
+  });
+  it('requires exactly None when no PRDs are cited', () => {
+    expect(check(section('- None\nextra text'), 'None: docs only change').ok).toBe(false);
+  });
+  it('checks only line shapes with a null head', () => {
+    expect(
+      check(
+        section(reviewLines('docs/prd/unknown.md', ['Unknown promise.'])),
+        'docs/prd/greeting.md',
+        null,
+      ),
+    ).toEqual({ ok: true, errors: [] });
+    expect(check(section('- malformed'), 'docs/prd/greeting.md', null).ok).toBe(false);
+  });
+});
 
 describe('validatePullRequest', () => {
   it('passes a well-formed body and title', () => {
@@ -278,8 +377,12 @@ describe('validatePullRequest', () => {
   });
 
   describe('intent references', () => {
-    const withField = (name: string, field: string) =>
-      VALID_BODY.replace(new RegExp(`^- ${name}:.*$`, 'm'), field);
+    const withField = (name: string, field: string) => {
+      const body = VALID_BODY.replace(new RegExp(`^- ${name}:.*$`, 'm'), field);
+      return name === 'PRDs checked'
+        ? withReview(body, field.replace('- PRDs checked: ', ''))
+        : body;
+    };
     const check = (body: string, ports = INTENT_PORTS, headSha: string | null = HEAD) =>
       validatePullRequest({ title: VALID_TITLE, body, headSha, ...ports });
 
@@ -289,7 +392,9 @@ describe('validatePullRequest', () => {
         expect(result.ok).toBe(false);
         expect(result.errors.join('\n')).toContain(`exactly one \`- ${name}:\` line; found 0`);
       });
-      const result = check(`${VALID_BODY}\n- ${name} (again): ignored`);
+      const result = check(
+        VALID_BODY.replace(REVIEW_SECTION, `- ${name} (again): ignored\n\n${REVIEW_SECTION}`),
+      );
       expect(result.ok).toBe(false);
       expect(result.errors.join('\n')).toContain(`exactly one \`- ${name}:\` line; found 2`);
     });
@@ -953,12 +1058,13 @@ describe('validatePullRequest', () => {
     expect(result).toEqual({ ok: true, errors: [] });
   });
 
-  it('exposes the four required sections in order', () => {
+  it('exposes the five required sections in order', () => {
     expect(REQUIRED_SECTIONS).toEqual([
       'Why does this feature exist?',
       'What changed?',
       'Behavioural Proof (with video and screenshots)',
       'Verification Summary',
+      'PRD Behaviours to Review',
     ]);
   });
 });
@@ -981,7 +1087,9 @@ describe('PRD impact field', () => {
   });
 
   it('rejects duplicate fields', () => {
-    expect(check(`${VALID_BODY}\n- PRD impact: None`)).toEqual({
+    expect(
+      check(VALID_BODY.replace(REVIEW_SECTION, `- PRD impact: None\n\n${REVIEW_SECTION}`)),
+    ).toEqual({
       ok: false,
       errors: [
         'Section "Verification Summary" must have exactly one `- PRD impact:` line; found 2.',
@@ -1070,6 +1178,7 @@ describe('PRD coverage impact', () => {
   const route = 'apps/web/src/routes/greeting/GreetingPage.tsx';
   const coverage = (path = prd, glob = 'apps/web/src/routes/greeting/**') => ({
     path,
+    behaviours: GREETING_BEHAVIOURS,
     patterns: coveredPaths(
       parseBehaviours(
         path,
@@ -1095,9 +1204,12 @@ describe('PRD coverage impact', () => {
       headSha: HEAD,
       changedFiles,
       prdCoverage,
-      body: VALID_BODY.replace('- PRD impact: None', `- PRD impact: ${impact}`).replace(
-        `- PRDs checked: ${prd}`,
-        `- PRDs checked: ${checked}`,
+      body: withReview(
+        VALID_BODY.replace('- PRD impact: None', `- PRD impact: ${impact}`).replace(
+          `- PRDs checked: ${prd}`,
+          `- PRDs checked: ${checked}`,
+        ),
+        checked,
       ),
     });
 
