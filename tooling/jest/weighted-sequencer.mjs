@@ -7,6 +7,7 @@ const configRequire = createRequire(jestRequire.resolve('jest-config/package.jso
 const { default: Sequencer } = configRequire('@jest/test-sequencer');
 
 export const DEFAULT_WEIGHT = 5;
+// Refresh WEIGHTS from CI per-file test timings.
 export const WEIGHTS = {
   'tooling/trial/compare.test.ts': 38,
   'tooling/trial/run-trial.test.ts': 41,
@@ -32,7 +33,7 @@ export default class WeightedSequencer extends Sequencer {
   shard(tests, { shardIndex, shardCount }) {
     const shards = Array.from({ length: shardCount }, () => ({ tests: [], weight: 0 }));
     [...tests]
-      .sort((a, b) => weight(b) - weight(a) || a.path.localeCompare(b.path))
+      .sort((a, b) => weight(b) - weight(a) || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
       .forEach((test) => {
         const lightest = shards.reduce((best, shard) =>
           shard.weight < best.weight ? shard : best,

@@ -23,6 +23,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -1274,6 +1275,14 @@ function located(path) {
     return realpathSync(absolute);
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
+    try {
+      if (lstatSync(absolute).isSymbolicLink())
+        throw new Error(
+          'COREPACK_HOME must name a folder inside ~/.cache; dangling symlinks are rejected.',
+        );
+    } catch (missing) {
+      if (missing.code !== 'ENOENT') throw missing;
+    }
     const parent = dirname(absolute);
     if (parent === absolute) throw error;
     return join(located(parent), basename(absolute));

@@ -17,7 +17,7 @@ import {
 } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
 import { planTrial, renderPrompt, runTrial, systemDeps } from './run-trial.mjs';
 import { loadTask, TODO_TASK } from './task.mjs';
@@ -1815,6 +1815,9 @@ describe('the run-trial CLI', () => {
     'parent',
     'escape',
     'escape/missing',
+    'escape-dangling',
+    'cache-root',
+    'relative',
   ])('guards COREPACK_HOME with a symlinked cache: %s', (kind) => {
     const fixture = mkdtempSync(join(sandbox, 'cache-guard-'));
     const home = join(fixture, 'home');
@@ -1825,12 +1828,17 @@ describe('the run-trial CLI', () => {
     mkdirSync(outside);
     symlinkSync(cache, join(home, '.cache'));
     symlinkSync(outside, join(cache, 'escape'));
+    symlinkSync(join(outside, 'absent'), join(cache, 'escape-dangling'));
     const path =
-      kind === 'outside'
-        ? outside
-        : kind === 'parent'
-          ? join(home, '.cache', '..', 'elsewhere')
-          : join(home, '.cache', kind);
+      kind === 'relative'
+        ? relative(source, join(home, '.cache/missing'))
+        : kind === 'cache-root'
+          ? join(home, '.cache')
+          : kind === 'outside'
+            ? outside
+            : kind === 'parent'
+              ? join(home, '.cache', '..', 'elsewhere')
+              : join(home, '.cache', kind);
     const run = spawnSync(
       process.execPath,
       [CLI, '--trial', '1', '--scaffold', scaffold, '--dry-run'],
@@ -1845,7 +1853,7 @@ describe('the run-trial CLI', () => {
         encoding: 'utf8',
       },
     );
-    if (kind === 'missing' || kind === 'existing') {
+    if (kind === 'missing' || kind === 'existing' || kind === 'relative') {
       expect(run.stderr).toBe('');
       expect(run.status).toBe(0);
     } else {
