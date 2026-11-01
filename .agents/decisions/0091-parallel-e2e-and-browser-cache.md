@@ -27,3 +27,12 @@ the base/head merge-base diff and the last North Star commit lookup.
 Failed unit tests still incur E2E execution. Successful lanes overlap.
 Browser downloads can be reused while OS packages are installed each run.
 Required checks and enforcement approval continue to apply.
+
+## Blobless history (closes #248)
+
+Use blob:none for quality, fallow and up-to-date full-history checkouts.
+The ancestry check needs the commit graph; lockfile checks, Fallow audit and
+API report checks read the working tree. Blast-radius uses a merge-base diff,
+so only a few historical blobs may be fetched. Keep security fully cloned:
+secret-scan-ci.sh runs Gitleaks with --all --full-history and reads every
+historical blob; lazy fetching would add many network requests.
