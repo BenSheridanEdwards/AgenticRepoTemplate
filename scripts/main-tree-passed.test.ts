@@ -79,7 +79,12 @@ describe('decide', () => {
     const failing = async () => {
       throw new Error('HTTP 500');
     };
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(decide({ api: failing, sha: 'main-sha' })).resolves.toBe(false);
+    expect(consoleError).toHaveBeenCalledWith(
+      'Running CI: could not prove the tree already passed (HTTP 500).',
+    );
+    consoleError.mockRestore();
   });
 });
 
