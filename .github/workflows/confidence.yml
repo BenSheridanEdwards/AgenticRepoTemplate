@@ -61,7 +61,7 @@ jobs:
 
       - name: Check out the trusted default-branch script
         if: steps.pr.outputs.number != ''
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -75,14 +75,14 @@ jobs:
             .nvmrc
           sparse-checkout-cone-mode: false
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         if: steps.pr.outputs.number != ''
         with:
           node-version-file: .nvmrc
 
       - name: Check out the PR head as data
         if: steps.pr.outputs.number != ''
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_sha }}

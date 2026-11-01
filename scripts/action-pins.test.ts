@@ -20,7 +20,8 @@ function fields(text: string, key: string) {
     const indentation = match[1].length + (line.trimStart().startsWith('- ') ? 2 : 0);
     const following = lines.slice(index + 1);
     const end = following.findIndex(
-      (next) => next.trim() !== '' && next.search(/\S/) <= indentation,
+      (next) =>
+        next.trim() !== '' && !next.trimStart().startsWith('#') && next.search(/\S/) <= indentation,
     );
     return [{ value: match[2], body: following.slice(0, end < 0 ? undefined : end).join('\n') }];
   });

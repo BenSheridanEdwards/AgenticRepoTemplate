@@ -121,7 +121,7 @@ describe('confidence workflow', () => {
       .split('  test:')[1]
       ?.split('  build:')[0];
     expect(ci).toMatch(
-      /upload-artifact@v7\n\s+if: always\(\)(?:(?!- uses:)[\s\S])*name: coverage-final\n\s+path: coverage\/coverage-final.json/,
+      /upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7\.0\.2\n\s+if: always\(\)(?:(?!- uses:)[\s\S])*name: coverage-final\n\s+path: coverage\/coverage-final.json/,
     );
     const workflow = readFileSync('.github/workflows/confidence.yml', 'utf8');
     expect(workflow).toContain('actions: read');
