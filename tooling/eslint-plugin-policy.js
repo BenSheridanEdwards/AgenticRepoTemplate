@@ -944,6 +944,55 @@ const useUiPrimitives = {
 export default {
   meta: { name: 'policy' },
   rules: {
+    'no-loops': {
+      meta: { type: 'suggestion', schema: [] },
+      create: (context) =>
+        Object.fromEntries(
+          [
+            [
+              'ForStatement',
+              '[ForStatement] Prefer declarative iteration: map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from instead of a for loop.',
+            ],
+            [
+              'ForInStatement',
+              '[ForInStatement] Prefer Object.keys/Object.entries with map/filter/reduce/flatMap/some/every/find/Array.from instead of for...in.',
+            ],
+            [
+              'ForOfStatement[await=false]',
+              '[ForOfStatement] Prefer map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from instead of for...of.',
+            ],
+            [
+              'WhileStatement',
+              '[WhileStatement] Prefer declarative iteration (map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from) instead of while.',
+            ],
+            [
+              'DoWhileStatement',
+              '[DoWhileStatement] Prefer declarative iteration (map/filter/reduce/flatMap/some/every/find/Object.entries/Array.from) instead of do...while.',
+            ],
+          ].map(([selector, message]) => [selector, (node) => context.report({ node, message })]),
+        ),
+    },
+    'no-hand-written-globs': {
+      meta: { type: 'suggestion', schema: [] },
+      create(context) {
+        const path = repositoryPath(context);
+        if (!/^(scripts|tooling)\//.test(path) || /\.(test|spec)\.ts$/.test(path)) return {};
+        const report = (node, value) => {
+          if (typeof value === 'string' && /^\*\*\/?$/.test(value)) {
+            context.report({
+              node,
+              message:
+                "Match globs with `matchesGlob` from 'node:path', or ask the tool for its file list (`fallow config`, `jest --listTests`). A hand-written glob translator drifts from the tool (ADR 0041).",
+            });
+          }
+        };
+        return {
+          Literal: (node) => report(node, node.value),
+          'TemplateLiteral[expressions.length=0]': (node) =>
+            report(node, node.quasis[0]?.value.cooked),
+        };
+      },
+    },
     'one-component-per-file': oneComponentPerFile,
     'no-large-comments': noLargeComments,
     'use-ui-primitives': useUiPrimitives,

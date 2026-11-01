@@ -59,12 +59,14 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
 
 - Biome owns formatting, import ordering, and general JavaScript/TypeScript
   lint.
-- ESLint (`pnpm lint:policy`) owns policy rules, React hooks rules, React
+- Oxlint runs the core policy beside ESLint during the swap (`pnpm lint:policy`),
+  before ESLint's policy rules, React hooks rules, React
   Compiler rules, and React Doctor rules through `eslint-plugin-react-doctor`.
   The repository's own rules live in `tooling/eslint-plugin-policy.js`
   ([ADR 0019](../decisions/0019-local-eslint-policy-plugin.md)).
-- Oxlint (`pnpm lint:anti-slop`) runs only the vendored generic and Effect
-  anti-slop plugins; every built-in Oxlint rule stays off.
+- Oxlint (`pnpm lint:anti-slop`) runs the vendored generic and Effect
+  anti-slop plugins with built-ins off. Its separate `oxlint.config.ts` runs
+  core policy, including showcase sources ([ADR 0098](../decisions/0098-oxlint-replaces-eslint.md)).
 - React Doctor (`pnpm react-doctor`) owns the project-level checks the
   ESLint plugin leaves out, such as duplicated JSX across files.
 - TypeScript owns type semantics through `tsc --noEmit` over four programs:
