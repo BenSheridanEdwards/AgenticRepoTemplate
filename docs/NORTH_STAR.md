@@ -34,8 +34,8 @@ within that budget. Git skips pre-commit on conflict-free merges; Fallow's audit
 is absent ([ADR 0028](../.agents/decisions/0028-pre-push-runs-the-full-local-gate-suite.md)).
 
 The [bypass hook](../.agents/hooks/block-gate-bypass.sh) refuses common skips, including `--no-verify`,
-`git commit -n`, `HUSKY=0`, and hooksPath, alias or config include rewrites, in Claude Code and trusted Codex
-hook sessions. Its known gaps are in [ADR 0027](../.agents/decisions/0027-block-common-hook-bypasses.md);
+`git commit -n`, `HUSKY=0`, and hooksPath, alias or config include rewrites, in Claude Code, trusted Codex
+hook sessions and Cursor agents. Its known gaps are in [ADR 0027](../.agents/decisions/0027-block-common-hook-bypasses.md);
 clean-checkout CI and hosted required checks remain the backstop.
 
 Warnings fail Biome, ESLint and React Doctor. [ADR 0079](../.agents/decisions/0079-no-advisory-lint.md) records

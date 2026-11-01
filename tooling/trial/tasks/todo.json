@@ -39,6 +39,7 @@
     ".github/workflows",
     ".claude",
     ".codex",
+    ".cursor",
     ".fallowrc.jsonc",
     ".npmrc",
     "biome.json",
