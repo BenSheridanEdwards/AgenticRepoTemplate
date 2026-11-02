@@ -26,7 +26,7 @@ function rejectViolation(spec, diagnostic) {
     assert.equal(attempt.status, 'failed');
     assert.equal(attempt.errors.length, 1);
     const [error] = attempt.errors;
-    assert.match(error.stack, /apps\/web\/e2e\/fixtures\.ts/);
+    assert.equal(error.location.file, join(root, 'apps/web/e2e/fixtures.ts'));
     const message = stripVTControlCharacters(error.message);
     const received = message.split('\n').flatMap((line) => {
       const match = /^\+\s+"([^"]+)",?$/.exec(line);
