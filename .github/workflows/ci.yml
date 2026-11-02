@@ -168,7 +168,6 @@ jobs:
     name: Web-API contract
     runs-on: ubuntu-latest
     env:
-      PACT_DIR: ${{ runner.temp }}/pact
       SCARF_ANALYTICS: 'false'
       PACT_DO_NOT_TRACK: 'true'
     steps:
@@ -180,6 +179,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:contract
+        env:
+          PACT_DIR: ${{ runner.temp }}/pact
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
