@@ -39,8 +39,11 @@ it('keeps loading until the api answers, then greets', async () => {
   await submitName(user, 'Ada');
 
   expect(screen.getByRole('status')).toHaveTextContent('Loading…');
-  expect(await screen.findByRole('status')).toHaveTextContent('Hello, Ada!');
+  const greeting = waitFor(() =>
+    expect(screen.getByRole('status')).toHaveTextContent('Hello, Ada!'),
+  );
   await act(async () => response.resolve({ message: 'Hello, Ada!' }));
+  await greeting;
 });
 
 it('greets the submitted name through the api', async () => {
