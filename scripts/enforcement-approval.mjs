@@ -334,7 +334,11 @@ export const GUARDS = [
     paths: [/(^|\/)\.oxlintrc\.json$/],
     judge: byJson(['$schema']),
   },
-  { area: 'CI workflows', paths: [/^\.github\/workflows\//], judge: rewrite() },
+  {
+    area: 'CI workflows',
+    paths: [/^\.github\/workflows\//, /^\.github\/actions\//],
+    judge: rewrite(),
+  },
   { area: 'Git hooks', paths: [/^\.husky\//], judge: rewrite() },
   {
     area: 'Lint config',

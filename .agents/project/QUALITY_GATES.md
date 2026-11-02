@@ -1,5 +1,19 @@
 # Quality gates
 
+## CI pnpm store
+
+Every dependency-install lane in CI uses `.github/actions/setup` to restore
+the pnpm store. Set the repository variable `PNPM_STORE_DIR` to use a persistent
+self-hosted store and bypass cache restore and save. Each lane appends
+`pnpm store: hit|partial|miss|persistent (<key>)` to its job summary.
+
+CI still does not run on push. As a narrow manual-only exception to the no-push
+CI policy, only a run Ben starts by hand on main with `save_pnpm_cache`
+explicitly enabled may save a store, and only without an exact cache hit.
+The boolean defaults to false; automated main-tree dispatches leave it unset.
+Keep PR runs and automated dispatches read-only for pnpm caches. See
+[CI caches save only from manual main runs](../decisions/0106-ci-caches-save-only-from-manual-main-runs.md).
+
 ## Benchmark
 
 Run `pnpm bench --packages 60 --compare main` to report before/after timings

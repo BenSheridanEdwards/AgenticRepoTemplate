@@ -37,6 +37,7 @@
     ".agents/skills",
     ".husky",
     ".github/workflows",
+    ".github/actions",
     ".claude",
     ".codex",
     ".cursor",

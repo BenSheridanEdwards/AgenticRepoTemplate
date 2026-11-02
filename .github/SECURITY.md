@@ -90,6 +90,21 @@ its head-specific checkbox must be edited by the designated human approver.
 Complete that checkbox action explicitly for the latest head. Keep an
 unavailable security check visibly unresolved.
 
+## pnpm store caches
+
+Restore pnpm stores in CI dependency-install jobs using OS, Node version file
+and lockfile hashes, with fallback keys scoped to the same OS and Node prefix.
+Keep frozen installs. Set `PNPM_STORE_DIR` for a persistent self-hosted store
+to bypass cache restore and save.
+
+CI still does not run on push. The narrow manual-only exception to the no-push
+CI policy permits pnpm cache saves only from a run Ben starts by hand on main
+with `save_pnpm_cache` explicitly enabled and no exact hit. The input defaults
+to false; automated main-tree dispatches leave it unset. Keep PR runs and automated
+dispatches read-only for pnpm caches. This confines writers to maintainer-dispatched trusted
+main code. Keep pnpm store caches outside privileged workflow_run and
+pull_request_target workflows.
+
 ## Secret scanning
 
 CI downloads the MIT-licensed Gitleaks CLI at a pinned version and verifies the
