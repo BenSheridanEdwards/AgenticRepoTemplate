@@ -22,7 +22,7 @@ import { listResults } from '../results.mjs';
 /**
  * Proves a showcase result falls under every gate with no per-result entry:
  * a temporary copy of this checkout gains `showcase/x/`, a copy of the
- * reference greeting with renamed packages (never a Todo), and each gate's
+ * reference features with renamed packages (never a Todo), and each gate's
  * real tool runs on it. The copy is committed on a branch off `main`, as in a
  * trial, so the gates that read commits see a real change.
  */
@@ -345,6 +345,7 @@ console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntri
     );
     expect(filesOf('tsconfig.domain.json')).toEqual([
       'showcase/x/api/src/features/greeting/domain.ts',
+      'showcase/x/api/src/features/recent-greetings/domain.ts',
     ]);
   });
 
@@ -438,8 +439,12 @@ console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntri
   });
 
   it('fails the structure validator on a missing api domain role', () => {
-    const checked = withSeed({ 'showcase/x/api/src/features/greeting/domain.ts': null }, () =>
-      run(['node', 'tooling/architecture/structure.mjs']),
+    const checked = withSeed(
+      {
+        'showcase/x/api/src/features/greeting/domain.ts': null,
+        'showcase/x/api/src/features/recent-greetings/domain.ts': null,
+      },
+      () => run(['node', 'tooling/architecture/structure.mjs']),
     );
 
     expect(checked.code).toBe(1);
