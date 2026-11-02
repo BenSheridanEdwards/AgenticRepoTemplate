@@ -1,4 +1,4 @@
-// Repository policy rules that no installed plugin expresses (ADR 0019). Each
+// Repository policy rules that no installed plugin expresses (ADR 0019, ADR 0103). Each
 // message names the fix, so an agent can act on the error alone.
 import { existsSync } from 'node:fs';
 import { basename, dirname, extname, join, posix, relative, sep } from 'node:path';

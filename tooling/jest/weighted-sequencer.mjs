@@ -17,7 +17,6 @@ export const WEIGHTS = {
   'scripts/anti-slop-lint.test.ts': 18,
   'tooling/trial/acceptance-api.test.ts': 25,
   'tooling/trial/inclusion.test.ts': 65,
-  'scripts/eslint-policy.test.ts': 7,
   'scripts/blast-radius.test.ts': 7,
   'tooling/architecture/boundaries.test.ts': 14,
   'tooling/architecture/diagram.test.ts': 8,

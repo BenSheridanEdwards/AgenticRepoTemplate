@@ -133,7 +133,9 @@ describe('validateStructure', () => {
     const nested = [
       'showcase/todo-01/api/etc/.npmrc',
       'showcase/todo-01/web/e2e/playwright.config.ts',
+      'showcase/todo-01/web/src/.oxlintrc.json',
       'showcase/todo-01/web/src/biome.json',
+      'showcase/todo-01/web/src/oxlint.config.ts',
       'showcase/todo-01/web/src/package.json',
       'showcase/todo-01/web/src/routes/greeting/tsconfig.json',
     ];

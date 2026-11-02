@@ -339,9 +339,8 @@ export const GUARDS = [
   {
     area: 'Lint config',
     paths: [
-      /^eslint\.config\.js$/,
       /^commitlint\.config\.ts$/,
-      /^tooling\/eslint-plugin-policy\.js$/,
+      /^tooling\/oxlint-plugin-policy\.js$/,
       /^scripts\/check-suppressions\.mjs$/,
     ],
     judge: rewrite(),

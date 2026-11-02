@@ -23,19 +23,19 @@ A coding agent is one operator of that system, not the system itself.
 
 **Show:** [convention-to-enforcer table](../.agents/project/CONVENTIONS.md#enforced-conventions),
 [tool ownership](../.agents/project/TECH_STACK.md) and
-[the policy rule implementation](../tooling/eslint-plugin-policy.js).
+[the policy rule implementation](../tooling/oxlint-plugin-policy.js).
 A concrete example is `policy/state-and-effects-in-hooks`: state belongs in
 custom hooks, rather than being scattered through components.
 
 | Concern | Owner | Configuration |
 | --- | --- | --- |
 | Format, imports, general lint | Biome | [biome.json](../biome.json) |
-| Policy, React hooks and compiler rules | ESLint | [eslint.config.js](../eslint.config.js) |
+| Policy, React hooks and compiler rules | Oxlint | [oxlint.config.ts](../oxlint.config.ts) |
 | Specialised vendored anti-slop rules | Oxlint | [.oxlintrc.json](../.oxlintrc.json), [provenance](../vendor/anti-slop/UPSTREAM.md) |
-| Project checks outside the ESLint plugin | React Doctor CLI | [commands](../package.json) |
+| Project checks outside the Oxlint plugin | React Doctor CLI | [commands](../package.json) |
 
 **Proof:** [baseline gate output](proof/software-factory-tour/baseline.txt),
-[real bad/valid ESLint cases](../scripts/eslint-policy.test.ts), and the
+[real bad/valid Oxlint cases](../scripts/oxlint-policy.test.ts), and the
 [baseline suite receipt](proof/software-factory-tour/receipts.json).
 A recurring review correction can become a tested rule. Judgment and conventions
 without a gate remain review responsibilities; this is not universal lint coverage.
@@ -61,8 +61,8 @@ All observed steps met the **under-30-seconds per step** policy.
 is review-held timing policy, not a stopwatch in the hook.
 
 The Oxlint number includes process startup and its configured specialised workload.
-It is **not an ESLint comparison**: files and rule ownership differ and no equivalent
-baseline was measured. The [raw step receipts](proof/software-factory-tour/receipts.json)
+Files and rule ownership differ across tools; these timings measure each configured
+workload. The [raw step receipts](proof/software-factory-tour/receipts.json)
 retain every result. Gitleaks was installed for this run; its local wrapper otherwise
 reports a skip, with hosted scanning as the backstop.
 
@@ -113,7 +113,7 @@ source wiring and tests are proven here; live Claude/Codex trust activation and
 arbitrary-shell invulnerability are not.
 
 The approval workflow executes the **default branch's checker**, reading proposed
-files as data. In-memory fixtures show an ESLint `error` to `off` rewrite detected,
+files as data. In-memory fixtures show an Oxlint `error` to `off` rewrite detected,
 ordinary prose allowed, a named `BenSheridanEdwards` User tick accepted for its exact
 head, another user's tick refused, and a new head reset to waiting.
 [The existing regression suite](../scripts/enforcement-approval.test.ts) also checks
@@ -139,7 +139,7 @@ contains all three results; a missing dependency is not used as rejection proof.
 
 Fallow owns role edges and the [contract rule pack](../tooling/architecture/contract.rules.jsonc).
 The [structure checker](../tooling/architecture/structure.mjs) owns result shape and
-route co-location; ESLint also owns slice isolation. Type-only imports may cross
+route co-location; Oxlint also owns slice isolation. Type-only imports may cross
 roles subject to those restrictions. The baseline does not include proposed tighter
 UI type isolation from an unmerged branch.
 

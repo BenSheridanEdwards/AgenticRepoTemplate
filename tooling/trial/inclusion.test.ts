@@ -244,47 +244,6 @@ describe('a showcase result', () => {
     expect(existsSync(join(copy, 'showcase/x/web/dist/index.html'))).toBe(true);
   });
 
-  it('gets the same ESLint config as the reference, with every policy rule on', () => {
-    const paths = [WEB_FILE, API_FILE].flatMap((file) => [`showcase/x/${file}`, `apps/${file}`]);
-    const configs = JSON.parse(
-      run([
-        'node',
-        '--input-type=module',
-        '-e',
-        `import { ESLint } from 'eslint';
-const eslint = new ESLint();
-console.log(JSON.stringify(await Promise.all(${JSON.stringify(paths)}.map(async (path) => (await eslint.calculateConfigForFile(path)).rules))));`,
-      ]).stdout,
-    );
-
-    [0, 2].forEach((index) => {
-      const showcase = configs[index];
-      const policy = Object.entries(showcase).filter(([rule]) => rule.startsWith('policy/'));
-      expect(showcase).toEqual(configs[index + 1]);
-      expect(policy.length).toBeGreaterThan(5);
-      expect(policy.filter(([, setting]) => JSON.stringify(setting) !== '[2]')).toEqual([]);
-    });
-  });
-
-  it('fails ESLint policy on a seeded violation and on nothing else', () => {
-    const linted = withSeed(
-      {
-        'showcase/x/web/src/routes/greeting/One.tsx':
-          'export function One() {\n  return <p>one</p>;\n}\n\nexport function Two() {\n  return <p>two</p>;\n}\n',
-      },
-      () => run(['eslint', '--max-warnings=0', '--format', 'json', 'showcase/x']),
-    );
-    const findings = JSON.parse(linted.stdout).flatMap(
-      ({ filePath, messages }: { filePath: string; messages: { ruleId: string }[] }) =>
-        messages.map(({ ruleId }) => `${filePath.slice(copy.length + 1)} ${ruleId}`),
-    );
-
-    expect(linted.code).toBe(1);
-    expect(findings).toEqual([
-      'showcase/x/web/src/routes/greeting/One.tsx policy/one-component-per-file',
-    ]);
-  });
-
   it('gets the same Oxlint rules as the reference, with every policy rule on', () => {
     const paths = [WEB_FILE, API_FILE].flatMap((file) => [`showcase/x/${file}`, `apps/${file}`]);
     const resolved = run([

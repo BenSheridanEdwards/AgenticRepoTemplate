@@ -107,7 +107,7 @@
   // patterns match every result by brace glob: the reference in `apps/` and
   // each `showcase/<id>/`. The reference web app also keeps one child zone per
   // route folder (autoDiscover), so a route that imports another route fails
-  // here as well as in ESLint `policy/slice-isolation`, which owns sibling
+  // here as well as in Oxlint `policy/slice-isolation`, which owns sibling
   // isolation for every result; that rule also keeps one feature from importing
   // another. Web features are a single zone — a web feature, unlike a route,
   // is optional, so the zone has one member only when a result adds one.
@@ -353,7 +353,6 @@
         "**/*.d.ts",
         "**/*.d.mts",
         "{commitlint,jest,playwright}.config.ts",
-        "eslint.config.js",
         "oxlint.config.ts",
         "{apps,showcase/*}/web/{index.html,vite.config.ts}",
         "{apps,showcase/*}/web/e2e/**",

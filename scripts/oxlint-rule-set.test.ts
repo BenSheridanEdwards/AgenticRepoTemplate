@@ -1,10 +1,49 @@
 /** @jest-environment node */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { matchesGlob, resolve } from 'node:path';
+import { isGuidanceDoc } from './check-doc-phrasing.mjs';
 
 const ROOT = resolve(__dirname, '..');
+const tracked = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' });
+expect(tracked.status).toBe(0);
+const trackedPaths = tracked.stdout.split('\0').filter(Boolean);
+
+it('ESLint is retired', () => {
+  expect(
+    trackedPaths.filter((path) => /(^|\/)(eslint\.config\.[^/]+|\.eslintrc[^/]*)$/.test(path)),
+  ).toEqual([]);
+  const manifest = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
+  const packages = { ...manifest.dependencies, ...manifest.devDependencies };
+  expect(
+    [
+      'eslint',
+      'eslint-plugin-react-doctor',
+      'eslint-plugin-react-hooks',
+      'typescript-eslint',
+    ].filter((name) => Object.hasOwn(packages, name)),
+  ).toEqual([]);
+  const commands = [
+    ...Object.values(manifest.scripts),
+    ...trackedPaths
+      .filter((path) => path.startsWith('.husky/') || path.startsWith('.github/workflows/'))
+      .map((path) => readFileSync(resolve(ROOT, path), 'utf8')),
+  ];
+  expect(commands.filter((command) => /(^|[\s;&|])eslint(\s|$)/.test(String(command)))).toEqual([]);
+});
+
+it('no guidance doc names a retired ESLint file or package', () => {
+  const retired =
+    /eslint\.config\.js|eslint-plugin-policy\.js|eslint-policy\.test\.ts|eslint-plugin-react-hooks|eslint-plugin-react-doctor|typescript-eslint|--max-warnings/;
+  expect(
+    trackedPaths
+      .filter(isGuidanceDoc)
+      .filter((path) => !path.startsWith('docs/trials/') && !path.startsWith('docs/proof/'))
+      .filter((path) => retired.test(readFileSync(resolve(ROOT, path), 'utf8'))),
+  ).toEqual([]);
+});
 const EVERY_FILE = {
   'no-param-reassign': ['error', { props: true }],
   'policy/no-loops': ['error'],
@@ -76,7 +115,7 @@ const REACT_DOCTOR = {
 };
 const PLUGINS = ['react'];
 const JS_PLUGINS = [
-  resolve(ROOT, 'tooling/eslint-plugin-policy.js'),
+  resolve(ROOT, 'tooling/oxlint-plugin-policy.js'),
   {
     name: 'react-doctor',
     specifier: createRequire(resolve(ROOT, 'package.json')).resolve('oxlint-plugin-react-doctor'),
@@ -180,65 +219,4 @@ it('adds no rule through a category, a preset or a warning', () => {
       .flatMap(Object.values)
       .every((value) => (Array.isArray(value) ? value[0] : value) === 'error'),
   ).toBe(true);
-});
-
-it('matches what ESLint enforces, minus the recorded drops', () => {
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      `import { ESLint } from 'eslint';
-const engine = new ESLint();
-console.log(JSON.stringify(await Promise.all(${JSON.stringify(PROBES)}.map(async path => (await engine.calculateConfigForFile(path)).rules))));`,
-    ],
-    { cwd: ROOT, encoding: 'utf8' },
-  );
-  expect(result.status).toBe(0);
-  const configs: Rules[] = JSON.parse(result.stdout);
-  PROBES.forEach((path, index) => {
-    const source = Object.fromEntries(
-      Object.entries(configs[index] ?? {}).filter(
-        ([, value]) => (Array.isArray(value) ? value[0] : value) === 2,
-      ),
-    );
-    const dropped = Object.keys(source)
-      .filter((name) => ['react-hooks/config', 'react-hooks/gating'].includes(name))
-      .sort();
-    expect(dropped).toEqual(
-      RESULT_PATHS.includes(path) ? ['react-hooks/config', 'react-hooks/gating'] : [],
-    );
-    const mapped = Object.keys(source)
-      .filter((name) => !dropped.includes(name))
-      .flatMap((name) =>
-        name === 'no-restricted-syntax'
-          ? [
-              'policy/no-loops',
-              ...(['scripts/**', 'tooling/**'].some((pattern) => matchesGlob(path, pattern)) &&
-              !matchesGlob(path, '**/*.{test,spec}.ts')
-                ? ['policy/no-hand-written-globs']
-                : []),
-            ]
-          : [name.replace('react-hooks/', 'react/')],
-      );
-    const target = rulesFor(path);
-    expect(mapped.filter((name) => !Object.hasOwn(target, name))).toEqual([]);
-    expect(
-      Object.keys(target).filter(
-        (name) =>
-          !mapped.includes(name) &&
-          !['react/void-use-memo', 'policy/no-hand-written-globs'].includes(name),
-      ),
-    ).toEqual([]);
-    ['no-param-reassign', 'max-depth', 'no-restricted-imports']
-      .filter((name) => Object.hasOwn(source, name))
-      .forEach((name) => {
-        const actual = target[name];
-        const expected = source[name];
-        expect(Array.isArray(actual) ? actual.slice(1) : []).toEqual(
-          Array.isArray(expected) ? expected.slice(1) : [],
-        );
-      });
-    if (RESULT_PATHS.includes(path)) expectDoctor(source);
-  });
 });

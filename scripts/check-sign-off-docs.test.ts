@@ -17,7 +17,7 @@ const TRACKED = [
   '.claude/settings.json',
   '.claude/hooks/block-gate-bypass.sh',
   'biome.json',
-  'eslint.config.js',
+  'oxlint.config.ts',
   'tsconfig.json',
   'scripts/check-suppressions.mjs',
   'scripts/enforcement-approval.mjs',
@@ -36,7 +36,7 @@ describe('isGuardedPath', () => {
     '.github/workflows',
     '.github/workflows/*.yml',
     'biome.json',
-    'eslint.config.*',
+    'oxlint.config.*',
     'scripts/check-suppressions.mjs',
   ])('guards %s', (path) => {
     expect(isGuardedPath(path, TRACKED)).toBe(true);
@@ -71,7 +71,7 @@ describe('isGuardedPath', () => {
 describe('findUnguardedSignOffPaths reports', () => {
   it('the stale rule row main kept after ADR 0023', () => {
     const row =
-      "| Gate config (`tsconfig.json`, `biome.json`, `eslint.config.js`, hooks, workflows, scripts) changes with a maintainer's sign-off. | `enforcement-approval` status |";
+      "| Gate config (`tsconfig.json`, `biome.json`, `oxlint.config.ts`, hooks, workflows, scripts) changes with a maintainer's sign-off. | `enforcement-approval` status |";
     expect(find(`# Rules\n\n${row}\n`)).toEqual([{ line: 3, path: 'tsconfig.json' }]);
   });
 
@@ -115,7 +115,7 @@ describe('findUnguardedSignOffPaths passes', () => {
   it.each([
     [
       'guarded paths in any spelling',
-      'Edits to `.husky`, `./biome.json` and `eslint.config.*` wait for sign-off.',
+      'Edits to `.husky`, `./biome.json` and `oxlint.config.*` wait for sign-off.',
     ],
     ['a link to a guarded file', 'Edits to [`biome.json`](/biome.json) wait for sign-off.'],
     ['a claim of no sign-off', 'Everything else, including `package.json`, needs no sign-off.'],

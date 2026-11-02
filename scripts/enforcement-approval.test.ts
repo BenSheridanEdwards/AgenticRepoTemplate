@@ -78,9 +78,8 @@ describe('GUARDS', () => {
     ['apps/web/oxlint.config.json', 'Vendored lint rules'],
     ['.github/workflows/ci.yml', 'CI workflows'],
     ['.husky/pre-commit', 'Git hooks'],
-    ['eslint.config.js', 'Lint config'],
     ['commitlint.config.ts', 'Lint config'],
-    ['tooling/eslint-plugin-policy.js', 'Lint config'],
+    ['tooling/oxlint-plugin-policy.js', 'Lint config'],
     ['scripts/check-suppressions.mjs', 'Lint config'],
     ['biome.json', 'Biome config'],
     ['docs/prd/greeting.md', 'Product intent'],
@@ -93,6 +92,8 @@ describe('GUARDS', () => {
 
   it.each([
     'src/App.tsx',
+    'eslint.config.js',
+    'tooling/eslint-plugin-policy.js',
     'AGENTS.md',
     '.agents/x.md',
     '.agents/START_HERE.md',

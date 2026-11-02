@@ -4,34 +4,34 @@ Use [AGENTS.md's rule table](../../AGENTS.md#rules-and-what-enforces-them) for s
 
 ## Enforced conventions
 
-The ESLint rules and Biome naming override run on `{apps,packages}/*/src/**` and `showcase/*/*/src/**`; package ESLint policy and React rules cover `.ts` and `.tsx`.
+The Oxlint rules and Biome naming override run on `{apps,packages}/*/src/**` and `showcase/*/*/src/**`; package Oxlint policy and React rules cover `.ts` and `.tsx`.
 
 | Convention | Enforced by |
 | --- | --- |
 | Replace a module through a dependency seam such as `TestApiProvider`; `jest.mock` fails the gate. | Oxlint `anti-slop/no-module-mocking` (`pnpm lint:anti-slop`) |
 | Parse a boundary value with Effect Schema before branching on it. | Oxlint `anti-slop/no-runtime-typeof` in package sources (`pnpm lint:anti-slop`) rejects runtime `typeof`; review checks the boundary parser. |
-| Folders under a package `src/` are kebab-case (`name-input`). | ESLint `policy/folder-names` |
-| Each folder under a package `src/` is named for its role (`name-input`, `api-client`). Code in a catch-all folder (`utils`, `helpers`, `lib`, `common`, `shared`, `misc`) moves into the slice that uses it, or into `@repo/ui` when it is a shared UI primitive. | ESLint `policy/role-named-folders` |
-| Each test sits beside its subject as `<Name>.test.ts(x)` or `<Name>.<kind>.test.ts(x)` (`GreetingPage.a11y.test.tsx` beside `GreetingPage.tsx`), outside any `__tests__/` folder. A source file with no test is fine; coverage thresholds decide what is tested. | ESLint `policy/test-beside-subject` |
+| Folders under a package `src/` are kebab-case (`name-input`). | Oxlint `policy/folder-names` |
+| Each folder under a package `src/` is named for its role (`name-input`, `api-client`). Code in a catch-all folder (`utils`, `helpers`, `lib`, `common`, `shared`, `misc`) moves into the slice that uses it, or into `@repo/ui` when it is a shared UI primitive. | Oxlint `policy/role-named-folders` |
+| Each test sits beside its subject as `<Name>.test.ts(x)` or `<Name>.<kind>.test.ts(x)` (`GreetingPage.a11y.test.tsx` beside `GreetingPage.tsx`), outside any `__tests__/` folder. A source file with no test is fine; coverage thresholds decide what is tested. | Oxlint `policy/test-beside-subject` |
 | Identifiers: `camelCase` functions and variables, `PascalCase` types and components, `SCREAMING_SNAKE_CASE` for true configuration constants. | Biome `style/useNamingConvention` |
 | File names are camelCase, PascalCase, or the name of their export. | Biome `style/useFilenamingConvention` |
-| A component or hook lives in the file of the same name (`GreetingForm.tsx`, `useGreeting.ts`). | ESLint `policy/file-matches-export` |
-| Keep block nesting to four levels. | ESLint `max-depth` |
+| A component or hook lives in the file of the same name (`GreetingForm.tsx`, `useGreeting.ts`). | Oxlint `policy/file-matches-export` |
+| Keep block nesting to four levels. | Oxlint `max-depth` |
 | Bind with `const` unless the name is reassigned. | Biome `style/useConst` |
-| Components and hooks leave props, state, hook values and globals unchanged during render. | ESLint `react-hooks/immutability`, `react-hooks/globals`, `react-hooks/purity` |
-| Use `@repo/ui` Button and TextField for native buttons and inputs; checkbox/radio inputs use native elements until dedicated primitives exist. UI definitions and test harnesses may use native controls. | ESLint `policy/use-ui-primitives` |
-| One React component per file. | ESLint `policy/one-component-per-file` |
-| Function components only. | ESLint `react-doctor/prefer-function-component` |
-| `useState`, `useReducer`, effects, TanStack Query hooks (`useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`) and React Hook Form hooks (`useForm`, `useFieldArray`) run only inside a named custom `use*` hook. | ESLint `policy/state-and-effects-in-hooks` ([ADR 0012](../decisions/0012-local-state-inside-custom-hooks.md)) |
-| `useForm` takes `resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema))`, with `standardSchemaResolver` from `@hookform/resolvers/standard-schema` and `Schema` from `effect`. | ESLint `policy/form-uses-effect-schema` |
-| Every api procedure input is `.input(Schema.toStandardSchemaV1(schema))` with `Schema` from `effect`. | ESLint `policy/procedure-input-schema` |
-| Derived values are computed during render instead of copied into state by an effect. | ESLint `react-hooks/set-state-in-effect`, `react-doctor/no-derived-state`, `react-doctor/no-mirror-prop-effect` |
-| Functions defined inside a component start with `handle` (`handleGreet`). | ESLint `policy/handler-names` |
-| Callback props start with `on` (`onGreet`). | ESLint `policy/callback-prop-names` |
-| Page components (`<Name>Page`) live in `src/routes/<route-name>/`. | ESLint `policy/pages-in-routes`, Fallow `web-routes` zone |
-| Each file under `src/routes/` or `src/features/` sits in a slice folder, and a slice imports no sibling slice. | ESLint `policy/slice-isolation` for static relative module references; Fallow child zones for `apps/web` routes. Computed specifiers and non-relative aliases remain a gap in the ESLint rule. |
-| A relative import stays inside its package; other packages are imported by name (`@repo/ui`). | ESLint `policy/slice-isolation` |
-| Another module imports a route, feature or api feature only through its `index.ts`: `./routes/greeting` in the web, `./features/greeting/index.ts` in the api. | ESLint `no-restricted-imports` |
+| Components and hooks leave props, state, hook values and globals unchanged during render. | Oxlint `react/immutability`, `react/globals`, `react/purity` |
+| Use `@repo/ui` Button and TextField for native buttons and inputs; checkbox/radio inputs use native elements until dedicated primitives exist. UI definitions and test harnesses may use native controls. | Oxlint `policy/use-ui-primitives` |
+| One React component per file. | Oxlint `policy/one-component-per-file` |
+| Function components only. | Oxlint `react-doctor/prefer-function-component` |
+| `useState`, `useReducer`, effects, TanStack Query hooks (`useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`) and React Hook Form hooks (`useForm`, `useFieldArray`) run only inside a named custom `use*` hook. | Oxlint `policy/state-and-effects-in-hooks` ([ADR 0012](../decisions/0012-local-state-inside-custom-hooks.md)) |
+| `useForm` takes `resolver: standardSchemaResolver(Schema.toStandardSchemaV1(schema))`, with `standardSchemaResolver` from `@hookform/resolvers/standard-schema` and `Schema` from `effect`. | Oxlint `policy/form-uses-effect-schema` |
+| Every api procedure input is `.input(Schema.toStandardSchemaV1(schema))` with `Schema` from `effect`. | Oxlint `policy/procedure-input-schema` |
+| Derived values are computed during render instead of copied into state by an effect. | Oxlint `react/set-state-in-effect`, `react-doctor/no-derived-state`, `react-doctor/no-mirror-prop-effect` |
+| Functions defined inside a component start with `handle` (`handleGreet`). | Oxlint `policy/handler-names` |
+| Callback props start with `on` (`onGreet`). | Oxlint `policy/callback-prop-names` |
+| Page components (`<Name>Page`) live in `src/routes/<route-name>/`. | Oxlint `policy/pages-in-routes`, Fallow `web-routes` zone |
+| Each file under `src/routes/` or `src/features/` sits in a slice folder, and a slice imports no sibling slice. | Oxlint `policy/slice-isolation` for static relative module references; Fallow child zones for `apps/web` routes. Computed specifiers and non-relative aliases remain a gap in the Oxlint rule. |
+| A relative import stays inside its package; other packages are imported by name (`@repo/ui`). | Oxlint `policy/slice-isolation` |
+| Another module imports a route, feature or api feature only through its `index.ts`: `./routes/greeting` in the web, `./features/greeting/index.ts` in the api. | Oxlint `no-restricted-imports` |
 | Every relative import in an api package names its `.ts` extension (`./application.ts`). | `pnpm typecheck` (`tsconfig.api.json`, `NodeNext`) and Node at runtime |
 | Api code uses only erasable TypeScript syntax and sees no DOM; web code has the DOM and no Node globals. | `pnpm typecheck` (`tsconfig.api.json` with `erasableSyntaxOnly`; `tsconfig.json` with the DOM libs and no Node types) |
 | Banned imports, calls and effects per role. | Fallow rule pack, reported as `contract/<id>` (`pnpm arch:gate`, `pnpm fallow:audit`) |

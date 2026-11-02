@@ -35,7 +35,7 @@ const guard = [
 });
 const before = "export default [{ rules: { 'policy/state-and-effects-in-hooks': 'error' } }];";
 const after = "export default [{ rules: { 'policy/state-and-effects-in-hooks': 'off' } }];";
-const problems = enforcementProblems([{ path: 'eslint.config.js', before, after }]);
+const problems = enforcementProblems([{ path: 'tooling/oxlint-plugin-policy.js', before, after }]);
 assert.ok(problems.some((problem) => problem.area === 'Lint config'));
 const control = enforcementProblems([
   { path: 'README.md', before: 'old prose', after: 'new prose' },
