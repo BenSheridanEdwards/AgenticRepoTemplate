@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { type TestApiHandlers, TestApiProvider } from '../../api-client';
@@ -23,6 +23,28 @@ async function submitName(user: ReturnType<typeof userEvent.setup>, name: string
   }
   await user.click(screen.getByRole('button', { name: 'Greet' }));
 }
+
+it('keeps loading until the api answers, then greets', async () => {
+  const response = {
+    resolve: (_value: { message: string }): void => {
+      throw new Error('Response is not initialized');
+    },
+  };
+  const answer = new Promise<{ message: string }>((resolve) => {
+    response.resolve = resolve;
+  });
+  const greet: NonNullable<TestApiHandlers['greeting.greet']> = () => answer;
+  const { user } = renderPage(greet);
+
+  await submitName(user, 'Ada');
+
+  expect(screen.getByRole('status')).toHaveTextContent('Loading…');
+  const greeting = waitFor(() =>
+    expect(screen.getByRole('status')).toHaveTextContent('Hello, Ada!'),
+  );
+  await act(async () => response.resolve({ message: 'Hello, Ada!' }));
+  await greeting;
+});
 
 it('greets the submitted name through the api', async () => {
   const greet = jest.fn(({ name }: { name: string }) => ({ message: `Hello, ${name}!` }));

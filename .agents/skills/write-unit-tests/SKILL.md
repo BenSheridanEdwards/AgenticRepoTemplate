@@ -11,6 +11,7 @@ the failing test first); and coverage below `jest.config.ts`'s 80% threshold.
 
 ## Principles
 
+- When the element is always rendered, wait for its content with `waitFor`, not for the element with `findBy*`.
 - Query by `getByRole`, `getByLabelText`, or `getByText`; use `getByTestId` only
   when no accessible query fits. Assert observable behaviour, not state, props, or classes.
 - Drive with `userEvent` rather than `fireEvent` to model real interaction.

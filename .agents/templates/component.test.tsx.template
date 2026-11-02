@@ -9,7 +9,7 @@
 // Assert on observable behaviour through the accessibility tree (roles, names,
 // live regions), one `it` per behaviour. See .agents/skills/write-unit-tests/SKILL.md.
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { type TestApiHandlers, TestApiProvider } from '../../api-client';
@@ -30,7 +30,7 @@ it('__describes what the user sees after an action that reaches the api__', asyn
 
   await user.click(screen.getByRole('button', { name: '__Action__' }));
 
-  expect(await screen.findByRole('status')).toHaveTextContent('__expected outcome__');
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('__expected outcome__'));
   expect(__procedure__).toHaveBeenCalledWith(__expected input__);
 });
 
