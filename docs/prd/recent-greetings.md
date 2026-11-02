@@ -2,16 +2,24 @@
 
 - **Result:** the reference result, `apps/`
 - **Decision:** [A second api feature proves feature isolation on the real tree](../../.agents/decisions/0107-a-second-api-feature-proves-feature-isolation-on-the-real-tree.md)
-- **Covers:** `apps/api/src/features/recent-greetings/**`
+- **Covers:** `apps/api/src/features/recent-greetings/**`, `apps/web/src/routes/recent-greetings/**`
 
 ## Intent
 
 API clients can record greeted names and read the ten most recent names.
 The list lives in memory and empties when the api restarts. This second api
 feature gives the template a working storage integration and proves that
-features stay isolated. The web route follows in a separate change.
+features stay isolated. The greeting page records successful greetings and lets
+the user open the recent names on demand.
 
 ## Behaviours
+
+- **Shows the names greeted on the page, newest first.** After greeting a name,
+  selecting Show recent greetings lists it first.
+  - Proved by [shows the names greeted on the page, newest first](../../apps/web/e2e/recent-greetings.spec.ts)
+- **Stays closed until asked.** The page loads with no list and no
+  `recentGreetings.list` request.
+  - Proved by [stays closed until asked](../../apps/web/e2e/recent-greetings.spec.ts)
 
 - **Records each greeted name.** Calling `recentGreetings.record` with
   `  Lin  ` stores `Lin`.

@@ -2,6 +2,38 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from './fixtures';
 
 test.describe('Recent greetings', () => {
+  // Bulk retention writes must run outside the page journey's record/list window.
+  test.describe.configure({ mode: 'default' });
+
+  test('shows the names greeted on the page, newest first', async ({ page }) => {
+    const name = `Web-${randomUUID()}`;
+    await page.goto('/');
+    await page.getByRole('textbox', { name: 'Name' }).fill(name);
+    const recorded = page.waitForResponse((response) =>
+      response.url().includes('/trpc/recentGreetings.record'),
+    );
+    await page.getByRole('button', { name: 'Greet', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText(`Hello, ${name}!`);
+    expect((await recorded).status()).toBe(200);
+    const listed = page.waitForResponse((response) =>
+      response.url().includes('/trpc/recentGreetings.list'),
+    );
+    await page.getByRole('button', { name: 'Show recent greetings' }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: name })).toHaveText(name);
+    const body = await (await listed).json();
+    const shown = await page.getByRole('listitem').allTextContents();
+    expect(shown).toEqual(body[0].result.data.names);
+  });
+
+  test('stays closed until asked', async ({ page }) => {
+    const requests: string[] = [];
+    page.on('request', (request) => requests.push(request.url()));
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: 'Show recent greetings' })).toBeVisible();
+    await expect(page.getByRole('list')).toHaveCount(0);
+    expect(requests.filter((url) => url.includes('/trpc/recentGreetings.list'))).toEqual([]);
+  });
+
   test('records each greeted name with surrounding whitespace trimmed', async ({ request }) => {
     const name = `Lin-${randomUUID()}`;
     const recorded = await request.post('/trpc/recentGreetings.record', {

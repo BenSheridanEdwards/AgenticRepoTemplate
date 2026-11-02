@@ -1,5 +1,5 @@
-import { skipToken, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { type RouterInputs, type RouterOutputs, useTrpc } from '../../api-client';
 
 type GreetInput = RouterInputs['greeting']['greet'];
@@ -15,7 +15,22 @@ export type GreetingState =
 export function useGreeting() {
   const [name, setName] = useState<GreetInput['name'] | null>(null);
   const trpc = useTrpc();
-  const query = useQuery(trpc.greeting.greet.queryOptions(name === null ? skipToken : { name }));
+  const query = useQuery({
+    ...trpc.greeting.greet.queryOptions(name === null ? skipToken : { name }),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (name !== null && !query.isFetching && query.isSuccess && query.dataUpdatedAt > 0) {
+      void queryClient
+        .getMutationCache()
+        .build(queryClient, trpc.recentGreetings.record.mutationOptions())
+        .execute({ name: name.trim() })
+        .catch(() => undefined);
+    }
+  }, [name, query.isFetching, query.isSuccess, query.dataUpdatedAt, queryClient, trpc]);
 
   function requestGreeting(nextName: GreetInput['name']) {
     setName(nextName);

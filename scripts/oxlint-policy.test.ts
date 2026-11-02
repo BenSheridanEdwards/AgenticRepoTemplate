@@ -163,6 +163,22 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
 ];
 const contractFixtures: Fixture[] = [
   ...[
+    ['recent-greetings/RecentGreetingsPage.tsx', 'greeting', 'GreetingPage'],
+    ['greeting/GreetingPage.tsx', 'recent-greetings', 'RecentGreetingsPage'],
+  ].flatMap(([file, sibling, symbol], index) => {
+    const path = `apps/web/src/routes/${file}`;
+    const source = readFileSync(join(ROOT, path), 'utf8');
+    return [
+      { caseRoot: `contract-route-clean-${index}`, path, source },
+      {
+        caseRoot: `contract-route-cross-${index}`,
+        path,
+        source: `${source}\nimport { ${symbol} } from '../${sibling}';\n`,
+        code: 'policy(slice-isolation)',
+      },
+    ];
+  }),
+  ...[
     "import { formatGreeting } from '../greeting/domain.ts';",
     "import { greetingRouter } from '../greeting/index.ts';",
   ].map((source, index) => ({

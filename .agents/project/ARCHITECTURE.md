@@ -227,7 +227,8 @@ reference result; a trial result uses `showcase/<id>/` in place of `apps/`.
 
 ### Add a route
 
-1. Create `apps/web/src/routes/<route-name>/` with `<Name>Page.tsx` and an
+1. Create `apps/web/src/routes/<route-name>/`, such as `greeting` or
+   `recent-greetings`, with `<Name>Page.tsx` and an
    `index.ts` that exports the page. For Todo and Notes, copy the exact
    [list-route inventory and signatures](../templates/list-route.md).
 2. Put server state in `use<Name>.ts` through `useTrpc()`, form state in
@@ -241,6 +242,7 @@ reference result; a trial result uses `showcase/<id>/` in place of `apps/`.
 Keep route code and its tests in that route's folder, even with multiple routes.
 Share only `@repo/ui` primitives and the fixed api-client public surface;
 transport and test-provider wiring stays in the api-client.
+A route reads another feature's data through the api and keeps imports inside its own route.
 
 ### Finish
 
