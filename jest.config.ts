@@ -72,6 +72,7 @@ const config: Config = {
     {
       ...shared,
       displayName: 'contract',
+      roots: existingRoots('apps'),
       testEnvironment: 'node',
       testMatch: ['<rootDir>/apps/{web,api}/src/**/*.contract.test.ts'],
     },

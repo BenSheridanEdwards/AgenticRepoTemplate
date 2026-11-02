@@ -76,6 +76,7 @@ const baseline = {
       quality: [],
       fallow: [['contents: read', 'pull-requests: write']],
       test: [],
+      contract: [],
       tooling: [],
       integration: [],
       coverage: [],

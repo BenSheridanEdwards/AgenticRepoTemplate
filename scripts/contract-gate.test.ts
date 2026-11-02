@@ -25,6 +25,7 @@ function run(args: string[]) {
 
 it('accepts the shipped consumer and provider, then rejects a broken greeting contract', () => {
   const real = spawnSync('pnpm', ['test:contract'], { env, encoding: 'utf8', timeout: 120_000 });
+  if (real.status !== 0) throw new Error(real.stdout + real.stderr);
   expect(real.stdout + real.stderr).toContain('Tests:');
   expect(real.status).toBe(0);
   expect(real.stdout + real.stderr).not.toContain('util._extend');
