@@ -1,4 +1,4 @@
-# 104. TypeScript 7 is the only typechecker
+# 105. TypeScript 7 is the only typechecker
 
 - **Status:** Proposed
 - **Date:** 2026-11-02
