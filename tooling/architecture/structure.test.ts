@@ -222,7 +222,7 @@ describe('validateStructure', () => {
       'a script the reference web lacks',
       (fields: Record<string, Record<string, string>>) => ({
         ...fields,
-        scripts: { ...fields.scripts, lint: 'oxlint .' },
+        scripts: { ...fields.scripts, lint: 'eslint .' },
       }),
       /lint/,
     ],
@@ -613,8 +613,8 @@ describe('validateStructure', () => {
   });
 
   it.each([
-    '// oxlint flags nested ternaries, so this uses an early return',
-    '// oxlint-plugin-policy wants one component per file',
+    '// eslint flags nested ternaries, so this uses an early return',
+    '// eslint-plugin-policy wants one component per file',
   ])('passes the prose line comment %s', (comment) => {
     expect(
       validate({ 'showcase/todo-01/web/src/App.tsx': `${comment}\nexport const App = 1;\n` }),
