@@ -51,9 +51,13 @@ test.each([false, true])('the strict base config rejects a seeded type error: %s
       encoding: 'utf8',
     });
     expect(result.error).toBeUndefined();
-    expect(result.status).toBe(invalid ? 2 : 0);
-    if (invalid) expect(result.stdout).toContain('TS2322');
-    else expect(result.stdout).toBe('');
+    if (invalid) {
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toContain('TS2322');
+    } else {
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe('');
+    }
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

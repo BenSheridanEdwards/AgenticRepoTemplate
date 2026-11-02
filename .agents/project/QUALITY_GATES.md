@@ -19,7 +19,7 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 | --- | --- | --- | --- |
 | Claude Code, trusted Codex Bash sessions and Cursor agents | `.agents/hooks/block-gate-bypass.sh` (Cursor uses `.agents/hooks/cursor-gate-bypass.sh`) | Common hook bypasses are refused; scope and gaps are in [ADR 0027](../decisions/0027-block-common-hook-bypasses.md) and [Cursor runs the gate-bypass hook](../decisions/0090-cursor-runs-the-gate-bypass-hook.md). | Command guard; see ADR 0027 for gaps |
 | Commit message | `.husky/commit-msg` | Conventional Commits via commitlint. | commitlint via commit-msg |
-| Pre-commit | `.husky/pre-commit` | `pnpm typecheck`, staged Biome (lint + format + imports), `pnpm lint:anti-slop`, `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). | Run the hook commands below |
+| Pre-commit | `.husky/pre-commit` | `pnpm typecheck` (TypeScript 7.0.2 by path), staged Biome (lint + format + imports), `pnpm lint:anti-slop`, `pnpm fallow:audit` (including complexity in touched files), `pnpm secret-scan` (staged gitleaks). Each step must finish in under 30 seconds; review holds this budget ([ADR 0062](../decisions/0062-pre-commit-steps-stay-under-30-seconds.md)). | Run the hook commands below |
 | Pre-push | `.husky/pre-push` | Every pushed branch contains freshly fetched origin/main (the one local up-to-date check), then `pnpm verify` (the full local gate suite, including the production build) and `pnpm e2e` (Playwright E2E and axe scan for every result). A clean merge from main skips pre-commit, so this is where it gets checked. | `pnpm verify` + `pnpm e2e` |
 | Local proof | `pnpm verify` + `pnpm e2e` | Context layer, suppression policy, positive doc phrasing, PRD links, required-gate contract, dependency ADR check, typecheck, Biome, Oxlint policy lint, vendored anti-slop rules (Oxlint), React Doctor, Fallow, architecture checks (`pnpm arch:check`), coverage per result and changed source, Web-API contract, API integration, slice E2E mapping, build, size, E2E. Local verify runs contract after coverage and before integration; CI unit, contract, integration and E2E lanes run in parallel, and `Required gates` needs all four. A console warning or error fails a Jest test or a Playwright page ([ADR 0086](../decisions/0086-console-warnings-fail-tests.md)). | `pnpm verify` + `pnpm e2e` |
 | Vendored anti-slop | `.oxlintrc.json` (`pnpm lint:anti-slop`) | Clean generic and Effect tag rules at `error`, with `--deny-warnings`, in pre-commit, `pnpm verify` and the existing CI quality job. `pnpm check:suppressions` rejects every inline suppression and coverage pragma; an exception lives in `ALLOWED_SUPPRESSIONS` in `scripts/check-suppressions.mjs`, which needs sign-off. | `pnpm lint:anti-slop` |
@@ -46,7 +46,7 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 
 Pre-commit runs these steps in order:
 
-1. `pnpm typecheck`
+1. `pnpm typecheck` runs TypeScript 7.0.2 by `node node_modules/@typescript/native/bin/tsc`.
 2. `pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .`
 3. `pnpm lint:anti-slop`
 4. `pnpm fallow:audit`
@@ -85,7 +85,8 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
   core policy, including showcase sources ([ADR 0098](../decisions/0098-oxlint-replaces-eslint.md)).
 - React Doctor (`pnpm react-doctor`) owns the project-level checks the
   per-file plugins leave out, such as duplicated JSX across files.
-- TypeScript owns type semantics through `tsc --noEmit` over four programs:
+- TypeScript 7 owns type semantics through `pnpm typecheck`, running the
+  `@typescript/native` alias by path over four programs:
   `tsconfig.json` (web packages and `packages/ui`, with the DOM and no Node
   types), `tsconfig.node.json` (root configs, Vite configs and e2e specs, on
   Node), `tsconfig.api.json` (api packages, `NodeNext`, `.ts` import

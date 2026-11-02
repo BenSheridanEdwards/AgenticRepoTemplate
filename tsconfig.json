@@ -17,7 +17,7 @@
 
     "types": ["jest", "@testing-library/jest-dom"]
   },
-  "include": ["apps/web/src", "showcase/*/web/src", "packages/ui/src"],
+  "include": ["apps/web/src", "showcase/*/web/src", "packages/ui/src", "tooling/types/styles.d.ts"],
   "exclude": ["**/*.contract.test.ts"],
   "references": [{ "path": "./tsconfig.api.json" }],
   "ts-node": {
