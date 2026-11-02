@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { type TestApiHandlers, TestApiProvider } from '../../api-client';
@@ -6,7 +6,9 @@ import { GreetingPage } from './GreetingPage';
 
 function renderPage(greet: NonNullable<TestApiHandlers['greeting.greet']>) {
   const view = render(
-    <TestApiProvider handlers={{ 'greeting.greet': greet }}>
+    <TestApiProvider
+      handlers={{ 'greeting.greet': greet, 'recentGreetings.record': () => ({ names: [] }) }}
+    >
       <GreetingPage />
     </TestApiProvider>,
   );
@@ -28,7 +30,7 @@ it('greets the submitted name through the api', async () => {
 
   await submitName(user, '  Ada ');
 
-  expect(await screen.findByRole('status')).toHaveTextContent('Hello, Ada!');
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Hello, Ada!'));
   expect(greet).toHaveBeenCalledWith({ name: 'Ada' });
 });
 
@@ -38,9 +40,11 @@ it('greets a name with internal whitespace runs collapsed', async () => {
 
   await submitName(user, 'Ada    Lovelace');
 
-  expect(await screen.findByRole('status')).toHaveTextContent('Hello, Ada Lovelace!', {
-    normalizeWhitespace: false,
-  });
+  await waitFor(() =>
+    expect(screen.getByRole('status')).toHaveTextContent('Hello, Ada Lovelace!', {
+      normalizeWhitespace: false,
+    }),
+  );
   expect(greet).toHaveBeenCalledWith({ name: 'Ada Lovelace' });
 });
 

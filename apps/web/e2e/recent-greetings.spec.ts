@@ -12,12 +12,14 @@ test.describe('Recent greetings', () => {
     await page.getByRole('button', { name: 'Greet', exact: true }).click();
     await expect(page.getByRole('status')).toHaveText(`Hello, ${name}!`);
     expect((await recorded).status()).toBe(200);
+    const listed = page.waitForResponse((response) =>
+      response.url().includes('/trpc/recentGreetings.list'),
+    );
     await page.getByRole('button', { name: 'Show recent greetings' }).click();
     await expect(page.getByRole('listitem').filter({ hasText: name })).toHaveText(name);
-    const response = await page.request.get('/trpc/recentGreetings.list');
-    const body = await response.json();
+    const body = await (await listed).json();
     const shown = await page.getByRole('listitem').allTextContents();
-    expect(shown).toEqual(body.result.data.names.filter((entry: string) => shown.includes(entry)));
+    expect(shown).toEqual(body[0].result.data.names);
   });
 
   test('stays closed until asked', async ({ page }) => {

@@ -5,7 +5,7 @@ To update on Linux, run `pnpm e2e:install`, then `pnpm visual:update`.
 Inspect every changed PNG, commit it with the UI change, and rerun `pnpm visual`.
 CI only compares and uploads `visual-differences` on a failure.
 
-Last refresh: Playwright 1.61.0 with Chromium 149.0.7827.55 on x86-64 Debian 13, with Fontconfig `rgba=rgb` to match the Ubuntu 24.04 runner. The two initial PNGs matched CI run 39787273847 byte for byte.
+Last refresh: Playwright 1.61.0 with system Chromium 156.0.8078.47 on arm64 Ubuntu 24.04.5 for the closed recent greetings section. All six images were inspected. The existing greeting region differs from the previous baselines by at most one colour level per channel, below Playwright's comparison threshold.
 For low-memory capture, build and run the production preview separately on port 5173, then update and compare:
 ```sh
 VISUAL=1 E2E_BUILD=1 E2E_BASE_URL=http://127.0.0.1:5173 node --max-old-space-size=128 node_modules/@playwright/test/cli.js test --update-snapshots --workers=1

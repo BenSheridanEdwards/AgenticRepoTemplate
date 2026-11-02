@@ -12,14 +12,14 @@ import { expect, test } from './fixtures';
       fullPage: true,
     });
 
-    await page.getByRole('button', { name: 'Greet' }).click();
+    await page.getByRole('button', { name: 'Greet', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveText('Enter a name');
     await expect(page).toHaveScreenshot(`greeting-${viewport.width}-validation.png`, {
       fullPage: true,
     });
 
     await page.getByRole('textbox', { name: 'Name' }).fill('Ada');
-    await page.getByRole('button', { name: 'Greet' }).click();
+    await page.getByRole('button', { name: 'Greet', exact: true }).click();
     await expect(page.getByRole('status')).toHaveText('Hello, Ada!');
     await expect(page).toHaveScreenshot(`greeting-${viewport.width}-success.png`, {
       fullPage: true,

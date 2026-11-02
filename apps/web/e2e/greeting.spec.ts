@@ -7,7 +7,7 @@ import { expect, type Page, test } from './fixtures';
 async function submitName(page: Page, name: string) {
   await page.goto('/');
   await page.getByRole('textbox', { name: 'Name' }).fill(name);
-  await page.getByRole('button', { name: 'Greet' }).click();
+  await page.getByRole('button', { name: 'Greet', exact: true }).click();
 }
 
 test.describe('Greeting', () => {
