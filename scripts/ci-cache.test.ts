@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { formatCacheReport } from './ci-cache-report.mjs';
 
 const read = (path: string) => readFileSync(path, 'utf8');
@@ -105,4 +107,20 @@ test('rejects an unknown cache shape', () => {
     env: { CACHE_NAME: 'key', CACHE_HIT: 'perhaps' },
   });
   expect(result.status).toBe(1);
+});
+
+test('appends a single report line to the existing job summary', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'ci-cache-report-'));
+  const summary = join(folder, 'summary.md');
+  try {
+    writeFileSync(summary, 'Existing summary\n');
+    const result = spawnSync(process.execPath, ['scripts/ci-cache-report.mjs'], {
+      encoding: 'utf8',
+      env: { CACHE_NAME: 'key', GITHUB_STEP_SUMMARY: summary },
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(summary, 'utf8')).toBe('Existing summary\npnpm store: miss (key)\n');
+  } finally {
+    rmSync(folder, { recursive: true });
+  }
 });
