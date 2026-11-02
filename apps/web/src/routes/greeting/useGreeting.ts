@@ -19,14 +19,14 @@ export function useGreeting() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (name !== null && query.isSuccess && query.dataUpdatedAt > 0) {
+    if (name !== null && !query.isFetching && query.isSuccess && query.dataUpdatedAt > 0) {
       void queryClient
         .getMutationCache()
         .build(queryClient, trpc.recentGreetings.record.mutationOptions())
         .execute({ name: name.trim() })
         .catch(() => undefined);
     }
-  }, [name, query.isSuccess, query.dataUpdatedAt, queryClient, trpc]);
+  }, [name, query.isFetching, query.isSuccess, query.dataUpdatedAt, queryClient, trpc]);
 
   function requestGreeting(nextName: GreetInput['name']) {
     setName(nextName);
