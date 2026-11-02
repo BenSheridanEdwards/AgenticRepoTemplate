@@ -26,9 +26,18 @@ teardown for any unexpected message. Declare an expected message through
 must match a recorded message, so a stale expectation fails too. The greeting
 API-failure test declares only the resource error from its deliberate HTTP 500.
 
-Prove the Jest guard with child runs in Node and jsdom. Prove the browser
-guard against the real server with expected-failure tests and one passing
-test that declares its error. Keep trial acceptance machinery unchanged.
+Prove the Jest guard with child runs in Node and jsdom. Run
+`pnpm e2e:console-guard` to prove the browser guard against the real server.
+The Node parent checks failing Playwright children for the fixture's warning,
+error, pageerror and missing-message diagnostics, and checks a declared error
+passes. Child cases stay outside normal discovery, so green behaviour runs
+carry no expected-failure marks. The End-to-end behaviour map CI job runs the
+Run console guard proof step after installing Chromium. The child config owns
+its servers and inherits the behaviour config's retries and timeouts.
+The proof also copies the actual fixture into scratch, removes console error
+recording in that copy, and requires its console-error case to pass while the
+parent's guard assertion rejects that result. The source fixture stays intact.
+Keep the passing declared-error behaviour test and trial acceptance machinery.
 
 ## Consequences
 

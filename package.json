@@ -39,6 +39,7 @@
     "coverage:changed": "changed=\"$(git -c core.quotePath=false diff --name-only origin/main...HEAD)\" && CHANGED=\"$changed\" COVERAGE_FILE=coverage/coverage-final.json node scripts/confidence-label.mjs --coverage-gate",
     "tour:probe": "node scripts/software-factory-probes.mjs",
     "e2e": "playwright test",
+    "e2e:console-guard": "node --test tooling/console-guard/proof.test.mjs",
     "e2e:install": "playwright install --with-deps chromium",
     "size": "size-limit",
     "lhci": "lhci autorun --config=tooling/lighthouse/lighthouserc.json",
