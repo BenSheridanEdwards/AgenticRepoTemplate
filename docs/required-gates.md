@@ -8,6 +8,7 @@ in `.agents/project/QUALITY_GATES.md` and ADR 0017.
 
 | Check | Workflow job | Judged by | Applies when | Local mirror |
 | --- | --- | --- | --- | --- |
+| Web-API contract | `ci.yml` `contract` | `Required gates` | Every run. | `pnpm test:contract` |
 | Branch contains main | `ci.yml` `up-to-date` | `Required gates` | `pull_request` into `main`. Skipped elsewhere. | pre-push hook |
 | Type check · lint · format | `ci.yml` `quality` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
 | Code intelligence (Fallow) | `ci.yml` `fallow` | `Required gates` | Every run. | `pnpm verify`, pre-push hook |
@@ -33,6 +34,7 @@ the full tree and history rather than staged files.
 
 | Hook or script | Local command | Workflow job | CI step |
 | --- | --- | --- | --- |
+| `package.json verify` | `pnpm test:contract` | `ci.yml` `contract` | `pnpm test:contract` |
 | `package.json verify` | `pnpm test:integration` | `ci.yml` `integration` | `pnpm test:integration` |
 | `package.json verify` | `pnpm check:lockfile` | `ci.yml` `quality` | `pnpm check:lockfile` |
 | `package.json verify` | `pnpm check:context` | `ci.yml` `quality` | `pnpm check:context` |

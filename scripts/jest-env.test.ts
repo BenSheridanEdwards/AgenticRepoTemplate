@@ -38,6 +38,9 @@ describe('the Jest global setup', () => {
     '__CF_UNRELATED_VARIABLE',
   ];
   const kept = [
+    'PACT_DIR',
+    'SCARF_ANALYTICS',
+    'PACT_DO_NOT_TRACK',
     'PATH',
     'HOME',
     'TMPDIR',

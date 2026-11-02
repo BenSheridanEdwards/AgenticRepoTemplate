@@ -6,9 +6,12 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
     "types": ["node", "jest"]
   },
+  "references": [{ "path": "./tsconfig.api.json" }],
   "include": [
+    "apps/web/src/**/*.contract.test.ts",
     "apps/web/e2e",
     "apps/web/vite.config.ts",
     "showcase/*/web/e2e",

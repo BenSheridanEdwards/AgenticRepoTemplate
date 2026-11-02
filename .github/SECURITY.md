@@ -125,3 +125,18 @@ In pull_request_target, issue_comment and workflow_run workflows, pass untrusted
 input through github-script's context or through env. Keep `${{ }}` expressions
 outside run and script bodies. `scripts/action-pins.test.ts` checks this rule,
 the SHA pins, cleared cache/download commits and unchanged workflow permissions.
+# Pact contract testing
+
+The 31 October 2026 clearance covers @pact-foundation/pact 17.1.4,
+@pact-foundation/pact-core 20.2.0, its seven optional platform packages at
+20.2.0, and @scarf/scarf 1.4.0 with its build denied. Pin Pact exactly and
+override Core to 20.2.0. Core's install script is empty and the optional
+platform packages supply prebuilt binaries; keep Core outside allowBuilds.
+
+Keep `'@scarf/scarf': false` in allowBuilds and scarfSettings.enabled false.
+Set SCARF_ANALYTICS=false and PACT_DO_NOT_TRACK=true in local contract commands
+and CI. Use no Pact plugins, leave PACT_PREBUILD_LOCATION and
+PACT_PREBUILD_PACKAGE_LOCATION unset, retain the release-age floor and use
+frozen lockfile installs. Run `pnpm audit --audit-level=high` after dependency
+changes and permit no new advisory IDs against main. The approved
+follow-redirects 1.16.2 override fixes its high-severity advisory.

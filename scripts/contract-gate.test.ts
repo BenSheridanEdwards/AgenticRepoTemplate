@@ -14,7 +14,7 @@ const env = {
 function run(args: string[]) {
   return spawnSync(
     'node_modules/.bin/jest',
-    ['--selectProjects', 'contract', ...args, '--runInBand'],
+    ['--selectProjects', 'contract', '--testPathPattern', ...args, '--runInBand'],
     {
       env,
       encoding: 'utf8',
@@ -24,11 +24,10 @@ function run(args: string[]) {
 }
 
 it('accepts the shipped consumer and provider, then rejects a broken greeting contract', () => {
-  const consumer = run(['apps/web']);
-  expect(consumer.stdout + consumer.stderr).toContain('Tests:');
-  expect(consumer.status).toBe(0);
-  const provider = run(['apps/api']);
-  expect(provider.status).toBe(0);
+  const real = spawnSync('pnpm', ['test:contract'], { env, encoding: 'utf8', timeout: 120_000 });
+  expect(real.stdout + real.stderr).toContain('Tests:');
+  expect(real.status).toBe(0);
+  expect(real.stdout + real.stderr).not.toContain('util._extend');
   const path = join(pactDirectory, 'web-api.json');
   const pact = readFileSync(path, 'utf8');
   expect(pact).toContain('Hello, Ada!');
