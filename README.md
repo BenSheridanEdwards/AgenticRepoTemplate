@@ -17,6 +17,7 @@ for the operating contract and full command list.
 
 ```bash
 pnpm install          # install dependencies
+pnpm e2e:install    # one-time: download the pinned Chromium that pnpm e2e and the pre-push hook need
 pnpm dev              # web at http://localhost:5173 and api at :3001
 pnpm lint:policy      # policy, React hooks, and React Compiler rules
 pnpm arch:check       # architecture, structure, diagrams, and API reports
