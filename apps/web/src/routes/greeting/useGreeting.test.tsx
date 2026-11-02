@@ -1,3 +1,4 @@
+import { focusManager, onlineManager } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { type TestApiHandlers, TestApiProvider } from '../../api-client';
@@ -48,6 +49,23 @@ it('keeps the greeting visible when recording fails', async () => {
   await waitFor(() =>
     expect(result.current.greeting).toEqual({ status: 'success', message: 'Hello, Ada!' }),
   );
+});
+
+it('records once when focus and connectivity return', async () => {
+  const greet = jest.fn(async () => ({ message: 'Hello, Ada!' }));
+  const record = jest.fn(() => ({ names: ['Ada'] }));
+  const { result } = renderGreeting(greet, record);
+  act(() => result.current.requestGreeting('Ada'));
+  await waitFor(() => expect(record).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+    onlineManager.setOnline(false);
+    onlineManager.setOnline(true);
+  });
+  await waitFor(() => expect(result.current.greeting.status).toBe('success'));
+  expect(greet).toHaveBeenCalledTimes(1);
+  expect(record).toHaveBeenCalledTimes(1);
 });
 
 it('waits for the fresh response before recording a previously greeted name', async () => {

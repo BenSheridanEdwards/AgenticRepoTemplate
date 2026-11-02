@@ -15,7 +15,11 @@ export type GreetingState =
 export function useGreeting() {
   const [name, setName] = useState<GreetInput['name'] | null>(null);
   const trpc = useTrpc();
-  const query = useQuery(trpc.greeting.greet.queryOptions(name === null ? skipToken : { name }));
+  const query = useQuery({
+    ...trpc.greeting.greet.queryOptions(name === null ? skipToken : { name }),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const queryClient = useQueryClient();
 
   useEffect(() => {
