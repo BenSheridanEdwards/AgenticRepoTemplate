@@ -162,6 +162,15 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
   { path: 'apps/web/src/App.test.tsx', source: 'const control = <button aria-label="Save" />;' },
 ];
 const contractFixtures: Fixture[] = [
+  ...[
+    "import { formatGreeting } from '../greeting/domain.ts';",
+    "import { greetingRouter } from '../greeting/index.ts';",
+  ].map((source, index) => ({
+    caseRoot: `contract-recent-source-${index}`,
+    path: 'apps/api/src/features/recent-greetings/application.ts',
+    source: `${readFileSync(join(ROOT, 'apps/api/src/features/recent-greetings/application.ts'), 'utf8')}\n${source}\n`,
+    code: 'policy(slice-isolation)',
+  })),
   {
     path: 'apps/api/src/features/recent-greetings/application.ts',
     source: readFileSync(

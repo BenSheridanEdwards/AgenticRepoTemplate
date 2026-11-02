@@ -1,7 +1,7 @@
 # Recent greetings
 
 - **Result:** the reference result, `apps/`
-- **Decision:** [A second api feature proves feature isolation on the real tree](../../.agents/decisions/0106-a-second-api-feature-proves-feature-isolation-on-the-real-tree.md)
+- **Decision:** [A second api feature proves feature isolation on the real tree](../../.agents/decisions/0107-a-second-api-feature-proves-feature-isolation-on-the-real-tree.md)
 - **Covers:** `apps/api/src/features/recent-greetings/**`
 
 ## Intent
