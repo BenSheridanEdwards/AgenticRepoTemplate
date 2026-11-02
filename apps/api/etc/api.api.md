@@ -7,6 +7,7 @@
 import { TRPCBuiltRouter } from '@trpc/server';
 import { TRPCDecorateCreateRouterOptions } from '@trpc/server';
 import { TRPCDefaultErrorShape } from '@trpc/server';
+import { TRPCMutationProcedure } from '@trpc/server';
 import { TRPCQueryProcedure } from '@trpc/server';
 
 // @public (undocumented)
@@ -30,6 +31,25 @@ input: {
 readonly name: string;
 };
 output: Greeting;
+meta: object;
+}>;
+}>>;
+recentGreetings: TRPCBuiltRouter<    {
+ctx: object;
+meta: object;
+errorShape: TRPCDefaultErrorShape;
+transformer: false;
+}, TRPCDecorateCreateRouterOptions<    {
+record: TRPCMutationProcedure<    {
+input: {
+readonly name: string;
+};
+output: RecentGreetings;
+meta: object;
+}>;
+list: TRPCQueryProcedure<    {
+input: void;
+output: RecentGreetings;
 meta: object;
 }>;
 }>>;

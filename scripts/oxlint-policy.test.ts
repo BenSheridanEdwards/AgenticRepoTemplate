@@ -163,6 +163,37 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
 ];
 const contractFixtures: Fixture[] = [
   ...[
+    "import { formatGreeting } from '../greeting/domain.ts';",
+    "import { greetingRouter } from '../greeting/index.ts';",
+  ].map((source, index) => ({
+    caseRoot: `contract-recent-source-${index}`,
+    path: 'apps/api/src/features/recent-greetings/application.ts',
+    source: `${readFileSync(join(ROOT, 'apps/api/src/features/recent-greetings/application.ts'), 'utf8')}\n${source}\n`,
+    code: 'policy(slice-isolation)',
+  })),
+  {
+    path: 'apps/api/src/features/recent-greetings/application.ts',
+    source: readFileSync(
+      join(ROOT, 'apps/api/src/features/recent-greetings/application.ts'),
+      'utf8',
+    ),
+  },
+  ...['domain.ts', 'index.ts'].map((entry) => ({
+    caseRoot: `contract-recent-${entry}`,
+    path: 'apps/api/src/features/greeting/application.ts',
+    source: `import { value } from '../recent-greetings/${entry}';`,
+    code: 'policy(slice-isolation)',
+  })),
+  {
+    path: 'apps/api/src/recent-consumer.ts',
+    source: "import { recentGreetingsRouter } from './features/recent-greetings/procedures.ts';",
+    code: 'eslint(no-restricted-imports)',
+  },
+  {
+    path: 'apps/api/src/recent-public.ts',
+    source: "import { recentGreetingsRouter } from './features/recent-greetings/index.ts';",
+  },
+  ...[
     ['an alias', "export { useQuery as useQ } from '@tanstack/react-query';"],
     ['everything', "export * from 'react-hook-form';"],
   ].map(([_label, source]) => ({
