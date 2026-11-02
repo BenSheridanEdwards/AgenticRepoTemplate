@@ -5,6 +5,9 @@
  */
 export const INHERITED_ENV = new Set([
   'PATH',
+  'PACT_DIR',
+  'SCARF_ANALYTICS',
+  'PACT_DO_NOT_TRACK',
   'HOME',
   'USER',
   'LOGNAME',

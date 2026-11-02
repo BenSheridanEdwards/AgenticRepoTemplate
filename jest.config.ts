@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs';
 import type { Config } from 'jest';
 
 /**
- * Four projects: `web` (jsdom), `api` (node), `integration` (real HTTP),
- * and `tooling` for the gate scripts. Each result
+ * Five projects: `web` (jsdom), `api` (node), `integration` (real HTTP),
+ * `contract` (Pact), and `tooling` for the gate scripts. Each result
  * in `apps/` or `showcase/<id>/` joins by path, with no per-result entry. The
  * transform is @swc/jest (fast, no Babel). Coverage is gated so a feature cannot
  * ship under-tested — see `.agents/project/PR_QUALITY.md`.
@@ -46,6 +46,7 @@ const config: Config = {
     {
       ...shared,
       displayName: 'web',
+      testPathIgnorePatterns: ['\\.contract\\.test\\.ts$'],
       testEnvironment: 'jsdom',
       roots: existingRoots('apps', 'showcase', 'packages'),
       testMatch: [
@@ -59,7 +60,7 @@ const config: Config = {
       testEnvironment: 'node',
       roots: existingRoots('apps', 'showcase'),
       testMatch: ['<rootDir>/{apps,showcase/*}/api/src/**/*.test.{ts,tsx}'],
-      testPathIgnorePatterns: ['\\.integration\\.test\\.ts$'],
+      testPathIgnorePatterns: ['\\.(integration|contract)\\.test\\.ts$'],
     },
     {
       ...shared,
@@ -67,6 +68,13 @@ const config: Config = {
       testEnvironment: 'node',
       roots: existingRoots('apps', 'showcase'),
       testMatch: ['<rootDir>/{apps,showcase/*}/api/src/**/*.integration.test.ts'],
+    },
+    {
+      ...shared,
+      displayName: 'contract',
+      roots: existingRoots('apps'),
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/apps/{web,api}/src/**/*.contract.test.ts'],
     },
     {
       ...shared,

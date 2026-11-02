@@ -42,7 +42,7 @@ const misjudged = (paths: string[]) =>
 
 /** The test files Jest itself would run, as repository-relative paths. */
 function testsJestRuns() {
-  return ['web', 'api', 'tooling', 'integration'].flatMap((project) => {
+  return ['web', 'api', 'tooling', 'integration', 'contract'].flatMap((project) => {
     const listed = execFileSync(
       'node_modules/.bin/jest',
       ['--listTests', '--json', '--selectProjects', project],
@@ -56,6 +56,20 @@ function testsJestRuns() {
 }
 
 describe('Jest scope over workspace package sources', () => {
+  it.each(['web', 'api'])('assigns %s contract tests only to contract', (app) => {
+    const path = `apps/${app}/src/example.contract.test.ts`;
+    const owners = config.projects
+      ?.filter(
+        (project) =>
+          typeof project === 'object' &&
+          project.testMatch?.some((pattern) =>
+            matchesGlob(path, pattern.replace('<rootDir>/', '')),
+          ) &&
+          !project.testPathIgnorePatterns?.some((pattern) => new RegExp(pattern).test(path)),
+      )
+      .map((project) => (typeof project === 'object' ? project.displayName : project));
+    expect(owners).toEqual(['contract']);
+  });
   it.each([
     'apps/web/src/',
     'apps/api/src/',

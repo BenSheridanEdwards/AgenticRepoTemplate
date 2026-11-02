@@ -164,6 +164,29 @@ jobs:
         if: steps.scope.outputs.docs-only == 'true'
         run: echo "Docs-only change; lane work skipped." >> "$GITHUB_STEP_SUMMARY"
 
+  contract:
+    name: Web-API contract
+    runs-on: ubuntu-latest
+    env:
+      SCARF_ANALYTICS: 'false'
+      PACT_DO_NOT_TRACK: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:contract
+        env:
+          PACT_DIR: ${{ runner.temp }}/pact
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: pact
+          path: ${{ runner.temp }}/pact
+
   integration:
     name: API integration tests
     runs-on: ubuntu-latest
@@ -362,7 +385,7 @@ jobs:
   required-gates:
     name: Required gates
     if: always()
-    needs: [up-to-date, quality, fallow, test, integration, tooling, coverage, build, e2e, security]
+    needs: [contract, up-to-date, quality, fallow, test, integration, tooling, coverage, build, e2e, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

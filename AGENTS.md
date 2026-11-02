@@ -18,6 +18,7 @@ pnpm arch:check       # architecture gate, structure check, diagram freshness, A
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd and each result's architecture.mmd
 pnpm api:report       # regenerate each package's etc/*.api.md after an intended export change
 pnpm test:integration # exercise the real API server over HTTP in its own Jest project
+pnpm test:contract    # record the web consumer contract and verify the HTTP provider with Pact
 pnpm verify           # the full local gate suite (typecheck → biome → oxlint → react doctor → fallow → architecture → tests → build)
 pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```

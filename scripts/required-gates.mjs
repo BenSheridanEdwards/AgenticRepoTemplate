@@ -50,6 +50,13 @@ const DOCS_SCOPE = {
 
 export const REQUIRED_GATES = [
   {
+    check: 'Web-API contract',
+    workflow: 'ci.yml',
+    job: 'contract',
+    judgedBy: 'aggregate',
+    local: '`pnpm test:contract`',
+  },
+  {
     check: 'Branch contains main',
     workflow: 'ci.yml',
     job: 'up-to-date',
@@ -177,6 +184,13 @@ const HOOK_TELEMETRY =
   'trap \'status=$?; node scripts/lint-usage.mjs --hook-exit "$status" || true; exit "$status"\' EXIT';
 
 export const HOOK_STEPS = [
+  {
+    sources: ['package.json verify'],
+    command: 'pnpm test:contract',
+    workflow: 'ci.yml',
+    job: 'contract',
+    steps: [{ run: 'pnpm test:contract' }],
+  },
   {
     sources: ['package.json verify'],
     command: 'pnpm test:integration',
@@ -569,6 +583,7 @@ function checkGateJob(gate, job, errors) {
     return;
   }
   checkContinueOnError(where, job, errors);
+  checkContractIndependence(gate, job, where, errors);
   if (job.name !== gate.check) {
     errors.push(`${where} is named "${job.name}"; branch protection expects "${gate.check}".`);
   }
@@ -588,6 +603,12 @@ function checkGateJob(gate, job, errors) {
   job.steps.forEach((step) => {
     checkStep(gate, step, `${where} step "${stepLabel(step)}"`, errors);
   });
+}
+
+function checkContractIndependence(gate, job, where, errors) {
+  if (gate.job === 'contract' && job.needs !== undefined) {
+    errors.push(`${where} must start independently, without needs.`);
+  }
 }
 
 function stepLabel(step) {

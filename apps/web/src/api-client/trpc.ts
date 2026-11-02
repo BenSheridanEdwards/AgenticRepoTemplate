@@ -1,10 +1,15 @@
 import type { AppRouter } from '@repo/api';
 import { QueryClient } from '@tanstack/react-query';
+import { createTRPCClient, httpBatchLink, type TRPCClient } from '@trpc/client';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 
 export type RouterInputs = inferRouterInputs<AppRouter>;
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+export function createTrpcClient(url = '/trpc'): TRPCClient<AppRouter> {
+  return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url })] });
+}
 
 // The annotations name the exported types through AppRouter, so declaration
 // emit (pnpm api:report) never reaches into the api's source files. Biome
