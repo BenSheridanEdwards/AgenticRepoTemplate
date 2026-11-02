@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from './fixtures';
 
 test.describe('Recent greetings', () => {
+  // Bulk retention writes must run outside the page journey's record/list window.
+  test.describe.configure({ mode: 'default' });
+
   test('shows the names greeted on the page, newest first', async ({ page }) => {
     const name = `Web-${randomUUID()}`;
     await page.goto('/');
