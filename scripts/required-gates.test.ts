@@ -132,7 +132,7 @@ describe('the committed CI order', () => {
     expect(workflow).toContain('pnpm exec playwright install --with-deps chromium');
   });
 
-  it.each(['test', 'integration', 'e2e'])('starts the %s lane independently', (job) => {
+  it.each(['test', 'contract', 'integration', 'e2e'])('starts the %s lane independently', (job) => {
     const lane = REAL_FILES['ci.yml'].split(`\n  ${job}:\n`)[1]?.split(/\n {2}[\w-]+:\n/)[0];
     expect(lane).toBeDefined();
     expect(lane).not.toMatch(/^ {4}needs:/m);
@@ -142,7 +142,40 @@ describe('the committed CI order', () => {
   it('requires the unit, integration and E2E lanes in the aggregate', () => {
     const aggregate = REAL_FILES['ci.yml'].split('\n  required-gates:\n')[1];
     const needs = aggregate?.match(/^ {4}needs: \[(.*)\]$/m)?.[1]?.split(', ');
-    expect(needs).toEqual(expect.arrayContaining(['test', 'integration', 'e2e']));
+    expect(needs).toEqual(expect.arrayContaining(['test', 'contract', 'integration', 'e2e']));
+  });
+
+  it.each([
+    '    needs: [test]\n',
+    '    if: success()\n',
+  ])('rejects a dependent contract lane: %s', (field) => {
+    expect(
+      contractErrors((files) => ({
+        'ci.yml': files['ci.yml'].replace('  contract:\n', `  contract:\n${field}`),
+      })).join('\n'),
+    ).toContain('contract');
+  });
+
+  it('rejects a missing contract lane', () => {
+    expect(
+      contractErrors((files) => ({
+        'ci.yml': files['ci.yml'].replace(/\n {2}contract:\n[\s\S]*?(?=\n {2}[\w-]+:\n)/, '\n'),
+      })).join('\n'),
+    ).toContain('contract');
+  });
+
+  it('fails the real aggregate command when the contract fails', () => {
+    const result = spawnSync('node', [SCRIPT, '--decide'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        NEEDS: JSON.stringify(needsWith({ contract: 'failure' })),
+        EVENT_NAME: 'pull_request',
+        BASE_REF: 'main',
+      },
+    });
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain('Web-API contract');
   });
 });
 
