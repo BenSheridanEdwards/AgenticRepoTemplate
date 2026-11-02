@@ -106,7 +106,12 @@ function emitDeclarations() {
   const compiler = fileURLToPath(
     new URL('bin/tsc', import.meta.resolve('@typescript/native/package.json')),
   );
-  const options = { cwd: REPOSITORY_ROOT, stdio: 'inherit' };
+  // Go's Getwd honours PWD, so keep the native compiler on the real repository path.
+  const options = {
+    cwd: REPOSITORY_ROOT,
+    env: { ...process.env, PWD: REPOSITORY_ROOT },
+    stdio: 'inherit',
+  };
   execFileSync(process.execPath, [compiler, '-p', 'tsconfig.api.json'], options);
   execFileSync(
     process.execPath,

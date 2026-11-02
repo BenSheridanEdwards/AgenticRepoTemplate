@@ -1,6 +1,10 @@
 /**
  * @jest-environment node
  */
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmdirSync, symlinkSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { listPublicEntries } from './api-report.mjs';
 
 const MANIFESTS = {
@@ -58,3 +62,22 @@ describe('listPublicEntries', () => {
     expect(listPublicEntries(['apps/web/package.json'], readManifest)).toEqual([]);
   });
 });
+
+test('emits declarations when PWD names a symlinked checkout', () => {
+  const root = process.cwd();
+  const directory = mkdtempSync(join(tmpdir(), 'api-report-'));
+  const link = join(directory, 'checkout');
+  try {
+    symlinkSync(root, link, 'dir');
+    expect(
+      spawnSync(process.execPath, ['scripts/api-report.mjs'], {
+        cwd: link,
+        env: { ...process.env, PWD: link },
+        encoding: 'utf8',
+      }).status,
+    ).toBe(0);
+  } finally {
+    unlinkSync(link);
+    rmdirSync(directory);
+  }
+}, 15000);
