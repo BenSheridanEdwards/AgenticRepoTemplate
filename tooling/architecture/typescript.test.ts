@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const TSC_BIN = resolve(REPOSITORY_ROOT, 'node_modules/.bin/tsc');
+const TSC_BIN = resolve(REPOSITORY_ROOT, 'node_modules/@typescript/native/bin/tsc');
 
 /**
  * Type-checks `files` as an ES module package whose tsconfig extends the
@@ -29,7 +29,7 @@ function typeCheck(program: 'tsconfig.json' | 'tsconfig.api.json', files: Record
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), source);
     });
-    const run = spawnSync(TSC_BIN, ['-p', 'tsconfig.json', '--noEmit'], {
+    const run = spawnSync(process.execPath, [TSC_BIN, '-p', 'tsconfig.json', '--noEmit'], {
       cwd: directory,
       encoding: 'utf8',
     });
@@ -58,7 +58,7 @@ function typeCheckAtRepoPaths(program: 'tsconfig.domain.json', files: Record<str
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), source);
     });
-    const run = spawnSync(TSC_BIN, ['-p', program, '--noEmit'], {
+    const run = spawnSync(process.execPath, [TSC_BIN, '-p', program, '--noEmit'], {
       cwd: directory,
       encoding: 'utf8',
     });
@@ -108,7 +108,7 @@ describe('TypeScript programs', () => {
     ],
   ])('fails api code that %s', (_label, path, source, code) => {
     const result = typeCheck('tsconfig.api.json', { ...GREETING, [path]: source });
-    expect(result).toEqual({ status: 2, errors: [code] });
+    expect(result).toEqual({ status: 1, errors: [code] });
   });
 
   it('gives web code the DOM', () => {
@@ -147,17 +147,17 @@ describe('TypeScript programs', () => {
       'loads Node through createRequire',
       'apps/api/src/features/greeting/domain/format.ts',
       "import { createRequire } from 'node:module';\nexport const fs = createRequire('/')('fs');\n",
-      'TS2307', // Cannot find module 'node:module'.
+      'TS2591', // Node modules are unavailable without Node types.
     ],
     [
       'imports Node file IO dynamically',
       'showcase/x/api/src/features/todo/domain/format.ts',
       "export const fs = import('node:fs');\n",
-      'TS2307',
+      'TS2591',
     ],
   ])('fails domain code that %s', (_label, path, source, code) => {
     const result = typeCheckAtRepoPaths('tsconfig.domain.json', { [path]: source });
-    expect(result).toEqual({ status: 2, errors: [code] });
+    expect(result).toEqual({ status: 1, errors: [code] });
   });
 
   it.each([
@@ -165,6 +165,6 @@ describe('TypeScript programs', () => {
     ['Buffer', "export const bytes = Buffer.from('Ada');\n"],
   ])('fails web code that reads the Node global %s', (_label, source) => {
     const result = typeCheck('tsconfig.json', { 'src/apiOrigin.ts': source });
-    expect(result).toEqual({ status: 2, errors: ['TS2591'] });
+    expect(result).toEqual({ status: 1, errors: ['TS2591'] });
   });
 });

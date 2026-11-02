@@ -103,12 +103,20 @@ function workspaceFiles() {
  */
 function emitDeclarations() {
   rmSync(DECLARATIONS_DIRECTORY, { recursive: true, force: true });
-  const tsc = join(REPOSITORY_ROOT, 'node_modules/.bin/tsc');
-  const options = { cwd: REPOSITORY_ROOT, stdio: 'inherit' };
-  execFileSync(tsc, ['-p', 'tsconfig.api.json'], options);
+  const compiler = fileURLToPath(
+    new URL('bin/tsc', import.meta.resolve('@typescript/native/package.json')),
+  );
+  // Go's Getwd honours PWD, so keep the native compiler on the real repository path.
+  const options = {
+    cwd: REPOSITORY_ROOT,
+    env: { ...process.env, PWD: REPOSITORY_ROOT },
+    stdio: 'inherit',
+  };
+  execFileSync(process.execPath, [compiler, '-p', 'tsconfig.api.json'], options);
   execFileSync(
-    tsc,
+    process.execPath,
     [
+      compiler,
       ...['-p', 'tsconfig.json', '--noEmit', 'false', '--declaration', '--emitDeclarationOnly'],
       ...['--rootDir', REPOSITORY_ROOT, '--outDir', DECLARATIONS_DIRECTORY],
     ],

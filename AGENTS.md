@@ -11,6 +11,7 @@ Read [REVIEW.md](REVIEW.md) before reviewing a pull request.
 ```bash
 pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
 pnpm bench            # measure cold, warm and one-change gates on 60 generated packages
+pnpm typecheck        # TypeScript 7 by path; TypeScript 5.9 stays for tools using its API
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # Oxlint: policy, React hooks, React Compiler and React Doctor rules
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
