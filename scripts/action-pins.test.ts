@@ -11,6 +11,13 @@ const yamlFiles = (directory: string): string[] =>
 const workflows = yamlFiles('.github/workflows');
 const actionFiles = [...workflows, ...yamlFiles('.github/actions')];
 
+it.each(actionFiles)('%s uses the shared pnpm setup pin', (path) => {
+  const pins = [...read(path).matchAll(/pnpm\/action-setup@([^\s]+)/g)];
+  pins.forEach((match) => {
+    expect(match[1]).toBe('ea17c68df8912ef543352723c149a84f56e3d413');
+  });
+});
+
 // Read a YAML field with its indented body, as required-gates does for jobs.
 function fields(text: string, key: string) {
   const lines = text.split('\n');

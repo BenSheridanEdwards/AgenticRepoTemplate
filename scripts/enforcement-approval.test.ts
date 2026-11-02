@@ -77,6 +77,7 @@ describe('GUARDS', () => {
     ['oxlint.config.ts', 'Vendored lint rules'],
     ['apps/web/oxlint.config.json', 'Vendored lint rules'],
     ['.github/workflows/ci.yml', 'CI workflows'],
+    ['.github/actions/setup/action.yml', 'CI workflows'],
     ['.husky/pre-commit', 'Git hooks'],
     ['commitlint.config.ts', 'Lint config'],
     ['tooling/oxlint-plugin-policy.js', 'Lint config'],
