@@ -10,6 +10,7 @@ Read [REVIEW.md](REVIEW.md) before reviewing a pull request.
 
 ```bash
 pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
+pnpm e2e:install    # one-time: download the pinned Chromium that pnpm e2e and the pre-push hook need
 pnpm bench            # measure cold, warm and one-change gates on 60 generated packages
 pnpm typecheck        # TypeScript 7 by path; TypeScript 5.9 stays for tools using its API
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
