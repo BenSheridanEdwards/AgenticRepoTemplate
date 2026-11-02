@@ -43,6 +43,7 @@ post-feature check before Done.
 
 ```bash
 pnpm e2e            # playwright test: every spec in each result's web/e2e/
+pnpm e2e:console-guard # real-browser fixture proof with captured child failures
 pnpm e2e:install    # one-time: install the Chromium browser
 pnpm exec playwright test --project reference                      # only the apps/ result
 pnpm exec playwright test apps/web/e2e/greeting.spec.ts --headed   # watch one spec run
@@ -54,6 +55,16 @@ project (`reference` for `apps/`, the id for `showcase/<id>/`) and two servers,
 Node api and Vite web. The reference uses ports 5173 and 3001; each further
 result adds 10. New results and specs join without config changes.
 Set `E2E_BASE_URL` to use your own reference web server, such as `pnpm preview` on :3000.
+
+`pnpm e2e:console-guard` owns the reference servers and captures four child
+failures: console warning, console error, uncaught page error and a missing
+expected message. It requires each fixture diagnostic and a passing declared
+error; a startup failure fails the proof. Child cases live in
+`tooling/console-guard/`, outside the behaviour map. The End-to-end behaviour
+map CI job runs Run console guard proof after Chromium installation. Keep
+negative guard cases there so green behaviour runs have no expected failures.
+The command also mutates a scratch copy of the actual fixture to stop recording
+console errors and verifies the parent's assertion rejects the passing child.
 
 ## Done when
 

@@ -313,6 +313,9 @@ jobs:
           else
             pnpm exec playwright install --with-deps chromium
           fi
+      - name: Run console guard proof
+        if: steps.scope.outputs.docs-only != 'true'
+        run: pnpm e2e:console-guard
       - run: pnpm e2e
         if: steps.scope.outputs.docs-only != 'true'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
