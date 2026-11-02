@@ -475,7 +475,7 @@ describe('checkContract', () => {
 
   it('fails when the aggregate no longer runs on cancellation or failure', () => {
     const errors = contractErrors((files) => ({
-      'ci.yml': files['ci.yml'].replace(/^ {4}if: always\(\)$/m, '    if: !cancelled()'),
+      'ci.yml': files['ci.yml'].replace(/^ {4}if: always\(\)$/m, `    if: \${{ !cancelled() }}`),
     }));
     expect(errors.join('\n')).toMatch(/always\(\)/);
   });
@@ -554,7 +554,7 @@ describe('checkContract', () => {
     [
       'the decision step skips on cancellation',
       /(Every required lane passed\n {8})if: always\(\)/,
-      '$1if: !cancelled()',
+      `$1if: \${{ !cancelled() }}`,
       undefined,
     ],
   ])('fails when %s', (_label, from, to, missingCommand) => {
@@ -738,11 +738,21 @@ describe('checkContract', () => {
     expect(contractErrors()).toEqual([]);
   });
 
+  it.each(['    ', '        '])('rejects YAML tags in conditions at %s', (indent) => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        new RegExp(`^${indent}if: .+$`, 'm'),
+        `${indent}if: !cancelled() && true`,
+      ),
+    }));
+    expect(errors).toContainEqual(expect.stringContaining('is a YAML tag, not an expression'));
+  });
+
   it('passes cancellation-aware scoped steps', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(
         "      - run: pnpm test:coverage:app\n        if: steps.scope.outputs.docs-only != 'true'\n",
-        "      - run: pnpm test:coverage:app\n        if: !cancelled() && steps.scope.outputs.docs-only != 'true'\n",
+        `      - run: pnpm test:coverage:app\n        if: \${{ !cancelled() && steps.scope.outputs.docs-only != 'true' }}\n`,
       ),
     }));
     expect(errors).toEqual([]);
