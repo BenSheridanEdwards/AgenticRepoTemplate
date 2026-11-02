@@ -50,6 +50,34 @@ it('keeps the greeting visible when recording fails', async () => {
   );
 });
 
+it('waits for the fresh response before recording a previously greeted name', async () => {
+  let answer: (value: { message: string }) => void = () => undefined;
+  const greet = jest
+    .fn<Promise<{ message: string }>, [{ name: string }]>()
+    .mockResolvedValueOnce({ message: 'Hello, Ada!' })
+    .mockResolvedValueOnce({ message: 'Hello, Lin!' })
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+  const record = jest.fn(() => ({ names: [] }));
+  const { result } = renderGreeting(greet, record);
+
+  act(() => result.current.requestGreeting('Ada'));
+  await waitFor(() => expect(record).toHaveBeenCalledTimes(1));
+  act(() => result.current.requestGreeting('Lin'));
+  await waitFor(() => expect(record).toHaveBeenCalledTimes(2));
+  act(() => result.current.requestGreeting('Ada'));
+  await waitFor(() => expect(greet).toHaveBeenCalledTimes(3));
+  expect(result.current.greeting).toEqual({ status: 'loading' });
+  expect(record).toHaveBeenCalledTimes(2);
+
+  await act(async () => answer({ message: 'Hello, Ada!' }));
+  await waitFor(() => expect(record).toHaveBeenCalledTimes(3));
+});
+
 it('loads, then holds the greeting for the requested name', async () => {
   let answer: (value: { message: string }) => void = () => undefined;
   const greet = jest.fn(
