@@ -141,7 +141,8 @@ function collectImageErrors(body) {
           'Commit the file under `docs/proof/<scope>/` and embed its GitHub blob URL with ' +
           '`?raw=1`: `![alt](https://github.com/OWNER/REPO/blob/BRANCH/docs/proof/SCOPE/file.png?raw=1)`.',
       ];
-    } else if (
+    }
+    if (
       GITHUB_BLOB_URL.test(url) &&
       !['1', 'true'].includes(new URL(url).searchParams.get('raw'))
     ) {
@@ -276,7 +277,8 @@ function locateSections(headings) {
     if (foundAt !== -1) {
       foundIndexBySection.set(required, foundAt);
       return foundAt + 1;
-    } else if (headings.includes(required)) {
+    }
+    if (headings.includes(required)) {
       errors.push(
         `Section "${required}" is out of order. Required order: ` +
           `${REQUIRED_SECTIONS.map((heading) => `"${heading}"`).join(' → ')}.`,

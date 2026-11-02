@@ -110,7 +110,7 @@ export default {
     restriction: 'off',
     nursery: 'off',
   },
-  plugins: ['react'],
+  plugins: ['react', 'unicorn'],
   options: { respectEslintDisableDirectives: false },
   jsPlugins: [
     fileURLToPath(new URL('./tooling/oxlint-plugin-policy.js', import.meta.url)),
@@ -129,6 +129,7 @@ export default {
     '.cache/**',
   ],
   rules: {
+    'no-else-return': ['error', { allowElseIf: false }],
     'no-param-reassign': ['error', { props: true }],
     'policy/no-loops': 'error',
     'policy/no-hand-written-globs': 'error',
@@ -137,6 +138,15 @@ export default {
     {
       files: ['{apps,packages}/*/src/**/*.{ts,tsx}', 'showcase/*/*/src/**/*.{ts,tsx}'],
       rules: {
+        'no-lonely-if': 'error',
+        'no-nested-ternary': 'error',
+        'unicorn/no-array-for-each': 'error',
+        'unicorn/no-array-sort': 'error',
+        'unicorn/no-array-reverse': 'error',
+        'unicorn/prefer-array-find': 'error',
+        'unicorn/prefer-array-some': 'error',
+        'unicorn/prefer-array-flat': 'error',
+        'unicorn/prefer-object-from-entries': 'error',
         ...reactDoctorRules,
         'react/rules-of-hooks': 'error',
         'react/exhaustive-deps': 'error',
@@ -189,6 +199,11 @@ export default {
           },
         ],
       },
+    },
+    {
+      files: ['{apps,packages}/*/src/**/*.{ts,tsx}', 'showcase/*/*/src/**/*.{ts,tsx}'],
+      excludeFiles: ['{apps,showcase/*}/web/src/main.tsx'],
+      rules: { 'no-restricted-globals': ['error', 'document', 'window'] },
     },
   ],
 };

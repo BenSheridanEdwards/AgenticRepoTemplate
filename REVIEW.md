@@ -32,7 +32,7 @@
 - Prefer deletion, existing patterns, and stdlib or platform features over new abstractions or dependencies.
 - Confirm one logical change per PR, so a reviewer can hold the whole change in mind.
 - Hold each stacked migration piece to 400 changed lines. Accept a self-contained single-idea PR above 400 when its body explains in one sentence why it is one idea, without requesting a split solely for size. Flag an over-400 PR combining ideas or lacking that sentence ([ADR 0074](.agents/decisions/0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md)).
-- Flag loops, `let` accumulators, or in-place mutation where `map`, `filter`, `flatMap`, or `reduce` expresses the transform. Lint owns part of [the declarative principle](docs/NORTH_STAR.md#9-declarative-over-imperative).
+- Flag `let` accumulators, mutation beyond lint's array and parameter checks, classes and switch where functions or declarative transforms express the intent. Oxlint owns loops, early-return shape and the native collection checks in [the declarative principle](docs/NORTH_STAR.md#9-declarative-over-imperative).
 
 ## Naming and clarity
 
