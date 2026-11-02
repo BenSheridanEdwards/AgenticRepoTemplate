@@ -440,6 +440,7 @@ function parseJobs(workflowText) {
     const read = readLine(previous, text);
     const state = read.state;
     if (state.job) jobs.set(state.jobName, state.job);
+    if (read.problem) problems.push(`line ${number}: ${read.problem}`);
     if (!read.ok) {
       problems.push(
         `line ${number} has a layout the contract reader does not check: "${text.trim()}". ` +
@@ -526,12 +527,23 @@ function readNested(state, line) {
   return { state, ok: state.nested !== 'reject' };
 }
 
+function setField(state, target, key, value) {
+  if (key === 'if' && value?.startsWith('!')) {
+    return {
+      state,
+      ok: true,
+      problem: '`if: !…` is a YAML tag, not an expression; write `if: $' + '{{ !… }}`',
+    };
+  }
+  return readField(state, target, key, value);
+}
+
 /**
  * Set a job or step field and decide how to read the lines nested under it: a
  * `run: |` block collects its text, a mapping such as `with:` is skipped, and
  * anything under a plain value is a problem.
  */
-function setField(state, target, key, value) {
+function readField(state, target, key, value) {
   if (value === undefined) {
     return {
       state: { ...state, nested: key === 'with' ? 'with' : 'opaque' },
@@ -553,7 +565,7 @@ function setField(state, target, key, value) {
   return { state: { ...next, job }, ok: !block || isRunBlock };
 }
 
-/** `if: ${{ x }}` and `if: x` mean the same to GitHub; compare the bare form. */
+/** Compare wrapped expressions in bare form after rejecting YAML tags. */
 function unwrapExpression(value) {
   return value.match(/^\$\{\{\s*(.*?)\s*\}\}$/)?.[1] ?? value;
 }

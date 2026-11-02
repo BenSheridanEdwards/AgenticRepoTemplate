@@ -748,6 +748,18 @@ describe('checkContract', () => {
     expect(errors).toContainEqual(expect.stringContaining('is a YAML tag, not an expression'));
   });
 
+  it.each([
+    "'!cancelled()'",
+    '"!cancelled()"',
+  ])('reads quoted condition %s without a YAML-tag error', (condition) => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(/^ {4}if: always\(\)$/m, `    if: ${condition}`),
+    }));
+    expect(errors.join('\n')).toMatch(/always\(\)/);
+    expect(errors.join('\n')).not.toContain('YAML tag');
+    expect(errors.join('\n')).not.toContain('layout');
+  });
+
   it('passes cancellation-aware scoped steps', () => {
     const errors = contractErrors((files) => ({
       'ci.yml': files['ci.yml'].replace(
