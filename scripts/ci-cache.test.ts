@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { formatCacheReport } from './ci-cache-report.mjs';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 const action = () => read('.github/actions/setup/action.yml');
@@ -89,6 +90,7 @@ test.each([
   [{ CACHE_HIT: '', MATCHED_KEY: '' }, 'miss'],
   [{ PERSISTENT: 'true' }, 'persistent'],
 ])('reports %j as %s', (shape, status) => {
+  expect(formatCacheReport({ CACHE_NAME: 'key', ...shape })).toBe(`pnpm store: ${status} (key)\n`);
   const result = spawnSync(process.execPath, ['scripts/ci-cache-report.mjs'], {
     encoding: 'utf8',
     env: { CACHE_NAME: 'key', ...shape },
