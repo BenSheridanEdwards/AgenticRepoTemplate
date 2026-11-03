@@ -22,7 +22,7 @@ the repository asks an agent to build.
 
 - Add a Product intent entry to `GUARDS` in
   `scripts/enforcement-approval.mjs`. It covers every path under `docs/prd/`
-  and the exact path `.agents/NORTH_STAR.md`, using the existing rewrite
+  and the exact path `docs/NORTH_STAR.md`, using the existing rewrite
   judge with the edit reason `edits product intent`.
 - Require BenSheridanEdwards's sign-off for every addition, edit, deletion or
   rename of those paths. The existing rename handling checks both paths, so
