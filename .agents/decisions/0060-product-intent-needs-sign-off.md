@@ -7,8 +7,8 @@
 
 ## Context
 
-ADRs 0023 and 0024 protect enforcement changes with Ben's head-specific
-sign-off. PRDs and the North Star sit outside those guarded paths, so an agent
+ADRs 0023 and 0024 protect enforcement changes with the approver's
+head-specific sign-off. PRDs and the North Star sit outside those guarded paths, so an agent
 can change the intent against which its work is reviewed without that human
 signature. Issue #135 adds the same review boundary to product intent.
 
@@ -24,11 +24,11 @@ the repository asks an agent to build.
   `scripts/enforcement-approval.mjs`. It covers every path under `docs/prd/`
   and the exact path `docs/NORTH_STAR.md`, using the existing rewrite
   judge with the edit reason `edits product intent`.
-- Require BenSheridanEdwards's sign-off for every addition, edit, deletion or
+- Require the approver's sign-off for every addition, edit, deletion or
   rename of those paths. The existing rename handling checks both paths, so
   moving a PRD out of the folder still asks for approval.
 - Reuse ADR 0024's status, comment and head-bound checkbox protocol. Only
-  Ben's fresh tick for the current head approves it, and every push resets
+  The approver's fresh tick for the current head approves it, and every push resets
   that approval. The existing enforcement judges retain their behavior.
 - Supersede ADR 0023's path exclusion only for product intent. Supersede
   ADR 0024's rule that only enforcement loosening or rewriting asks for a
@@ -50,7 +50,7 @@ the repository asks an agent to build.
 - The `pull_request_target` workflow runs main's copy of the gate. The new
   product-intent guard therefore takes effect only after this change merges.
   On the first subsequent PR touching a PRD, the reviewer/merger records the
-  red `enforcement-approval` status, Ben's current-head tick and the resulting
+  red `enforcement-approval` status, the approver's current-head tick and the resulting
   green status in a follow-up comment on this implementation's PR. That live
   check remains pending until then.
 - This decision adds no dependency, workflow, approval identity or second
