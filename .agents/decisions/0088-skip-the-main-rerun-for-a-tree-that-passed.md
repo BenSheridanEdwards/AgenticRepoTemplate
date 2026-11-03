@@ -1,6 +1,6 @@
 # 88. Skip the main rerun for a tree that already passed
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #258)
 - **Date:** 2026-10-31
 - **Builds on:** [One fail-closed required-gate contract](0017-required-gates-aggregate.md)
 
