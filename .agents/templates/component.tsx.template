@@ -6,7 +6,7 @@
 // takes state from its use* hook (server state through useTrpc(), form state
 // through use__Name__Form) and builds controls from @repo/ui. Functions it
 // defines start with `handle`; callback props start with `on`. Style with
-// Tailwind classes on the theme scale and the @repo/ui tokens (ADR 0111).
+// Tailwind classes on the theme scale and the @repo/ui tokens (ADR 0114).
 // See .agents/project/ARCHITECTURE.md.
 
 import { Button } from '@repo/ui';

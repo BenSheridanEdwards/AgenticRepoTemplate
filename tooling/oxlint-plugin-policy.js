@@ -954,11 +954,11 @@ export const colourLiterals = (text) => text.match(COLOUR_LITERAL) ?? [];
 
 const STYLE_MESSAGES = {
   arbitrary:
-    'Replace the Tailwind arbitrary value `{{value}}` with a class on the theme scale or a `@repo/ui` token (ADR 0111).',
+    'Replace the Tailwind arbitrary value `{{value}}` with a class on the theme scale or a `@repo/ui` token (ADR 0114).',
   colour:
-    'Replace the colour literal `{{value}}` with a `@repo/ui` colour token class such as `bg-surface` or `text-ink` (ADR 0111).',
+    'Replace the colour literal `{{value}}` with a `@repo/ui` colour token class such as `bg-surface` or `text-ink` (ADR 0114).',
   style:
-    'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0111).',
+    'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0114).',
 };
 
 /** Every AST node under `node`, itself included, in source order. */

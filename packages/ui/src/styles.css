@@ -3,7 +3,7 @@
 
 @custom-variant aria-invalid (&[aria-invalid="true"]);
 
-/* The design system: the only colours, radii and fonts the app may use (ADR 0111). */
+/* The design system: the only colours, radii and fonts the app may use (ADR 0114). */
 @theme {
   --color-*: initial;
   --color-canvas: #0b1020;

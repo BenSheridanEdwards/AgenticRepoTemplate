@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm lint:styles`: the style policy for the files Oxlint cannot parse (ADR 0111).
+ * `pnpm lint:styles`: the style policy for the files Oxlint cannot parse (ADR 0114).
  * Oxlint `policy/no-arbitrary-styles` checks TypeScript; this script checks CSS and
  * `index.html`. Each result's CSS only imports `@repo/ui/styles.css` and lists
  * `@source` paths. `packages/ui/src/styles.css` alone holds the `@theme` block, and
@@ -140,7 +140,7 @@ function runCli() {
     return;
   }
 
-  console.error('Style policy violations (ADR 0111):\n');
+  console.error('Style policy violations (ADR 0114):\n');
   console.error(
     failures.map(({ path, line, message }) => `✗ ${path}:${line} ${message}`).join('\n'),
   );

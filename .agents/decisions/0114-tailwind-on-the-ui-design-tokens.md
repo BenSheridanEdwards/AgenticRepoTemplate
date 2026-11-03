@@ -1,4 +1,4 @@
-# 111. Tailwind on the `@repo/ui` design tokens
+# 114. Tailwind on the `@repo/ui` design tokens
 
 - **Status:** Proposed
 - **Date:** 2026-11-03

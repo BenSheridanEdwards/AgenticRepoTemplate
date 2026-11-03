@@ -96,7 +96,7 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
   settings ([ADR 0103](../decisions/0103-eslint-is-retired.md)).
 - `pnpm lint:styles` (`scripts/check-styles.mjs`) owns the style policy in CSS
   and `index.html`, the files outside Oxlint's parsers; Oxlint
-  `policy/no-arbitrary-styles` owns it in TypeScript ([ADR 0111](../decisions/0111-tailwind-on-the-ui-design-tokens.md)).
+  `policy/no-arbitrary-styles` owns it in TypeScript ([ADR 0114](../decisions/0114-tailwind-on-the-ui-design-tokens.md)).
 - Oxlint (`pnpm lint:anti-slop`) runs the vendored generic and Effect
   anti-slop plugins with built-ins off. Its separate `oxlint.config.ts` runs
   core policy, including showcase sources ([ADR 0098](../decisions/0098-oxlint-replaces-eslint.md)).

@@ -262,7 +262,7 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
       source: 'const view = <p style={{ margin: 0 }}>Hi</p>;',
       code: 'policy(no-arbitrary-styles)',
       message:
-        'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0111).',
+        'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0114).',
     },
     ...['#0b1020', '#FFF', 'rgb(0 0 0)', 'oklch(0.5 0.1 200)'].map((value, index) => ({
       path: `${root}/src/colour${index}.tsx`,
