@@ -37,7 +37,9 @@ function rejectViolation(spec, diagnostic) {
   });
 }
 
-function runChild(config, directory, args = []) {
+function runChild(config, directory, args = [], environment = {}) {
+  // Keep the report outside Playwright's cleaned results directory and off stdout.
+  const reportFile = `${directory}.json`;
   const child = spawnSync(
     process.execPath,
     [
@@ -53,16 +55,64 @@ function runChild(config, directory, args = []) {
     {
       cwd: root,
       encoding: 'utf8',
-      env: { ...process.env, E2E_BASE_URL: '', FORCE_COLOR: '0' },
+      env: {
+        ...process.env,
+        ...environment,
+        E2E_BASE_URL: '',
+        FORCE_COLOR: '0',
+        PLAYWRIGHT_JSON_OUTPUT_FILE: reportFile,
+      },
       maxBuffer: 10 * 1024 * 1024,
     },
   );
+  return collectReport(child, reportFile);
+}
+
+function collectReport(child, reportFile) {
   assert.ifError(child.error);
   assert.equal(child.signal, null, child.stderr);
-  const report = JSON.parse(child.stdout);
+  const report = JSON.parse(readFileSync(reportFile, 'utf8'));
   assert.deepEqual(report.errors, [], child.stderr);
   return { child, report, cases: report.suites.flatMap(specs) };
 }
+
+test('report collection rejects missing, malformed and setup-failed reports', () => {
+  mkdirSync(join(root, '.scratch'), { recursive: true });
+  const directory = mkdtempSync(join(root, '.scratch/console-guard-report-'));
+  const reportFile = join(directory, 'report.json');
+  const report = { errors: [], suites: [] };
+  const child = {
+    error: undefined,
+    signal: null,
+    status: 1,
+    stdout: JSON.stringify(report),
+    stderr: 'child diagnostics',
+  };
+  try {
+    assert.throws(() => collectReport(child, reportFile), { code: 'ENOENT' });
+    writeFileSync(reportFile, 'GitCommitInfo: not a report');
+    assert.throws(() => collectReport(child, reportFile), SyntaxError);
+    writeFileSync(
+      reportFile,
+      JSON.stringify({ errors: [{ message: 'setup failed' }], suites: [] }),
+    );
+    assert.throws(() => collectReport(child, reportFile), /child diagnostics/);
+    writeFileSync(reportFile, JSON.stringify({ errors: [] }));
+    assert.throws(() => collectReport(child, reportFile), TypeError);
+    writeFileSync(reportFile, JSON.stringify(report));
+    assert.deepEqual(collectReport(child, reportFile), { child, report, cases: [] });
+    assert.throws(
+      () => collectReport({ ...child, error: new Error('spawn failed') }, reportFile),
+      /spawn failed/,
+    );
+    assert.throws(
+      () => collectReport({ ...child, signal: 'SIGTERM' }, reportFile),
+      /child diagnostics/,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test('the real browser fixture rejects four guard violations and allows declared errors', () => {
   mkdirSync(join(root, '.scratch'), { recursive: true });
@@ -71,7 +121,10 @@ test('the real browser fixture rejects four guard violations and allows declared
     const { child, report, cases } = runChild(
       'tooling/console-guard/playwright.config.ts',
       join(directory, 'results'),
+      [],
+      { GITHUB_ACTIONS: 'true', DEBUG_GIT_COMMIT_INFO: '1' },
     );
+    assert.match(child.stdout, /^GitCommitInfo:/m);
     assert.equal(cases.length, 5, child.stderr);
     failures.forEach(({ title, diagnostic }) => {
       rejectViolation(
