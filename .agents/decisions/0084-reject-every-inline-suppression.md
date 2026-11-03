@@ -1,6 +1,6 @@
 # 84. Reject every inline suppression
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #251)
 - **Date:** 2026-10-31
 - **Replaces:** ADR 0039 (deleted), which blocked inline ESLint disables with
   `noInlineConfig`; [0103](0103-eslint-is-retired.md) retired that option
