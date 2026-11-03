@@ -1,6 +1,6 @@
 # 107. A second api feature proves feature isolation on the real tree
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #289)
 - **Date:** 2026-11-02
 
 ## Context
