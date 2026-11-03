@@ -172,6 +172,7 @@ export default {
         'policy/one-component-per-file': 'error',
         'policy/no-large-comments': 'error',
         'policy/use-ui-primitives': 'error',
+        'policy/no-arbitrary-styles': 'error',
         'policy/state-and-effects-in-hooks': 'error',
         'policy/handler-names': 'error',
         'policy/callback-prop-names': 'error',

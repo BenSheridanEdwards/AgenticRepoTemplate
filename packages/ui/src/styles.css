@@ -1,60 +1,33 @@
-.ui-button {
-  padding: 10px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #1d263f;
-  color: var(--color-text);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease;
+@import "tailwindcss" source(none);
+@source "./";
+
+@custom-variant aria-invalid (&[aria-invalid="true"]);
+
+/* The design system: the only colours, radii and fonts the app may use (ADR 0111). */
+@theme {
+  --color-*: initial;
+  --color-canvas: #0b1020;
+  --color-surface: #141a2e;
+  --color-raised: #1d263f;
+  --color-raised-hover: #26314f;
+  --color-ink: #e6e9f2;
+  --color-muted: #9aa3bd;
+  --color-line: #273150;
+  --color-line-strong: #3a4a72;
+  --color-focus: #4ade80;
+  --color-danger: #f87171;
+
+  --radius-*: initial;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  --font-*: initial;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-.ui-button:hover {
-  background: #26314f;
-  border-color: #3a4a72;
-}
-
-.ui-button:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
-.ui-text-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ui-text-field__label {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.ui-text-field__input {
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font: inherit;
-  font-size: 15px;
-}
-
-.ui-text-field__input:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
-.ui-text-field__input[aria-invalid="true"] {
-  border-color: var(--color-danger);
-}
-
-.ui-text-field__error {
-  margin: 0;
-  color: var(--color-danger);
-  font-size: 14px;
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
 }

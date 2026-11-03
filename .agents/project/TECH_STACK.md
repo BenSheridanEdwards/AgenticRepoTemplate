@@ -8,7 +8,8 @@ tool needs an ADR. [QUALITY_GATES.md](QUALITY_GATES.md) lists where each runs.
 | Language and typecheck | **TypeScript 7.0.2** (`strict`, `pnpm typecheck`) | Run `node node_modules/@typescript/native/bin/tsc` by path through the exact `npm:typescript@7.0.2` alias. TypeScript 5.9.3 stays as a library for Jest's ts-node loader, commitlint's config loader and React Doctor. |
 | Workspace | **pnpm workspaces** | `apps/*`, `packages/*` and each showcase result (`showcase/*/web`, `showcase/*/api`); the root configs own every gate. |
 | UI | **React 19** | Function components + hooks only. |
-| UI primitives | **`@repo/ui`** (`packages/ui`) | `Button`, `TextField` and `styles.css`; `react` is its only peer. |
+| UI primitives | **`@repo/ui`** (`packages/ui`) | `Button`, `TextField` and `styles.css`; `react` and `tailwindcss` are its peers. |
+| Styling and design tokens | **Tailwind CSS 4** (`tailwindcss`, `@tailwindcss/vite`) | Utility classes on the theme scale. The `@theme` block in `packages/ui/src/styles.css` holds every colour, radius and font token; each web `src/index.css` imports it. `pnpm lint:policy` and `pnpm lint:styles` reject arbitrary values, inline styles and colour literals ([ADR 0111](../decisions/0111-tailwind-on-the-ui-design-tokens.md)). |
 | Build / dev server | **Vite** | The runnable carrier; the scaffolding is stack-agnostic. Its dev and preview servers proxy `/trpc` to `API_ORIGIN` (default `http://127.0.0.1:3001`). |
 | Api runtime | **Node ≥ 22.18 native type stripping** | `node src/server.ts` runs the api source as is, with no runner, build step or bundler. Api code uses erasable syntax and `.ts` import extensions. |
 | Api transport | **tRPC v11** (`@trpc/server`, `@trpc/client`, `@trpc/tanstack-react-query`) | `@trpc/server` in the api; the client packages only in each result's `web/src/api-client/`. The web imports the api as the `AppRouter` type only. |

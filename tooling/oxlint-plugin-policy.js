@@ -941,6 +941,51 @@ const useUiPrimitives = {
   },
 };
 
+// A Tailwind arbitrary value, property or variant: `w-[13px]`, `[mask:none]`, `data-[open]:p-4`.
+const ARBITRARY_CLASS = /\S*\[[^\s\]]*\]\S*/g;
+const COLOUR_LITERAL =
+  /(?<![\w&])#(?:[\da-f]{8}|[\da-f]{6}|[\da-f]{3,4})(?![\w-])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi;
+
+/** The Tailwind arbitrary-value tokens in a class list. Pure; shared with `scripts/check-styles.mjs`. */
+export const arbitraryClasses = (text) => text.match(ARBITRARY_CLASS) ?? [];
+
+/** The hex and colour-function literals in a text. Pure; shared with `scripts/check-styles.mjs`. */
+export const colourLiterals = (text) => text.match(COLOUR_LITERAL) ?? [];
+
+const STYLE_MESSAGES = {
+  arbitrary:
+    'Replace the Tailwind arbitrary value `{{value}}` with a class on the theme scale or a `@repo/ui` token (ADR 0111).',
+  colour:
+    'Replace the colour literal `{{value}}` with a `@repo/ui` colour token class such as `bg-surface` or `text-ink` (ADR 0111).',
+  style:
+    'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0111).',
+};
+
+const noArbitraryStyles = {
+  meta: { type: 'problem', schema: [], messages: STYLE_MESSAGES },
+  create(context) {
+    if (isTestFile(context.filename) || API_SOURCE.test(repositoryPath(context))) {
+      return {};
+    }
+
+    const check = (node, text) => {
+      [
+        ...arbitraryClasses(text).map((value) => ({ messageId: 'arbitrary', value })),
+        ...colourLiterals(text).map((value) => ({ messageId: 'colour', value })),
+      ].forEach(({ messageId, value }) => {
+        context.report({ node, messageId, data: { value } });
+      });
+    };
+
+    return {
+      Literal: (node) => typeof node.value === 'string' && check(node, node.value),
+      TemplateElement: (node) => check(node, node.value.cooked ?? ''),
+      JSXAttribute: (node) =>
+        node.name.name === 'style' && context.report({ node, messageId: 'style' }),
+    };
+  },
+};
+
 export default {
   meta: { name: 'policy' },
   rules: {
@@ -1085,6 +1130,7 @@ export default {
     'one-component-per-file': oneComponentPerFile,
     'no-large-comments': noLargeComments,
     'use-ui-primitives': useUiPrimitives,
+    'no-arbitrary-styles': noArbitraryStyles,
     'state-and-effects-in-hooks': stateAndEffectsInHooks,
     'handler-names': handlerNames,
     'callback-prop-names': callbackPropNames,

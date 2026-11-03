@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -8,7 +9,7 @@ const proxy = { '/trpc': process.env.API_ORIGIN ?? 'http://127.0.0.1:3001' };
 // Vite is only the carrier that makes this template runnable. The agentic
 // scaffolding (gates, context, skills) is stack-agnostic — see README.md.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: { port: 5173, proxy },
   preview: { port: 3000, proxy },
 });

@@ -43,6 +43,7 @@ Action pins are read from the workflows, so a Dependabot bump needs no edit here
 | `package.json verify` | `pnpm check:docs` | `ci.yml` `quality` | `pnpm check:docs` |
 | `package.json verify` | `pnpm check:adr` | `ci.yml` `quality` | `pnpm check:adr` |
 | `package.json verify` | `pnpm lint:policy` | `ci.yml` `quality` | `pnpm lint:policy` |
+| `package.json verify` | `pnpm lint:styles` | `ci.yml` `quality` | `pnpm lint:styles` |
 | `package.json verify` | `pnpm react-doctor` | `ci.yml` `quality` | `pnpm react-doctor` |
 | `.husky/pre-commit` | `pnpm typecheck` | `ci.yml` `quality` | `pnpm typecheck` |
 | `package.json verify` | `pnpm typecheck` | `ci.yml` `quality` | `pnpm typecheck` |

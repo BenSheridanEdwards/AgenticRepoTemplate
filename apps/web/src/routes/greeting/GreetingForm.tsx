@@ -10,7 +10,7 @@ export function GreetingForm({ onGreet }: GreetingFormProps) {
   const handleGreet = handleSubmit(({ name }) => onGreet(name));
 
   return (
-    <form className="greeting-form" onSubmit={handleGreet} noValidate>
+    <form className="flex flex-col gap-3" onSubmit={handleGreet} noValidate>
       <TextField
         label="Name"
         autoComplete="off"

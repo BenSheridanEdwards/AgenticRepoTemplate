@@ -15,13 +15,14 @@ pnpm bench            # measure cold, warm and one-change gates on 60 generated 
 pnpm typecheck        # TypeScript 7 by path; TypeScript 5.9 stays for tools using its API
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # Oxlint: policy, React hooks, React Compiler and React Doctor rules
+pnpm lint:styles      # CSS and index.html: @repo/ui tokens only, no arbitrary values or colour literals
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
 pnpm arch:check       # architecture gate, structure check, diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd and each result's architecture.mmd
 pnpm api:report       # regenerate each package's etc/*.api.md after an intended export change
 pnpm test:integration # exercise the real API server over HTTP in its own Jest project
 pnpm test:contract    # record the web consumer contract and verify the HTTP provider with Pact
-pnpm verify           # the full local gate suite (typecheck → biome → oxlint → react doctor → fallow → architecture → tests → build)
+pnpm verify           # the full local gate suite (typecheck → biome → oxlint → styles → react doctor → fallow → architecture → tests → build)
 pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```
 
@@ -64,6 +65,7 @@ the code-level rules and their checks.
 | Rule | Enforced by |
 | --- | --- |
 | Each in-scope source file has an architecture role; value imports between roles follow the table in [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md). Type-only imports may cross roles except into `@repo/ui`, which imports no role, subject to slice isolation and route co-location: route value and type imports stay within their own folder, `@repo/ui`, the api-client public barrel and external npm packages ([ADR 0075](.agents/decisions/0075-canonical-colocated-routes.md)). Tests, E2E specs, configs, scripts and tooling sit outside the role table. | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck`; [North Star §2](docs/NORTH_STAR.md#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs) names the limits. |
+| Style with Tailwind classes on the theme scale and the `@repo/ui` design tokens. Use no arbitrary values (`w-[13px]`), inline styles or colour literals; add a token to the `@theme` block in `packages/ui/src/styles.css` instead. | `pnpm lint:policy` (`policy/no-arbitrary-styles`), `pnpm lint:styles` ([ADR 0111](.agents/decisions/0111-tailwind-on-the-ui-design-tokens.md)) |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Run every applicable hook. Common bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides) are refused for the supported command forms. | `.agents/hooks/block-gate-bypass.sh` in Claude Code, trusted Codex Bash sessions and Cursor agents; [ADR 0027](.agents/decisions/0027-block-common-hook-bypasses.md) lists the gaps. CI re-runs every hook step (`pnpm gates:check` holds the parity); hosted required checks govern merging. |
 | A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `oxlint.config.ts`, `biome.json`, `commitlint.config.ts`, `tooling/oxlint-plugin-policy.js`, `scripts/check-suppressions.mjs`, `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`), or any addition, edit, deletion or rename in `docs/prd/**` or of `docs/NORTH_STAR.md`, waits for the approver (repo variable `ENFORCEMENT_APPROVER`, default `BenSheridanEdwards`) to tick the sign-off for its head commit. A tick counts when it is made as that approver. | `enforcement-approval` status ([ADR 0023](.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md), [ADR 0060](.agents/decisions/0060-product-intent-needs-sign-off.md)) |

@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, matchesGlob, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import policy from '../tooling/oxlint-plugin-policy.js';
+import policy, { colourLiterals } from '../tooling/oxlint-plugin-policy.js';
 
 const ROOT = resolve(__dirname, '..');
 const command = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).scripts['lint:policy'];
@@ -243,6 +243,43 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
     },
   ]),
   { path: 'packages/ui/src/native.tsx', source: 'const control = <button aria-label="Save" />;' },
+  ...['apps/web', 'packages/ui', 'showcase/todo-01/web'].flatMap((root) => [
+    ...['w-[13px]', 'bg-[#fff]', '[mask:none]', 'data-[open]:p-4'].map((value, index) => ({
+      path: `${root}/src/arbitrary${index}.ts`,
+      source: `export const classes = 'p-4 ${value}';`,
+      codes: [value, ...colourLiterals(value)].map(() => 'policy(no-arbitrary-styles)'),
+      messageContains: `\`${value}\``,
+    })),
+    {
+      path: `${root}/src/inline.tsx`,
+      source: 'const view = <p style={{ margin: 0 }}>Hi</p>;',
+      code: 'policy(no-arbitrary-styles)',
+      message:
+        'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0111).',
+    },
+    ...['#0b1020', '#FFF', 'rgb(0 0 0)', 'oklch(0.5 0.1 200)'].map((value, index) => ({
+      path: `${root}/src/colour${index}.ts`,
+      source: `export const tone = '${value}';`,
+      code: 'policy(no-arbitrary-styles)',
+      messageContains: 'colour literal',
+    })),
+    {
+      path: `${root}/src/template.ts`,
+      source:
+        'export const classes = (wide: boolean) => `p-4 $' + '{wide ? "w-full" : ""} w-[13px]`;',
+      code: 'policy(no-arbitrary-styles)',
+    },
+    {
+      path: `${root}/src/scale.tsx`,
+      source:
+        'const view = <p className="mx-auto max-w-160 p-4 text-ink hover:bg-raised sm:py-12">Issue #12, item [a b]</p>;',
+    },
+  ]),
+  { path: 'apps/api/src/brackets.ts', source: "export const message = 'w-[13px] #fff';" },
+  {
+    path: 'apps/web/src/inline.test.tsx',
+    source: "const view = <p style={{ margin: 0 }} className='w-[13px]'>Hi</p>;",
+  },
   { path: 'apps/web/src/App.test.tsx', source: 'const control = <button aria-label="Save" />;' },
 ];
 const contractFixtures: Fixture[] = [
@@ -1085,7 +1122,7 @@ it('turns on every policy rule at error in result roots', () => {
   const rules = Object.keys(policy.rules).filter(
     (rule) => !['no-loops', 'no-hand-written-globs'].includes(rule),
   );
-  expect(rules).toHaveLength(18);
+  expect(rules).toHaveLength(19);
   roots.forEach((root) => {
     const applicable = rules.filter(
       (rule) =>
@@ -1097,7 +1134,8 @@ it('turns on every policy rule at error in result roots', () => {
         ].includes(rule) ||
           !root.endsWith('/api')) &&
         (rule !== 'use-ui-primitives' || (!root.endsWith('/api') && root !== 'packages/ui')) &&
-        (rule !== 'procedure-input-schema' || root.endsWith('/api')),
+        (rule !== 'procedure-input-schema' || root.endsWith('/api')) &&
+        (rule !== 'no-arbitrary-styles' || !root.endsWith('/api')),
     );
     applicable.forEach((rule) => {
       expect(diagnostics).toEqual(

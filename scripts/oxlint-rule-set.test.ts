@@ -73,6 +73,7 @@ const RESULT_ROOT = {
       'no-switch',
       'no-large-comments',
       'use-ui-primitives',
+      'no-arbitrary-styles',
       'state-and-effects-in-hooks',
       'handler-names',
       'callback-prop-names',
