@@ -1,6 +1,6 @@
 # 60. Product intent needs sign-off
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #136)
 - **Date:** 2026-10-23
 - **Builds on:** [0045](0045-prds-state-intent-and-link-their-specs.md)
 - **Supersedes in part:** [0023](0023-protect-only-the-files-that-run-the-gates.md), [0024](0024-sign-off-only-loosening-enforcement-changes.md)
@@ -54,4 +54,4 @@ the repository asks an agent to build.
   green status in a follow-up comment on this implementation's PR. That live
   check remains pending until then.
 - This decision adds no dependency, workflow, approval identity or second
-  sign-off mechanism. Ben accepts this proposed ADR by approving the PR.
+  sign-off mechanism.

@@ -1,6 +1,6 @@
 # 56. PRD changes start from an issue form
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #129), amended by [0083](0083-every-issue-starts-from-a-form.md)
 - **Date:** 2026-10-23
 - **Builds on:** [0045](0045-prds-state-intent-and-link-their-specs.md)
 
