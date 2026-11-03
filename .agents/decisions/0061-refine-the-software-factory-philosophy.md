@@ -10,7 +10,7 @@
 
 ## Context
 
-On 24 October 2026 Ben refined the software factory philosophy: slop is
+On 24 October 2026 the maintainer refined the software factory philosophy: slop is
 agents writing overly complex code that breaks the agreed conventions, and
 the toolchain enforces those conventions; declarative code over imperative;
 and layering, where each layer imports only below it, one feature imports

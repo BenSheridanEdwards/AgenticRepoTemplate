@@ -61,6 +61,6 @@ and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited in
   Review still judges whether the PRDs selected, the reason for `None`, and
   the proposed outcome fit the change. PRD-impact checks and approval for
   edits to product intent remain separate work.
-- The workflow edit requires Ben's head-commit enforcement sign-off under
-  ADRs 0023 and 0024. Ben accepts this ADR by approving the PR. This change
+- The workflow edit requires the approver's head-commit enforcement sign-off
+  under ADRs 0023 and 0024. The approver accepts this ADR by approving the PR. This change
   adds no dependency or product behaviour.
