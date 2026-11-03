@@ -4,6 +4,7 @@
 - **Date:** 2026-10-25
 - **Builds on:** [0064](0064-merge-confidence-label.md),
   [0017](0017-required-gates-aggregate.md)
+- **Amended by:** [0112](0112-grade-docs-only-pull-requests-on-their-gates.md)
 
 ## Context
 

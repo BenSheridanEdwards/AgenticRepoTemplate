@@ -19,6 +19,8 @@
  *
  * Coverage gaps grade `red` and fail the Changed-file coverage lane. PRD and
  * import blast-radius gaps grade `amber`; a PR with no gaps grades `green`.
+ * A docs-only change (`scripts/docs-only-scope.mjs`, ADR 0112) needs no coverage
+ * or blast-radius evidence, because CI collects neither for it.
  *
  * CLI modes:
  *   --decide   Grade the PR. Reads `CHECK_RUNS` (the head commit's check runs as
@@ -46,10 +48,19 @@ import { matchesGlob, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import config from '../jest.config.ts';
 import { blastRadiusGaps, parseBlastRadius, renderBlastRadius } from './blast-radius.mjs';
+import { docsOnly } from './docs-only-scope.mjs';
+import { LIST_FILES_LIMIT } from './enforcement-approval.mjs';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
 const PRD_GLOB = 'docs/prd/*.md';
+const DOCS_ONLY_REASON =
+  'The pull request changes documentation only (`scripts/docs-only-scope.mjs`), so unit coverage ' +
+  'and import blast radius do not apply; CI collects neither for it.';
+const GREEN_REASON =
+  'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
+  'and a PRD, and every changed source file meets the line-coverage threshold. ' +
+  'Import blast radius stays within its unit and count threshold.';
 
 /** A changed source file in `<result>/web/src/routes/<name>/` or `.../features/<name>/`. */
 const SLICE_PATH = /^((?:apps|showcase\/[^/]+))\/web\/src\/(routes|features)\/([^/]+)\//;
@@ -282,11 +293,28 @@ export function requiredCheckResults(checkRuns, checkNames = requiredCheckNames(
   });
 }
 
+/** Return missing-evidence reasons in order, waiving them for a docs-only change. Pure. */
+function unavailableReasons({ coverageUnavailable, blastRadiusUnavailable, docsOnlyChange }) {
+  if (docsOnlyChange) return [];
+  return [
+    [
+      coverageUnavailable,
+      "The head's CI coverage artifact is missing or malformed: `coverage unavailable`.",
+    ],
+    [
+      blastRadiusUnavailable,
+      'Blast-radius evidence is missing or invalid: `blast radius unavailable`.',
+    ],
+  ]
+    .filter(([flag]) => flag)
+    .map(([, reason]) => reason);
+}
+
 /**
  * Grade coverage gaps, missing evidence and failed checks red; PRD and import
- * gaps amber; no gaps green. Pure.
+ * gaps amber; no gaps green. Missing evidence is waived for a docs-only change. Pure.
  *
- * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], blockingGaps?: string[], coverageUnavailable?: boolean, blastRadiusUnavailable?: boolean }} input
+ * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], blockingGaps?: string[], coverageUnavailable?: boolean, blastRadiusUnavailable?: boolean, docsOnlyChange?: boolean }} input
  */
 export function decideConfidence({
   requiredChecks,
@@ -294,39 +322,33 @@ export function decideConfidence({
   blockingGaps = [],
   coverageUnavailable = false,
   blastRadiusUnavailable = false,
+  docsOnlyChange = false,
 }) {
   const failing = requiredChecks.filter((check) => check.conclusion !== 'success');
-  if (
-    failing.length > 0 ||
-    blockingGaps.length > 0 ||
-    coverageUnavailable ||
-    blastRadiusUnavailable
-  ) {
+  const unavailable = unavailableReasons({
+    coverageUnavailable,
+    blastRadiusUnavailable,
+    docsOnlyChange,
+  });
+  const docsNote = docsOnlyChange ? [DOCS_ONLY_REASON] : [];
+  if (failing.length > 0 || blockingGaps.length > 0 || unavailable.length > 0) {
     return {
       level: 'red',
       reasons: [
         ...blockingGaps,
         ...gaps,
         ...failing.map((check) => `Required check \`${check.name}\` is ${check.conclusion}.`),
-        ...(coverageUnavailable
-          ? ["The head's CI coverage artifact is missing or malformed: `coverage unavailable`."]
-          : []),
-        ...(blastRadiusUnavailable
-          ? ['Blast-radius evidence is missing or invalid: `blast radius unavailable`.']
-          : []),
+        ...unavailable,
+        ...docsNote,
       ],
     };
   }
   if (gaps.length > 0) {
-    return { level: 'amber', reasons: gaps };
+    return { level: 'amber', reasons: [...gaps, ...docsNote] };
   }
   return {
     level: 'green',
-    reasons: [
-      'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
-        'and a PRD, and every changed source file meets the line-coverage threshold. ' +
-        'Import blast radius stays within its unit and count threshold.',
-    ],
+    reasons: docsOnlyChange ? ['Every required gate passed.', DOCS_ONLY_REASON] : [GREEN_REASON],
   };
 }
 
@@ -386,6 +408,8 @@ function writeOutput(key, value) {
 function runDecide() {
   const checkRuns = readJsonEnv('CHECK_RUNS');
   const changed = (process.env.CHANGED ?? '').split('\n').filter(Boolean);
+  // The PR files API lists at most LIST_FILES_LIMIT files, so a list at the cap may hide code.
+  const docsOnlyChange = changed.length < LIST_FILES_LIMIT && docsOnly(changed);
   const root = resolve(process.env.PR_ROOT ?? process.cwd());
   const filesystem = createNodeFilesystem(root);
   const coverage = readCoverage();
@@ -410,6 +434,7 @@ function runDecide() {
     blockingGaps,
     coverageUnavailable: !coverage,
     blastRadiusUnavailable: !evidence,
+    docsOnlyChange,
   });
 
   console.log(`confidence: ${decision.level}`);
