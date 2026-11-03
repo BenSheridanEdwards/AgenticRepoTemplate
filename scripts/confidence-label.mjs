@@ -19,6 +19,8 @@
  *
  * Coverage gaps grade `red` and fail the Changed-file coverage lane. PRD and
  * import blast-radius gaps grade `amber`; a PR with no gaps grades `green`.
+ * A docs-only change (`scripts/docs-only-scope.mjs`, ADR 0093) needs no coverage
+ * or blast-radius evidence, because CI collects neither for it.
  *
  * CLI modes:
  *   --decide   Grade the PR. Reads `CHECK_RUNS` (the head commit's check runs as
@@ -46,10 +48,14 @@ import { matchesGlob, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import config from '../jest.config.ts';
 import { blastRadiusGaps, parseBlastRadius, renderBlastRadius } from './blast-radius.mjs';
+import { docsOnly } from './docs-only-scope.mjs';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
 const PRD_GLOB = 'docs/prd/*.md';
+const DOCS_ONLY_REASON =
+  'The pull request changes documentation only (`scripts/docs-only-scope.mjs`), so unit coverage ' +
+  'and import blast radius do not apply; CI collects neither for it.';
 
 /** A changed source file in `<result>/web/src/routes/<name>/` or `.../features/<name>/`. */
 const SLICE_PATH = /^((?:apps|showcase\/[^/]+))\/web\/src\/(routes|features)\/([^/]+)\//;
@@ -284,9 +290,9 @@ export function requiredCheckResults(checkRuns, checkNames = requiredCheckNames(
 
 /**
  * Grade coverage gaps, missing evidence and failed checks red; PRD and import
- * gaps amber; no gaps green. Pure.
+ * gaps amber; no gaps green. Missing evidence is waived for a docs-only change. Pure.
  *
- * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], blockingGaps?: string[], coverageUnavailable?: boolean, blastRadiusUnavailable?: boolean }} input
+ * @param {{ requiredChecks: { name: string, conclusion: string }[], gaps: string[], blockingGaps?: string[], coverageUnavailable?: boolean, blastRadiusUnavailable?: boolean, docsOnlyChange?: boolean }} input
  */
 export function decideConfidence({
   requiredChecks,
@@ -294,39 +300,44 @@ export function decideConfidence({
   blockingGaps = [],
   coverageUnavailable = false,
   blastRadiusUnavailable = false,
+  docsOnlyChange = false,
 }) {
   const failing = requiredChecks.filter((check) => check.conclusion !== 'success');
-  if (
-    failing.length > 0 ||
-    blockingGaps.length > 0 ||
-    coverageUnavailable ||
-    blastRadiusUnavailable
-  ) {
-    return {
-      level: 'red',
-      reasons: [
-        ...blockingGaps,
-        ...gaps,
-        ...failing.map((check) => `Required check \`${check.name}\` is ${check.conclusion}.`),
+  const unavailable = docsOnlyChange
+    ? []
+    : [
         ...(coverageUnavailable
           ? ["The head's CI coverage artifact is missing or malformed: `coverage unavailable`."]
           : []),
         ...(blastRadiusUnavailable
           ? ['Blast-radius evidence is missing or invalid: `blast radius unavailable`.']
           : []),
+      ];
+  const docsNote = docsOnlyChange ? [DOCS_ONLY_REASON] : [];
+  if (failing.length > 0 || blockingGaps.length > 0 || unavailable.length > 0) {
+    return {
+      level: 'red',
+      reasons: [
+        ...blockingGaps,
+        ...gaps,
+        ...failing.map((check) => `Required check \`${check.name}\` is ${check.conclusion}.`),
+        ...unavailable,
+        ...docsNote,
       ],
     };
   }
   if (gaps.length > 0) {
-    return { level: 'amber', reasons: gaps };
+    return { level: 'amber', reasons: [...gaps, ...docsNote] };
   }
   return {
     level: 'green',
-    reasons: [
-      'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
-        'and a PRD, and every changed source file meets the line-coverage threshold. ' +
-        'Import blast radius stays within its unit and count threshold.',
-    ],
+    reasons: docsOnlyChange
+      ? ['Every required gate passed.', DOCS_ONLY_REASON]
+      : [
+          'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
+            'and a PRD, and every changed source file meets the line-coverage threshold. ' +
+            'Import blast radius stays within its unit and count threshold.',
+        ],
   };
 }
 
@@ -410,6 +421,7 @@ function runDecide() {
     blockingGaps,
     coverageUnavailable: !coverage,
     blastRadiusUnavailable: !evidence,
+    docsOnlyChange: docsOnly(changed),
   });
 
   console.log(`confidence: ${decision.level}`);
