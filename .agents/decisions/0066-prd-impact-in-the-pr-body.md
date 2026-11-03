@@ -16,7 +16,7 @@ This advances the North Star's software-factory outcome: every agent meets
 the same executable standard, and the reviewer sees the affected intent and
 its evidence. It follows Sarah Fim's [video](https://x.com/sarahfim/status/2108298553823203613)
 and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited by
-[the North Star](../NORTH_STAR.md).
+[the North Star](../../docs/NORTH_STAR.md).
 
 ## Decision
 
