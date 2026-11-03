@@ -8,7 +8,7 @@ self-hosted store and bypass cache restore and save. Each lane appends
 `pnpm store: hit|partial|miss|persistent (<key>)` to its job summary.
 
 CI still does not run on push. As a narrow manual-only exception to the no-push
-CI policy, only a run Ben starts by hand on main with `save_pnpm_cache`
+CI policy, only a run the maintainer starts by hand on main with `save_pnpm_cache`
 explicitly enabled may save a store, and only without an exact cache hit.
 The boolean defaults to false; automated main-tree dispatches leave it unset.
 Keep PR runs and automated dispatches read-only for pnpm caches. See

@@ -98,7 +98,7 @@ Keep frozen installs. Set `PNPM_STORE_DIR` for a persistent self-hosted store
 to bypass cache restore and save.
 
 CI still does not run on push. The narrow manual-only exception to the no-push
-CI policy permits pnpm cache saves only from a run Ben starts by hand on main
+CI policy permits pnpm cache saves only from a run the maintainer starts by hand on main
 with `save_pnpm_cache` explicitly enabled and no exact hit. The input defaults
 to false; automated main-tree dispatches leave it unset. Keep PR runs and automated
 dispatches read-only for pnpm caches. This confines writers to maintainer-dispatched trusted
