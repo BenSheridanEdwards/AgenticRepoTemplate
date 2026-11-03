@@ -19,7 +19,7 @@
  *
  * Coverage gaps grade `red` and fail the Changed-file coverage lane. PRD and
  * import blast-radius gaps grade `amber`; a PR with no gaps grades `green`.
- * A docs-only change (`scripts/docs-only-scope.mjs`, ADR 0111) needs no coverage
+ * A docs-only change (`scripts/docs-only-scope.mjs`, ADR 0112) needs no coverage
  * or blast-radius evidence, because CI collects neither for it.
  *
  * CLI modes:

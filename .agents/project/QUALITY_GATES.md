@@ -214,6 +214,6 @@ Docs-only pull requests skip work inside application test, coverage, build, E2E,
 Fallow and CodeQL jobs after checkout (ADR 0093). Quality, tooling, security and
 the aggregate still run. CodeQL push and schedule events always analyse. Grade
 merge confidence for a docs-only pull request on its required gates and state
-that unit coverage and import blast radius are inapplicable (ADR 0111).
+that unit coverage and import blast radius are inapplicable (ADR 0112).
 
 Keep the seven-day minimum release age for local installs, lockfile checks, benchmark installs and CI. Future Renovate or Dependabot configuration must preserve it.

@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-01
-- **Amended by:** [0111](0111-grade-docs-only-pull-requests-on-their-gates.md)
+- **Amended by:** [0112](0112-grade-docs-only-pull-requests-on-their-gates.md)
 
 ## Context
 

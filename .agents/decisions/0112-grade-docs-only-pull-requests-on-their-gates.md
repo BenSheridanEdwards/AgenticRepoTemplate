@@ -1,4 +1,4 @@
-# 111. Grade docs-only pull requests on their gates
+# 112. Grade docs-only pull requests on their gates
 
 - **Status:** Proposed (Ben accepts it by approving the PR)
 - **Date:** 2026-11-03
