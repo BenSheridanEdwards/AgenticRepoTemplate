@@ -1,6 +1,6 @@
 # 45. PRDs state intent and link the specs that prove it
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #104)
 - **Date:** 2026-10-19
 - **Builds on:** [0003](0003-behaviour-mapped-with-e2e.md), [0021](0021-guidance-docs-state-the-action.md)
 - **Extended by:** [0058](0058-prds-name-the-code-they-cover.md), which adds machine-readable code coverage to each PRD.
