@@ -19,7 +19,7 @@
  *
  * Coverage gaps grade `red` and fail the Changed-file coverage lane. PRD and
  * import blast-radius gaps grade `amber`; a PR with no gaps grades `green`.
- * A docs-only change (`scripts/docs-only-scope.mjs`, ADR 0093) needs no coverage
+ * A docs-only change (`scripts/docs-only-scope.mjs`, ADR 0111) needs no coverage
  * or blast-radius evidence, because CI collects neither for it.
  *
  * CLI modes:
@@ -49,6 +49,7 @@ import { pathToFileURL } from 'node:url';
 import config from '../jest.config.ts';
 import { blastRadiusGaps, parseBlastRadius, renderBlastRadius } from './blast-radius.mjs';
 import { docsOnly } from './docs-only-scope.mjs';
+import { LIST_FILES_LIMIT } from './enforcement-approval.mjs';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const SPEC_GLOB = '**/web/e2e/**/*.spec.ts';
@@ -407,6 +408,8 @@ function writeOutput(key, value) {
 function runDecide() {
   const checkRuns = readJsonEnv('CHECK_RUNS');
   const changed = (process.env.CHANGED ?? '').split('\n').filter(Boolean);
+  // The PR files API lists at most LIST_FILES_LIMIT files, so a list at the cap may hide code.
+  const docsOnlyChange = changed.length < LIST_FILES_LIMIT && docsOnly(changed);
   const root = resolve(process.env.PR_ROOT ?? process.cwd());
   const filesystem = createNodeFilesystem(root);
   const coverage = readCoverage();
@@ -431,7 +434,7 @@ function runDecide() {
     blockingGaps,
     coverageUnavailable: !coverage,
     blastRadiusUnavailable: !evidence,
-    docsOnlyChange: docsOnly(changed),
+    docsOnlyChange,
   });
 
   console.log(`confidence: ${decision.level}`);

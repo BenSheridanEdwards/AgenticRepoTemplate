@@ -3,6 +3,7 @@
 - **Status:** Proposed (Ben confirms the decision and 20-file threshold by approving)
 - **Date:** 2026-10-25
 - **Builds on:** [0064](0064-merge-confidence-label.md), [0032](0032-api-ui-greeting-and-contract.md), [0017](0017-required-gates-aggregate.md)
+- **Amended by:** [0111](0111-grade-docs-only-pull-requests-on-their-gates.md)
 
 Both pieces of #138 are implemented: piece 1 produces evidence; piece 2 grades it.
 

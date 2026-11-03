@@ -21,6 +21,7 @@ import {
   requiredCheckResults,
   sliceOf,
 } from './confidence-label.mjs';
+import { LIST_FILES_LIMIT } from './enforcement-approval.mjs';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const greetingSpec = {
@@ -465,9 +466,14 @@ describe('CLI', () => {
   it('grades documentation-only changes red when a required check fails without evidence', () => {
     const output = join(root, 'output');
     const summary = join(root, 'summary');
+    const failedCheck = requiredCheckNames()[0];
+    const runs = JSON.parse(passingRuns()).map((run: { name: string; conclusion: string }) => ({
+      ...run,
+      conclusion: run.name === failedCheck ? 'failure' : run.conclusion,
+    }));
     const result = run('--decide', {
       CHANGED: documentationChanged,
-      CHECK_RUNS: passingRuns().replaceAll('"success"', '"failure"'),
+      CHECK_RUNS: JSON.stringify(runs),
       COVERAGE_FILE: join(root, 'absent'),
       BLAST_RADIUS_FILE: join(root, 'absent'),
       GITHUB_OUTPUT: output,
@@ -475,9 +481,48 @@ describe('CLI', () => {
     });
     expect(result.status).toBe(0);
     expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
-    expect(result.stdout).toContain('Required check');
+    expect(result.stdout).toContain(`Required check \`${failedCheck}\` is failure`);
     expect(result.stdout).toContain('documentation only');
     expect(result.stdout).not.toContain('unavailable');
+  });
+
+  it('grades an empty changed-file list red without evidence', () => {
+    const output = join(root, 'output');
+    const result = run('--decide', {
+      CHANGED: '',
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: join(root, 'absent'),
+      BLAST_RADIUS_FILE: join(root, 'absent'),
+      GITHUB_OUTPUT: output,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
+    expect(result.stdout).toContain('coverage unavailable');
+    expect(result.stdout).toContain('blast radius unavailable');
+    expect(result.stdout).not.toContain('documentation only');
+  });
+
+  it.each([
+    [LIST_FILES_LIMIT - 1, 'green'],
+    [LIST_FILES_LIMIT, 'red'],
+  ])('grades %s Markdown files %s without evidence at the PR files API cap', (count, level) => {
+    const output = join(root, 'output');
+    const result = run('--decide', {
+      CHANGED: Array.from({ length: count }, (_, i) => `docs/n${i}.md`).join('\n'),
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: join(root, 'absent'),
+      BLAST_RADIUS_FILE: join(root, 'absent'),
+      GITHUB_OUTPUT: output,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe(`level=${level}\nlabel=confidence: ${level}\n`);
+    if (level === 'green') {
+      expect(result.stdout).toContain('documentation only');
+      return;
+    }
+    expect(result.stdout).toContain('coverage unavailable');
+    expect(result.stdout).toContain('blast radius unavailable');
+    expect(result.stdout).not.toContain('documentation only');
   });
 
   it('reads the PR checkout as data and writes the red label and gap summary', () => {
@@ -757,6 +802,21 @@ describe('decideConfidence', () => {
     expect(reasons).toContain('documentation only');
     expect(reasons).toMatch(/unit coverage.*import blast radius.*do not apply/);
     expect(reasons).not.toContain('unavailable');
+  });
+
+  it('keeps documentation-only changes amber when a gap remains', () => {
+    const decision = decideConfidence({
+      requiredChecks: allPassing,
+      gaps: ['Import blast radius crosses units.'],
+      docsOnlyChange: true,
+      coverageUnavailable: true,
+      blastRadiusUnavailable: true,
+    });
+    expect(decision.level).toBe('amber');
+    expect(decision.reasons).toEqual([
+      'Import blast radius crosses units.',
+      expect.stringContaining('documentation only'),
+    ]);
   });
 
   it('grades unavailable blast radius red for code changes by default', () => {

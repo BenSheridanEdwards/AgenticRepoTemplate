@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-01
+- **Amended by:** [0111](0111-grade-docs-only-pull-requests-on-their-gates.md)
 
 ## Context
 
@@ -16,13 +17,8 @@ CodeQL push and scheduled runs always analyse. Keep quality, tooling, security,
 branch freshness and Required gates running. Enforce step conditions in the
 required-gate contract and keep aggregate decisions fail closed.
 
-Classify changed files in confidence with the same `docsOnly()`. For a docs-only
-change, grade on the required gates without unit coverage or blast-radius
-evidence, which CI does not collect for it. Amend the fail-closed rules of
-[ADR 0067](0067-grade-merge-confidence-on-changed-file-line-coverage.md) and
-[ADR 0068](0068-grade-merge-confidence-on-import-blast-radius.md) for docs-only
-changes only. Keep unavailable coverage and blast radius red for code changes,
-mixed changes and empty diffs.
+Confidence uses empty coverage data only for changes classified by the trusted
+script as docs-only. Code changes retain unavailable-coverage blocking.
 
 ## Consequences
 
