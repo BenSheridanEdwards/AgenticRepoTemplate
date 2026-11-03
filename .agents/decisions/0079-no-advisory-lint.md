@@ -45,6 +45,7 @@ Move the declarative rules into their owning gate after fixing their findings:
 | Fallow | Rules at default warn | error |
 | Fallow | Rules for frameworks this repo lacks | off |
 | Oxlint | Native early-return and result-root collection rules, scoped in [Native declarative lint](0108-native-declarative-lint.md) | error |
+| Oxlint | Result-root let, mutation, classes and switch in [Declarative policy lint](0109-declarative-policy-lint.md) | error |
 
 Plan items I11a through I11h implement this decision. I11a settles Oxlint and
 records the full decision. I11b through I11g clear parameter reassignment and

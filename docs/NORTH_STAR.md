@@ -110,7 +110,7 @@ bindings and mutation during render in package TypeScript. Oxlint rejects loops 
 everywhere; result roots reject nested ternaries, lonely if, array forEach, sort and reverse,
 and prefer find, some, flat and Object.fromEntries. Browser globals belong only in web main.tsx.
 [Native declarative lint](../.agents/decisions/0108-native-declarative-lint.md) records the scopes.
-Review holds general reassignment, other mutation, classes and switch. Biome's `noForEach` and `useForOf` stay off because they steer
+Result roots also enforce `policy/no-let`, `policy/no-mutation`, `policy/no-classes` and `policy/no-switch`. [Declarative policy lint](../.agents/decisions/0109-declarative-policy-lint.md) records selectors and exemptions. Review holds mutation in tests and integrations, collection mutators and computed method calls. Biome's `noForEach` and `useForOf` stay off because they steer
 toward loops.
 
 ## Decisions settled on 2026-10-15

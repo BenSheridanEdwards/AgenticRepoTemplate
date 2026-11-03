@@ -944,6 +944,95 @@ const useUiPrimitives = {
 export default {
   meta: { name: 'policy' },
   rules: {
+    'no-let': {
+      meta: { type: 'suggestion', schema: [] },
+      create: (context) => ({
+        'VariableDeclaration[kind="let"]': (node) =>
+          context.report({
+            node,
+            message:
+              'Bind with `const`; derive the value with a function, early return, a lookup object or `map`/`reduce`.',
+          }),
+      }),
+    },
+    'no-mutation': {
+      meta: { type: 'suggestion', schema: [] },
+      create(context) {
+        const filename = context.physicalFilename ?? context.filename;
+        if (
+          /\.(test|spec)\.tsx?$/.test(filename) ||
+          /\/features\/[^/]+\/integrations(\.ts|\/)/.test(filename)
+        )
+          return {};
+        const report = (node) =>
+          context.report({
+            node,
+            message:
+              "Build a new value (`map`, `filter`, `toSorted`, spread, `Object.fromEntries`) instead of mutating; keep state in a hook or the feature's integrations.",
+          });
+        return {
+          'AssignmentExpression[left.type="MemberExpression"]': (node) => {
+            if (node.left.property.name !== 'current') report(node);
+          },
+          'UnaryExpression[operator="delete"]': report,
+          CallExpression(node) {
+            const callee = node.callee;
+            if (callee.type !== 'MemberExpression') return;
+            if (
+              !callee.computed &&
+              [
+                'push',
+                'pop',
+                'shift',
+                'unshift',
+                'splice',
+                'sort',
+                'reverse',
+                'fill',
+                'copyWithin',
+              ].includes(callee.property.name)
+            )
+              report(node);
+            if (
+              callee.object.name === 'Object' &&
+              callee.property.name === 'assign' &&
+              node.arguments[0]?.type !== 'ObjectExpression'
+            )
+              report(node);
+          },
+        };
+      },
+    },
+    'no-classes': {
+      meta: { type: 'suggestion', schema: [] },
+      create: (context) =>
+        Object.fromEntries(
+          [
+            'ClassDeclaration[superClass=null]',
+            'ClassExpression[superClass=null]',
+            'ThisExpression',
+          ].map((selector) => [
+            selector,
+            (node) =>
+              context.report({
+                node,
+                message:
+                  'Use functions and plain objects; a class is allowed only to extend a framework base such as `Schema.TaggedErrorClass` or `Error`.',
+              }),
+          ]),
+        ),
+    },
+    'no-switch': {
+      meta: { type: 'suggestion', schema: [] },
+      create: (context) => ({
+        SwitchStatement: (node) =>
+          context.report({
+            node,
+            message:
+              'Use a lookup object typed `Record<Union, …>` with `satisfies`, or Effect `Match` for exhaustive branching.',
+          }),
+      }),
+    },
     'no-loops': {
       meta: { type: 'suggestion', schema: [] },
       create: (context) =>

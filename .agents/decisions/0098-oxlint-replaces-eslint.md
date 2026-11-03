@@ -22,6 +22,7 @@ The policy config includes showcase and uses ESLint's six output/vendor ignores.
 | --- | --- |
 | Parameter mutation, nesting depth, public-surface imports | Native `no-param-reassign`, `max-depth`, `no-restricted-imports` |
 | Declarative branches, collections and browser globals | Native rules and scopes in [Native declarative lint](0108-native-declarative-lint.md) |
+| Declarative bindings, mutation, classes and switch | JS plugin rules and exemptions in [Declarative policy lint](0109-declarative-policy-lint.md) |
 | Five loop selectors, preserving messages and allowing `for await` | JS plugin `policy/no-loops` |
 | Literal glob translator fragments in non-test scripts/tooling | JS plugin `policy/no-hand-written-globs` |
 | Fourteen repository policy rules | Same JS plugin, enabled in K4 |
