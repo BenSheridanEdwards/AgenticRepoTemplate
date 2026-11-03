@@ -1,6 +1,6 @@
 # 70. Vendored anti-slop rules through a narrowly scoped Oxlint engine
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #153)
 - **Date:** 2026-10-25
 - **Follows:** [0010](0010-lint-engine-ownership.md),
   [0011](0011-effect-schema-everywhere.md),
@@ -14,8 +14,9 @@
   `@oxlint/plugins` are pinned to exactly `1.89.0`, superseding the
   `1.78.0` pins and binding-version references below. The new versions
   need fresh Security clearance; provenance and installation safeguards
-  remain. Separate PRs implement this target; this ADR stays Proposed.
-- **Amended by:** [0074](0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md)
+  remain. Separate PRs implement this target.
+- **Amended by:** [0074](0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md),
+  [0079](0079-no-advisory-lint.md)
 
 ## Context
 
@@ -30,7 +31,7 @@ Security cleared the rollout with caveats at 23:20 GMT on 25 October 2026;
 Ben instructed the build at 23:24 GMT. This records that clearance for upstream
 commit `13909c9e07590f5a85d93c62712259fe14a883f7`, the two packages and both
 platform bindings below. Ben's amendments replace the plan's proposed 1.81.0
-pins and vendoring size exemption. The ADR remains Proposed.
+pins and vendoring size exemption.
 
 ## Decision
 

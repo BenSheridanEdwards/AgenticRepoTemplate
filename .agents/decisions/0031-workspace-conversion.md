@@ -1,6 +1,6 @@
 # 31. Convert the repo into a pnpm workspace with the app at apps/web
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #89)
 - **Date:** 2026-10-17
 - **Implements:** [0009](0009-move-the-app-to-apps-web-first.md)
 

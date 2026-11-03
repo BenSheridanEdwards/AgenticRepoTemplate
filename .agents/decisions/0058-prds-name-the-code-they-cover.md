@@ -1,6 +1,6 @@
 # 58. PRDs name the code they cover
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #133)
 - **Date:** 2026-10-23
 - **Builds on:** [0041](0041-scripts-ask-the-tool-which-files-a-glob-covers.md), [0045](0045-prds-state-intent-and-link-their-specs.md)
 

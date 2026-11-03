@@ -1,6 +1,8 @@
 # 71. Add a second trial brief
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #158), amended by
+  [0076](0076-stable-trial-installs-scope-and-brief-comparison.md) and
+  [0077](0077-pin-trial-public-api-shapes.md)
 - **Date:** 2026-10-26
 - **Amends:** [0034](0034-trial-harness-and-evidence.md), [0048](0048-trial-tasks-and-codex.md)
 

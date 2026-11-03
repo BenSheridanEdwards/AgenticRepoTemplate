@@ -1,6 +1,6 @@
 # 74. The 400-line PR limit applies to stacked migration PRs
 
-- **Status:** Proposed (Ben accepts it)
+- **Status:** Accepted (merged in #182)
 - **Date:** 2026-10-26
 - **Amends:** [0070](0070-vendored-anti-slop-oxlint-rules.md), [0073](0073-adopt-the-typescript-toolchain-standard.md)
 

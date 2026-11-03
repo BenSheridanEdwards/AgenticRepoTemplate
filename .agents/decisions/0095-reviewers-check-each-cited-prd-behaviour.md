@@ -1,6 +1,6 @@
 # 95. Reviewers check each cited PRD behaviour listed in the PR body
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #269)
 - **Date:** 2026-11-01
 - **Extends:** [The PR body names its PRDs and North Star commit](0057-pr-body-names-its-prds-and-north-star-commit.md)
 

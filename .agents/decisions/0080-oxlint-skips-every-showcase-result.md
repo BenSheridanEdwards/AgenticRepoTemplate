@@ -1,6 +1,6 @@
 # 80. Oxlint skips every showcase result
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #221)
 - **Date:** 2026-10-29
 - **Follows:** [0059](0059-preserve-recorded-trial-outputs-in-duplication-analysis.md)
   and [0070](0070-vendored-anti-slop-oxlint-rules.md)

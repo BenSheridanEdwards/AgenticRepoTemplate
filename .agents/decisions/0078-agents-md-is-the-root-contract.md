@@ -1,6 +1,6 @@
 # 78. AGENTS.md is the root contract
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #200)
 - **Date:** 2026-10-28
 - **Replaces:** ADR 0053 (deleted) and point 1 of [0022](0022-agent-docs-live-in-dot-agents.md)
 

@@ -1,6 +1,6 @@
 # 57. The PR body names its PRDs and North Star commit
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #131)
 - **Date:** 2026-10-23
 - **Builds on:** [0029](0029-pr-body-names-its-head-commit.md), [0045](0045-prds-state-intent-and-link-their-specs.md)
 

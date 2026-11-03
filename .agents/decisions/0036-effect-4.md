@@ -1,6 +1,6 @@
 # 36. Move the workspace to Effect 4 within a 110 kB budget
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #96)
 - **Date:** 2026-10-18
 - **Amends:** [0011](0011-effect-schema-everywhere.md) (the adapter and resolver names) and [0032](0032-api-ui-greeting-and-contract.md) (the Effect 3 pin and the 130 kB JS budget)
 

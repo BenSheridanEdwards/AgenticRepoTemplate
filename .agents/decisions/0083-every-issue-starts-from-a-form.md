@@ -1,6 +1,6 @@
 # 83. Every issue starts from a form
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #249)
 - **Date:** 2026-10-31
 - **Amends:** The blank-issues decision in [PRD changes start from an issue form](0056-prd-changes-start-from-an-issue-form.md).
 

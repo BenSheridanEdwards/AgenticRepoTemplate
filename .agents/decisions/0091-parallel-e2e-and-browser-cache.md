@@ -1,6 +1,6 @@
 # 91. Run E2E in parallel and cache Chromium
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #263)
 - **Date:** 2026-11-01
 - **Replaces:** ADR 0065 (deleted), which made the E2E lane wait for unit tests
 

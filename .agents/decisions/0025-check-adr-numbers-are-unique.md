@@ -1,6 +1,6 @@
 # 25. Check that each ADR number is used once
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #82)
 - **Date:** 2026-10-16
 - **Enforces:** [0001](0001-record-architecture-decisions.md)
 

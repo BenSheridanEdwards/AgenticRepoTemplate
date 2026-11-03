@@ -1,6 +1,7 @@
 # 89. Thin coverage blocks the merge
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #260); docs-only changes use empty coverage
+  under [0093](0093-docs-only-lane-scope.md)
 - **Date:** 2026-10-31
 - **Amends:** [Merge confidence label](0064-merge-confidence-label.md),
   [Grade merge confidence on changed-file line coverage](0067-grade-merge-confidence-on-changed-file-line-coverage.md)
