@@ -1,6 +1,6 @@
 # 96. Pin the anti-slop CLI at 1.89.0
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #270)
 - **Replaces:** ADR 0072 (deleted)
 
 ## Context

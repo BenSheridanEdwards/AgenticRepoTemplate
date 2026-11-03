@@ -1,6 +1,8 @@
 # 98. Oxlint replaces ESLint
 
-- **Status:** Proposed; Completed by ADR 0103
+- **Status:** Accepted (merged in #268); completed by ADR 0103; amended by
+  [0102](0102-react-doctor-rules-run-as-an-oxlint-plugin.md) and
+  [0109](0109-declarative-policy-lint.md)
 - **Date:** 2026-11-01
 - **Amends:** 0010, 0015 (deleted), 0019 and [0073](0073-adopt-the-typescript-toolchain-standard.md). K10 records their supersessions.
 
