@@ -184,9 +184,9 @@ only the result's own api (types only) and `@repo/ui`.
 
 Every gate includes results through shared globs (`tooling/trial/inclusion.test.ts`).
 Each result must reach 80 percent coverage and pass its own E2E specs plus
-`tooling/trial/acceptance/todo.spec.ts` as `<id>-acceptance`. The six recorded
-Todo results retain only the duplication and health exceptions in
-[ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md).
+`tooling/trial/acceptance/todo.spec.ts` as `<id>-acceptance`. A recorded result keeps only a duplication and health exception that
+[ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md)
+names; none is named today.
 
 `node tooling/trial/compare.mjs` compares all runs, including failures, in
 `docs/trials/comparison.md`. Keep differences within the freedoms listed in

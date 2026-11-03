@@ -133,7 +133,7 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
   dependency risk.
 
 Each lint rule has one owner ([ADR 0010](../decisions/0010-lint-engine-ownership.md),
-[ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)).
+[ADR 0102](../decisions/0102-react-doctor-rules-run-as-an-oxlint-plugin.md)).
 
 ## Architecture checks
 

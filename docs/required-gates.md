@@ -31,7 +31,7 @@ Every hook command and every `verify` step has a required CI equivalent.
 child command is checked below. The PR title is the squash commit message,
 so title validation repeats commitlint. CI Biome and secret scans cover
 the full tree and history rather than staged files.
-Action pins are read from the workflows, so a Dependabot bump needs no edit here.
+Action pins are read from the workflows and composite actions, so a Dependabot bump needs no edit here.
 
 | Hook or script | Local command | Workflow job | CI step |
 | --- | --- | --- | --- |

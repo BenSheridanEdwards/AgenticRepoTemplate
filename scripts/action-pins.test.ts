@@ -151,12 +151,18 @@ it('preserves every workflow and job permission from the baseline', () => {
   ).toEqual(baseline);
 });
 
-it('schedules only weekly github-actions updates with a seven-day cooldown', () => {
+it('schedules only weekly github-actions updates across workflows and composite actions, grouped per dependency, with a seven-day cooldown', () => {
   const text = read('.github/dependabot.yml');
   expect(fields(text, 'package-ecosystem').map(({ value }) => value.replaceAll('"', ''))).toEqual([
     'github-actions',
   ]);
-  expect(fields(text, 'directory').map(({ value }) => value.replaceAll('"', ''))).toEqual(['/']);
+  expect(fields(text, 'directory')).toEqual([]);
+  expect(
+    fields(text, 'directories').map(({ value }) => value.replaceAll(' ', '').replaceAll('"', '')),
+  ).toEqual(['[/,/.github/actions/*]']);
+  expect(fields(text, 'group-by').map(({ value }) => value.replaceAll('"', ''))).toEqual([
+    'dependency-name',
+  ]);
   expect(fields(text, 'interval').map(({ value }) => value.replaceAll('"', ''))).toEqual([
     'weekly',
   ]);

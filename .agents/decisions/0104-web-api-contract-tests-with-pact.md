@@ -1,13 +1,13 @@
 # 104. Web-API contract tests with Pact
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #285)
 - **Date:** 2026-11-02
 - **Amends:** [API integration tests run as their own required lane](0094-api-integration-tests-run-as-their-own-required-lane.md)
 
 ## Context
 
 The web's typed handler fakes skip HTTP. The shared AppRouter type cannot check
-the batch request and response envelopes on the wire. Ben chose Pact over an
+the batch request and response envelopes on the wire. The maintainer chose Pact over an
 in-repo contract implementation on 31 October: use the existing tool.
 
 ## Decision

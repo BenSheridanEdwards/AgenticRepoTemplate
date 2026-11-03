@@ -1,6 +1,6 @@
 # 41. Scripts ask the tool which files a glob covers
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #102)
 - **Date:** 2026-10-18
 - **Builds on:** [0019](0019-local-eslint-policy-plugin.md), [0030](0030-docs-name-only-guarded-paths-for-sign-off.md)
 

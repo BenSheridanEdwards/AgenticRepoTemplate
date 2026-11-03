@@ -1,13 +1,14 @@
 # 74. The 400-line PR limit applies to stacked migration PRs
 
-- **Status:** Proposed (Ben accepts it)
+- **Status:** Accepted (merged in #182)
 - **Date:** 2026-10-26
 - **Amends:** [0070](0070-vendored-anti-slop-oxlint-rules.md), [0073](0073-adopt-the-typescript-toolchain-standard.md)
 
 ## Context
 
-Ben instructed at 21:21 GMT 26 Oct 2026:
-"Soften the 400-line PR size limit. Stacked PRs are great for migrations like the Tailwind adoption, but a self-contained change that encompasses a single idea should not be forced under 400 lines. Update the planning and review guidance in both repos so the 400-line guidance applies to stacked migration PRs, while a single coherent change may exceed it when it's one idea. Change nothing else."
+The maintainer decided on 26 Oct 2026 to soften the 400-line PR size limit:
+the limit applies to each PR of a stacked migration, and a single coherent
+change may exceed it when it is one idea.
 
 ## Decision
 

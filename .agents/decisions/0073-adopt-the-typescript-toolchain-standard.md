@@ -1,6 +1,6 @@
 # 73. Adopt the TypeScript toolchain standard
 
-- **Status:** Proposed (Ben accepts it); Amended by ADR 0103 (Remaining ESLint checks)
+- **Status:** Proposed (the approver accepts it); Amended by ADR 0103 (Remaining ESLint checks)
 - **Date:** 2026-10-26
 - **Supersedes in part:** [0070](0070-vendored-anti-slop-oxlint-rules.md)
   for lint ownership, built-in Oxlint rules and version pins; earlier Biome
@@ -9,17 +9,17 @@
 
 ## Context
 
-Ben's TypeScript repositories need one toolchain standard and one owner per
+The maintainer's TypeScript repositories need one toolchain standard and one owner per
 concern. The existing Biome/Jest stack and ADR 0070's narrowly scoped Oxlint
 engine describe earlier choices. This record establishes the target; separate
 implementation PRs move the installed tools and guidance to it.
 
-Ben approved the whole standard on 26 Oct 2026 at 12:11 GMT:
-"Go with the whole standard as proposed". Ben's sign-off, 26 Oct 2026 13:31 GMT,
+The maintainer approved the whole standard on 26 Oct 2026 at 12:11 GMT:
+"Go with the whole standard as proposed". The approver's sign-off, 26 Oct 2026 13:31 GMT,
 decision 6, approves the planned lint-rule changes in StyleProof,
-AgenticRepoTemplate and SoftwareFactoryTemplate. His decisions 2 and 4 at that
+AgenticRepoTemplate and SoftwareFactoryTemplate. The approver's decisions 2 and 4 at that
 time approve the showcase shim and exact Oxlint 1.89.0 pins respectively.
-The ADR remains Proposed; Ben owns acceptance and any head-specific
+The ADR remains Proposed; the approver owns acceptance and any head-specific
 enforcement approval required by the gate.
 
 ## Decision
@@ -74,7 +74,7 @@ The migration costs several small, independently verified PRs; retain the
 existing gates until their replacements pass equivalent behavioural checks.
 Each implementation PR passes typecheck, the existing test count plus any new
 tests, full verification and CI, and changes at most 400 lines. Keep
-`git diff --stat origin/main -- showcase` empty. Cite Ben's 13:31 GMT sign-off
-in each enforcement-changing PR and leave the gate's approval action to Ben.
+`git diff --stat origin/main -- showcase` empty. Cite the approver's 13:31 GMT sign-off
+in each enforcement-changing PR and leave the gate's approval action to the approver.
 Revert an implementation PR to restore its previous tooling; this docs-only
 record changes no installed package, configuration, gate or runtime behaviour.

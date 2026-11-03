@@ -1,6 +1,6 @@
 # 36. Move the workspace to Effect 4 within a 110 kB budget
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #96)
 - **Date:** 2026-10-18
 - **Amends:** [0011](0011-effect-schema-everywhere.md) (the adapter and resolver names) and [0032](0032-api-ui-greeting-and-contract.md) (the Effect 3 pin and the 130 kB JS budget)
 
@@ -10,7 +10,7 @@
 resolver that [0011](0011-effect-schema-everywhere.md) names,
 `effectTsResolver`, runs on Effect 3 only. That stack measured 125.9 kB brotli,
 so the JS budget went to 130 kB. 0032 also measured Effect 4 with
-`standardSchemaResolver` at about 19 kB less. On 18 October Ben chose Effect 4
+`standardSchemaResolver` at about 19 kB less. On 18 October the maintainer chose Effect 4
 and a 110 kB budget for every package.
 
 The facts on npm on 18 October:
@@ -72,7 +72,7 @@ now blocks, so it is left visible rather than silenced.
   `standardSchemaResolver` alone would accept any Standard Schema library, so
   the rule also checks that the schema comes from Effect. The schema must be
   the only argument, because `{ raw: true }` would submit the undecoded input,
-  such as an untrimmed name. It blocks `effectTsResolver`. One helper in `tooling/eslint-plugin-policy.js`
+  such as an untrimmed name. It blocks `effectTsResolver`. One helper in `tooling/oxlint-plugin-policy.js`
   recognises the adapter for both rules.
 - `contract/effects-in-integrations` also bans the Effect 4 runners that take
   services: `runPromiseWith`, `runPromiseExitWith`, `runSyncWith`,

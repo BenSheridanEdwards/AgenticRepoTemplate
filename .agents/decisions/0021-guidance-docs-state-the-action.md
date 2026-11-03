@@ -39,6 +39,6 @@ brings it back.
 - The check reads words, not intent. A description of behaviour that uses a
   listed word ("the count never goes below 0") fails too, and gets rewritten in
   the same positive form.
-- Changes to the script are enforcement changes under
-  ADR 0007 (superseded by ADRs 0023 and 0024), because `scripts/`
-  is a protected path.
+- Changes to the script were enforcement changes under ADR 0007, because
+  `scripts/` was a protected path. Under ADRs 0023 and 0024 the script is
+  outside `GUARDS`, so a change to it asks for no sign-off.
