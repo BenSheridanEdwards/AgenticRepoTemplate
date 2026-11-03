@@ -41,6 +41,37 @@ const roots = [
 ];
 const longComment = '// one\n// two\n// three\n// four\n// five';
 const policyFixtures: Fixture[] = [
+  ...roots.flatMap((root) => [
+    { path: `${root}/src/binding.ts`, source: 'let value = 1;', code: 'policy(no-let)' },
+    { path: `${root}/src/constant.ts`, source: 'const value = 1;' },
+    {
+      path: `${root}/src/mutate.ts`,
+      source: 'const value = {}; value.name = 1;',
+      code: 'policy(no-mutation)',
+    },
+    { path: `${root}/src/immutable.ts`, source: 'const value = { ...other, name: 1 };' },
+    { path: `${root}/src/plainClass.ts`, source: 'class Value {}', code: 'policy(no-classes)' },
+    { path: `${root}/src/function.ts`, source: 'function value() { return {}; }' },
+    {
+      path: `${root}/src/branch.ts`,
+      source: 'switch (value) { case 1: break; }',
+      code: 'policy(no-switch)',
+    },
+    { path: `${root}/src/lookup.ts`, source: 'const value = { one: 1 }[key];' },
+  ]),
+  { path: 'apps/api/src/ref.ts', source: 'const ref = {}; ref.current = 1;' },
+  { path: 'apps/api/src/framework.ts', source: 'class NotFound extends Error {}' },
+  { path: 'apps/api/src/mutation.ts', source: 'const value = 1;' },
+  { path: 'apps/api/src/mutation.test.ts', source: 'const value = {}; value.name = 1;' },
+  { path: 'apps/api/src/mutation.spec.ts', source: 'const value = {}; value.name = 1;' },
+  {
+    path: 'apps/api/src/features/example/integrations.ts',
+    source: 'const value = {}; value.name = 1;',
+  },
+  {
+    path: 'apps/api/src/features/example/integrations/client.ts',
+    source: 'const value = {}; value.name = 1;',
+  },
   ...policyPaths.map((path) => {
     const component = path.endsWith('.tsx');
     const api = path.includes('/api/');
