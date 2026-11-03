@@ -32,7 +32,7 @@ Run the same gate through `pnpm coverage:changed` after `pnpm test:coverage` in
 blast-radius gaps remain amber. Keep label names, colours and Jest thresholds.
 
 There is no human override. The only threshold-change path is a reviewed change
-to `jest.config.ts`. Ben's non-blocking Q7, "coverage override", in the Phase J
+to `jest.config.ts`. The maintainer's non-blocking Q7, "coverage override", in the Phase J
 cleanup plan asks whether to add an override and guard that config. It remains
 an open question in [Make changed-file coverage a required gate](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/234).
 This decision adds neither an override nor a new guarded path.
