@@ -1,6 +1,6 @@
 # 100. Record per-rule lint failures on every pre-commit
 
-Status: Proposed
+- **Status:** Accepted (merged in #275)
 
 ## Context
 
