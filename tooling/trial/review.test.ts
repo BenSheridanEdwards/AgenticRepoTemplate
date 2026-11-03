@@ -58,8 +58,11 @@ function checkClone() {
   return clone;
 }
 
-/** A reviewer that records its call and answers as Claude (stdout) or Codex (`-o` file) does. */
-function fakeReviewer(answer: typeof ANSWER | string = ANSWER) {
+/**
+ * A reviewer that records its call and answers as Codex (`-o` file) or Claude does: in
+ * `structured_output` when it got `--json-schema`, or, with `textOnly`, in its result text.
+ */
+function fakeReviewer(answer: typeof ANSWER | string = ANSWER, textOnly = false) {
   const path = join(caseDir, 'reviewer.mjs');
   const text = typeof answer === 'string' ? answer : JSON.stringify(answer);
   put(
@@ -71,8 +74,10 @@ if (argv[0] === '--version') { console.log('fake-reviewer 1.0.0'); process.exit(
 const stdin = readFileSync(0, 'utf8');
 writeFileSync(${JSON.stringify(`${path}.call.json`)}, JSON.stringify({ argv, stdin, cwd: process.cwd() }));
 const answer = ${JSON.stringify(text)};
+const emit = (fields) => console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, ...fields }));
 if (argv[0] === 'exec') writeFileSync(argv[argv.indexOf('-o') + 1], answer);
-else console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'Here it is: ' + answer }));
+else if (argv.includes('--json-schema') && !${textOnly}) emit({ structured_output: JSON.parse(answer), result: '' });
+else emit({ result: 'Here it is: ' + answer });
 `,
   );
   chmodSync(path, 0o755);
@@ -151,6 +156,24 @@ describe('runReview', () => {
     expect(written.reviewer.argv).toContain('{workdir}/check');
   });
 
+  it("reads Claude's answer from its result text when it gives no structured output", async () => {
+    checkClone();
+
+    expect((await review('claude', fakeReviewer(ANSWER, true))).judgment).toEqual(ANSWER);
+  });
+
+  it('records zero findings for a result with no file to lint', async () => {
+    checkClone();
+    rmSync(join(workdir, 'check/showcase/todo-01'), { recursive: true });
+    put(join(workdir, 'check/showcase/todo-01/web/package.json'), '{}\n');
+
+    const written = await review('claude');
+
+    ['anti-slop', 'policy'].forEach((name) => {
+      expect(written.lint[name]).toMatchObject({ files: 0, findings: 0, rules: [] });
+    });
+  });
+
   it('reviews the agent clone when no check clone was made', async () => {
     put(join(workdir, 'repo/showcase/todo-01/web/src/main.tsx'), 'export {};\n');
     symlinkSync(join(ROOT, 'node_modules'), join(workdir, 'repo/node_modules'), 'dir');
@@ -164,24 +187,35 @@ describe('runReview', () => {
   });
 
   it.each([
-    ['the review exists', () => put(reviewPath(), '{}\n'), 'Every review counts'],
+    [
+      'the review exists',
+      () => {
+        checkClone();
+        put(reviewPath(), '{}\n');
+      },
+      'Every review counts',
+    ],
     ['the workdir is gone', () => undefined, 'Review each run before you remove its workdir'],
     [
       'the record names another run',
-      () =>
+      () => {
+        checkClone();
         put(
           join(root, 'docs/trials/todo-01.json'),
           JSON.stringify({
             ...RECORD,
             trial: { ...RECORD.trial, number: 2, id: 'todo-02', branch: 'trial/todo-02' },
           }),
-        ),
+        );
+      },
       'is not the to-do run todo-01',
     ],
   ])('writes nothing when %s', async (_case, arrange, message) => {
     arrange();
+    const kept = () => (existsSync(reviewPath()) ? readFileSync(reviewPath(), 'utf8') : null);
+    const before = kept();
     await expect(review('claude')).rejects.toThrow(message);
-    expect(existsSync(join(root, 'docs/trials/todo-01.review.json.partial'))).toBe(false);
+    expect(kept()).toBe(before);
   });
 
   it('writes nothing when the reviewer gives no valid answer', async () => {

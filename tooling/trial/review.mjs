@@ -31,6 +31,8 @@ const PROMPT = join(HARNESS_ROOT, 'tooling/trial/review-prompt.md');
 const EXAMPLES_PER_RULE = 3;
 const OUTPUT_TAIL_LINES = 40;
 const SCHEMA_ARG = '{{REVIEW_SCHEMA}}';
+/** What Oxlint prints, before its JSON report, when a path holds no file it lints. */
+const NO_FILES = 'No files found to lint.';
 
 /**
  * The two lint configs a review runs, as `pnpm lint:anti-slop` and
@@ -160,6 +162,9 @@ function parseJson(output, what) {
  * @param {string} stdout
  */
 function summarizeLint({ config, unignore }, exitCode, stdout) {
+  if (stdout.trimStart().startsWith(NO_FILES)) {
+    return { config, unignored: [...unignore], exitCode, files: 0, findings: 0, rules: [] };
+  }
   const report = parseJson(stdout, `oxlint --config ${config}`);
   const findings = report.diagnostics.map((diagnostic) => ({
     rule: (diagnostic.code ?? 'parse').replace(/^([\w-]+)\((.+)\)$/, '$1/$2'),
