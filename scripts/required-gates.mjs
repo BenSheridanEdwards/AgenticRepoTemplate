@@ -31,6 +31,9 @@ export const REQUIRED_STATUSES = [STATUS_CONTEXT];
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INVENTORY_PATH = 'docs/required-gates.md';
+const PINNED_USES = /^[\w.-]+\/[\w./-]+@[a-f0-9]{40} # v\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/;
+// Pins are read from the workflows so a Dependabot bump needs no edit here.
+const CONTRACT_ACTIONS = ['actions/checkout', 'actions/setup-node', 'fallow-rs/fallow'];
 
 /** The aggregate job in `ci.yml` and the check name branch protection selects. */
 export const AGGREGATE = { check: 'Required gates', workflow: 'ci.yml', job: 'required-gates' };
@@ -239,12 +242,7 @@ export const HOOK_STEPS = [
     command: 'pnpm fallow:audit',
     workflow: 'ci.yml',
     job: 'fallow',
-    steps: [
-      {
-        uses: 'fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1',
-        command: 'audit',
-      },
-    ],
+    steps: [{ action: 'fallow-rs/fallow', command: 'audit' }],
   },
   {
     sources: ['.husky/pre-commit'],
@@ -686,8 +684,50 @@ function checkStep(gate, step, where, errors) {
   );
 }
 
+/** The action name before its ref, when a step uses an action. */
+function actionOf(uses) {
+  return uses?.split('@')[0];
+}
+
+/** Learn one full SHA pin per contract action from all parsed workflow steps. */
+function actionPins(jobsByWorkflow) {
+  const uses = [...jobsByWorkflow.values()].flatMap((jobs) =>
+    [...jobs.values()].flatMap((job) => job.steps.map((step) => step.uses)),
+  );
+  const actions = CONTRACT_ACTIONS.map((action) => {
+    const values = [...new Set(uses.filter((value) => actionOf(value) === action))];
+    const errors = [
+      ...(values.length === 0
+        ? [
+            `${action} is not used by any contract workflow; the contract reads its pin from the workflows.`,
+          ]
+        : []),
+      ...values
+        .filter((value) => !PINNED_USES.test(value))
+        .map(
+          (value) =>
+            `\`${value}\`: ${action} must be pinned to a full commit SHA with a version comment.`,
+        ),
+      ...(values.length > 1
+        ? [
+            `${action} is pinned to more than one commit across the contract workflows (${values.map((value) => `\`${value}\``).join(', ')}). Bump every occurrence together.`,
+          ]
+        : []),
+    ];
+    return { action, values, errors };
+  });
+  return {
+    pins: new Map(
+      actions
+        .filter(({ values, errors }) => values.length === 1 && errors.length === 0)
+        .map(({ action, values }) => [action, values[0]]),
+    ),
+    errors: actions.flatMap(({ errors }) => errors),
+  };
+}
+
 /** The whole aggregate job, so a removed or weakened step is drift too. */
-export function renderAggregateJob() {
+export function renderAggregateJob(pins) {
   return [
     `  ${AGGREGATE.job}:`,
     `    name: ${AGGREGATE.check}`,
@@ -695,10 +735,10 @@ export function renderAggregateJob() {
     `    needs: [${AGGREGATED.map((gate) => gate.job).join(', ')}]`,
     '    runs-on: ubuntu-latest',
     '    steps:',
-    '      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1',
+    `      - uses: ${pins.get('actions/checkout') ?? 'actions/checkout@<pin read from the workflows>'}`,
     '        with:',
     '          persist-credentials: false',
-    '      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0',
+    `      - uses: ${pins.get('actions/setup-node') ?? 'actions/setup-node@<pin read from the workflows>'}`,
     '        with:',
     '          node-version-file: .nvmrc',
     '      - name: Workflows and inventory match the contract',
@@ -726,7 +766,7 @@ function aggregateBlock(workflowText) {
     .trimEnd();
 }
 
-function checkAggregateJob(ciJobs, ciText, errors) {
+function checkAggregateJob(ciJobs, ciText, pins, errors) {
   const aggregate = ciJobs.get(AGGREGATE.job);
   const where = `ci.yml job \`${AGGREGATE.job}\``;
   if (!aggregate) {
@@ -753,10 +793,10 @@ function checkAggregateJob(ciJobs, ciText, errors) {
         `Missing: [${missing.join(', ')}]. Not in the contract: [${extra.join(', ')}].`,
     );
   }
-  if (aggregateBlock(ciText) !== renderAggregateJob()) {
+  if (aggregateBlock(ciText) !== renderAggregateJob(pins)) {
     errors.push(
       `${where} differs from the contract. Its steps decide the result, so it must read ` +
-        `exactly:\n${renderAggregateJob()}`,
+        `exactly:\n${renderAggregateJob(pins)}`,
     );
   }
 }
@@ -772,7 +812,7 @@ function hookCommands(text, source) {
 }
 
 function ciStepText(step) {
-  return step.run ?? `${step.uses} with.command: ${step.command}`;
+  return step.run ?? `${step.action} with.command: ${step.command}`;
 }
 
 function checkHookSteps(readFile, jobsByWorkflow, hookSteps, errors) {
@@ -814,7 +854,9 @@ function checkHookSteps(readFile, jobsByWorkflow, hookSteps, errors) {
         const found = lane?.steps.some((step) =>
           expected.run
             ? step.run?.trim() === expected.run
-            : step.uses === expected.uses && step.with?.command === expected.command,
+            : actionOf(step.uses) === expected.action &&
+              PINNED_USES.test(step.uses ?? '') &&
+              step.with?.command === expected.command,
         );
         if (!found) {
           errors.push(
@@ -843,8 +885,10 @@ export function checkContract({ readWorkflow, readFile, inventory, hookSteps = H
     checkGateJob(gate, jobsByWorkflow.get(gate.workflow).get(gate.job), errors);
   });
 
+  const { pins, errors: pinErrors } = actionPins(jobsByWorkflow);
+  errors.push(...pinErrors);
   const ciJobs = jobsByWorkflow.get(AGGREGATE.workflow);
-  checkAggregateJob(ciJobs, readWorkflow(AGGREGATE.workflow), errors);
+  checkAggregateJob(ciJobs, readWorkflow(AGGREGATE.workflow), pins, errors);
   [...ciJobs.keys()].forEach((jobId) => {
     if (jobId !== AGGREGATE.job && !AGGREGATED.some((gate) => gate.job === jobId)) {
       errors.push(
@@ -982,6 +1026,7 @@ export function renderInventory() {
     'child command is checked below. The PR title is the squash commit message,',
     'so title validation repeats commitlint. CI Biome and secret scans cover',
     'the full tree and history rather than staged files.',
+    'Action pins are read from the workflows, so a Dependabot bump needs no edit here.',
     '',
     '| Hook or script | Local command | Workflow job | CI step |',
     '| --- | --- | --- | --- |',
