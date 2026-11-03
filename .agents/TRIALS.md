@@ -42,7 +42,7 @@ applies. Stop a trial with Ctrl-C, and read how long it took from
 A Claude session runs with `--max-turns 100` (`MAX_TURNS` in
 `tooling/trial/run-trial.mjs`). Codex exec has no turn-cap flag, so a Codex
 run gets the limit from the prompt only
-([ADR 0110](decisions/0110-the-todo-research-project.md)).
+([ADR 0115](decisions/0115-the-todo-research-project.md)).
 
 After the three trials, keep each result branch and merge none of them.
 Commit every record, stream, patch and review, and run

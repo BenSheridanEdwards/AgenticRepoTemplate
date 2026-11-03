@@ -179,7 +179,7 @@ including inherited findings.
 The trial harness creates `showcase/<id>/` in a fresh clone and records evidence
 in `docs/trials/<id>.json`, with the result's code as `docs/trials/<id>.patch`.
 The result stays on its trial branch; main keeps only the evidence
-([ADR 0110](../decisions/0110-the-todo-research-project.md)). Follow the reference layout, roles, scripts and
+([ADR 0115](../decisions/0115-the-todo-research-project.md)). Follow the reference layout, roles, scripts and
 dependencies with the id as npm scope (`@todo-01/web`, `@todo-01/api`). Import
 only the result's own api (types only) and `@repo/ui`.
 

@@ -10,7 +10,7 @@
  * workdir, runs one fresh Claude session on the fixed prompt, commits the
  * result, runs every check on a clean clone of that commit and writes
  * `docs/trials/<id>.json` and the result's patch into the invoking checkout,
- * so the result code stays on its branch and only the evidence lands (ADR 0110). Each command that runs the trial's code gets a private temp and
+ * so the result code stays on its branch and only the evidence lands (ADR 0115). Each command that runs the trial's code gets a private temp and
  * cache folder inside the workdir, with the temp folder mounted over `/tmp`
  * by bubblewrap, and none runs under a time limit (ADR 0038). It never deletes the workdir; it prints the path for whoever runs the
  * next trial.
@@ -58,7 +58,7 @@ const HARNESS_FILES = [
   'tasks/notes.json',
 ];
 
-/** The most turns a Claude session may take (ADR 0110); the prompt states the same limit. */
+/** The most turns a Claude session may take (ADR 0115); the prompt states the same limit. */
 export const MAX_TURNS = 100;
 
 /** The brief's command, plus the flags that make the session recordable. Never `--resume` or `--continue`. */

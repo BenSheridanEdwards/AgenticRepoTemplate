@@ -1,4 +1,4 @@
-# 110. The to-do research project: a turn limit, results kept as patches, and an anti-slop review
+# 115. The to-do research project: a turn limit, results kept as patches, and an anti-slop review
 
 - **Status:** Proposed (the maintainer accepts it by approving the PR)
 - **Date:** 2026-11-03

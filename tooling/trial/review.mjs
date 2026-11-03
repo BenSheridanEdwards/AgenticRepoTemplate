@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Reviews one finished to-do trial result for slop and writes
- * `docs/trials/<id>.review.json` (ADR 0110). Run it after each `pnpm trial`
+ * `docs/trials/<id>.review.json` (ADR 0115). Run it after each `pnpm trial`
  * of the research project, before the workdir is removed:
  *
  *   node tooling/trial/review.mjs --id <id> --workdir <dir>

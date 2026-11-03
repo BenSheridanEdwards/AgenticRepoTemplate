@@ -3,7 +3,7 @@
  * Writes docs/trials/comparison.md: the full pass count, the proof that the
  * Todo trials shared one baseline, every aspect of the results compared
  * under ADR 0035 and ADR 0037, each identical, inside a named spec freedom,
- * or outside the spec, and each to-do run's anti-slop review (ADR 0110).
+ * or outside the spec, and each to-do run's anti-slop review (ADR 0115).
  * `node tooling/trial/compare.mjs` writes it; compare.test.ts holds the
  * committed report equal to a fresh one.
  *
@@ -659,7 +659,7 @@ function renderReview({ evidence, review }) {
 }
 
 /**
- * Each to-do run's anti-slop review (ADR 0110), as a table per run and per
+ * Each to-do run's anti-slop review (ADR 0115), as a table per run and per
  * agent, then each run's flags and praise.
  *
  * @param {readonly Run[]} runs
@@ -852,7 +852,7 @@ function readRuns(root, readText, brief) {
 }
 
 /**
- * A run's patch, or, for a passed run recorded before ADR 0110 kept every
+ * A run's patch, or, for a passed run recorded before ADR 0115 kept every
  * patch, its tracked files under `showcase/<id>`.
  */
 function readRunTree(root, evidence, readText) {
