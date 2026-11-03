@@ -59,12 +59,14 @@ it('rejects colour literals and arbitrary @apply values outside the @theme block
   expect(
     messages(
       'packages/ui/src/styles.css',
-      `${THEME}.card {\n  border-color: #273150;\n  background: rgb(0 0 0);\n  @apply w-[13px] p-4;\n}\n`,
+      `${THEME}.card {\n  border-color: #273150;\n  background: rgb(0 0 0);\n  @apply w-[13px] w-(--x) bg-(--color-ink) p-4;\n}\n`,
     ),
   ).toEqual([
     '16 colour literal `#273150`: use a @repo/ui colour token class',
     '17 colour literal `rgb(`: use a @repo/ui colour token class',
     '18 Tailwind arbitrary value `w-[13px]`: use a class on the theme scale',
+    '18 Tailwind arbitrary value `w-(--x)`: use a class on the theme scale',
+    '18 Tailwind arbitrary value `bg-(--color-ink)`: use a class on the theme scale',
   ]);
 });
 

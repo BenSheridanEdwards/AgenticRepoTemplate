@@ -244,9 +244,16 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
   ]),
   { path: 'packages/ui/src/native.tsx', source: 'const control = <button aria-label="Save" />;' },
   ...['apps/web', 'packages/ui', 'showcase/todo-01/web'].flatMap((root) => [
-    ...['w-[13px]', 'bg-[#fff]', '[mask:none]', 'data-[open]:p-4'].map((value, index) => ({
-      path: `${root}/src/arbitrary${index}.ts`,
-      source: `export const classes = 'p-4 ${value}';`,
+    ...[
+      'w-[13px]',
+      'bg-[#fff]',
+      '[mask:none]',
+      'data-[open]:p-4',
+      'w-(--x)',
+      'bg-(--color-ink)',
+    ].map((value, index) => ({
+      path: `${root}/src/arbitrary${index}.tsx`,
+      source: `const view = <p className="p-4 ${value}">Hi</p>;`,
       codes: [value, ...colourLiterals(value)].map(() => 'policy(no-arbitrary-styles)'),
       messageContains: `\`${value}\``,
     })),
@@ -258,21 +265,45 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
         'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0111).',
     },
     ...['#0b1020', '#FFF', 'rgb(0 0 0)', 'oklch(0.5 0.1 200)'].map((value, index) => ({
-      path: `${root}/src/colour${index}.ts`,
-      source: `export const tone = '${value}';`,
+      path: `${root}/src/colour${index}.tsx`,
+      source: `const view = <p className={'p-4 ${value}'}>Hi</p>;`,
       code: 'policy(no-arbitrary-styles)',
       messageContains: 'colour literal',
     })),
     {
-      path: `${root}/src/template.ts`,
+      path: `${root}/src/template.tsx`,
       source:
-        'export const classes = (wide: boolean) => `p-4 $' + '{wide ? "w-full" : ""} w-[13px]`;',
+        'const view = (wide: boolean) => <p className={`p-4 $' +
+        '{wide ? "w-full" : ""} w-[13px]`}>Hi</p>;',
       code: 'policy(no-arbitrary-styles)',
     },
     {
-      path: `${root}/src/scale.tsx`,
+      path: `${root}/src/constant.tsx`,
       source:
-        'const view = <p className="mx-auto max-w-160 p-4 text-ink hover:bg-raised sm:py-12">Issue #12, item [a b]</p>;',
+        "const CARD = 'p-4 w-(--x)';\nconst view = <p className={[CARD, 'flex'].join(' ')}>Hi</p>;\nconst other = <p className={CARD}>Hi</p>;",
+      code: 'policy(no-arbitrary-styles)',
+    },
+    {
+      path: `${root}/src/chained.tsx`,
+      source:
+        "const BASE = 'bg-[#fff]';\nconst CARD = `$" +
+        '{BASE} p-4`;\nconst view = <p class={CARD}>Hi</p>;',
+      codes: [
+        'policy(no-arbitrary-styles)',
+        'policy(no-arbitrary-styles)',
+        'react-doctor(no-unknown-property)',
+      ],
+    },
+    {
+      path: `${root}/src/scale.tsx`,
+      source: [
+        "const ISSUE = 'Issue #123';",
+        "const field = form.querySelector('input[name=email]');",
+        "const path = 'items[0]';",
+        "const NOTE = 'w-[13px] #fff rgb(0 0 0) w-(--x)';",
+        "const CARD = 'mx-auto max-w-160 p-4 text-ink hover:bg-raised sm:py-12';",
+        'const view = <p className={CARD} title={ISSUE}>Pick #add or #bead, item [a b]</p>;',
+      ].join('\n'),
     },
   ]),
   { path: 'apps/api/src/brackets.ts', source: "export const message = 'w-[13px] #fff';" },

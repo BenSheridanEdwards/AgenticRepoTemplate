@@ -941,8 +941,8 @@ const useUiPrimitives = {
   },
 };
 
-// A Tailwind arbitrary value, property or variant: `w-[13px]`, `[mask:none]`, `data-[open]:p-4`.
-const ARBITRARY_CLASS = /\S*\[[^\s\]]*\]\S*/g;
+// A Tailwind arbitrary value, property or variant: `w-[13px]`, `[mask:none]`, `data-[open]:p-4`, `w-(--x)`.
+const ARBITRARY_CLASS = /\S*(?:\[[^\s\]]*\]|-\([^\s)]*\))\S*/g;
 const COLOUR_LITERAL =
   /(?<![\w&])#(?:[\da-f]{8}|[\da-f]{6}|[\da-f]{3,4})(?![\w-])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi;
 
@@ -961,6 +961,16 @@ const STYLE_MESSAGES = {
     'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0111).',
 };
 
+/** Every AST node under `node`, itself included, in source order. */
+const descendants = (node) => [
+  node,
+  ...Object.entries(node)
+    .filter(([key]) => key !== 'parent')
+    .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
+    .filter((value) => typeof value?.type === 'string')
+    .flatMap(descendants),
+];
+
 const noArbitraryStyles = {
   meta: { type: 'problem', schema: [], messages: STYLE_MESSAGES },
   create(context) {
@@ -976,12 +986,38 @@ const noArbitraryStyles = {
         context.report({ node, messageId, data: { value } });
       });
     };
+    const constants = new Map();
+    const classValues = [];
+
+    // A class string sits in a `className`/`class` value or in a same-file const it names.
+    const classStrings = (node, seen) =>
+      descendants(node).flatMap((child) => {
+        if (child.type === 'Identifier' && constants.has(child.name) && !seen.has(child.name)) {
+          return classStrings(constants.get(child.name), new Set([...seen, child.name]));
+        }
+        if (child.type === 'Literal' && typeof child.value === 'string') {
+          return [[child, child.value]];
+        }
+        return child.type === 'TemplateElement' ? [[child, child.value.cooked ?? '']] : [];
+      });
 
     return {
-      Literal: (node) => typeof node.value === 'string' && check(node, node.value),
-      TemplateElement: (node) => check(node, node.value.cooked ?? ''),
-      JSXAttribute: (node) =>
-        node.name.name === 'style' && context.report({ node, messageId: 'style' }),
+      'VariableDeclaration[kind="const"] > VariableDeclarator[id.type="Identifier"]': (node) => {
+        if (node.init) constants.set(node.id.name, node.init);
+      },
+      JSXAttribute(node) {
+        if (node.name.name === 'style') context.report({ node, messageId: 'style' });
+        if (['className', 'class'].includes(node.name.name) && node.value) {
+          classValues.push(node.value);
+        }
+      },
+      'Program:exit': () => {
+        new Map(classValues.flatMap((value) => classStrings(value, new Set()))).forEach(
+          (text, node) => {
+            check(node, text);
+          },
+        );
+      },
     };
   },
 };

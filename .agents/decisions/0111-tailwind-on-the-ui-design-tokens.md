@@ -34,10 +34,16 @@ possible and check it.
 - Two checks enforce the rule, and `pnpm verify` and the CI quality job run
   both:
   - Oxlint `policy/no-arbitrary-styles` (`pnpm lint:policy`) checks web and
-    `@repo/ui` TypeScript. It rejects a string or template part with a Tailwind
-    arbitrary value, property or variant (`w-[13px]`, `[mask:none]`,
-    `data-[open]:p-4`), a hex or colour-function literal, and a JSX `style`
-    prop. Tests and api sources are out of scope.
+    `@repo/ui` TypeScript. It rejects every JSX `style` prop. It also checks
+    class strings: a string or template part is a class string when it sits in
+    a `className` or `class` attribute value, or in a same-file `const` that
+    such a value names, directly or through other consts. A class string fails
+    on a Tailwind arbitrary value, property or variant in bracket form
+    (`w-[13px]`, `[mask:none]`, `data-[open]:p-4`) or parenthesised form
+    (`w-(--x)`, `bg-(--color-ink)`), and on a hex or colour-function literal.
+    Other text passes, such as `'Issue #123'` or
+    `querySelector('input[name=email]')`. Class strings built in another file
+    and passed in by import are out of scope, as are tests and api sources.
   - `pnpm lint:styles` (`scripts/check-styles.mjs`) checks the files Oxlint
     cannot parse. Result CSS holds only `@import` and `@source` lines. A
     `@theme` block appears only in `packages/ui/src/styles.css`. Outside that
@@ -50,8 +56,14 @@ possible and check it.
 
 - An agent changes the look in one place, the `@theme` block, and every result
   follows. A new token is a reviewed change to that block.
-- With the colour reset, a default palette class such as `bg-red-500` produces
-  no CSS. The checks do not reject it; review and the screenshots catch it.
+- Known open gap: with the colour, radius and font resets, a default-palette
+  or unknown class (`bg-red-500`, `text-white`, `font-mono`, `rounded-sm`)
+  compiles to no CSS, and no gate rejects it. The reference visual baselines
+  would show such a class in the greeting screens, but showcase trial results
+  have no visual baselines, so nothing catches it there. The proposed future
+  check reads the class strings in web and `@repo/ui` sources, builds them with
+  Tailwind's compiler from `packages/ui/src/styles.css`, and fails on any
+  utility-shaped token that produces no CSS.
 - Tailwind's preflight replaces browser defaults (line height 1.5, no heading or
   list styles), so the greeting screens change slightly. The visual baselines
   are refreshed with this change and the PR shows before and after screenshots.
