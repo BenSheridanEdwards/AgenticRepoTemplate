@@ -1,6 +1,7 @@
 # 50. Enforce applicable anti-slop policies in ESLint
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #118); its rules are enforced by Oxlint under
+  [0103](0103-eslint-is-retired.md)
 - **Date:** 2026-10-22
 - **Builds on:** [0019](0019-local-eslint-policy-plugin.md),
   ADR 0015 (deleted; see [0103](0103-eslint-is-retired.md))
