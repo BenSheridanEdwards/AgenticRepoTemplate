@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-28
-- **Supersedes:** [0053](0053-root-pointers-name-start-here.md) and point 1 of [0022](0022-agent-docs-live-in-dot-agents.md)
+- **Replaces:** ADR 0053 (deleted) and point 1 of [0022](0022-agent-docs-live-in-dot-agents.md)
 
 ## Context
 
@@ -15,7 +15,9 @@ Move the START_HERE.md body to AGENTS.md, preserving its rules and fixing
 relative links. Keep project context under .agents/project/.
 
 Claude Code imports the contract through .claude/CLAUDE.md with a single
-@../AGENTS.md line. REVIEW.md starts with @AGENTS.md and stays at root.
+@../AGENTS.md line. REVIEW.md starts with @AGENTS.md and stays at root, where Claude Code Review
+reads it. skills-lock.json also stays at root, where the skills CLI reads it
+(carried from ADR 0053).
 Cursor Bugbot follows AGENTS.md and REVIEW.md.
 
 The context check requires AGENTS.md to be a regular file with at least

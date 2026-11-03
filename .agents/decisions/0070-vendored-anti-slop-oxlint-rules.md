@@ -5,7 +5,7 @@
 - **Follows:** [0010](0010-lint-engine-ownership.md),
   [0011](0011-effect-schema-everywhere.md),
   [0024](0024-sign-off-only-loosening-enforcement-changes.md) and
-  [0063](0063-advisory-declarative-style-lint.md)
+  ADR 0063 (deleted; see [0079](0079-no-advisory-lint.md))
 - **Amends:** [0046](0046-fail-lint-on-warnings.md) only for the separate
   report-only advisory command described below.
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md).
@@ -112,7 +112,7 @@ the pre-commit budget in [0062](0062-pre-commit-steps-stay-under-30-seconds.md).
 
 `pnpm lint:anti-slop:advisory` selects the separate advisory config explicitly.
 It runs outside CI gates, `pnpm verify` and hooks: the same scoped exception
-to ADR 0046 made by ADR 0063. Promote a noisy rule to the gate at `error`
+to ADR 0046 made by ADR 0063 (deleted; see ADR 0079). Promote a noisy rule to the gate at `error`
 in the PR that clears its last finding. Existing lint gates remain strict.
 
 Exclude the six recorded trial folders by name: `showcase/todo-01/**`,
