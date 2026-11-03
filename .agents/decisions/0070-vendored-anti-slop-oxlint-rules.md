@@ -20,7 +20,7 @@
 
 ## Context
 
-Ben requested an anti-slop rollout for TypeScript projects on 25 October 2026.
+The maintainer requested an anti-slop rollout for TypeScript projects on 25 October 2026.
 The rules identify weak type contracts, module mocking, avoidable transforms
 and unreadable spacing. Biome owns formatting and general lint; ESLint owns
 policy and React rules. A third engine earns its place only by running the
@@ -28,9 +28,9 @@ vendored anti-slop plugin, with existing ownership preserved. These rules are
 distinct from the ESLint policies in [0050](0050-anti-slop-lint-policies.md).
 
 Security cleared the rollout with caveats at 23:20 GMT on 25 October 2026;
-Ben instructed the build at 23:24 GMT. This records that clearance for upstream
+the maintainer instructed the build at 23:24 GMT. This records that clearance for upstream
 commit `13909c9e07590f5a85d93c62712259fe14a883f7`, the two packages and both
-platform bindings below. Ben's amendments replace the plan's proposed 1.81.0
+platform bindings below. The maintainer's amendments replace the plan's proposed 1.81.0
 pins and vendoring size exemption.
 
 ## Decision
@@ -139,8 +139,8 @@ the existing protection of both paths.
 `tooling/anti-slop/advisory.json` remains unguarded because it gates nothing.
 This change leaves `package.json` outside the guard; reviewers check script
 wiring. Main's gate judges PRs, so the extension takes effect after landing.
-This piece changes the gate itself and therefore needs Ben's head-specific
-sign-off. Builders leave the enforcement checkbox to Ben and his orchestrator.
+This piece changes the gate itself and therefore needs the approver's head-specific
+sign-off. Builders leave the enforcement checkbox to the approver and their orchestrator.
 
 The workflow piece adds `pnpm lint:anti-slop:changed`: run the advisory CLI
 in JSON mode, intersect findings with added lines from
