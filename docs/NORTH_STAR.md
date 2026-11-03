@@ -1,19 +1,131 @@
 # North Star
 
-## The factory is the repository
+## What it is
 
-A software factory is a repository any agent can operate in, on any model or harness, with executable
-standards that refuse code outside the project's conventions. Lint carries most of that load and stays red
-until the agent fixes it. Slop is needless complexity or broken conventions; close the routes around each
-refusal. Domain docs inform the agent; gates decide what lands.
+AgenticRepoTemplate is Ben Sheridan-Edwards' software factory template. It is more than a repo skeleton. A
+software factory is a repository any agent can operate in, on any model or harness. Its executable
+standards refuse code outside the project's conventions. Every other repo Ben runs operates on this
+foundation. The TypeScript, React and tRPC greeting app is the runnable example that gives every gate real
+code to check.
 
-Success means any person's agent can clone the template and produce PRs a named human can approve or
-redirect in minutes. Every written rule names its check. Every PR names its outcome, proves it with
-committed evidence, and states what would falsify it. Every gate change carries a human signature.
+## Who it is for
 
-Use [AGENTS.md](../AGENTS.md) for operating rules, [TECH_STACK.md](../.agents/project/TECH_STACK.md) for
-installed tools, [QUALITY_GATES.md](../.agents/project/QUALITY_GATES.md) for checks, and
-[ADRs](../.agents/decisions/) for settled decisions.
+- Ben, who builds his other repos on this template.
+- The repos built on it.
+- Any person whose agent clones the template from open source.
+- Readers of Ben's website, his blog articles and his fractional CTO pitch, who judge his work by it.
+
+## The problem
+
+Agents write slop. Slop is code more complex than the change needs, or code that breaks a convention the
+repository agreed. Written instructions alone fail to stop it, so an agent repeats the same mistake. A green
+PR also fails to tell the reviewer how much to trust it
+([ADR 0064](../.agents/decisions/0064-merge-confidence-label.md)). A person needs evidence in the PR to make
+a high-confidence merge decision. Without it, velocity with AI stays low.
+
+## Goals
+
+1. Give back to open source, and show who Ben is and how he operates.
+2. Be the foundation every other repo operates on. A change here has real consequences for the repos
+   downstream.
+3. Build credibility Ben can use on his website, in blog articles and in his fractional CTO pitch.
+
+## What it does
+
+- It makes agents write declarative, readable code ([§9](#9-declarative-over-imperative)).
+- It enforces the architecture boundaries Ben defines: the role table, slice isolation and route
+  co-location ([§2](#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs)).
+- Its anti-slop rules and skills produce clean, maintainable code. Oxlint runs
+  the vendored [dmmulroy/anti-slop](../vendor/anti-slop/UPSTREAM.md) rules through `pnpm lint:anti-slop`
+  ([ADR 0070](../.agents/decisions/0070-vendored-anti-slop-oxlint-rules.md)), and `pnpm lint:policy` runs
+  the policy rules of [ADR 0050](../.agents/decisions/0050-anti-slop-lint-policies.md).
+- It puts evidence in each PR, so a person can make a high-confidence merge decision
+  ([§8](#8-the-unit-of-delivery-is-a-merge-ready-pr)).
+
+Lint carries most of the load and stays red until the agent fixes it. Close the routes around each refusal.
+Domain docs inform the agent; gates decide what lands. Use [AGENTS.md](../AGENTS.md) for operating rules,
+[TECH_STACK.md](../.agents/project/TECH_STACK.md) for installed tools,
+[QUALITY_GATES.md](../.agents/project/QUALITY_GATES.md) for checks, and [ADRs](../.agents/decisions/) for
+settled decisions.
+
+## The reproducibility test
+
+The reproducibility test asks whether the template makes code repeatable. Delete the Todo app. Have the same
+model generate it again, twice, from the same brief and the same scaffold. Compare the results and find
+where they diverge. On each edge case, decide whether the code is what a senior engineer would write.
+
+The trial harness runs the generation and the comparison. `pnpm trial` builds the Todo brief in
+`tooling/trial/todo-prompt.md` in a fresh session with no human help, and records its evidence
+([ADR 0034](../.agents/decisions/0034-trial-harness-and-evidence.md)). The harness runs three trials per
+agent, for Claude and for Codex ([ADR 0048](../.agents/decisions/0048-trial-tasks-and-codex.md)).
+`node tooling/trial/compare.mjs` writes `docs/trials/comparison.md`. It gives the full pass count and
+classifies each difference against the spec freedoms
+([ADR 0035](../.agents/decisions/0035-trial-comparison.md)). It fails unless every run passed and the
+results are consistent. A different file layout or mutation output is inconsistent
+([ADR 0069](../.agents/decisions/0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md)).
+The Notes brief is a second test ([ADR 0071](../.agents/decisions/0071-a-second-trial-brief.md)).
+[TRIALS.md](../.agents/TRIALS.md) is the runbook.
+
+On 26 October 2026, commit `9ee8e71` cleared the 23 October Todo results and their comparison for a rerun.
+The tree records no current Todo result. `docs/trials/superseded/` keeps older Codex runs as evidence only.
+Review holds the senior-engineer judgment on edge cases. It has no gate and stays a target.
+
+## Sibling tools
+
+The template connects to three tools. None of them is wired into this repo today.
+
+- **StyleProof** proves visual changes. This repo removed it until it is fixed (#63). Playwright
+  `toHaveScreenshot` is the stated fallback that rejects unapproved visual changes
+  ([ADR 0052](../.agents/decisions/0052-playwright-visual-regression.md)).
+- **BehaviourProof** proves test and contract changes. In this repo that evidence comes from the behaviour
+  map, the PRDs and the Pact contract tests
+  ([ADR 0104](../.agents/decisions/0104-web-api-contract-tests-with-pact.md)).
+- **MergeFlow** brings all this evidence together for the merge decision. It needs revitalisation. It is
+  not Ben's project to build. In this repo, the merge confidence label grades each PR from its required
+  checks and named gaps ([ADR 0064](../.agents/decisions/0064-merge-confidence-label.md)).
+
+## Outcome and how success is measured
+
+The outcome is evidence in the PR that supports a high-confidence merge decision, so velocity with AI goes
+up. Success means:
+
+- Any person's agent can clone the template and produce PRs a named human can approve or redirect in
+  minutes.
+- Every written rule names its check.
+- Every PR names its outcome, proves it with committed evidence, and states what would falsify it.
+- Every gate change carries a human signature.
+
+Installed measures:
+
+- Every required check is green on the PR's latest commit (`Required gates`,
+  [ADR 0017](../.agents/decisions/0017-required-gates-aggregate.md)).
+- CI labels each PR `confidence: green`, `confidence: amber` or `confidence: red`
+  (`.github/workflows/confidence.yml`, [ADR 0064](../.agents/decisions/0064-merge-confidence-label.md)).
+  The `Changed-file coverage` required lane blocks a merge when a changed file has thin coverage
+  ([ADR 0089](../.agents/decisions/0089-thin-coverage-blocks-the-merge.md)).
+- The `PR quality` workflow checks that the PR body carries its proof (`scripts/validate-pr-body.mjs`).
+- The `enforcement-approval` status holds a gate change until Ben signs it off
+  ([ADR 0024](../.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md)).
+- The trial comparison reports the pass count and each divergence between results.
+
+Targets, with no gate yet:
+
+- A recorded reproducibility test on the current scaffold, with Ben's judgment on each divergence.
+- A measure of velocity with AI.
+- The open source, website, blog and fractional CTO pitch goals. Their measure sits outside this repo.
+
+## Non-goals
+
+- It is not a repo skeleton. It is the factory: rules, gates, proof and the example they check.
+- It stays lean. It shows the best ideas, and it adds a tool, rule or skill only when that earns its place.
+  Prefer deletion, existing patterns and stdlib or platform features. A new dependency needs an ADR.
+- MergeFlow is not Ben's project to build, and this repo builds none of it.
+- StyleProof is not a dependency here. Playwright screenshots own visual regression until a decision
+  changes that.
+- A person, not an agent, approves, merges and deploys ([§8](#8-the-unit-of-delivery-is-a-merge-ready-pr)).
+- The greeting is an example for the gates, not a product feature set.
+- The 2026-10-15 decisions set aside the new-file rule, a separate agent identity, a separate approval-check
+  decision and the guardrails PR form.
 
 ## Principles
 
@@ -119,7 +231,7 @@ toward loops.
 
 1. Protected enforcement paths follow [ADR 0023](../.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md)
    and later amendments, matching [GUARDS](../scripts/enforcement-approval.mjs):
-   `.github/workflows/**`, `.husky/**`, `commitlint.config.ts`,
+   `.github/workflows/**`, `.github/actions/**`, `.husky/**`, `commitlint.config.ts`,
    `tooling/oxlint-plugin-policy.js`, `scripts/check-suppressions.mjs`,
    `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`,
    `biome.json`, `vendor/anti-slop/**`, any `.oxlintrc.json` or `oxlint.config.*`,
@@ -138,8 +250,9 @@ toward loops.
 ### Considered and set aside
 
 Set aside the new-file rule, trials, separate agent identity, separate approval-check decision and
-guardrails PR form. Keep plan PR 1 (enforcement-change detection) and PR 9 (checkbox approval with an audit
-trail).
+guardrails PR form. [ADR 0034](../.agents/decisions/0034-trial-harness-and-evidence.md) later added the
+trial harness that runs the reproducibility test. Keep plan PR 1 (enforcement-change detection) and PR 9
+(checkbox approval with an audit trail).
 
 ## Where the template stands
 
@@ -171,3 +284,16 @@ Until then, describe it as a target.
   <https://x.com/sarahfim/status/2108298553823203613>
 - Sarah Fim, "How to build an anti-slop software factory for teams of 30+":
   <https://x.com/sarahfim/status/2109736893198016898>
+
+## Open questions for Ben
+
+1. Which repos count as downstream, and how does a breaking change here reach them?
+2. Which number measures velocity with AI, and where does the repo record it?
+3. The test says "the same model twice"; the harness runs three trials per agent. Which model, how many
+   runs, and how often?
+4. Does a divergence on an edge case fail a gate, or does review hold it? Where is Ben's judgment recorded?
+5. Where do BehaviourProof and MergeFlow live, and what is their status? Who revitalises MergeFlow?
+6. Once StyleProof is fixed, does it replace the Playwright screenshots of ADR 0052 or run beside them?
+7. Which anti-slop skills does Ben mean: the vendored lint rules, the `ponytail` skill, or skills to add?
+8. What may this public doc say about Ben's fractional CTO pitch, and should it link Ben's website?
+9. What test decides that an idea leaves the template to keep it lean?
