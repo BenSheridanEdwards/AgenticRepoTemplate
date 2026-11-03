@@ -11,7 +11,7 @@ The API's unit tests call procedures in process. Only the browser suite
 exercises the real server. The API has no database: its real dependencies
 are Node HTTP, the tRPC standalone adapter, Effect schemas and process env.
 
-Ben asked on 31 October for test lanes to run in parallel and for every
+The maintainer asked on 31 October for test lanes to run in parallel and for every
 layer to be required. Run E2E in parallel and cache Chromium already
 supersedes the earlier decision to wait for unit tests.
 

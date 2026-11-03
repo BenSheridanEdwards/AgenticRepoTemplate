@@ -5,7 +5,7 @@
 
 ## Context
 
-Ben asked on 31 Oct 2026 to update the anti-slop pins. This replaces
+The maintainer asked on 31 Oct 2026 to update the anti-slop pins. This replaces
 ADR 0072 (deleted), which pinned both packages at exactly `1.78.0`, and implements the pins in
 [Adopt the TypeScript toolchain standard](0073-adopt-the-typescript-toolchain-standard.md).
 
