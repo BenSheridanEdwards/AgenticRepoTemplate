@@ -2,7 +2,8 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-29
-- **Supersedes:** [0063](0063-advisory-declarative-style-lint.md)
+- **Replaces:** ADR 0063 (deleted), whose advisory `pnpm lint:declarative`
+  command and configs were removed in #230
 - **Amends:** [0070](0070-vendored-anti-slop-oxlint-rules.md) for the advisory split and
   [0046](0046-fail-lint-on-warnings.md) for Fallow warnings
 
