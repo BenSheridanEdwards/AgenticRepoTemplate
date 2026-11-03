@@ -49,7 +49,11 @@ function repoFile(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
 }
 
+const COMPOSITE_ACTIONS = ['.github/actions/setup/action.yml'];
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const REAL_FILES = {
+  '.github/actions/setup/action.yml': repoFile('.github/actions/setup/action.yml'),
   '.husky/pre-commit': repoFile('.husky/pre-commit'),
   '.husky/pre-push': repoFile('.husky/pre-push'),
   '.husky/commit-msg': repoFile('.husky/commit-msg'),
@@ -60,6 +64,27 @@ const REAL_FILES = {
   'visual.yml': repoFile('.github/workflows/visual.yml'),
   'pr-quality.yml': repoFile('.github/workflows/pr-quality.yml'),
 };
+
+function runCheckIn(files: Record<string, string>) {
+  mkdirSync(join(process.cwd(), '.scratch'), { recursive: true });
+  const root = mkdtempSync(join(process.cwd(), '.scratch/required-gates-'));
+  try {
+    Object.entries(files).forEach(([name, text]) => {
+      const path = join(
+        root,
+        name.startsWith('.github/') || !name.endsWith('.yml') ? name : `.github/workflows/${name}`,
+      );
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+    });
+    return spawnSync('node', [join(root, 'scripts/required-gates.mjs'), '--check'], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH },
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
 
 function currentPin(action: string) {
   const line = REAL_FILES['ci.yml'].split('\n').find((line) => line.includes(`uses: ${action}@`));
@@ -76,11 +101,14 @@ const FA_NEW = `fallow-rs/fallow@${'e'.repeat(40)} # v99.0.0`;
 const CO_OLD = currentPin('actions/checkout');
 const CO_NEW = `actions/checkout@${'b'.repeat(40)} # v99.0.0`;
 
-function bumpWorkflows(replacements: ReadonlyArray<readonly [string, string]>) {
+function bumpWorkflows(
+  replacements: ReadonlyArray<readonly [string, string]>,
+  workflowsOnly = false,
+) {
   return (files: typeof REAL_FILES) =>
     Object.fromEntries(
       Object.keys(files)
-        .filter((name) => name.endsWith('.yml'))
+        .filter((name) => name.endsWith('.yml') && (!workflowsOnly || !name.includes('/')))
         .map((name) => [
           name,
           replacements.reduce((text, [from, to]) => text.replaceAll(from, to), files[name]),
@@ -89,14 +117,18 @@ function bumpWorkflows(replacements: ReadonlyArray<readonly [string, string]>) {
 }
 
 function contractErrors(
-  edit: (files: typeof REAL_FILES) => Partial<typeof REAL_FILES> = () => ({}),
+  edit: (
+    files: typeof REAL_FILES,
+  ) => Partial<typeof REAL_FILES> & Record<string, string> = () => ({}),
   hookSteps = HOOK_STEPS,
+  compositeActions = COMPOSITE_ACTIONS,
 ) {
   const files = { ...REAL_FILES, ...edit(REAL_FILES) };
   return checkContract({
     readWorkflow: (name: keyof typeof REAL_FILES) => files[name],
     readFile: (name: keyof typeof REAL_FILES) => files[name],
     hookSteps,
+    compositeActions,
     inventory: renderInventory(),
   });
 }
@@ -460,7 +492,7 @@ describe('checkContract', () => {
         [CO_OLD, CO_NEW],
       ],
     },
-  ])('accepts $label across every contract workflow', ({ replacements }) => {
+  ])('accepts $label across every contract workflow and composite action', ({ replacements }) => {
     const bump = bumpWorkflows(replacements);
     const bumped = bump(REAL_FILES);
     expect(bumped['ci.yml']).not.toBe(REAL_FILES['ci.yml']);
@@ -487,6 +519,62 @@ describe('checkContract', () => {
           error.includes('v99.0.0'),
       ),
     ).toBe(true);
+  });
+
+  it('rejects a setup-node bump that skips the composite action (as Dependabot #274)', () => {
+    const errors = contractErrors(bumpWorkflows([[SN_OLD, SN_NEW]], true));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('actions/setup-node');
+    expect(errors[0]).toContain('.github/actions/setup/action.yml');
+    expect(errors[0]).toContain(SN_OLD.slice(SN_OLD.indexOf('#')));
+    expect(errors[0]).toContain('v99.0.0');
+    expect(errors[0]).toMatch(
+      new RegExp(`${escapeRegExp(SN_OLD)}\` in [^;]*\\.github/actions/setup/action\\.yml`),
+    );
+  });
+
+  it('rejects a composite action that bumps setup-node alone', () => {
+    const errors = contractErrors((files) => ({
+      '.github/actions/setup/action.yml': files['.github/actions/setup/action.yml'].replaceAll(
+        SN_OLD,
+        SN_NEW,
+      ),
+    }));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('.github/actions/setup/action.yml');
+    expect(errors[0]).toContain('v99.0.0');
+    expect(errors[0]).toContain('ci.yml');
+  });
+
+  it('requires a full commit SHA for setup-node in a composite action', () => {
+    const errors = contractErrors((files) => ({
+      '.github/actions/setup/action.yml': files['.github/actions/setup/action.yml'].replaceAll(
+        SN_OLD,
+        'actions/setup-node@v6',
+      ),
+    }));
+    expect(errors).toContainEqual(expect.stringMatching(/actions\/setup-node@v6.*full commit SHA/));
+  });
+
+  it('reads every listed composite action', () => {
+    const errors = contractErrors(
+      () => ({
+        '.github/actions/other/action.yml': `name: Other\nruns:\n  using: composite\n  steps:\n    - uses: actions/checkout@${'f'.repeat(40)} # v99.0.0\n`,
+      }),
+      HOOK_STEPS,
+      [...COMPOSITE_ACTIONS, '.github/actions/other/action.yml'],
+    );
+    expect(errors).toContainEqual(
+      expect.stringMatching(/actions\/checkout.*\.github\/actions\/other\/action\.yml/),
+    );
+  });
+
+  it('ignores commented-out uses lines in a composite action', () => {
+    expect(
+      contractErrors((files) => ({
+        '.github/actions/setup/action.yml': `${files['.github/actions/setup/action.yml']}\n    # - uses: actions/setup-node@v1\n`,
+      })),
+    ).toEqual([]);
   });
 
   it('requires the Fallow audit step when it is removed', () => {
@@ -553,41 +641,52 @@ describe('checkContract', () => {
     'coverage job',
     'integration job',
   ])('exits 1 from --check without the %s', (missing) => {
-    mkdirSync(join(process.cwd(), '.scratch'), { recursive: true });
-    const root = mkdtempSync(join(process.cwd(), '.scratch/required-gates-'));
-    try {
-      const files = {
-        ...REAL_FILES,
-        'ci.yml':
-          missing === 'integration job'
-            ? REAL_FILES['ci.yml'].replace(/\n {2}integration:\n[\s\S]*?(?=\n {2}[\w-]+:\n)/, '')
-            : missing === 'coverage job'
-              ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
-              : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
-        'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
-        'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
-        'docs/required-gates.md': renderInventory(),
-      };
-      Object.entries(files).forEach(([name, text]) => {
-        const path = join(root, name.endsWith('.yml') ? `.github/workflows/${name}` : name);
-        mkdirSync(dirname(path), { recursive: true });
-        writeFileSync(path, text);
-      });
-      const result = spawnSync('node', [join(root, 'scripts/required-gates.mjs'), '--check'], {
-        encoding: 'utf8',
-        env: { PATH: process.env.PATH },
-      });
-      expect(result.status).toBe(1);
-      expect(result.stdout + result.stderr).toMatch(
+    const files = {
+      ...REAL_FILES,
+      'ci.yml':
         missing === 'integration job'
-          ? /integration/
+          ? REAL_FILES['ci.yml'].replace(/\n {2}integration:\n[\s\S]*?(?=\n {2}[\w-]+:\n)/, '')
           : missing === 'coverage job'
-            ? /coverage/
-            : /\.husky\/pre-commit.*pnpm lint:anti-slop/,
-      );
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+            ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
+            : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
+      'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+      'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
+      'docs/required-gates.md': renderInventory(),
+    };
+    const result = runCheckIn(files);
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(
+      missing === 'integration job'
+        ? /integration/
+        : missing === 'coverage job'
+          ? /coverage/
+          : /\.husky\/pre-commit.*pnpm lint:anti-slop/,
+    );
+  });
+
+  it('exits 1 from --check when a workflow bump skips the composite action', () => {
+    const files = {
+      ...REAL_FILES,
+      ...bumpWorkflows([[SN_OLD, SN_NEW]], true)(REAL_FILES),
+      'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+      'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
+      'docs/required-gates.md': renderInventory(),
+    };
+    const result = runCheckIn(files);
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(/\.github\/actions\/setup\/action\.yml/);
+  });
+
+  it('exits 0 from --check when workflows and the composite action bump together', () => {
+    const files = {
+      ...REAL_FILES,
+      ...bumpWorkflows([[SN_OLD, SN_NEW]])(REAL_FILES),
+      'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+      'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
+      'docs/required-gates.md': renderInventory(),
+    };
+    const result = runCheckIn(files);
+    expect(result.status).toBe(0);
   });
 
   it('fails when a required lane is dropped from the aggregate needs', () => {
@@ -917,6 +1016,7 @@ describe('checkContract', () => {
     const errors = checkContract({
       readWorkflow: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
       readFile: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
+      compositeActions: COMPOSITE_ACTIONS,
       inventory: renderInventory().replace('Security audit', 'Security'),
     });
     expect(errors.join('\n')).toContain('pnpm gates:inventory');

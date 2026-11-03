@@ -22,8 +22,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, matchesGlob, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { STATUS_CONTEXT } from './enforcement-approval.mjs';
 
@@ -32,7 +32,7 @@ export const REQUIRED_STATUSES = [STATUS_CONTEXT];
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INVENTORY_PATH = 'docs/required-gates.md';
 const PINNED_USES = /^[\w.-]+\/[\w./-]+@[a-f0-9]{40} # v\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/;
-// Pins are read from the workflows so a Dependabot bump needs no edit here.
+// Pins are read from the workflows and composite actions so a Dependabot bump needs no edit here.
 const CONTRACT_ACTIONS = ['actions/checkout', 'actions/setup-node', 'fallow-rs/fallow'];
 
 /** The aggregate job in `ci.yml` and the check name branch protection selects. */
@@ -689,13 +689,33 @@ function actionOf(uses) {
   return uses?.split('@')[0];
 }
 
-/** Learn one full SHA pin per contract action from all parsed workflow steps. */
-function actionPins(jobsByWorkflow) {
-  const uses = [...jobsByWorkflow.values()].flatMap((jobs) =>
-    [...jobs.values()].flatMap((job) => job.steps.map((step) => step.uses)),
-  );
+/** The uses: values in a composite action, skipping comment lines. */
+function compositeUses(text) {
+  return text.split('\n').flatMap((line) => {
+    if (line.trimStart().startsWith('#')) return [];
+    const match = line.match(/^\s*(?:-\s+)?uses:\s*(\S.*?)\s*$/);
+    return match ? [match[1]] : [];
+  });
+}
+
+/** Each distinct pin with the files that use it, for the more-than-one-commit error. */
+function pinSources(values, pinUses) {
+  return values
+    .map((value) => {
+      const sources = [
+        ...new Set(pinUses.filter(({ uses }) => uses === value).map(({ source }) => source)),
+      ];
+      return `\`${value}\` in ${sources.join(', ')}`;
+    })
+    .join('; ');
+}
+
+/** Learn one full SHA pin per contract action from workflows and composite actions. */
+function actionPins(pinUses) {
   const actions = CONTRACT_ACTIONS.map((action) => {
-    const values = [...new Set(uses.filter((value) => actionOf(value) === action))];
+    const values = [
+      ...new Set(pinUses.map(({ uses }) => uses).filter((value) => actionOf(value) === action)),
+    ];
     const errors = [
       ...(values.length === 0
         ? [
@@ -710,7 +730,7 @@ function actionPins(jobsByWorkflow) {
         ),
       ...(values.length > 1
         ? [
-            `${action} is pinned to more than one commit across the contract workflows (${values.map((value) => `\`${value}\``).join(', ')}). Bump every occurrence together.`,
+            `${action} is pinned to more than one commit across the contract workflows and composite actions (${pinSources(values, pinUses)}). Bump every occurrence together.`,
           ]
         : []),
     ];
@@ -869,11 +889,18 @@ function checkHookSteps(readFile, jobsByWorkflow, hookSteps, errors) {
 }
 
 /**
- * Check the workflows and the generated inventory against the contract.
- * `readWorkflow(fileName)` reads workflows; `readFile(path)` reads hooks and the manifest.
+ * Check workflows, composites and the generated inventory against the contract.
+ * `readWorkflow(fileName)` reads workflows; `readFile(path)` reads other repo files.
+ * `compositeActions` lists required repo-relative composite paths to read with `readFile`.
  * Returns error strings.
  */
-export function checkContract({ readWorkflow, readFile, inventory, hookSteps = HOOK_STEPS }) {
+export function checkContract({
+  readWorkflow,
+  readFile,
+  compositeActions,
+  inventory,
+  hookSteps = HOOK_STEPS,
+}) {
   const errors = [];
   const jobsByWorkflow = new Map();
   REQUIRED_GATES.forEach((gate) => {
@@ -885,7 +912,16 @@ export function checkContract({ readWorkflow, readFile, inventory, hookSteps = H
     checkGateJob(gate, jobsByWorkflow.get(gate.workflow).get(gate.job), errors);
   });
 
-  const { pins, errors: pinErrors } = actionPins(jobsByWorkflow);
+  const workflowPinUses = [...jobsByWorkflow].flatMap(([source, jobs]) =>
+    [...jobs.values()].flatMap((job) => job.steps.map(({ uses }) => ({ source, uses }))),
+  );
+  const compositePinUses = compositeActions.flatMap((source) =>
+    compositeUses(readFile(source)).map((uses) => ({ source, uses })),
+  );
+  const { errors: pinErrors } = actionPins([...workflowPinUses, ...compositePinUses]);
+  // The aggregate job is a workflow, so it renders the workflow pin.
+  // A composite that drifts is reported once by the combined check above.
+  const { pins } = actionPins(workflowPinUses);
   errors.push(...pinErrors);
   const ciJobs = jobsByWorkflow.get(AGGREGATE.workflow);
   checkAggregateJob(ciJobs, readWorkflow(AGGREGATE.workflow), pins, errors);
@@ -1026,7 +1062,7 @@ export function renderInventory() {
     'child command is checked below. The PR title is the squash commit message,',
     'so title validation repeats commitlint. CI Biome and secret scans cover',
     'the full tree and history rather than staged files.',
-    'Action pins are read from the workflows, so a Dependabot bump needs no edit here.',
+    'Action pins are read from the workflows and composite actions, so a Dependabot bump needs no edit here.',
     '',
     '| Hook or script | Local command | Workflow job | CI step |',
     '| --- | --- | --- | --- |',
@@ -1056,6 +1092,16 @@ export function renderInventory() {
 
 function readRepositoryFile(relativePath) {
   return readFileSync(resolve(REPOSITORY_ROOT, relativePath), 'utf8');
+}
+
+/** The repo's composite actions, listed with matchesGlob (ADR 0041). */
+function compositeActionPaths() {
+  const directory = resolve(REPOSITORY_ROOT, '.github/actions');
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { recursive: true, encoding: 'utf8' })
+    .filter((entry) => matchesGlob(entry, '*/action.{yml,yaml}'))
+    .map((entry) => `.github/actions/${entry}`)
+    .toSorted();
 }
 
 function readJsonEnv(name) {
@@ -1112,6 +1158,7 @@ function runCli(mode) {
     const errors = checkContract({
       readWorkflow: (name) => readRepositoryFile(`.github/workflows/${name}`),
       readFile: readRepositoryFile,
+      compositeActions: compositeActionPaths(),
       inventory: readRepositoryFile(INVENTORY_PATH),
     });
     report(errors, 'Required-gate contract matches the workflows and the inventory.');
