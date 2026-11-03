@@ -1,6 +1,7 @@
 # 48. Run task-defined trials with Claude or Codex
 
-- **Status:** Accepted (merged in #109), amended by [0071](0071-a-second-trial-brief.md)
+- **Status:** Accepted (merged in #109), amended by [0071](0071-a-second-trial-brief.md) and
+  [0115](0115-the-todo-research-project.md)
 - **Date:** 2026-10-20
 - **Amends:** [0034](0034-trial-harness-and-evidence.md), [0038](0038-trial-isolation-and-no-time-limit.md)
 
