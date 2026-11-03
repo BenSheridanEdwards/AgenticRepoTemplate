@@ -461,6 +461,7 @@ export function useTitle(title: string) {
   return { count, handleIncrement: () => setCount((current) => current + 1) };
 }
 `,
+    code: 'eslint(no-restricted-globals)',
   },
   ...[
     'const save = () => onSave();',
@@ -751,6 +752,77 @@ const reactFixtures: Fixture[] = [
   ]),
 ];
 const fixtures: Fixture[] = [
+  { path: 'apps/api/src/native.ts', source: 'const x = items.toSorted();' },
+  {
+    path: 'apps/api/src/native.test.ts',
+    source: 'const x = items.sort();',
+    code: 'unicorn(no-array-sort)',
+  },
+  ...[
+    [
+      'eslint(no-else-return)',
+      'function f(a) { if (a) return 1; else if (a.b) return 2; }',
+      'function f(a) { if (a) return 1; if (a.b) return 2; }',
+    ],
+    ['eslint(no-lonely-if)', 'if (a) f(); else { if (b) g(); }', 'if (a) f(); else if (b) g();'],
+    ['eslint(no-nested-ternary)', 'const x = a ? b : c ? d : e;', 'const x = a ? b : c;'],
+    [
+      'unicorn(no-array-for-each)',
+      'items.forEach(item => save(item));',
+      'items.map(item => item.name);',
+    ],
+    ['unicorn(no-array-sort)', 'const x = items.sort();', 'const x = items.toSorted();'],
+    ['unicorn(no-array-reverse)', 'const x = items.reverse();', 'const x = items.toReversed();'],
+    [
+      'unicorn(prefer-array-find)',
+      'const x = items.filter(item => item.ok)[0];',
+      'const x = items.find(item => item.ok);',
+    ],
+    [
+      'unicorn(prefer-array-some)',
+      'const x = items.filter(item => item.ok).length > 0;',
+      'const x = items.some(item => item.ok);',
+    ],
+    [
+      'unicorn(prefer-array-flat)',
+      'const x = items.flatMap(item => item);',
+      'const x = items.flat();',
+    ],
+    [
+      'unicorn(prefer-object-from-entries)',
+      'const x = items.reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});',
+      'const x = Object.fromEntries(items);',
+    ],
+    ['eslint(no-restricted-globals)', 'const x = document.title;', 'const x = title;'],
+    [
+      'eslint(no-restricted-globals)',
+      'function f() { return window.location; }',
+      'function f() { return location; }',
+    ],
+  ].flatMap(([code, invalid, valid], index) => [
+    { path: `apps/api/src/native${index}.ts`, source: invalid ?? '', code },
+    { path: `apps/api/src/native-valid${index}.ts`, source: valid ?? '' },
+  ]),
+  {
+    path: 'scripts/early-return.js',
+    source: 'function f(a) { if (a) return 1; else return 2; }',
+    code: 'eslint(no-else-return)',
+  },
+  {
+    path: 'apps/web/src/main.tsx',
+    source:
+      'function start() { const root = document.getElementById("root"); window.start(root); }',
+  },
+  {
+    path: 'showcase/x/web/src/main.tsx',
+    source:
+      'function start() { const root = document.getElementById("root"); window.start(root); }',
+  },
+  {
+    path: 'apps/api/src/effect.ts',
+    source: "import { Effect } from 'effect'; Effect.forEach(items, save);",
+  },
+  { path: 'scripts/array.ts', source: 'items.forEach(save); items.sort(); items.reverse();' },
   ...reactFixtures,
   {
     path: 'apps/web/src/useRemote.ts',

@@ -106,8 +106,11 @@ Write transforms over `const` with `map`, `filter`, `flatMap`, `some`, `every`, 
 value; build arrays and objects with `map`, `flatMap` and `Object.fromEntries`. Biome rejects accumulating
 spread. Biome `style/useConst` and React Hooks immutability, globals and purity rules cover single-assignment
 bindings and mutation during render in package TypeScript. Oxlint rejects loops (`policy/no-loops`) and parameter reassignment, including parameter property mutation
-([ADR 0079](../.agents/decisions/0079-no-advisory-lint.md)). General reassignment and other mutation remain
-held by [review](../REVIEW.md). Biome's `noForEach` and `useForOf` stay off because they steer
+([ADR 0079](../.agents/decisions/0079-no-advisory-lint.md)). Oxlint also rejects redundant else after return
+everywhere; result roots reject nested ternaries, lonely if, array forEach, sort and reverse,
+and prefer find, some, flat and Object.fromEntries. Browser globals belong only in web main.tsx.
+[Native declarative lint](../.agents/decisions/0108-native-declarative-lint.md) records the scopes.
+Review holds general reassignment, other mutation, classes and switch. Biome's `noForEach` and `useForOf` stay off because they steer
 toward loops.
 
 ## Decisions settled on 2026-10-15

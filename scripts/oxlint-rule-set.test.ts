@@ -45,12 +45,26 @@ it('no guidance doc names a retired ESLint file or package', () => {
   ).toEqual([]);
 });
 const EVERY_FILE = {
+  'no-else-return': ['error', { allowElseIf: false }],
   'no-param-reassign': ['error', { props: true }],
   'policy/no-loops': ['error'],
   'policy/no-hand-written-globs': ['error'],
 };
 const RESULT_ROOT = {
   ...EVERY_FILE,
+  ...Object.fromEntries(
+    [
+      'no-lonely-if',
+      'no-nested-ternary',
+      'unicorn/no-array-for-each',
+      'unicorn/no-array-sort',
+      'unicorn/no-array-reverse',
+      'unicorn/prefer-array-find',
+      'unicorn/prefer-array-some',
+      'unicorn/prefer-array-flat',
+      'unicorn/prefer-object-from-entries',
+    ].map((name) => [name, ['error']]),
+  ),
   ...Object.fromEntries(
     [
       'one-component-per-file',
@@ -113,7 +127,7 @@ const REACT_DOCTOR = {
   count: 349,
   sha256: '4de76157f37662452af5ffbcfe299d7009423e84e89aa55eb33cf8fcd5adeef3',
 };
-const PLUGINS = ['react'];
+const PLUGINS = ['react', 'unicorn'];
 const JS_PLUGINS = [
   resolve(ROOT, 'tooling/oxlint-plugin-policy.js'),
   {
@@ -122,6 +136,8 @@ const JS_PLUGINS = [
   },
 ];
 const RESULT_PATHS = [
+  'apps/web/src/main.tsx',
+  'apps/web/src/App.test.tsx',
   'apps/web/src/App.tsx',
   'apps/api/src/router.ts',
   'packages/ui/src/index.ts',
@@ -144,6 +160,7 @@ interface Config {
   settings?: { 'react-doctor'?: { portedRuleMode: string } };
   overrides: {
     files: string[];
+    excludeFiles?: string[];
     rules: Rules;
     categories?: Record<string, string>;
     plugins?: unknown[];
@@ -167,7 +184,11 @@ const rulesFor = (path: string): Rules =>
   Object.fromEntries([
     ...Object.entries(config.rules),
     ...config.overrides
-      .filter(({ files }) => files.some((pattern) => matchesGlob(path, pattern)))
+      .filter(
+        ({ files, excludeFiles }) =>
+          files.some((pattern) => matchesGlob(path, pattern)) &&
+          !excludeFiles?.some((pattern) => matchesGlob(path, pattern)),
+      )
       .flatMap((override) => Object.entries(override.rules)),
   ]);
 const entries = (rules: Rules) =>
@@ -193,7 +214,13 @@ it.each(PROBES)('turns on exactly the frozen rules at error for each probe path:
     Object.fromEntries(
       entries(rules).filter(([name]) => !String(name).startsWith('react-doctor/')),
     ),
-  ).toEqual(RESULT_PATHS.includes(path) ? RESULT_ROOT : EVERY_FILE);
+  ).toEqual(
+    RESULT_PATHS.includes(path)
+      ? path === 'apps/web/src/main.tsx'
+        ? RESULT_ROOT
+        : { ...RESULT_ROOT, 'no-restricted-globals': ['error', 'document', 'window'] }
+      : EVERY_FILE,
+  );
   if (RESULT_PATHS.includes(path)) expectDoctor(rules);
   else expect(doctorNames(rules)).toEqual([]);
 });
@@ -210,8 +237,10 @@ it('adds no rule through a category, a preset or a warning', () => {
   expect([config, ...config.overrides].map((value) => value.extends)).toEqual([
     undefined,
     undefined,
+    undefined,
   ]);
   expect(config.overrides.map((value) => [value.plugins, value.jsPlugins])).toEqual([
+    [undefined, undefined],
     [undefined, undefined],
   ]);
   expect(

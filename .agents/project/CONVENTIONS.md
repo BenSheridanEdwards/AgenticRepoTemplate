@@ -17,6 +17,11 @@ The Oxlint rules and Biome naming override run on `{apps,packages}/*/src/**` and
 | File names are camelCase, PascalCase, or the name of their export. | Biome `style/useFilenamingConvention` |
 | A component or hook lives in the file of the same name (`GreetingForm.tsx`, `useGreeting.ts`). | Oxlint `policy/file-matches-export` |
 | Keep block nesting to four levels. | Oxlint `max-depth` |
+| Return early without else, including else if. | Oxlint `no-else-return` in every file |
+| Flatten lonely if and nested conditional expressions in result roots. | Oxlint `no-lonely-if`, `no-nested-ternary` |
+| Transform collections without array forEach, sort or reverse in result roots. | Oxlint `unicorn/no-array-for-each`, `unicorn/no-array-sort`, `unicorn/no-array-reverse` |
+| Use find, some, flat and Object.fromEntries for matching collection transforms in result roots. | Oxlint `unicorn/prefer-array-find`, `unicorn/prefer-array-some`, `unicorn/prefer-array-flat`, `unicorn/prefer-object-from-entries` |
+| Access document and window only in web src/main.tsx. | Oxlint `no-restricted-globals` in result roots |
 | Bind with `const` unless the name is reassigned. | Biome `style/useConst` |
 | Components and hooks leave props, state, hook values and globals unchanged during render. | Oxlint `react/immutability`, `react/globals`, `react/purity` |
 | Use `@repo/ui` Button and TextField for native buttons and inputs; checkbox/radio inputs use native elements until dedicated primitives exist. UI definitions and test harnesses may use native controls. | Oxlint `policy/use-ui-primitives` |
@@ -91,7 +96,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full role table and greeting re
 - Build controls with `@repo/ui`'s `Button` and `TextField`; add a primitive to `packages/ui` when a result needs a new one.
 - Parse network, storage, and environment data at the IO boundary before trusting its type. `server.ts` decodes `PORT` with Effect Schema; a type assertion alone proves nothing.
 - Fail loudly at boundaries, as `main.tsx` does when `#root` is missing.
-- Build arrays and objects with `map`, `filter`, `flatMap`, `reduce` and `Object.fromEntries` in place of loops, `push` and in-place mutation. `style/useConst` and React Hooks rules enforce part of this; review holds the rest ([North Star §9](../../docs/NORTH_STAR.md#9-declarative-over-imperative)).
+- Build arrays and objects with `map`, `filter`, `flatMap`, `reduce` and `Object.fromEntries`. Oxlint owns loops, parameter mutation, early returns and native collection checks. Review holds reassignment, other mutation, classes and switch ([North Star §9](../../docs/NORTH_STAR.md#9-declarative-over-imperative)).
 - Keep comments for the local reason behind a line. Record decisions, alternatives and trade-offs in an [ADR](../decisions/).
 
 ## Enforced commit and branch conventions
