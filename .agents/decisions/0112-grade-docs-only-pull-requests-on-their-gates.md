@@ -1,6 +1,6 @@
 # 112. Grade docs-only pull requests on their gates
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #303)
 - **Date:** 2026-11-03
 - **Amends:** [0067](0067-grade-merge-confidence-on-changed-file-line-coverage.md),
   [0068](0068-grade-merge-confidence-on-import-blast-radius.md),
