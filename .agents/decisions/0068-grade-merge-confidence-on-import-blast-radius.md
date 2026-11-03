@@ -1,6 +1,6 @@
 # 68. Grade merge confidence on import blast radius
 
-- **Status:** Proposed (Ben confirms the decision and 20-file threshold by approving)
+- **Status:** Accepted (merged in #151)
 - **Date:** 2026-10-25
 - **Builds on:** [0064](0064-merge-confidence-label.md), [0032](0032-api-ui-greeting-and-contract.md), [0017](0017-required-gates-aggregate.md)
 - **Amended by:** [0112](0112-grade-docs-only-pull-requests-on-their-gates.md)
@@ -58,4 +58,4 @@ Reject PR-only or `continue-on-error` collection under ADR 0017's step policy.
 The trusted confidence workflow cannot grade its own introduction PR. Piece 1 only publishes evidence.
 Coverage grading (#137 / #150) stays separate; whichever lands second rebases shared workflow/doc hunks.
 `scripts/blast-radius.test.ts` proves shaping, failures, real CLI outputs, deleted/empty inputs and the
-PR file list. The workflow edit waits for Ben's head-specific enforcement sign-off; this ADR stays Proposed.
+PR file list. The workflow edit waits for Ben's head-specific enforcement sign-off.
