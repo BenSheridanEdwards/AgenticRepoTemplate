@@ -1,9 +1,7 @@
 # 54. Put domain rules behind application and pin scaffold API exports
 
-- **Status:** Accepted by Ben on 23 October 2026 at 11:44 BST: "Approve ADR
-  0054 and the Fallow exemption". This approves the paired `RouterInputs` /
-  `RouterOutputs` exemption; PR #127 still requires six replacement trial
-  records, the regenerated comparison and every check green before merge.
+- **Status:** Accepted on 23 October 2026, with the paired `RouterInputs` /
+  `RouterOutputs` Fallow exemption (merged in #127).
 - **Date:** 2026-10-23
 - **Amends:** [0032](0032-api-ui-greeting-and-contract.md) (role table),
   [0033](0033-result-diagrams-and-structure-validation.md) (structure checks)
@@ -103,7 +101,7 @@ unchanged.
   first, using the no-evidence state of
   [0047](0047-trial-fixtures-and-the-no-evidence-state.md). All six new runs
   must share one scaffold revision and retain every failed run.
-- Ben authorised a local Colima Linux runtime for Phase 2 on 23 October 2026.
+- The maintainer authorised a local Colima Linux runtime for Phase 2 on 23 October 2026.
   [0038](0038-trial-isolation-and-no-time-limit.md) still requires the private
   `/tmp` mount before an agent starts. Run the unchanged harness in that
   runtime and keep the PR draft until the six-run comparison proves

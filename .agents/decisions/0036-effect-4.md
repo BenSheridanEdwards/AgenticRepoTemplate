@@ -10,7 +10,7 @@
 resolver that [0011](0011-effect-schema-everywhere.md) names,
 `effectTsResolver`, runs on Effect 3 only. That stack measured 125.9 kB brotli,
 so the JS budget went to 130 kB. 0032 also measured Effect 4 with
-`standardSchemaResolver` at about 19 kB less. On 18 October Ben chose Effect 4
+`standardSchemaResolver` at about 19 kB less. On 18 October the maintainer chose Effect 4
 and a 110 kB budget for every package.
 
 The facts on npm on 18 October:
