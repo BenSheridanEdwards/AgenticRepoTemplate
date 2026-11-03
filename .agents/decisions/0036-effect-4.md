@@ -72,7 +72,7 @@ now blocks, so it is left visible rather than silenced.
   `standardSchemaResolver` alone would accept any Standard Schema library, so
   the rule also checks that the schema comes from Effect. The schema must be
   the only argument, because `{ raw: true }` would submit the undecoded input,
-  such as an untrimmed name. It blocks `effectTsResolver`. One helper in `tooling/eslint-plugin-policy.js`
+  such as an untrimmed name. It blocks `effectTsResolver`. One helper in `tooling/oxlint-plugin-policy.js`
   recognises the adapter for both rules.
 - `contract/effects-in-integrations` also bans the Effect 4 runners that take
   services: `runPromiseWith`, `runPromiseExitWith`, `runSyncWith`,

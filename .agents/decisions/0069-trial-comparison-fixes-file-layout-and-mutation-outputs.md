@@ -8,7 +8,7 @@
 
 ## Context
 
-The [North Star](../NORTH_STAR.md) asks independent agents given the same
+The [North Star](../../docs/NORTH_STAR.md) asks independent agents given the same
 brief to build the app the same way. The 23 October trials passed all six
 runs, but their comparison called different file layouts, component
 boundaries and mutation outputs consistent through freedoms 2 and 4 of

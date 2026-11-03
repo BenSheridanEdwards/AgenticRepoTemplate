@@ -30,7 +30,8 @@ point-free callbacks and immutable spread remain useful declarative transforms.
 Keep style-only and type-aware additions outside this change. Keep Biome-owned
 rules with Biome. Keep promise callbacks where tRPC requires them and lazy
 state initialization where React supports it. General reassignment, mutation,
-classes and switch remain review duties until their own policy rules land.
+classes and switch remain review duties until their own policy rules land
+(now ADR 0109).
 
 ## Consequences
 

@@ -22,9 +22,10 @@ hook returns.
 
 ## Decision
 
-- [`tooling/eslint-plugin-policy.js`](../../tooling/eslint-plugin-policy.js)
+- [`tooling/eslint-plugin-policy.js`](../../tooling/oxlint-plugin-policy.js)
+  (renamed `tooling/oxlint-plugin-policy.js` in #284)
   holds the repository's own policy rules as one local ESLint plugin, with no
-  new dependency. [`eslint.config.js`](../../eslint.config.js) turns on every
+  new dependency. `eslint.config.js` (deleted in #284) turns on every
   rule in it as an error for `src/**`.
 - The rules are `one-component-per-file`, `state-and-effects-in-hooks`
   (`useState`, `useReducer`, `useActionState`, `useOptimistic`,
@@ -61,6 +62,6 @@ hook returns.
 - The rules read syntax and file paths only. They recognise a component as a
   module-scope PascalCase function in a `.tsx` file, the same heuristic the
   React hooks rules use.
-- Changes to the plugin are enforcement changes under
-  ADR 0007 (superseded by ADRs 0023 and 0024), because `tooling/`
-  is a protected path.
+- Changes to the plugin are enforcement changes. ADR 0007 guarded all of
+  `tooling/`; under ADRs 0023 and 0024 only the plugin itself, now
+  `tooling/oxlint-plugin-policy.js`, is guarded.

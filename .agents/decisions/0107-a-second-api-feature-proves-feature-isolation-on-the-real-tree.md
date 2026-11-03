@@ -42,5 +42,4 @@ and result diagram regenerated; both merge without adding trial conflicts.
 
 The api now demonstrates storage without a new dependency. Tests use fresh
 module stores; HTTP tests use unique names and relative order because parallel
-clients share the process store. The web route remains a separate change.
-Keep this change parked for Ben's go-ahead and PRD sign-off.
+clients share the process store. The web route landed in #290.
