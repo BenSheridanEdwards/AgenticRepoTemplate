@@ -56,13 +56,14 @@ test.each([0, 1, 3, -2, 2.5])('rejects invalid package count %s', (packages) => 
 });
 
 const BENCH = 'showcase/bench-*/**';
+const withPattern = (ignore: string[] = []) => [...new Set([...ignore, BENCH])];
 const withBench = (config: {
   duplicates?: { ignore?: string[] };
   health?: { ignore?: string[] };
 }) => ({
   ...config,
-  duplicates: { ...config.duplicates, ignore: [...(config.duplicates?.ignore ?? []), BENCH] },
-  health: { ...config.health, ignore: [...(config.health?.ignore ?? []), BENCH] },
+  duplicates: { ...config.duplicates, ignore: withPattern(config.duplicates?.ignore) },
+  health: { ...config.health, ignore: withPattern(config.health?.ignore) },
 });
 const list = (key: string, items: string) => `  "${key}": {\n    "ignore": [${items}]\n  }`;
 
@@ -134,6 +135,9 @@ test('benchmark lockfile importers are idempotent and use isolated package names
   expect(once).toContain("'@bench-001/api':");
 });
 
+const importerKeys = (lock: string) => lock.split('\npackages:')[0].match(/^ {2}\S+:$/gm) ?? [];
+const isReference = (key: string) => !key.startsWith('  showcase/bench-');
+
 test.each([
   ['the repository lockfile', readFileSync('pnpm-lock.yaml', 'utf8')],
   ['an already benchmarked lockfile', benchLockfile(readFileSync('pnpm-lock.yaml', 'utf8'), 60)],
@@ -144,7 +148,7 @@ test.each([
     '\n  showcase/bench-001/web:\n    dependencies: {}\n\npackages:',
   );
   expect(benchLockfile(duplicated, 2)).toBe(once);
-  expect(once.startsWith(lock.split('\npackages:')[0])).toBe(true);
+  expect(importerKeys(once).filter(isReference)).toEqual(importerKeys(lock).filter(isReference));
   expect(once.slice(once.indexOf('\npackages:'))).toBe(lock.slice(lock.indexOf('\npackages:')));
   expect(once).toContain('version: link:../../../packages/ui');
   expect(once).toContain('version: link:../api');
