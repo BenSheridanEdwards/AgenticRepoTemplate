@@ -1,6 +1,8 @@
 # 19. Repository policy rules live in a local ESLint plugin
 
-- **Status:** Accepted; Superseded in part by ADR 0103 (engine and plugin path)
+- **Status:** Accepted; Superseded in part by ADR 0103 (engine and plugin path);
+  amended by [0084](0084-reject-every-inline-suppression.md)
+  (suppression bullet, through deleted ADR 0039) and [0098](0098-oxlint-replaces-eslint.md)
 - **Date:** 2026-10-17
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
   for Biome lint ownership; implementation follows in separate PRs.

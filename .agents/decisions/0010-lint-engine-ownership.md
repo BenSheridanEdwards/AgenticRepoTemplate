@@ -1,6 +1,7 @@
 # 10. Lint engines own disjoint concerns
 
-- **Status:** Accepted; Superseded in part by ADR 0103 (lint engine)
+- **Status:** Accepted; Superseded in part by ADR 0103 (lint engine); amended
+  by [0098](0098-oxlint-replaces-eslint.md)
 - **Date:** 2026-10-15
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
   for Biome lint ownership; implementation follows in separate PRs.

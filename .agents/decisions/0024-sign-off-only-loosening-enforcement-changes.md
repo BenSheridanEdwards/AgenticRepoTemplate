@@ -1,6 +1,7 @@
 # 24. Ben signs off only the changes that loosen enforcement
 
-- **Status:** Accepted
+- **Status:** Accepted; superseded in part by
+  [0060](0060-product-intent-needs-sign-off.md)
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md), which
   sets the guarded paths; this record adds the gate's own script and test
