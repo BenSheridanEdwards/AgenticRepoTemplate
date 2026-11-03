@@ -1,4 +1,4 @@
-# 110. Tune CI jobs before buying faster runners
+# 116. Tune CI jobs before buying faster runners
 
 - **Status:** Proposed
 - **Date:** 2026-11-03

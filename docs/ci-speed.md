@@ -4,15 +4,18 @@ Agents push, wait for CI, fix the red check and push again. Every minute CI
 takes is a minute every agent session waits, so treat CI as a product. This
 page is the repository's best current knowledge on making CI fast: how to
 measure it, the bar a repository meets before paying for faster runners
-([ADR 0110](../.agents/decisions/0110-tune-ci-jobs-before-buying-faster-runners.md)),
+([ADR 0116](../.agents/decisions/0116-tune-ci-jobs-before-buying-faster-runners.md)),
 the techniques that work with their measured gains, and the baseline for the
 repositories we run. Update it when a measurement or a source changes.
 
 ## Measure first
 
 ```bash
-pnpm ci:audit owner/repo        # the last 150 completed runs
-pnpm ci:audit owner/repo 300    # a longer window
+pnpm ci:audit owner/repo                                  # the last 150 completed runs
+pnpm ci:audit owner/repo 300                              # a longer window
+pnpm ci:audit owner/repo 150 --until 2026-11-03T15:00:00Z # a frozen before snapshot
+pnpm ci:audit owner/repo 150 --since 2026-11-04T00:00:00Z # runs after a change merged
+pnpm ci:audit owner/repo --json                           # machine-readable, for comparing two snapshots
 ```
 
 `scripts/ci-audit.mjs` reads every job of each run attempt and splits it into:
@@ -21,9 +24,14 @@ pnpm ci:audit owner/repo 300    # a longer window
 - **Setup**: steps whose names match checkout, toolchain, install, cache or restore.
 - **Work**: the rest, after setup and teardown (post steps, uploads, cache saves).
 
-It prints a Markdown table per job, busiest first. Paste the tables from before
-and after a change into its pull request. The classifier reads step names, so
-name each step after what it does and keep install and test in separate steps.
+It prints a Markdown table per job, busiest first, then each workflow's pull
+request wall-clock: from the run's creation to its last finished job, which is
+how long a PR actually waits. Freeze the before window with `--until` before
+changing anything, so the window stays fixed as new runs arrive, and paste
+both tables into the pull request. The classifier reads step names, so name
+each step after what it does and keep install and test in separate steps. A job cancelled before any runner took it counts as waiting only. A single
+step that installs and tests inside a container or `dagger call` reads as work,
+so read its log for the install time.
 
 Boardy's biggest single fix came from this kind of audit: half their test jobs
 missed the dependency cache all year, because GitHub scopes PR caches to their

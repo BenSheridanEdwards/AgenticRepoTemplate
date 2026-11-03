@@ -1,7 +1,16 @@
 /**
  * @jest-environment node
  */
-import { audit, percentile, splitJob, summarize, toMarkdown } from './ci-audit.mjs';
+import {
+  audit,
+  createdFilter,
+  inBatches,
+  percentile,
+  runWall,
+  splitJob,
+  summarize,
+  toMarkdown,
+} from './ci-audit.mjs';
 
 const at = (second: number) => new Date(Date.UTC(2026, 10, 3, 9, 0, second)).toISOString();
 const step = (name: string, from: number, to: number) => ({
@@ -12,6 +21,7 @@ const step = (name: string, from: number, to: number) => ({
 
 const job = {
   name: 'Tooling tests (2/3)',
+  runner_name: 'GitHub Actions 1',
   conclusion: 'success',
   labels: ['ubuntu-latest'],
   created_at: at(0),
@@ -38,6 +48,16 @@ describe('splitJob', () => {
       work: 20,
       total: 45,
     });
+  });
+
+  it('counts a job cancelled before any runner took it as waiting only', () => {
+    const neverRan = { ...job, runner_name: null, steps: [], completed_at: at(3600) };
+    expect(splitJob(neverRan)).toMatchObject({ queue: 3600, setup: 0, work: 0, total: 0 });
+  });
+
+  it('never reports a negative duration when timestamps run backwards', () => {
+    const backwards = { ...job, runner_name: 'r', steps: [], completed_at: at(1) };
+    expect(splitJob(backwards)).toMatchObject({ total: 0, work: 0 });
   });
 
   it('marks a job that ran on a self-hosted runner', () => {
@@ -82,14 +102,71 @@ describe('audit', () => {
     const api = async (path: string) => {
       paths.push(path);
       return path.startsWith('actions/runs?')
-        ? { workflow_runs: [{ id: 1, run_attempt: 2 }, { id: 2 }] }
+        ? {
+            workflow_runs: [
+              { id: 1, run_attempt: 2, name: 'CI', event: 'pull_request', created_at: at(0) },
+              { id: 2 },
+            ],
+          }
         : { jobs: [job] };
     };
-    const rows = await audit({ api, runs: 1 });
+    const { rows, runs } = await audit({ api, runs: 1 });
     expect(rows).toHaveLength(1);
+    expect(runs).toEqual([{ workflow: 'CI', event: 'pull_request', wall: 50 }]);
     expect(paths).toEqual([
       'actions/runs?status=completed&per_page=100&page=1',
       'actions/runs/1/attempts/2/jobs?per_page=100',
     ]);
+  });
+});
+
+describe('runWall', () => {
+  it('measures from run creation to the last finished job', () => {
+    const run = { created_at: at(0) };
+    expect(runWall(run, [job, { ...job, completed_at: at(40) }])).toBe(50);
+  });
+
+  it('reports null when every job was skipped', () => {
+    expect(runWall({ created_at: at(0) }, [{ ...job, conclusion: 'skipped' }])).toBeNull();
+  });
+});
+
+describe('createdFilter', () => {
+  it.each([
+    [{ since: 'A', until: 'B' }, '&created=A..B'],
+    [{ since: 'A' }, `&created=${encodeURIComponent('>=A')}`],
+    [{ until: 'B' }, `&created=${encodeURIComponent('<=B')}`],
+    [{}, ''],
+  ])('filters runs created in %j', (window, expected) => {
+    expect(createdFilter(window)).toBe(expected);
+  });
+});
+
+describe('pull request wall-clock', () => {
+  it('summarizes only pull request runs per workflow and prints their table', () => {
+    const runs = [
+      { workflow: 'CI', event: 'pull_request', wall: 100 },
+      { workflow: 'CI', event: 'pull_request', wall: 140 },
+      { workflow: 'CI', event: 'workflow_dispatch', wall: 900 },
+      { workflow: 'CI', event: 'pull_request', wall: null },
+    ];
+    const summary = summarize([], runs);
+    expect(summary.workflows).toEqual([{ name: 'CI', runs: 2, wallP50: 140, wallP90: 140 }]);
+    expect(toMarkdown('owner/repo', summary)).toContain('| CI | 2 | 140 | 140 |');
+  });
+});
+
+describe('inBatches', () => {
+  it('keeps order and runs at most `size` calls at once', async () => {
+    const state = { running: 0, peak: 0 };
+    const result = await inBatches([1, 2, 3, 4, 5], 2, async (n: number) => {
+      state.running += 1;
+      state.peak = Math.max(state.peak, state.running);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      state.running -= 1;
+      return n * 10;
+    });
+    expect(result).toEqual([10, 20, 30, 40, 50]);
+    expect(state.peak).toBe(2);
   });
 });
