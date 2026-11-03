@@ -36,7 +36,7 @@ For the trial runbook, read [TRIALS.md](.agents/TRIALS.md).
 5. Report a task complete once `pnpm verify` and `pnpm e2e` pass; follow the [Definition of Done](.agents/project/PR_QUALITY.md#definition-of-done).
 6. Complete the pull request template and follow [PR quality](.agents/project/PR_QUALITY.md) before opening a PR or marking it ready.
 7. Propose an ADR in [decisions](.agents/decisions/) when a constraint needs to change, and change the rule there. Record decisions in ADRs; keep code comments for the local reason behind a line.
-8. Write declarative transforms with `map`, `filter`, `flatMap` and `reduce` over `const` bindings ([North Star §9](docs/NORTH_STAR.md#9-declarative-over-imperative)). Oxlint enforces early returns and native collection rules; [REVIEW.md](REVIEW.md#scope-and-simplicity) holds reassignment, other mutation, classes and switch.
+8. Write declarative transforms with `map`, `filter`, `flatMap` and `reduce` over `const` bindings ([North Star §9](docs/NORTH_STAR.md#9-declarative-over-imperative)). Oxlint enforces early returns, native collection rules and result-root `policy/no-let`, `policy/no-mutation`, `policy/no-classes` and `policy/no-switch`; [REVIEW.md](REVIEW.md#scope-and-simplicity) holds mutation outside those selectors.
 
 For tasks longer than three steps, checkpoint in the PR body.
 Prefer deletion, existing patterns, and stdlib or native platform features

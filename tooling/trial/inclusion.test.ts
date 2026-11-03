@@ -264,7 +264,7 @@ console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntri
       const showcase = configs[index] ?? {};
       expect(showcase).toEqual(configs[index + 1]);
       const policy = Object.entries(showcase).filter(([rule]) => rule.startsWith('policy/'));
-      expect(policy).toHaveLength(16);
+      expect(policy).toHaveLength(20);
       expect(
         policy.filter(([, value]) => (Array.isArray(value) ? value[0] : value) !== 'error'),
       ).toEqual([]);

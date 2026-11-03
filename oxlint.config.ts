@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { RECOMMENDED_RULES } from 'oxlint-plugin-react-doctor';
+import doctor from './tooling/oxlint-plugin-react-doctor.js';
 
 // Each excluded rule repeats a check owned by the engine named beside it.
 const singleOwnerRules = {
@@ -115,8 +116,8 @@ export default {
   jsPlugins: [
     fileURLToPath(new URL('./tooling/oxlint-plugin-policy.js', import.meta.url)),
     {
-      name: 'react-doctor',
-      specifier: fileURLToPath(import.meta.resolve('oxlint-plugin-react-doctor')),
+      name: doctor.meta.name,
+      specifier: fileURLToPath(new URL('./tooling/oxlint-plugin-react-doctor.js', import.meta.url)),
     },
   ],
   settings: { 'react-doctor': { portedRuleMode: 'curated' } },
@@ -138,6 +139,10 @@ export default {
     {
       files: ['{apps,packages}/*/src/**/*.{ts,tsx}', 'showcase/*/*/src/**/*.{ts,tsx}'],
       rules: {
+        'policy/no-let': 'error',
+        'policy/no-mutation': 'error',
+        'policy/no-classes': 'error',
+        'policy/no-switch': 'error',
         'no-lonely-if': 'error',
         'no-nested-ternary': 'error',
         'unicorn/no-array-for-each': 'error',

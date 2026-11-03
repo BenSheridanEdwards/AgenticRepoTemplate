@@ -11,6 +11,17 @@ export type GreetingState =
   | { readonly status: 'success'; readonly message: Greeting['message'] }
   | { readonly status: 'error' };
 
+function toGreetingState(
+  name: GreetInput['name'] | null,
+  query: { isFetching: boolean; isError: boolean; data: Greeting | undefined },
+): GreetingState {
+  if (name === null) return { status: 'idle' };
+  if (query.isFetching) return { status: 'loading' };
+  if (query.isError) return { status: 'error' };
+  if (query.data) return { status: 'success', message: query.data.message };
+  return { status: 'loading' };
+}
+
 /** The greeting for the last submitted name, fetched through the api. */
 export function useGreeting() {
   const [name, setName] = useState<GreetInput['name'] | null>(null);
@@ -39,17 +50,6 @@ export function useGreeting() {
     }
   }
 
-  let greeting: GreetingState;
-  if (name === null) {
-    greeting = { status: 'idle' };
-  } else if (query.isFetching) {
-    greeting = { status: 'loading' };
-  } else if (query.isError) {
-    greeting = { status: 'error' };
-  } else if (query.data) {
-    greeting = { status: 'success', message: query.data.message };
-  } else {
-    greeting = { status: 'loading' };
-  }
+  const greeting = toGreetingState(name, query);
   return { greeting, requestGreeting };
 }

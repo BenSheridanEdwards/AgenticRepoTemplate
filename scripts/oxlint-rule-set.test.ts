@@ -2,7 +2,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { matchesGlob, resolve } from 'node:path';
 import { isGuidanceDoc } from './check-doc-phrasing.mjs';
 
@@ -68,6 +67,10 @@ const RESULT_ROOT = {
   ...Object.fromEntries(
     [
       'one-component-per-file',
+      'no-let',
+      'no-mutation',
+      'no-classes',
+      'no-switch',
       'no-large-comments',
       'use-ui-primitives',
       'state-and-effects-in-hooks',
@@ -132,7 +135,7 @@ const JS_PLUGINS = [
   resolve(ROOT, 'tooling/oxlint-plugin-policy.js'),
   {
     name: 'react-doctor',
-    specifier: createRequire(resolve(ROOT, 'package.json')).resolve('oxlint-plugin-react-doctor'),
+    specifier: resolve(ROOT, 'tooling/oxlint-plugin-react-doctor.js'),
   },
 ];
 const RESULT_PATHS = [

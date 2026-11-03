@@ -48,6 +48,10 @@ The Oxlint rules and Biome naming override run on `{apps,packages}/*/src/**` and
 | Every block has a body; a handled error does something observable. | Biome `suspicious/noEmptyBlockStatements` |
 | Use no `fallow-ignore` comment. | `pnpm check:suppressions`; the structure check also rejects this directive in result roots. |
 | Accessible, labelled controls and status regions. | Biome `a11y/*`, jest-axe, `@axe-core/playwright`, Lighthouse |
+| Bind with const. | Oxlint `policy/no-let` in result roots |
+| Build new values; keep mutable state in integrations. | Oxlint `policy/no-mutation` in result roots |
+| Use functions; subclass a framework base when needed. | Oxlint `policy/no-classes` in result roots |
+| Branch with lookup objects or Effect Match. | Oxlint `policy/no-switch` in result roots |
 
 Comment groups count physical lines and adjacent mixed syntaxes together. Imports within a role still follow slice isolation.
 
@@ -96,7 +100,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full role table and greeting re
 - Build controls with `@repo/ui`'s `Button` and `TextField`; add a primitive to `packages/ui` when a result needs a new one.
 - Parse network, storage, and environment data at the IO boundary before trusting its type. `server.ts` decodes `PORT` with Effect Schema; a type assertion alone proves nothing.
 - Fail loudly at boundaries, as `main.tsx` does when `#root` is missing.
-- Build arrays and objects with `map`, `filter`, `flatMap`, `reduce` and `Object.fromEntries`. Oxlint owns loops, parameter mutation, early returns and native collection checks. Review holds reassignment, other mutation, classes and switch ([North Star §9](../../docs/NORTH_STAR.md#9-declarative-over-imperative)).
+- Build arrays and objects with `map`, `filter`, `flatMap`, `reduce` and `Object.fromEntries`. Oxlint owns loops, parameter mutation, early returns and native collection checks. Result-root policy rules reject let, member mutation, classes without a superclass, this and switch; review holds exempt mutation and collection mutators ([North Star §9](../../docs/NORTH_STAR.md#9-declarative-over-imperative)).
 - Keep comments for the local reason behind a line. Record decisions, alternatives and trade-offs in an [ADR](../decisions/).
 
 ## Enforced commit and branch conventions

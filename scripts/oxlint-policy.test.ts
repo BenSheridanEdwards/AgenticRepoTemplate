@@ -41,6 +41,59 @@ const roots = [
 ];
 const longComment = '// one\n// two\n// three\n// four\n// five';
 const policyFixtures: Fixture[] = [
+  ...[
+    ['deletion', 'delete value.name;'],
+    ['push', 'items.push(value);'],
+    ['pop', 'items.pop();'],
+    ['shift', 'items.shift();'],
+    ['unshift', 'items.unshift(value);'],
+    ['splice', 'items.splice(0, 1);'],
+    ['fill', 'items.fill(value);'],
+    ['copyWithin', 'items.copyWithin(0, 1);'],
+    ['assign', 'Object.assign(target, source);'],
+  ].map(([name, source]) => ({
+    path: `apps/api/src/mutation-${name}.ts`,
+    source: source ?? '',
+    code: 'policy(no-mutation)',
+  })),
+  { path: 'apps/api/src/newObject.ts', source: 'const value = Object.assign({}, source);' },
+  {
+    path: 'apps/api/src/collections.ts',
+    source:
+      'collection.set(key, value); collection.add(value); collection.delete(key); collection.clear();',
+  },
+  { path: 'apps/api/src/computed.ts', source: "items['push'](value);" },
+  {
+    path: 'apps/api/src/classExpression.ts',
+    source: 'const value = class {};',
+    code: 'policy(no-classes)',
+  },
+  { path: 'apps/api/src/this.ts', source: 'const value = this;', code: 'policy(no-classes)' },
+  {
+    path: 'apps/api/src/tagged.ts',
+    source: "class NotFound extends Schema.TaggedErrorClass<NotFound>()('NotFound', {}) {}",
+  },
+  {
+    path: 'apps/web/src/features/ownership/useItems.ts',
+    source: 'function useItems(items) { items.splice(0, 1); }',
+    codes: ['policy(no-mutation)', 'react-doctor(no-prop-callback-in-render)'],
+  },
+  {
+    path: 'apps/web/src/features/ownership/useComputedItems.ts',
+    source: "function useComputedItems(items) { items['splice'](0, 1); }",
+    codes: [
+      'react-doctor(no-mutating-array-method-on-prop-or-hook-result)',
+      'react-doctor(no-prop-callback-in-render)',
+    ],
+  },
+  {
+    path: 'apps/web/src/features/ownership/integrations.ts',
+    source: 'function useItems(items) { items.splice(0, 1); }',
+    codes: [
+      'react-doctor(no-mutating-array-method-on-prop-or-hook-result)',
+      'react-doctor(no-prop-callback-in-render)',
+    ],
+  },
   ...roots.flatMap((root) => [
     { path: `${root}/src/binding.ts`, source: 'let value = 1;', code: 'policy(no-let)' },
     { path: `${root}/src/constant.ts`, source: 'const value = 1;' },
@@ -492,7 +545,7 @@ export function useTitle(title: string) {
   return { count, handleIncrement: () => setCount((current) => current + 1) };
 }
 `,
-    code: 'eslint(no-restricted-globals)',
+    codes: ['eslint(no-restricted-globals)', 'policy(no-mutation)'],
   },
   ...[
     'const save = () => onSave();',
@@ -831,7 +884,16 @@ const fixtures: Fixture[] = [
       'function f() { return location; }',
     ],
   ].flatMap(([code, invalid, valid], index) => [
-    { path: `apps/api/src/native${index}.ts`, source: invalid ?? '', code },
+    {
+      path: `apps/api/src/native${index}.ts`,
+      source: invalid ?? '',
+      codes: [
+        code,
+        ...(['unicorn(no-array-sort)', 'unicorn(no-array-reverse)'].includes(code ?? '')
+          ? ['policy(no-mutation)']
+          : []),
+      ],
+    },
     { path: `apps/api/src/native-valid${index}.ts`, source: valid ?? '' },
   ]),
   {
@@ -933,7 +995,11 @@ const fixtures: Fixture[] = [
     source: `// eslint-disable-next-line no-param-reassign\n${mutation}`,
     code: 'eslint(no-param-reassign)',
   },
-  { path: 'apps/web/src/nested.ts', source: mutation, code: 'eslint(no-param-reassign)' },
+  {
+    path: 'apps/web/src/nested.ts',
+    source: mutation,
+    codes: ['eslint(no-param-reassign)', 'policy(no-mutation)'],
+  },
 ];
 let directory: string;
 let diagnostics: Diagnostic[];
@@ -1019,7 +1085,7 @@ it('turns on every policy rule at error in result roots', () => {
   const rules = Object.keys(policy.rules).filter(
     (rule) => !['no-loops', 'no-hand-written-globs'].includes(rule),
   );
-  expect(rules).toHaveLength(14);
+  expect(rules).toHaveLength(18);
   roots.forEach((root) => {
     const applicable = rules.filter(
       (rule) =>
