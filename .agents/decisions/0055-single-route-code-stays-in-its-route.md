@@ -1,6 +1,6 @@
 # 55. Keep single-route web code in its route
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #127), amended by [0075](0075-canonical-colocated-routes.md)
 - **Date:** 2026-10-23
 - **Amends:** [0033](0033-result-diagrams-and-structure-validation.md)
 - **Builds on:** [0035](0035-trial-comparison.md),
@@ -74,4 +74,4 @@ rule; the complete structure and comparison suites pass afterward.
 - Keep PR #127 draft until the six replacement records share the required
   baseline and the regenerated comparison is consistent with zero aspects
   outside the spec. ADR 0054 and its paired exemption have Ben's recorded
-  approval; this additional decision remains proposed for review.
+  approval.
