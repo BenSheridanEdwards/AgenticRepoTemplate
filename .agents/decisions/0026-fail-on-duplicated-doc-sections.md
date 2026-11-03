@@ -1,6 +1,6 @@
 # 26. Fail when a merge duplicates a doc section
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #83)
 - **Date:** 2026-10-16
 
 ## Context
