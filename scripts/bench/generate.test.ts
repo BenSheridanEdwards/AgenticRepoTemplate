@@ -68,6 +68,7 @@ const list = (key: string, items: string) => `  "${key}": {\n    "ignore": [${it
 
 test.each([
   ['the repository config', readFileSync('.fallowrc.jsonc', 'utf8')],
+  ['an already benchmarked config', benchFallowConfig(readFileSync('.fallowrc.jsonc', 'utf8'))],
   ['no ignore lists', '{\n  // kept\n  "rules": {}\n}\n'],
   ['empty ignore lists', `{\n${list('duplicates', '')},\n${list('health', '')}\n}\n`],
   [
@@ -133,8 +134,10 @@ test('benchmark lockfile importers are idempotent and use isolated package names
   expect(once).toContain("'@bench-001/api':");
 });
 
-test('benchmark lockfile regeneration replaces duplicate and stale benchmark importers', () => {
-  const lock = readFileSync('pnpm-lock.yaml', 'utf8');
+test.each([
+  ['the repository lockfile', readFileSync('pnpm-lock.yaml', 'utf8')],
+  ['an already benchmarked lockfile', benchLockfile(readFileSync('pnpm-lock.yaml', 'utf8'), 60)],
+])('benchmark lockfile regeneration replaces duplicate and stale benchmark importers: %s', (_case, lock) => {
   const once = benchLockfile(lock, 2);
   const duplicated = benchLockfile(lock, 4).replace(
     '\npackages:',
