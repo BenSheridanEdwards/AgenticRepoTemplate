@@ -298,18 +298,11 @@ jobs:
       - name: Read Playwright version
         if: steps.scope.outputs.docs-only != 'true'
         id: playwright-version
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, appendFileSync } from 'node:fs';
-          const lock = readFileSync('pnpm-lock.yaml', 'utf8');
-          const version = lock.match(/^      '@playwright\/test':\n        specifier: .+\n        version: ([^\s(]+)/m)?.[1];
-          if (!version) throw new Error('Missing resolved @playwright/test version');
-          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
-          NODE
-      - name: Cache Chromium
+        run: node scripts/playwright-version.mjs
+      - name: Restore Chromium
         if: steps.scope.outputs.docs-only != 'true'
         id: browser-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ runner.arch }}-${{ env.ImageOS }}-playwright-${{ steps.playwright-version.outputs.version }}

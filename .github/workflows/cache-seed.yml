@@ -1,0 +1,51 @@
+name: Fill caches from main
+
+# Pull request runs only restore caches (ADR 0117). This trusted main run
+# refills them whenever their key inputs change, so a PR never installs cold.
+on:
+  push:
+    branches: [main]
+    paths:
+      - pnpm-lock.yaml
+      - .nvmrc
+      - .github/actions/setup/action.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-seed
+  cancel-in-progress: true
+
+jobs:
+  seed:
+    name: Fill pnpm and Chromium caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          persistent-store: ${{ vars.PNPM_STORE_DIR }}
+          save-cache: 'true'
+      - name: Read Playwright version
+        id: playwright-version
+        run: node scripts/playwright-version.mjs
+      - name: Restore Chromium
+        id: browser-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ env.ImageOS }}-playwright-${{ steps.playwright-version.outputs.version }}
+      - name: Install Chromium
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium
+      - name: Save Chromium
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.browser-cache.outputs.cache-primary-key }}

@@ -71,13 +71,13 @@ Each technique lists its measured gain and its status in this template.
 | --- | --- | --- |
 | Clone blobless (`filter: blob:none`), not shallow | Boardy: checkout 36 s to 12; shallow clones break tools that read history | Done |
 | Cap fetch depth, and skip checkout in jobs that need no working tree | Linear: slowest gate 94 s to 20; checkout removal 27 s to 7 | Done for depth |
-| Fill the dependency cache from main | Boardy: cache misses fell from half of PR runs to 1% | Done ([ADR 0106](../.agents/decisions/0106-ci-caches-save-only-from-manual-main-runs.md)) |
+| Fill the dependency cache from main on every key change | Boardy: cache misses fell from half of PR runs to 1%. Our audit: no main cache existed, so every template PR lane installed cold (about 17 s) | Done: `cache-seed.yml` ([ADR 0117](../.agents/decisions/0117-fill-ci-caches-from-main-on-every-key-change.md)) |
 | Install only the packages a job needs (`pnpm install --filter <pkg>...`) | Linear: install 44 to 73 s down to 16 to 18 | Open: tooling and contract lanes |
 | Measure `node_modules` caching against a filtered install | Boardy: a 13 s restore beat a 33 s install. Linear: a 28 s restore lost to a 7.5 s filtered install. Measure yours | Open |
 | Bake system packages into a base image or job container | Linear: 7 to 8 s of apt per shard removed | Open: e2e spends about 47 s on setup, mostly `playwright install-deps` |
 | Run browser jobs in the official Playwright container image | Playwright's docs prefer this to caching browsers, since a cache restore takes about as long as a download | Open: compare with the current cache ([ADR 0091](../.agents/decisions/0091-parallel-e2e-and-browser-cache.md)) |
 | Load a schema snapshot instead of replaying migrations | Linear: database setup 12 s to 1 or 2 per container | Applies when a result has a database |
-| Keep the cache inside GitHub's limits | 10 GB per repository and 7 days by default, least recently used entries evicted hourly; larger limits are billed | Watch the store size |
+| Save caches only from main; PR runs restore | Per-PR saves (`setup-node` `cache:`, `actions/cache`) wrote 40 entries of 223 to 273 MB that no other PR can read, and pushed the template to 10.9 GB, over GitHub's 10 GB limit, so useful entries were evicted hourly | Done ([ADR 0117](../.agents/decisions/0117-fill-ci-caches-from-main-on-every-key-change.md)) |
 
 ### 3. Work
 
@@ -146,6 +146,10 @@ installing jobs spend about 20 s on setup. Private A's 150 runs cover about one 
 4. **Hosted runners start fast; setup is what remains.** Both public
    repositories wait about 3 s. StyleProof spends 20 to 24 s on setup in every
    e2e and coverage shard; the template spends about 20 s in each installing job.
+5. **Green runs hid a cache that always missed.** The template's setup composite
+   reported `pnpm store: miss` in every lane: only a hand-started main run could
+   save, and none had run since the lockfile changed. Meanwhile per-PR saves
+   held 10.9 GB of cache. Read the cache report in a job log, not just its result.
 
 ## Runners and cost
 
