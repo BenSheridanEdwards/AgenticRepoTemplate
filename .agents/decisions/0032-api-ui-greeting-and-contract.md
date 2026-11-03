@@ -151,8 +151,8 @@ no import crosses two roles.
 
 **JS budget.** The stack this contract requires measures 125.91 kB brotli at
 head against the 80 kB budget. The budget raise to 130 kB, the measured size
-rounded up to the next 5 kB, is one separate commit and waits for Ben's
-decision. That commit's message cites 125.97 kB, the size before the review
+rounded up to the next 5 kB, is one separate commit and waits for the
+maintainer's decision. That commit's message cites 125.97 kB, the size before the review
 fixes. Effect 4 with `standardSchemaResolver` measured 106.79 kB, about 19 kB
 less, but `effectTsResolver` does not support it.
 
@@ -163,8 +163,8 @@ less, but `effectTsResolver` does not support it.
 - A wrong import fails with a message that names the fix: Fallow names the two
   roles or the contract rule, and ESLint names the move.
 - The guarded files `eslint.config.js`, `biome.json` and
-  `tooling/eslint-plugin-policy.js` change, so this change waits for Ben's
-  sign-off.
+  `tooling/eslint-plugin-policy.js` change, so this change waits for the
+  approver's sign-off.
 - `fallow audit` now also fails inherited findings in the files a change
   touches.
-- The JS budget is higher than before only once Ben accepts the raise.
+- The JS budget is higher than before only once the maintainer accepts the raise.
