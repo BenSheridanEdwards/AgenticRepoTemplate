@@ -1,6 +1,8 @@
 # 37. Allow type-only edges between roles and dropping a gate-flagged re-export
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #98), amended by
+  [0075](0075-canonical-colocated-routes.md) and
+  [0085](0085-the-ui-kit-imports-no-other-role-types-included.md) (for `ui`)
 - **Date:** 2026-10-18
 - **Amends:** [0032](0032-api-ui-greeting-and-contract.md) (role table),
   [0033](0033-result-diagrams-and-structure-validation.md) (canonical diagram),
