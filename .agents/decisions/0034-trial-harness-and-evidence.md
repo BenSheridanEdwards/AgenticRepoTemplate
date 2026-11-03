@@ -3,8 +3,9 @@
 - **Status:** Accepted (merged in #92), amended by
   [0038](0038-trial-isolation-and-no-time-limit.md),
   [0048](0048-trial-tasks-and-codex.md),
-  [0071](0071-a-second-trial-brief.md) and
-  [0076](0076-stable-trial-installs-scope-and-brief-comparison.md)
+  [0071](0071-a-second-trial-brief.md),
+  [0076](0076-stable-trial-installs-scope-and-brief-comparison.md) and
+  [0115](0115-the-todo-research-project.md)
 - **Date:** 2026-10-17
 - **Implements:** [0008](0008-convert-template-into-the-monorepo.md),
   [0032](0032-api-ui-greeting-and-contract.md)
