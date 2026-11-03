@@ -2,6 +2,10 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-01
+- **Replaces:** ADR 0015 (deleted), whose React Doctor CLI split now lives in
+  [0102](0102-react-doctor-rules-run-as-an-oxlint-plugin.md), and, with
+  [0084](0084-reject-every-inline-suppression.md),
+  ADR 0039 (deleted)
 
 ## Context
 
