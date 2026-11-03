@@ -1,6 +1,6 @@
 # 61. Refine the software factory philosophy
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #142)
 - **Date:** 2026-10-24
 - **Builds on:** [0001](0001-record-architecture-decisions.md),
   [0021](0021-guidance-docs-state-the-action.md),
