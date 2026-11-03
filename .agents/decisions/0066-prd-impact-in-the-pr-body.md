@@ -1,6 +1,6 @@
 # 66. The PR body accounts for changes to PRD-covered behaviour
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #149)
 - **Date:** 2026-10-25
 - **Builds on:** [0045](0045-prds-state-intent-and-link-their-specs.md), [0057](0057-pr-body-names-its-prds-and-north-star-commit.md), [0058](0058-prds-name-the-code-they-cover.md)
 

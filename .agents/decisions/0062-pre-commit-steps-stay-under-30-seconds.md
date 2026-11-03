@@ -1,6 +1,7 @@
 # 62. Pre-commit steps stay under 30 seconds; the up-to-date check runs at push
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #142), amended by [0070](0070-vendored-anti-slop-oxlint-rules.md)
+  (anti-slop runs in pre-commit)
 - **Date:** 2026-10-24
 - **Amends:** [0002](0002-quality-gates-as-code.md),
   [0028](0028-pre-push-runs-the-full-local-gate-suite.md)
