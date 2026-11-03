@@ -1,6 +1,6 @@
 # 27. Block the common hook bypasses, not only the long flag
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #84); amended by [0090](0090-cursor-runs-the-gate-bypass-hook.md)
 - **Date:** 2026-10-16
 - **Amends:** [0005](0005-scope-claude-hooks-to-gate-bypass.md)
 
