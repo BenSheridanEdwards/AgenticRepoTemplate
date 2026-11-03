@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-01
+- **Amended by:** [0113](0113-dependabot-and-the-pin-check-cover-composite-actions.md)
 
 ## Context
 
