@@ -15,7 +15,7 @@ the pnpm store with keys containing the runner OS, Node version file hash and
 lockfile hash. Limit fallback restores to the same OS and Node prefix. Preserve
 frozen installs and each lane's build-script policy.
 
-CI still does not run on push. Permit cache writes only from a run Ben starts
+CI still does not run on push. Permit cache writes only from a run the maintainer starts
 by hand on main with the boolean `save_pnpm_cache` input explicitly enabled.
 Its default is false. The automated main-tree dispatch leaves it unset.
 Require workflow_dispatch, refs/heads/main, explicit opt-in and no exact hit
@@ -30,6 +30,6 @@ include them in the trial enforcement paths.
 
 ## Consequences
 
-PR runs and automated dispatches restore stores but never save them. Ben must
+PR runs and automated dispatches restore stores but never save them. The maintainer must
 manually seed a changed lockfile's cache. Persistent runners manage their own
 store lifecycle. Keep read-only workflow permissions and full Action SHA pins.
