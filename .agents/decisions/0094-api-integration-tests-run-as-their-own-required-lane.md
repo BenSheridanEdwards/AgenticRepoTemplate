@@ -1,6 +1,7 @@
 # 94. API integration tests run as their own required lane
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #265), amended by
+  [0104](0104-web-api-contract-tests-with-pact.md)
 - **Date:** 2026-11-01
 - **Builds on:** [Run E2E in parallel and cache Chromium](0091-parallel-e2e-and-browser-cache.md)
 
