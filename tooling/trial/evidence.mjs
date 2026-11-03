@@ -279,4 +279,4 @@ export function validateEvidence(value) {
 }
 
 /** Boundary validators shared by evidence and task files. */
-export const validators = { shape, text, list, oneOf, nullable };
+export const validators = { shape, text, list, oneOf, nullable, count };

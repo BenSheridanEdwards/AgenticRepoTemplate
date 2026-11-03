@@ -19,7 +19,7 @@ import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { validateEvidence } from './evidence.mjs';
-import { planTrial, renderPrompt, runTrial, systemDeps } from './run-trial.mjs';
+import { MAX_TURNS, planTrial, renderPrompt, runTrial, systemDeps } from './run-trial.mjs';
 import { loadTask, TODO_TASK } from './task.mjs';
 
 const REPOSITORY_ROOT = resolve(import.meta.dirname, '../..');
@@ -328,6 +328,8 @@ describe('planTrial', () => {
       '--output-format',
       'stream-json',
       '--verbose',
+      '--max-turns',
+      '100',
       '--session-id',
       '0b7f6c1e-3f7a-4d2b-9c51-2f0e8f6b2a10',
     ]);
@@ -431,6 +433,17 @@ describe('renderPrompt', () => {
 
     expect(template).toContain('Read only inside this clone.');
     expect(template).toContain('The page reaches the api through `/trpc`, as the reference does.');
+  });
+
+  it('opens the todo prompt with the clear-language instruction and states the turn limit the harness sets', () => {
+    const template = readFileSync(join(REPOSITORY_ROOT, 'tooling/trial/todo-prompt.md'), 'utf8');
+
+    expect(template.split('\n')[0]).toBe(
+      'Think clearly and speak in standard English. Let everything follow from that: implement the code that this codebase wants, based on its lint rules.',
+    );
+    expect(template).toContain(`You have ${MAX_TURNS} turns maximum.`);
+    expect(template).toContain('Use no arbitrary values, such as `w-[13px]`.');
+    expect(template).toContain('would you want this code as your codebase?');
   });
 
   it('throws on a placeholder it does not fill', () => {
@@ -734,7 +747,7 @@ describe('runTrial', () => {
         outsideScope: [],
         outsideReads: [],
         stoppedServers: [],
-        patch: null,
+        patch: 'docs/trials/todo-01.patch',
       },
       harness: { sha256: expect.stringMatching(/^[0-9a-f]{64}$/), matchesScaffold: false },
       checks: ['install', 'verify', 'e2e', 'structure'].map((name) => ({
@@ -744,6 +757,10 @@ describe('runTrial', () => {
       })),
       failures: [],
     });
+    expect(readFileSync(planned.patchPath, 'utf8')).toContain(
+      'Subject: [PATCH] feat(showcase): add todo-01 trial result',
+    );
+    expect(readFileSync(planned.patchPath, 'utf8')).toContain('showcase/todo-01/web/src/main.tsx');
     expect(existsSync(join(planned.workdir, 'prompt.md'))).toBe(true);
     expect(readFileSync(planned.streamPath, 'utf8')).toContain('"subtype":"init"');
     const keptStream = readFileSync(join(checkout, 'docs/trials/todo-01.stream.jsonl'), 'utf8');
@@ -1992,6 +2009,8 @@ describe('the run-trial CLI', () => {
       '--output-format',
       'stream-json',
       '--verbose',
+      '--max-turns',
+      '100',
       '--session-id',
     ]);
     expect(printed.agentArgv.at(-1)).toMatch(/^[0-9a-f-]{36}$/);

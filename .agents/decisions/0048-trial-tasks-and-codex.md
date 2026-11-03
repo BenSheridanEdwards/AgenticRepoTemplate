@@ -1,6 +1,7 @@
 # 48. Run task-defined trials with Claude or Codex
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Proposed (Ben accepts it by approving the PR), amended by
+  [0110](0110-the-todo-research-project.md)
 - **Date:** 2026-10-20
 - **Amends:** [0034](0034-trial-harness-and-evidence.md), [0038](0038-trial-isolation-and-no-time-limit.md)
 
