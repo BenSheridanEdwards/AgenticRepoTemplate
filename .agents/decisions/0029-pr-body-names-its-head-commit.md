@@ -1,6 +1,6 @@
 # 29. The PR body names the head commit it was checked against
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #87)
 - **Date:** 2026-10-16
 
 ## Context
