@@ -1,6 +1,7 @@
 # 75. Pin canonical routes and keep their code co-located
 
-- **Status:** Proposed, 2026-10-26 (Ben accepts it by approving the PR)
+- **Status:** Accepted, 2026-10-26 (merged in #172), amended by
+  [0077](0077-pin-trial-public-api-shapes.md)
 - **Amends:** [0055](0055-single-route-code-stays-in-its-route.md), [0033](0033-result-diagrams-and-structure-validation.md), [0069](0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md), [0037](0037-type-only-edges-and-flagged-re-exports.md)
 
 - **Context:** On scaffold `88d5539` (main `9646c85`), Claude made 9–10 route files and 5–6 components; Codex made 6 files and 2 components. `structure · files web-routes` and `component-boundaries · components web-routes` remained outside the spec. Ben approved tighter rules and co-location.
