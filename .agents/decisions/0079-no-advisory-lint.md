@@ -11,8 +11,8 @@
 
 ## Context
 
-Ben decided on 29 October: "We don't want advice, all warnings become errors
-if it forces the code into the shape we want". Advisory findings leave agents
+The maintainer decided on 29 October 2026 that no lint stays advisory: every
+warning becomes an error when it forces the code into the agreed shape. Advisory findings leave agents
 with standards that the gates do not enforce. Layout and naming word bans
 also create noise without improving the contracts.
 

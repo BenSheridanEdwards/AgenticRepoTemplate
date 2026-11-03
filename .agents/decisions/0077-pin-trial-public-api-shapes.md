@@ -10,7 +10,7 @@
 
 The North Star trial on scaffold `88d5539` (main `9646c85`) failed: deletion
 returned an item, an id object or null, and Todo toggle varied in both input
-and output. Ben approved tightening the contracts and rerunning the trial
+and output. The maintainer approved tightening the contracts and rerunning the trial
 on 26 October 2026. This decision covers the public API only.
 
 ## Decision
