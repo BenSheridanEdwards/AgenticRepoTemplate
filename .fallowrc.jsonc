@@ -14,44 +14,6 @@
     }
   ],
 
-  // Preserve the six independent recorded trial outputs (ADR 0059).
-  // Duplication and health use separate ignore lists; keep their paths identical.
-  "duplicates": {
-    "ignore": [
-      "showcase/todo-01/**",
-      "showcase/todo-02/**",
-      "showcase/todo-03/**",
-      "showcase/todo-codex-01/**",
-      "showcase/todo-codex-02/**",
-      "showcase/todo-codex-03/**",
-      "showcase/notes-01/**",
-      "showcase/notes-02/**",
-      "showcase/notes-03/**",
-      "showcase/notes-codex-01/**",
-      "showcase/notes-codex-02/**",
-      "showcase/notes-codex-03/**"
-    ]
-  },
-
-  // Styling (including css-duplicate-block) uses health.ignore in Fallow 3.33.1.
-  // Ben approved this generated-output scope on 23 October 2026 at 16:38 BST.
-  "health": {
-    "ignore": [
-      "showcase/todo-01/**",
-      "showcase/todo-02/**",
-      "showcase/todo-03/**",
-      "showcase/todo-codex-01/**",
-      "showcase/todo-codex-02/**",
-      "showcase/todo-codex-03/**",
-      "showcase/notes-01/**",
-      "showcase/notes-02/**",
-      "showcase/notes-03/**",
-      "showcase/notes-codex-01/**",
-      "showcase/notes-codex-02/**",
-      "showcase/notes-codex-03/**"
-    ]
-  },
-
   // jest.style-stub.cjs is referenced as a string in jest.config.ts
   // (moduleNameMapper), not imported, so it isn't statically reachable. It is
   // used by every test run — exclude it from dead-file analysis.
