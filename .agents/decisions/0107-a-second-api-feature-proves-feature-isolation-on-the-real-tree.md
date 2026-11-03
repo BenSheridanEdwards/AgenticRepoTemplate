@@ -5,7 +5,7 @@
 
 ## Context
 
-Ben chose a small recent greetings feature with in-memory storage on 31 October.
+The maintainer chose a small recent greetings feature with in-memory storage on 31 October.
 The greeting feature has no integrations file, and the existing isolation tests
 use fixture features. A second feature gives the template a working example
 of storage and lets the policy tests use real source.
