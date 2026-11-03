@@ -7,7 +7,7 @@
 ## Context
 
 Agents that load only AGENTS.md currently see a pointer to the operating
-contract. Ben chose AGENTS.md and REVIEW.md as the root agent files.
+contract. The maintainer chose AGENTS.md and REVIEW.md as the root agent files.
 
 ## Decision
 

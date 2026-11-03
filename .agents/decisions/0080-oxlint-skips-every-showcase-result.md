@@ -9,7 +9,7 @@
 
 Trial merge-backs restore generated results under `showcase/<id>/`, including
 Notes runs. The six Todo ignores in ADR 0070 leave other results exposed to
-anti-slop rules added after generation. Ben approved widening the Oxlint ignore
+anti-slop rules added after generation. The maintainer approved widening the Oxlint ignore
 to every showcase result on 29 October 2026.
 
 ## Decision
