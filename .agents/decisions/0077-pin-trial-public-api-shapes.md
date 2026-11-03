@@ -1,6 +1,6 @@
 # 77. Pin the trial public API shapes
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #184)
 - **Date:** 2026-10-27
 - **Amends:** [0071](0071-a-second-trial-brief.md),
   [0069](0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md),
