@@ -45,7 +45,7 @@ A repository's CI is tuned when all of these hold:
 - Each job's setup takes 8 seconds or less at p50.
 - Each piece of work runs in one job per run.
 - A check with less work than setup shares a job with other such checks.
-- Every job sets `timeout-minutes`, at about three times its p90.
+- Every job sets `timeout-minutes`, at about three times its p90 and at least 5 minutes.
 
 Then judge a paid runner service on the waiting time the audit reports. Shorter
 jobs free runner slots, so tune the jobs before resizing local runner pools.
@@ -58,7 +58,7 @@ Each technique lists its measured gain and its status in this template.
 
 | Technique | Evidence | Template |
 | --- | --- | --- |
-| Set `timeout-minutes` on every job | Our audit: one job in Private B hung for 3.7 h with no timeout. A job queued for a missing runner label stays queued whatever its timeout | Open |
+| Set `timeout-minutes` on every job | Our audit: one job in Private B hung for 3.7 h with no timeout. A job queued for a missing runner label stays queued whatever its timeout | Done: `workflow-timeouts.test.ts` holds it |
 | Cancel superseded runs with `concurrency: cancel-in-progress` | Each push frees the slots of the run it replaces | Done |
 | Move every job when changing runner, the small ones too | Boardy left two 5-second jobs behind; each waited 10 minutes and became the slowest part of the run | Applies when moving |
 | Put light jobs of 15 minutes or less on `ubuntu-slim` (1 vCPU container, GA January 2026) | Frees full VMs for heavy lanes; untested here | Open: try for `up-to-date` and `required-gates` |

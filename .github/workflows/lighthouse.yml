@@ -19,6 +19,7 @@ jobs:
   lighthouse:
     name: Lighthouse budgets
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       # pull_request checks out the test-merge commit; HEAD^1 is the base tip,
       # so `git diff HEAD^1 HEAD` is exactly what the PR changes.
