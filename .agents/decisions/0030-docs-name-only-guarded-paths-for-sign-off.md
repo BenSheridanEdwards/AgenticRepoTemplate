@@ -7,7 +7,7 @@
 
 ## Context
 
-The enforcement gate decides which files need Ben's sign-off from one table in
+The enforcement gate decides which files need the approver's sign-off from one table in
 `scripts/enforcement-approval.mjs`. Several guidance docs also name those files
 in prose. When the table changes, the prose stays as it was, and every check
 stays green.

@@ -5,7 +5,7 @@
 
 ## Context
 
-Ben asked lint to ensure declarative code. Native rules in pinned Oxlint cover
+The maintainer asked lint to ensure declarative code. Native rules in pinned Oxlint cover
 common branching and collection patterns without another package or plugin code.
 
 ## Decision

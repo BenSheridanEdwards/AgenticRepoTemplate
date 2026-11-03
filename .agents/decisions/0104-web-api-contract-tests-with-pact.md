@@ -7,7 +7,7 @@
 ## Context
 
 The web's typed handler fakes skip HTTP. The shared AppRouter type cannot check
-the batch request and response envelopes on the wire. Ben chose Pact over an
+the batch request and response envelopes on the wire. The maintainer chose Pact over an
 in-repo contract implementation on 31 October: use the existing tool.
 
 ## Decision

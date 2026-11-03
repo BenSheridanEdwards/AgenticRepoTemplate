@@ -50,8 +50,8 @@ with a single slice has no sibling to isolate inside Fallow. ESLint
 result, as it already did (`scripts/eslint-policy.test.ts`).
 
 This amendment to [0032](0032-api-ui-greeting-and-contract.md) weakens feature
-sibling isolation for the reference app, and Ben accepts it by approving the
-PR. [0032](0032-api-ui-greeting-and-contract.md) gave sibling isolation two
+sibling isolation for the reference app, and the approver accepts it by approving
+the PR. [0032](0032-api-ui-greeting-and-contract.md) gave sibling isolation two
 owners and called the Fallow child zones "as strong as before": ESLint
 `policy/slice-isolation` for every result, plus Fallow child zones for
 `apps/web`. Dropping the `web-features` `autoDiscover` removes the second owner
@@ -77,7 +77,7 @@ keeping the role and dropping only the `autoDiscover` is the minimal clean
 change.
 
 **Guarded files.** `.husky/pre-commit` runs the gates, so it waits for
-BenSheridanEdwards to tick the `enforcement-approval` sign-off for the head
+the approver to tick the `enforcement-approval` sign-off for the head
 commit ([0023](0023-protect-only-the-files-that-run-the-gates.md),
 [0024](0024-sign-off-only-loosening-enforcement-changes.md)). `biome.json` stays
 unchanged, so only the hook needs the tick.

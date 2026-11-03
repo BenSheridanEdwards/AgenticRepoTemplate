@@ -30,7 +30,7 @@ The role table also allowed type-only imports in only two directions
 failed every other type-only import between roles, such as a route that names
 the router type.
 
-Ben decided on 18 October 2026: a type-only import between roles is allowed,
+The maintainer decided on 18 October 2026: a type-only import between roles is allowed,
 and it is no difference outside the spec freedoms; an agent may drop a
 re-export that a gate flagged, within the freedoms; a value import between
 roles the contract keeps apart stays a violation.

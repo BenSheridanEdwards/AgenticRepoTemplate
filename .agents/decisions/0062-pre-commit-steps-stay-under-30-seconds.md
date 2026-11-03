@@ -10,10 +10,10 @@
 
 ## Context
 
-On 24 October 2026 at 12:06 BST Ben asked to move the up-to-date-with-main
+On 24 October 2026 at 12:06 BST the maintainer asked to move the up-to-date-with-main
 check from pre-commit to pre-push, and set a rule: every pre-commit check
 finishes in under 30 seconds, and a slower one is examined carefully and likely
-moved out of pre-commit. At 12:07 BST he kept the format check in pre-commit,
+moved out of pre-commit. At 12:07 BST the maintainer kept the format check in pre-commit,
 since it takes a few seconds. This decision follows that final revision.
 
 Pre-commit ran a networked freshness check with an offline fallback to the

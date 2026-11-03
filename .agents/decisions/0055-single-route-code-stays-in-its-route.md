@@ -73,5 +73,5 @@ rule; the complete structure and comparison suites pass afterward.
   the demonstrated placement gap without exempting any comparison aspect.
 - Keep PR #127 draft until the six replacement records share the required
   baseline and the regenerated comparison is consistent with zero aspects
-  outside the spec. ADR 0054 and its paired exemption have Ben's recorded
-  approval.
+  outside the spec. ADR 0054 and its paired exemption have the approver's
+  recorded approval.
