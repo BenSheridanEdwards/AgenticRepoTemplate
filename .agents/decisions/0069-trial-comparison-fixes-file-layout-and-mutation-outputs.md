@@ -1,6 +1,8 @@
 # 69. Fix file layout and mutation outputs in trial comparisons
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #152), amended by
+  [0075](0075-canonical-colocated-routes.md) and
+  [0077](0077-pin-trial-public-api-shapes.md)
 - **Date:** 2026-10-25
 - **Amends:** [0035](0035-trial-comparison.md)
 

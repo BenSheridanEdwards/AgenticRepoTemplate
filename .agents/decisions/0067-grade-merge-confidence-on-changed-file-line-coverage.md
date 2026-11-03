@@ -1,6 +1,6 @@
 # 67. Grade merge confidence on changed-file line coverage
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #150), amended by [0089](0089-thin-coverage-blocks-the-merge.md)
 - **Date:** 2026-10-25
 - **Builds on:** [0064](0064-merge-confidence-label.md),
   [0017](0017-required-gates-aggregate.md)
