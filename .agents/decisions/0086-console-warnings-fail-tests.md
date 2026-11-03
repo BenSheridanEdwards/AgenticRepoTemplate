@@ -1,6 +1,6 @@
 # 86. Console warnings fail tests
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #254)
 - **Date:** 2026-10-31
 
 ## Context
