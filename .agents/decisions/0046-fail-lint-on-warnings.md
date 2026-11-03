@@ -8,7 +8,7 @@
   the reference app a web feature, so the strict audit no longer warns on an
   empty optional zone (see Decision)
 - **Follows:** [0002](0002-quality-gates-as-code.md) and
-  [0039](0039-block-inline-lint-disable-comments.md), which keep each gate red
+  ADR 0039 (deleted; now [0084](0084-reject-every-inline-suppression.md)), which keep each gate red
   until the code is clean
 
 ## Context

@@ -2,7 +2,8 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-31
-- **Follows:** [Block inline lint disable comments](0039-block-inline-lint-disable-comments.md)
+- **Replaces:** ADR 0039 (deleted), which blocked inline ESLint disables with
+  `noInlineConfig`; [0103](0103-eslint-is-retired.md) retired that option
 
 ## Context
 
@@ -28,6 +29,10 @@ An exception is a `{ path, directive, reason }` entry in the exported
 already needs enforcement sign-off. The list starts empty. An entry covers
 only its named directive in its named file, needs a reason, and fails when no
 directive matches it.
+
+A lint exception that is not an inline directive is a config entry, a `files`
+override or rule setting in `oxlint.config.ts` or `biome.json`, with a comment
+naming its reason, as ADR 0039 first required.
 
 Keep `vendor/` excluded because it holds third-party code. Keep the stricter
 result-root structure rule, which permits no suppression exception. Keep each
