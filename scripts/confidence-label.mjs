@@ -56,6 +56,10 @@ const PRD_GLOB = 'docs/prd/*.md';
 const DOCS_ONLY_REASON =
   'The pull request changes documentation only (`scripts/docs-only-scope.mjs`), so unit coverage ' +
   'and import blast radius do not apply; CI collects neither for it.';
+const GREEN_REASON =
+  'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
+  'and a PRD, and every changed source file meets the line-coverage threshold. ' +
+  'Import blast radius stays within its unit and count threshold.';
 
 /** A changed source file in `<result>/web/src/routes/<name>/` or `.../features/<name>/`. */
 const SLICE_PATH = /^((?:apps|showcase\/[^/]+))\/web\/src\/(routes|features)\/([^/]+)\//;
@@ -288,6 +292,23 @@ export function requiredCheckResults(checkRuns, checkNames = requiredCheckNames(
   });
 }
 
+/** Return missing-evidence reasons in order, waiving them for a docs-only change. Pure. */
+function unavailableReasons({ coverageUnavailable, blastRadiusUnavailable, docsOnlyChange }) {
+  if (docsOnlyChange) return [];
+  return [
+    [
+      coverageUnavailable,
+      "The head's CI coverage artifact is missing or malformed: `coverage unavailable`.",
+    ],
+    [
+      blastRadiusUnavailable,
+      'Blast-radius evidence is missing or invalid: `blast radius unavailable`.',
+    ],
+  ]
+    .filter(([flag]) => flag)
+    .map(([, reason]) => reason);
+}
+
 /**
  * Grade coverage gaps, missing evidence and failed checks red; PRD and import
  * gaps amber; no gaps green. Missing evidence is waived for a docs-only change. Pure.
@@ -303,16 +324,11 @@ export function decideConfidence({
   docsOnlyChange = false,
 }) {
   const failing = requiredChecks.filter((check) => check.conclusion !== 'success');
-  const unavailable = docsOnlyChange
-    ? []
-    : [
-        ...(coverageUnavailable
-          ? ["The head's CI coverage artifact is missing or malformed: `coverage unavailable`."]
-          : []),
-        ...(blastRadiusUnavailable
-          ? ['Blast-radius evidence is missing or invalid: `blast radius unavailable`.']
-          : []),
-      ];
+  const unavailable = unavailableReasons({
+    coverageUnavailable,
+    blastRadiusUnavailable,
+    docsOnlyChange,
+  });
   const docsNote = docsOnlyChange ? [DOCS_ONLY_REASON] : [];
   if (failing.length > 0 || blockingGaps.length > 0 || unavailable.length > 0) {
     return {
@@ -331,13 +347,7 @@ export function decideConfidence({
   }
   return {
     level: 'green',
-    reasons: docsOnlyChange
-      ? ['Every required gate passed.', DOCS_ONLY_REASON]
-      : [
-          'Every required gate passed, and every changed route and feature slice has an E2E spec ' +
-            'and a PRD, and every changed source file meets the line-coverage threshold. ' +
-            'Import blast radius stays within its unit and count threshold.',
-        ],
+    reasons: docsOnlyChange ? ['Every required gate passed.', DOCS_ONLY_REASON] : [GREEN_REASON],
   };
 }
 
