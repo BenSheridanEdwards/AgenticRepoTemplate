@@ -1,6 +1,6 @@
 # 102. React Doctor rules run as an Oxlint plugin
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #280)
 - **Date:** 2026-11-01
 - **Amends:** [Oxlint replaces ESLint](0098-oxlint-replaces-eslint.md)
 

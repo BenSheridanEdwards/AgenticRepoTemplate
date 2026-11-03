@@ -1,6 +1,6 @@
 # 101. A generated workspace measures CI speed at scale
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #279)
 - **Date:** 2026-11-01
 
 ## Context
