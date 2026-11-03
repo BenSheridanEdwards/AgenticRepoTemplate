@@ -2,18 +2,17 @@
 
 ## What it is
 
-AgenticRepoTemplate is Ben Sheridan-Edwards' software factory template. It is more than a repo skeleton. A
+AgenticRepoTemplate is a software factory template. It is more than a repo skeleton. A
 software factory is a repository any agent can operate in, on any model or harness. Its executable
-standards refuse code outside the project's conventions. Every other repo Ben runs operates on this
+standards refuse code outside the project's conventions. Downstream repos operate on this
 foundation. The TypeScript, React and tRPC greeting app is the runnable example that gives every gate real
 code to check.
 
 ## Who it is for
 
-- Ben, who builds his other repos on this template.
+- The maintainer, who builds other repos on this template.
 - The repos built on it.
 - Any person whose agent clones the template from open source.
-- Readers of Ben's website, his blog articles and his fractional CTO pitch, who judge his work by it.
 
 ## The problem
 
@@ -25,15 +24,14 @@ a high-confidence merge decision. Without it, velocity with AI stays low.
 
 ## Goals
 
-1. Give back to open source, and show who Ben is and how he operates.
+1. Give back to open source, and show in the open how an agent-run software factory operates.
 2. Be the foundation every other repo operates on. A change here has real consequences for the repos
    downstream.
-3. Build credibility Ben can use on his website, in blog articles and in his fractional CTO pitch.
 
 ## What it does
 
 - It makes agents write declarative, readable code ([§9](#9-declarative-over-imperative)).
-- It enforces the architecture boundaries Ben defines: the role table, slice isolation and route
+- It enforces the architecture boundaries the maintainer defines: the role table, slice isolation and route
   co-location ([§2](#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs)).
 - Its anti-slop rules and skills produce clean, maintainable code. Oxlint runs
   the vendored [dmmulroy/anti-slop](../vendor/anti-slop/UPSTREAM.md) rules through `pnpm lint:anti-slop`
@@ -81,8 +79,8 @@ The template connects to three tools. None of them is wired into this repo today
   map, the PRDs and the Pact contract tests
   ([ADR 0104](../.agents/decisions/0104-web-api-contract-tests-with-pact.md)).
 - **MergeFlow** brings all this evidence together for the merge decision. It needs revitalisation. It is
-  not Ben's project to build. In this repo, the merge confidence label grades each PR from its required
-  checks and named gaps ([ADR 0064](../.agents/decisions/0064-merge-confidence-label.md)).
+  a separate project, and this repo builds none of it. In this repo, the merge confidence label grades each
+  PR from its required checks and named gaps ([ADR 0064](../.agents/decisions/0064-merge-confidence-label.md)).
 
 ## Outcome and how success is measured
 
@@ -104,22 +102,23 @@ Installed measures:
   The `Changed-file coverage` required lane blocks a merge when a changed file has thin coverage
   ([ADR 0089](../.agents/decisions/0089-thin-coverage-blocks-the-merge.md)).
 - The `PR quality` workflow checks that the PR body carries its proof (`scripts/validate-pr-body.mjs`).
-- The `enforcement-approval` status holds a gate change until Ben signs it off
+- The `enforcement-approval` status holds a gate change until the approver (repo variable
+  `ENFORCEMENT_APPROVER`) signs it off
   ([ADR 0024](../.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md)).
 - The trial comparison reports the pass count and each divergence between results.
 
 Targets, with no gate yet:
 
-- A recorded reproducibility test on the current scaffold, with Ben's judgment on each divergence.
+- A recorded reproducibility test on the current scaffold, with a named human's judgment on each divergence.
 - A measure of velocity with AI.
-- The open source, website, blog and fractional CTO pitch goals. Their measure sits outside this repo.
+- The open source goal. Its measure sits outside this repo.
 
 ## Non-goals
 
 - It is not a repo skeleton. It is the factory: rules, gates, proof and the example they check.
 - It stays lean. It shows the best ideas, and it adds a tool, rule or skill only when that earns its place.
   Prefer deletion, existing patterns and stdlib or platform features. A new dependency needs an ADR.
-- MergeFlow is not Ben's project to build, and this repo builds none of it.
+- MergeFlow is a separate project. This repo builds none of it.
 - StyleProof is not a dependency here. Playwright screenshots own visual regression until a decision
   changes that.
 - A person, not an agent, approves, merges and deploys ([§8](#8-the-unit-of-delivery-is-a-merge-ready-pr)).
@@ -151,7 +150,7 @@ hook sessions and Cursor agents. Its known gaps are in [ADR 0027](../.agents/dec
 clean-checkout CI and hosted required checks remain the backstop.
 
 Warnings fail Biome, Oxlint and React Doctor. [ADR 0079](../.agents/decisions/0079-no-advisory-lint.md) records
-Ben's lint decision: every rule becomes an error or is removed, including Fallow's warning tier. That rollout is
+the maintainer's lint decision: every rule becomes an error or is removed, including Fallow's warning tier. That rollout is
 not finished yet. A console warning or error fails a Jest test or a Playwright page
 ([ADR 0086](../.agents/decisions/0086-console-warnings-fail-tests.md)); warnings-as-failures across every
 tool remains a target.
@@ -162,7 +161,7 @@ allowlist ([ADR 0084](../.agents/decisions/0084-reject-every-inline-suppression.
 [Conventions](../.agents/project/CONVENTIONS.md) names the enforcers.
 
 Label standards without gates as targets. Close aliases, re-exports, inline disables and config edits around
-a rule before calling it finished. Changes that loosen or rewrite enforcement need Ben's sign-off on the
+a rule before calling it finished. Changes that loosen or rewrite enforcement need the approver's sign-off on the
 exact commit ([ADR 0024](../.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md)). Biome
 owns format and general lint; Oxlint owns policy, hooks, Compiler and React Doctor rules; the React Doctor CLI owns project checks.
 
@@ -285,15 +284,15 @@ Until then, describe it as a target.
 - Sarah Fim, "How to build an anti-slop software factory for teams of 30+":
   <https://x.com/sarahfim/status/2109736893198016898>
 
-## Open questions for Ben
+## Open questions
 
 1. Which repos count as downstream, and how does a breaking change here reach them?
 2. Which number measures velocity with AI, and where does the repo record it?
 3. The test says "the same model twice"; the harness runs three trials per agent. Which model, how many
    runs, and how often?
-4. Does a divergence on an edge case fail a gate, or does review hold it? Where is Ben's judgment recorded?
+4. Does a divergence on an edge case fail a gate, or does review hold it? Where is the named human's
+   judgment recorded?
 5. Where do BehaviourProof and MergeFlow live, and what is their status? Who revitalises MergeFlow?
 6. Once StyleProof is fixed, does it replace the Playwright screenshots of ADR 0052 or run beside them?
-7. Which anti-slop skills does Ben mean: the vendored lint rules, the `ponytail` skill, or skills to add?
-8. What may this public doc say about Ben's fractional CTO pitch, and should it link Ben's website?
-9. What test decides that an idea leaves the template to keep it lean?
+7. Which anti-slop skills does the maintainer mean: the vendored lint rules, the `ponytail` skill, or skills to add?
+8. What test decides that an idea leaves the template to keep it lean?
