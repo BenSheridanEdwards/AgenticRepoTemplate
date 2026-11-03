@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join, matchesGlob } from 'node:path';
 import { listResults } from '../../tooling/results.mjs';
-import { benchFallowConfig, planWorkspace } from './generate.mjs';
+import { benchFallowConfig, benchLockfile, planWorkspace } from './generate.mjs';
 
 const reference = {
   'apps/web/package.json':
@@ -106,4 +106,29 @@ test.each([
   expect(() => benchFallowConfig(original)).toThrow(
     'start the file with "{" on its own line using LF line endings',
   );
+});
+
+test('benchmark clones omit contract tests while preserving other reference files', () => {
+  const plan = planWorkspace({
+    packages: 2,
+    reference: {
+      ...reference,
+      'apps/web/src/api-client/trpc.contract.test.ts': 'consumer contract',
+      'apps/api/src/server.contract.test.ts': 'provider contract',
+    },
+  });
+  expect(Object.keys(plan).filter((path) => /\.contract\.test\.ts$/.test(path))).toEqual([]);
+  expect(plan).toEqual(planWorkspace({ packages: 2, reference }));
+});
+
+test('benchmark lockfile importers are idempotent and use isolated package names', () => {
+  const lock = readFileSync('pnpm-lock.yaml', 'utf8');
+  const once = benchLockfile(lock, 2);
+  const twice = benchLockfile(once, 2);
+  expect(twice).toBe(once);
+  const keys = once.split('\npackages:')[0].match(/^ {2}\S+:$/gm) ?? [];
+  expect(new Set(keys).size).toBe(keys.length);
+  expect(keys).toContain('  showcase/bench-001/web:');
+  expect(keys).toContain('  showcase/bench-001/api:');
+  expect(once).toContain("'@bench-001/api':");
 });

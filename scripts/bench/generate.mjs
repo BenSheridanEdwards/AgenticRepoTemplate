@@ -50,3 +50,7 @@ export function benchFallowConfig(text) {
   if (text.includes(BENCH_IGNORE)) return text;
   return ['duplicates', 'health'].reduce(withBenchIgnore, text);
 }
+
+export function benchLockfile(lock, _packages) {
+  return lock;
+}
