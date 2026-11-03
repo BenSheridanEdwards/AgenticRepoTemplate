@@ -21,7 +21,7 @@ Keep the `block-gate-bypass.sh` hook, but scope it in two layers:
 1. `.claude/settings.json` matches the `Bash` tool and uses
    `if: Bash(git *)`, so the hook handler only spawns for Bash commands with a
    git subcommand.
-2. `.claude/hooks/block-gate-bypass.sh` inspects the actual hook input and
+2. `.agents/hooks/block-gate-bypass.sh` inspects the actual hook input and
    blocks only when `--no-verify` appears.
 
 This makes the hook deterministic and narrow: it enforces the one rule that must

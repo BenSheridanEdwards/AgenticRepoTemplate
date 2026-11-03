@@ -1,12 +1,14 @@
 # 69. Fix file layout and mutation outputs in trial comparisons
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #152), amended by
+  [0075](0075-canonical-colocated-routes.md) and
+  [0077](0077-pin-trial-public-api-shapes.md)
 - **Date:** 2026-10-25
 - **Amends:** [0035](0035-trial-comparison.md)
 
 ## Context
 
-The [North Star](../NORTH_STAR.md) asks independent agents given the same
+The [North Star](../../docs/NORTH_STAR.md) asks independent agents given the same
 brief to build the app the same way. The 23 October trials passed all six
 runs, but their comparison called different file layouts, component
 boundaries and mutation outputs consistent through freedoms 2 and 4 of
@@ -37,6 +39,6 @@ eight differences inside a remaining freedom. The four aspects are
 
 Keep the committed-report freshness test: it checks that the report matches
 the records, independently of the verdict. No required CI check currently
-gates that verdict. Propose a separate CI verdict gate for Ben to consider;
+gates that verdict. Propose a separate CI verdict gate for the maintainer to consider;
 this decision changes the comparator and its CLI only. Add behavioural tests
 for the revoked freedoms, author rulings, exit status and retained freedoms.

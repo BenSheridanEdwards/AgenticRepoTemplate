@@ -1,6 +1,6 @@
 # 22. Every agent doc lives in `.agents/`; the root files only point
 
-- **Status:** Accepted; points 1 and 2 superseded by [0053](0053-root-pointers-name-start-here.md); point 1 superseded by [0078](0078-agents-md-is-the-root-contract.md)
+- **Status:** Accepted; points 1 and 2 superseded by [0078](0078-agents-md-is-the-root-contract.md), through ADR 0053 (deleted)
 - **Date:** 2026-10-17
 - **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 

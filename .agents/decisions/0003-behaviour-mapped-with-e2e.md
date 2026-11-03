@@ -13,7 +13,7 @@ refactored, which is exactly when you least want your safety net to move.
 ## Decision
 
 The product's externally observable behaviour is specified as an end-to-end
-"behaviour map" in `e2e/app.spec.ts`, driven through the real UI with Playwright
+"behaviour map" in each result's `web/e2e/*.spec.ts`, driven through the real UI with Playwright
 and asserted via the accessibility tree (roles, names, live regions). New
 behaviour is added here first; the map is the contract.
 

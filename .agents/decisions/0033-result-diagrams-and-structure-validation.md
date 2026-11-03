@@ -1,6 +1,9 @@
 # 33. Generate a diagram per result and validate structure against the contract
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #91), amended by
+  [0037](0037-type-only-edges-and-flagged-re-exports.md), [0054](0054-domain-rules-in-application-and-a-fixed-api-client-surface.md),
+  [0055](0055-single-route-code-stays-in-its-route.md) and
+  [0075](0075-canonical-colocated-routes.md)
 - **Date:** 2026-10-17
 - **Implements:** [0013](0013-one-role-table-for-structure.md),
   [0014](0014-fallow-owns-architecture-checks.md),

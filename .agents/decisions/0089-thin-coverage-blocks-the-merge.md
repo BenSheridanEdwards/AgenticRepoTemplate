@@ -1,6 +1,7 @@
 # 89. Thin coverage blocks the merge
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #260); docs-only changes use empty coverage
+  under [0093](0093-docs-only-lane-scope.md)
 - **Date:** 2026-10-31
 - **Amends:** [Merge confidence label](0064-merge-confidence-label.md),
   [Grade merge confidence on changed-file line coverage](0067-grade-merge-confidence-on-changed-file-line-coverage.md)
@@ -31,7 +32,7 @@ Run the same gate through `pnpm coverage:changed` after `pnpm test:coverage` in
 blast-radius gaps remain amber. Keep label names, colours and Jest thresholds.
 
 There is no human override. The only threshold-change path is a reviewed change
-to `jest.config.ts`. Ben's non-blocking Q7, "coverage override", in the Phase J
+to `jest.config.ts`. The maintainer's non-blocking Q7, "coverage override", in the Phase J
 cleanup plan asks whether to add an override and guard that config. It remains
 an open question in [Make changed-file coverage a required gate](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/234).
 This decision adds neither an override nor a new guarded path.

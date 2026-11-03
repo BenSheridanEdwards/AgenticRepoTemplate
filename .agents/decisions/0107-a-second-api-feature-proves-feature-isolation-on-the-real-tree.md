@@ -1,11 +1,11 @@
 # 107. A second api feature proves feature isolation on the real tree
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #289)
 - **Date:** 2026-11-02
 
 ## Context
 
-Ben chose a small recent greetings feature with in-memory storage on 31 October.
+The maintainer chose a small recent greetings feature with in-memory storage on 31 October.
 The greeting feature has no integrations file, and the existing isolation tests
 use fixture features. A second feature gives the template a working example
 of storage and lets the policy tests use real source.
@@ -42,5 +42,4 @@ and result diagram regenerated; both merge without adding trial conflicts.
 
 The api now demonstrates storage without a new dependency. Tests use fresh
 module stores; HTTP tests use unique names and relative order because parallel
-clients share the process store. The web route remains a separate change.
-Keep this change parked for Ben's go-ahead and PRD sign-off.
+clients share the process store. The web route landed in #290.

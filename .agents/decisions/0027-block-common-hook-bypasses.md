@@ -1,6 +1,6 @@
 # 27. Block the common hook bypasses, not only the long flag
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #84); amended by [0090](0090-cursor-runs-the-gate-bypass-hook.md)
 - **Date:** 2026-10-16
 - **Amends:** [0005](0005-scope-claude-hooks-to-gate-bypass.md)
 
@@ -47,7 +47,7 @@ Keep 0005's two layers and widen both:
    `if: Bash(env *)`, `if: Bash(sh *)`, and `if: Bash(bash *)`. They run the
    same script. Ordinary commands such as `pnpm`, `ls`, or `cat` still spawn
    nothing.
-2. `.claude/hooks/block-gate-bypass.sh` reads only `tool_input.command` from
+2. `.agents/hooks/block-gate-bypass.sh` reads only `tool_input.command` from
    the hook JSON (with `node`, which the repo already requires), so the free-text
    `description` never causes a block. It then flattens the command:
    - A quoted `-m`/`--message` argument becomes `MSG`, so
@@ -68,7 +68,7 @@ Keep 0005's two layers and widen both:
      `core.hooksPath` to `.husky/_` or `.husky`
 
 The error names the fix: fix what the gate reports and see
-`.agents/project/DEFINITION_OF_DONE.md`. If `node` is missing or the input is
+`.agents/project/PR_QUALITY.md#definition-of-done`. If `node` is missing or the input is
 not JSON, the hook blocks.
 
 `scripts/block-gate-bypass.test.ts` pipes a realistic PreToolUse payload for a

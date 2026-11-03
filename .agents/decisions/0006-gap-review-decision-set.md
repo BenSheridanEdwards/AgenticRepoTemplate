@@ -8,7 +8,7 @@
 The enforcement plan turns the agent guardrails into mechanical checks across
 nine pull requests. A gap review of that plan raised eight questions about
 protected paths, the monorepo, lint ownership, Effect, state, structure, and
-architecture checks. Ben settled all eight on 2026-10-15. This record indexes
+architecture checks. The maintainer settled all eight on 2026-10-15. This record indexes
 the outcome so each later enforcement PR can cite one decision.
 
 ## Decision

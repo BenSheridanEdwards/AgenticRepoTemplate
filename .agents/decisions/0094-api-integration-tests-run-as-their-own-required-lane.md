@@ -1,6 +1,7 @@
 # 94. API integration tests run as their own required lane
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #265), amended by
+  [0104](0104-web-api-contract-tests-with-pact.md)
 - **Date:** 2026-11-01
 - **Builds on:** [Run E2E in parallel and cache Chromium](0091-parallel-e2e-and-browser-cache.md)
 
@@ -10,7 +11,7 @@ The API's unit tests call procedures in process. Only the browser suite
 exercises the real server. The API has no database: its real dependencies
 are Node HTTP, the tRPC standalone adapter, Effect schemas and process env.
 
-Ben asked on 31 October for test lanes to run in parallel and for every
+The maintainer asked on 31 October for test lanes to run in parallel and for every
 layer to be required. Run E2E in parallel and cache Chromium already
 supersedes the earlier decision to wait for unit tests.
 

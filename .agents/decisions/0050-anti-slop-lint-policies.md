@@ -1,9 +1,10 @@
 # 50. Enforce applicable anti-slop policies in ESLint
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #118); its rules are enforced by Oxlint under
+  [0103](0103-eslint-is-retired.md)
 - **Date:** 2026-10-22
 - **Builds on:** [0019](0019-local-eslint-policy-plugin.md),
-  [0015](0015-eslint-policy-stack-wiring.md)
+  ADR 0015 (deleted; see [0103](0103-eslint-is-retired.md))
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md)
   for Biome lint ownership; implementation follows in separate PRs.
 
@@ -39,7 +40,7 @@ rewriting historical results solely to shorten a comment. A fifth line fails;
 there are no per-file comment exceptions.
 
 The rules reuse the existing plugin, parser and gate wiring. Inline directives
-remain refused by `noInlineConfig` and `--max-warnings=0` (ADR 0039). Config and
+remain refused by `noInlineConfig` and `--max-warnings=0` (ADR 0039, deleted; now ADR 0084). Config and
 plugin edits wait for the enforcement sign-off on the current head (ADR 0024).
 The policies are syntax checks, following the existing plugin: computed runtime
 element tags or arbitrary function indirection are outside their static model.
