@@ -61,6 +61,33 @@ const REAL_FILES = {
   'pr-quality.yml': repoFile('.github/workflows/pr-quality.yml'),
 };
 
+function currentPin(action: string) {
+  const line = REAL_FILES['ci.yml'].split('\n').find((line) => line.includes(`uses: ${action}@`));
+  if (!line) {
+    throw new Error(`No uses: ${action}@ pin found in ci.yml`);
+  }
+  return line.slice(line.indexOf('uses: ') + 'uses: '.length).trim();
+}
+
+const SN_OLD = currentPin('actions/setup-node');
+const SN_NEW = `actions/setup-node@${'d'.repeat(40)} # v99.0.0`;
+const FA_OLD = currentPin('fallow-rs/fallow');
+const FA_NEW = `fallow-rs/fallow@${'e'.repeat(40)} # v99.0.0`;
+const CO_OLD = currentPin('actions/checkout');
+const CO_NEW = `actions/checkout@${'b'.repeat(40)} # v99.0.0`;
+
+function bumpWorkflows(replacements: ReadonlyArray<readonly [string, string]>) {
+  return (files: typeof REAL_FILES) =>
+    Object.fromEntries(
+      Object.keys(files)
+        .filter((name) => name.endsWith('.yml'))
+        .map((name) => [
+          name,
+          replacements.reduce((text, [from, to]) => text.replaceAll(from, to), files[name]),
+        ]),
+    );
+}
+
 function contractErrors(
   edit: (files: typeof REAL_FILES) => Partial<typeof REAL_FILES> = () => ({}),
   hookSteps = HOOK_STEPS,
@@ -416,12 +443,109 @@ describe('checkContract', () => {
   it('requires the pinned aggregate and Fallow commits', () => {
     expect(contractErrors()).toEqual([]);
     const errors = contractErrors((files) => ({
-      'ci.yml': files['ci.yml'].replaceAll(
-        'fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1',
-        'fallow-rs/fallow@v3.33.1',
-      ),
+      'ci.yml': files['ci.yml'].replaceAll(FA_OLD, 'fallow-rs/fallow@v3.33.1'),
     }));
     expect(errors).toContainEqual(expect.stringContaining('pnpm fallow:audit'));
+  });
+
+  it.each<{ label: string; replacements: Array<[string, string]> }>([
+    { label: 'setup-node bump (as Dependabot #274)', replacements: [[SN_OLD, SN_NEW]] },
+    { label: 'fallow bump (as Dependabot #273)', replacements: [[FA_OLD, FA_NEW]] },
+    { label: 'checkout bump', replacements: [[CO_OLD, CO_NEW]] },
+    {
+      label: 'all three bumps together',
+      replacements: [
+        [SN_OLD, SN_NEW],
+        [FA_OLD, FA_NEW],
+        [CO_OLD, CO_NEW],
+      ],
+    },
+  ])('accepts $label across every contract workflow', ({ replacements }) => {
+    const bump = bumpWorkflows(replacements);
+    const bumped = bump(REAL_FILES);
+    expect(bumped['ci.yml']).not.toBe(REAL_FILES['ci.yml']);
+    expect(replacements.every(([from, to]) => to !== from && bumped['ci.yml'].includes(to))).toBe(
+      true,
+    );
+    expect(contractErrors(bump)).toEqual([]);
+  });
+
+  it('rejects a setup-node half bump with both versions in one error', () => {
+    const otherPin = `actions/setup-node@${'c'.repeat(40)} # v99.0.0`;
+    const versionComment = SN_OLD.slice(SN_OLD.indexOf('#'));
+    const errors = contractErrors((files) => {
+      const [before, aggregate] = files['ci.yml'].split('\n  required-gates:\n');
+      return {
+        'ci.yml': `${before}\n  required-gates:\n${aggregate.replace(SN_OLD, otherPin)}`,
+      };
+    });
+    expect(
+      errors.some(
+        (error) =>
+          error.includes('actions/setup-node') &&
+          error.includes(versionComment) &&
+          error.includes('v99.0.0'),
+      ),
+    ).toBe(true);
+  });
+
+  it('requires the Fallow audit step when it is removed', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        / {6}- uses: fallow-rs\/fallow@[^\n]+\n[\s\S]*? {10}review-comments: true\n/,
+        '',
+      ),
+    }));
+    expect(errors).toContainEqual(
+      expect.stringContaining('fallow-rs/fallow is not used by any contract workflow'),
+    );
+    expect(errors).toContainEqual(
+      expect.stringMatching(/`pnpm fallow:audit`.*missing `fallow-rs\/fallow with.command: audit`/),
+    );
+  });
+
+  it('requires a full commit SHA for the Fallow action', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replaceAll(
+        FA_OLD,
+        FA_OLD.replace(/@[a-f0-9]{40}/, (sha) => sha.slice(0, 8)),
+      ),
+    }));
+    expect(errors).toContainEqual(expect.stringMatching(/fallow-rs\/fallow.*full commit SHA/));
+  });
+
+  it('rejects a full SHA with a non-semver version comment', () => {
+    const errors = contractErrors(bumpWorkflows([[FA_OLD, FA_OLD.replace(/#.*$/, '# latest')]]));
+    expect(errors).toContainEqual(expect.stringMatching(/fallow-rs\/fallow.*full commit SHA/));
+  });
+
+  it('accepts a prerelease version comment', () => {
+    expect(
+      contractErrors(bumpWorkflows([[FA_OLD, FA_OLD.replace(/#.*$/, '# v3.36.0-rc.1')]])),
+    ).toEqual([]);
+  });
+
+  it('requires setup-node in the aggregate job', () => {
+    const errors = contractErrors((files) => {
+      const [before, aggregate] = files['ci.yml'].split('\n  required-gates:\n');
+      return {
+        'ci.yml': `${before}\n  required-gates:\n${aggregate.replace(
+          `      - uses: ${SN_OLD}\n        with:\n          node-version-file: .nvmrc\n`,
+          '',
+        )}`,
+      };
+    });
+    expect(errors).toContainEqual(
+      expect.stringContaining('job `required-gates` differs from the contract'),
+    );
+  });
+
+  it('renders the Fallow audit inventory with pins read from the workflows', () => {
+    const inventory = renderInventory();
+    expect(inventory).toContain('`fallow-rs/fallow with.command: audit`');
+    expect(inventory).not.toContain(FA_OLD.split('@')[1]?.split(' ')[0]);
+    expect(inventory).not.toContain(FA_OLD.slice(FA_OLD.indexOf('#')));
+    expect(inventory).toContain('read from the workflows');
   });
 
   it.each([
