@@ -63,6 +63,6 @@ and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited by
 - The check proves that the declaration exists and the relevant
   PRD changes are present. Review still judges the explanation,
   coverage declarations, and whether a PRD update reflects the behaviour change.
-- Piece 2's workflow edit requires Ben's head-commit enforcement
-  sign-off under ADRs 0023 and 0024. Ben accepts this ADR by approving the PR.
+- Piece 2's workflow edit requires the approver's head-commit
+  enforcement sign-off under ADRs 0023 and 0024. The approver accepts this ADR by approving the PR.
   Product behaviour and the E2E behaviour map stay unchanged.
