@@ -39,7 +39,7 @@ gate leaves unguarded.
   rules, through the `guardedPaths` function that
   `scripts/enforcement-approval.mjs` exports. A linked code span is judged by
   its link target. A folder or glob is guarded when every tracked file it
-  covers is guarded, so `.husky` and `eslint.config.*` pass and `scripts/`
+  covers is guarded, so `.husky` and `oxlint.config.*` pass and `scripts/`
   fails. In a glob, `**/` matches zero or more folders, so `.github/**/*.yml`
   covers `.github/ci.yml` as well as the workflows.
 - A claim that a file needs no sign-off, goes without it, or sits outside it

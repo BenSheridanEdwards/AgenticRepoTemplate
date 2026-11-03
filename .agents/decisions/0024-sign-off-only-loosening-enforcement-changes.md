@@ -18,7 +18,7 @@ on the same tick, whether it raised a lint rule or turned it off. Any reviewer
 with write access could tick the box. A tick also stayed valid across pushes
 that left the protected files alone.
 
-FLEET's lint guard ([FLEET #2202](https://github.com/BenSheridanEdwards/FLEET/pull/2202))
+A lint guard in another repository
 asks only when lint gets looser or its config is rewritten, accepts one approver,
 and binds the tick to the head commit. This ADR brings the same model to this
 repo's gate. The repo keeps one gate, one status, and one checkbox.
