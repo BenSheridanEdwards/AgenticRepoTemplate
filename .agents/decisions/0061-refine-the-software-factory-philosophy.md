@@ -4,7 +4,7 @@
 - **Date:** 2026-10-24
 - **Builds on:** [0001](0001-record-architecture-decisions.md),
   [0021](0021-guidance-docs-state-the-action.md),
-  [0039](0039-block-inline-lint-disable-comments.md),
+  ADR 0039 (deleted; now [0084](0084-reject-every-inline-suppression.md)),
   [0046](0046-fail-lint-on-warnings.md),
   [0050](0050-anti-slop-lint-policies.md)
 
