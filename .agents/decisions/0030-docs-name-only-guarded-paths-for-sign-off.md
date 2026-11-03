@@ -1,6 +1,6 @@
 # 30. Docs name only guarded paths when they mention sign-off
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #85)
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md)
 - **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
