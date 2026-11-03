@@ -132,3 +132,23 @@ test('benchmark lockfile importers are idempotent and use isolated package names
   expect(keys).toContain('  showcase/bench-001/api:');
   expect(once).toContain("'@bench-001/api':");
 });
+
+test('benchmark lockfile regeneration replaces duplicate and stale benchmark importers', () => {
+  const lock = readFileSync('pnpm-lock.yaml', 'utf8');
+  const once = benchLockfile(lock, 2);
+  const duplicated = benchLockfile(lock, 4).replace(
+    '\npackages:',
+    '\n  showcase/bench-001/web:\n    dependencies: {}\n\npackages:',
+  );
+  expect(benchLockfile(duplicated, 2)).toBe(once);
+  expect(once.startsWith(lock.split('\npackages:')[0])).toBe(true);
+  expect(once.slice(once.indexOf('\npackages:'))).toBe(lock.slice(lock.indexOf('\npackages:')));
+  expect(once).toContain('version: link:../../../packages/ui');
+  expect(once).toContain('version: link:../api');
+});
+
+test.each(['web', 'api'])('benchmark lockfile rejects a missing apps/%s importer', (kind) => {
+  const other = kind === 'web' ? 'api' : 'web';
+  const lock = `importers:\n  apps/${other}:\n    dependencies: {}\n\npackages:\n`;
+  expect(() => benchLockfile(lock, 2)).toThrow(`Missing locked apps/${kind} importer`);
+});

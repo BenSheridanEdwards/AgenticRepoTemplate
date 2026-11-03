@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { benchFallowConfig, planWorkspace } from './generate.mjs';
+import { benchFallowConfig, benchLockfile, planWorkspace } from './generate.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -117,21 +117,7 @@ function prepare(directory, ref) {
   // Reuse locked resolutions; offline prevents tarball downloads.
   const lockPath = join(directory, 'pnpm-lock.yaml');
   const lock = readFileSync(lockPath, 'utf8');
-  const importers = Array.from({ length: packages / 2 }, (_, index) =>
-    ['web', 'api']
-      .map((kind) => {
-        const entry = lock.match(
-          new RegExp(`\n  apps/${kind}:\n[\\s\\S]*?(?=\n  \\S|\npackages:)`),
-        );
-        if (!entry) throw new Error(`Missing locked apps/${kind} importer`);
-        return entry[0]
-          .replace(`apps/${kind}:`, `showcase/bench-${String(index + 1).padStart(3, '0')}/${kind}:`)
-          .replace(/@repo\/(web|api)/g, `@bench-${String(index + 1).padStart(3, '0')}/$1`)
-          .replaceAll('link:../../packages/', 'link:../../../packages/');
-      })
-      .join(''),
-  ).join('');
-  writeFileSync(lockPath, lock.replace('\npackages:', `${importers}\npackages:`));
+  writeFileSync(lockPath, benchLockfile(lock, packages));
   // A temporary filesystem may select an empty default store instead of the caller's warm store.
   console.log(
     command(directory, 'pnpm', [
