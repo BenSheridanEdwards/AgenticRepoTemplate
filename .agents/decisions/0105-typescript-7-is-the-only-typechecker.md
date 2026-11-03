@@ -1,6 +1,6 @@
 # 105. TypeScript 7 is the only typechecker
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #287)
 - **Date:** 2026-11-02
 
 ## Context

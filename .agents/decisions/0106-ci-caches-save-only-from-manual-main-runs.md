@@ -1,6 +1,6 @@
 # 106. CI caches save only from manual main runs
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #288)
 - **Date:** 2026-11-02
 
 ## Context
