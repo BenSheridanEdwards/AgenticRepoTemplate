@@ -31,7 +31,7 @@ Use units `packages/<name>`, `apps`, `showcase/<id>`, and `root` for remaining p
 Grade amber for a seed reaching another unit or a union exceeding 20 importers; exactly 20 passes.
 Report count, units, zones and up to ten sorted, distinct coordination-gap consumers. Red takes priority.
 Reconcile acceptance 2 by keeping composition roots: GreetingMessage reaches only its own result,
-so it causes no cross-boundary amber. Ben confirms this interpretation and the threshold.
+so it causes no cross-boundary amber. The maintainer confirms this interpretation and the threshold.
 
 Version 1 JSON carries `version`, PR `head`, `files` entries (`path`, `inGraph`, `importers`, `consumers`),
 and `zones` mapping paths to Fallow names or `null`. Trusted main code grades it in piece 2, validating
@@ -58,4 +58,4 @@ Reject PR-only or `continue-on-error` collection under ADR 0017's step policy.
 The trusted confidence workflow cannot grade its own introduction PR. Piece 1 only publishes evidence.
 Coverage grading (#137 / #150) stays separate; whichever lands second rebases shared workflow/doc hunks.
 `scripts/blast-radius.test.ts` proves shaping, failures, real CLI outputs, deleted/empty inputs and the
-PR file list. The workflow edit waits for Ben's head-specific enforcement sign-off.
+PR file list. The workflow edit waits for the approver's head-specific enforcement sign-off.
