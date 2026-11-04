@@ -92,8 +92,8 @@ Read hosted status using an already authorised account; these commands change no
 repository setting:
 
 ```sh
-gh run list --repo BenSheridanEdwards/AgenticRepoTemplate --commit "$(git rev-parse HEAD)"
-gh api repos/BenSheridanEdwards/AgenticRepoTemplate/branches/main/protection/required_status_checks \
+gh run list --repo BenSheridanEdwards/SoftwareFactoryTemplate --commit "$(git rev-parse HEAD)"
+gh api repos/BenSheridanEdwards/SoftwareFactoryTemplate/branches/main/protection/required_status_checks \
   | node scripts/required-gates.mjs --protection
 node scripts/enforcement-approval.mjs --git origin/main HEAD
 ```
