@@ -114,13 +114,23 @@ export default {
   plugins: ['react', 'unicorn'],
   options: { respectEslintDisableDirectives: false },
   jsPlugins: [
+    {
+      name: 'better-tailwindcss',
+      specifier: import.meta.resolve('eslint-plugin-better-tailwindcss'),
+    },
     fileURLToPath(new URL('./tooling/oxlint-plugin-policy.js', import.meta.url)),
     {
       name: doctor.meta.name,
       specifier: fileURLToPath(new URL('./tooling/oxlint-plugin-react-doctor.js', import.meta.url)),
     },
   ],
-  settings: { 'react-doctor': { portedRuleMode: 'curated' } },
+  settings: {
+    'react-doctor': { portedRuleMode: 'curated' },
+    'better-tailwindcss': {
+      cwd: fileURLToPath(new URL('./apps/web', import.meta.url)),
+      entryPoint: fileURLToPath(new URL('./packages/ui/src/styles.css', import.meta.url)),
+    },
+  },
   ignorePatterns: [
     '**/dist/**',
     'coverage/**',
@@ -136,6 +146,23 @@ export default {
     'policy/no-hand-written-globs': 'error',
   },
   overrides: [
+    {
+      files: [
+        'apps/web/src/**/*.{ts,tsx}',
+        'packages/ui/src/**/*.{ts,tsx}',
+        'showcase/*/web/src/**/*.{ts,tsx}',
+      ],
+      excludeFiles: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
+      rules: {
+        'better-tailwindcss/enforce-consistent-class-order': 'error',
+        'better-tailwindcss/no-unknown-classes': 'error',
+        'better-tailwindcss/no-conflicting-classes': 'error',
+        'better-tailwindcss/no-duplicate-classes': 'error',
+        'better-tailwindcss/no-deprecated-classes': 'error',
+        'better-tailwindcss/enforce-shorthand-classes': 'error',
+        'better-tailwindcss/no-concatenated-classes': 'error',
+      },
+    },
     {
       files: ['{apps,packages}/*/src/**/*.{ts,tsx}', 'showcase/*/*/src/**/*.{ts,tsx}'],
       rules: {

@@ -114,3 +114,12 @@ it('passes on this repository', () => {
   expect(result.stderr).toBe('');
   expect(result.status).toBe(0);
 });
+
+it('rejects @apply in another package stylesheet, including inside a theme block', () => {
+  expect(messages('packages/ui/src/other.css', '@theme { @apply p-4; }')).toContain(
+    '1 @apply belongs only in packages/ui/src/styles.css; use utility classes in markup',
+  );
+  expect(messages('packages/ui/src/other.css', '.card { @apply p-4; }')).toEqual([
+    '1 @apply belongs only in packages/ui/src/styles.css; use utility classes in markup',
+  ]);
+});

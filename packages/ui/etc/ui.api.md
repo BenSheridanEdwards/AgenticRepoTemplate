@@ -14,6 +14,9 @@ export function Button(input: ButtonProps): JSX.Element;
 export type ButtonProps = ComponentProps<'button'>;
 
 // @public (undocumented)
+export function cn(...classes: readonly (string | false | null | undefined)[]): string;
+
+// @public (undocumented)
 export function TextField(input: TextFieldProps): JSX.Element;
 
 // @public (undocumented)

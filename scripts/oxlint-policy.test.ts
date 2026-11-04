@@ -275,19 +275,18 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
       source:
         'const view = (wide: boolean) => <p className={`p-4 $' +
         '{wide ? "w-full" : ""} w-[13px]`}>Hi</p>;',
-      code: 'policy(no-arbitrary-styles)',
+      codes: ['policy(no-arbitrary-styles)', 'policy(no-arbitrary-styles)'],
     },
     {
       path: `${root}/src/constant.tsx`,
       source:
-        "const CARD = 'p-4 w-(--x)';\nconst view = <p className={[CARD, 'flex'].join(' ')}>Hi</p>;\nconst other = <p className={CARD}>Hi</p>;",
+        "import { cn } from '@repo/ui';\nconst CARD = cn('p-4 w-(--x)');\nconst view = <p className={cn(CARD, 'flex')}>Hi</p>;",
       code: 'policy(no-arbitrary-styles)',
     },
     {
       path: `${root}/src/chained.tsx`,
       source:
-        "const BASE = 'bg-[#fff]';\nconst CARD = `$" +
-        '{BASE} p-4`;\nconst view = <p class={CARD}>Hi</p>;',
+        "import { cn } from '@repo/ui';\nconst BASE = cn('bg-[#fff]');\nconst CARD = cn(BASE, 'p-4');\nconst view = <p class={CARD}>Hi</p>;",
       codes: [
         'policy(no-arbitrary-styles)',
         'policy(no-arbitrary-styles)',
@@ -297,11 +296,12 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
     {
       path: `${root}/src/scale.tsx`,
       source: [
+        "import { cn } from '@repo/ui';",
         "const ISSUE = 'Issue #123';",
         "const field = form.querySelector('input[name=email]');",
         "const path = 'items[0]';",
         "const NOTE = 'w-[13px] #fff rgb(0 0 0) w-(--x)';",
-        "const CARD = 'mx-auto max-w-160 p-4 text-ink hover:bg-raised sm:py-12';",
+        "const CARD = cn('mx-auto max-w-160 p-4 text-ink hover:bg-raised sm:py-12');",
         'const view = <p className={CARD} title={ISSUE}>Pick #add or #bead, item [a b]</p>;',
       ].join('\n'),
     },
@@ -1118,7 +1118,9 @@ export default { ...config, overrides: config.overrides.map(override => ({
   elapsed = performance.now() - started;
   expect(result.stderr).toBe('');
   expect(result.status).toBe(1);
-  return JSON.parse(result.stdout).diagnostics;
+  return JSON.parse(result.stdout).diagnostics.filter(
+    ({ code }: Diagnostic) => !code.startsWith('better-tailwindcss('),
+  );
 }
 beforeAll(() => {
   directory = mkdtempSync(join(tmpdir(), 'oxlint-policy-'));

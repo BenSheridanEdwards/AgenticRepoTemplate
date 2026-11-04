@@ -15,7 +15,7 @@ pnpm bench            # measure cold, warm and one-change gates on 60 generated 
 pnpm ci:audit owner/repo # split recent CI jobs into waiting, setup and work (docs/ci-speed.md)
 pnpm typecheck        # TypeScript 7 by path; TypeScript 5.9 stays for tools using its API
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
-pnpm lint:policy      # Oxlint: policy, React hooks, React Compiler and React Doctor rules
+pnpm lint:policy      # Oxlint: policy, Tailwind, React hooks, Compiler and Doctor rules
 pnpm lint:styles      # CSS and index.html: @repo/ui tokens only, no arbitrary values or colour literals
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
 pnpm arch:check       # architecture gate, structure check, diagram freshness, API report freshness
@@ -78,6 +78,7 @@ the code-level rules and their checks.
 | Biome, Oxlint and React Doctor fail on a warning; a console warning or error fails a Jest test and a Playwright page. | Biome `--error-on-warnings`, Oxlint `--deny-warnings`, React Doctor `--blocking warning` ([ADR 0046](.agents/decisions/0046-fail-lint-on-warnings.md)); Jest setup and Playwright fixtures ([ADR 0086](.agents/decisions/0086-console-warnings-fail-tests.md)); Fallow has no warn-level rule. |
 | Each comment group in package TypeScript source keeps to four lines; longer reasoning goes in an ADR or doc. | Oxlint `policy/no-large-comments` ([ADR 0050](.agents/decisions/0050-anti-slop-lint-policies.md)) |
 | Every inline suppression (TypeScript, Biome, Oxlint, ESLint, Fallow, coverage pragma) fails the gate. An exception lives in `ALLOWED_SUPPRESSIONS` in `scripts/check-suppressions.mjs`, which needs sign-off. | `pnpm check:suppressions`, plus the structure check in result roots. |
+| Keep Tailwind classes ordered, known to the UI theme, conflict-free and current; compose class constants and conditional strings with `cn` from `@repo/ui`. Keep `@apply` in the UI theme file. | `pnpm lint:policy` (Oxlint), `pnpm lint:styles`; [ADR 0121](.agents/decisions/0121-tailwind-lint-through-oxlint.md) |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
 | Gate and tooling scripts match a glob with `matchesGlob` from `node:path` or the tool's own file list. | `pnpm lint:policy` ([ADR 0041](.agents/decisions/0041-scripts-ask-the-tool-which-files-a-glob-covers.md)) |
 | A test's child process starts from the allowlisted environment in `scripts/jest-global-setup.mjs`; a test passes any other variable it needs in `env`. | Jest `globalSetup` and `scripts/jest-env.test.ts` ([ADR 0042](.agents/decisions/0042-test-child-processes-get-an-allowlisted-environment.md)) |

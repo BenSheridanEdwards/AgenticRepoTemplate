@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { matchesGlob, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { isGuidanceDoc } from './check-doc-phrasing.mjs';
 
 const ROOT = resolve(__dirname, '..');
@@ -133,6 +134,10 @@ const REACT_DOCTOR = {
 };
 const PLUGINS = ['react', 'unicorn'];
 const JS_PLUGINS = [
+  {
+    name: 'better-tailwindcss',
+    specifier: pathToFileURL(require.resolve('eslint-plugin-better-tailwindcss')).href,
+  },
   resolve(ROOT, 'tooling/oxlint-plugin-policy.js'),
   {
     name: 'react-doctor',
@@ -214,9 +219,32 @@ function expectDoctor(rules: Rules) {
 
 it.each(PROBES)('turns on exactly the frozen rules at error for each probe path: %s', (path) => {
   const rules = rulesFor(path);
+  const tailwind =
+    !path.includes('/api/') && !path.includes('.test.') && RESULT_PATHS.includes(path)
+      ? Object.fromEntries(
+          [
+            'enforce-consistent-class-order',
+            'no-unknown-classes',
+            'no-conflicting-classes',
+            'no-duplicate-classes',
+            'no-deprecated-classes',
+            'enforce-shorthand-classes',
+            'no-concatenated-classes',
+          ].map((name) => [`better-tailwindcss/${name}`, ['error']]),
+        )
+      : {};
   expect(
     Object.fromEntries(
-      entries(rules).filter(([name]) => !String(name).startsWith('react-doctor/')),
+      entries(rules).filter(([name]) => String(name).startsWith('better-tailwindcss/')),
+    ),
+  ).toEqual(tailwind);
+  expect(
+    Object.fromEntries(
+      entries(rules).filter(
+        ([name]) =>
+          !String(name).startsWith('react-doctor/') &&
+          !String(name).startsWith('better-tailwindcss/'),
+      ),
     ),
   ).toEqual(
     RESULT_PATHS.includes(path)
@@ -242,8 +270,10 @@ it('adds no rule through a category, a preset or a warning', () => {
     undefined,
     undefined,
     undefined,
+    undefined,
   ]);
   expect(config.overrides.map((value) => [value.plugins, value.jsPlugins])).toEqual([
+    [undefined, undefined],
     [undefined, undefined],
     [undefined, undefined],
   ]);
