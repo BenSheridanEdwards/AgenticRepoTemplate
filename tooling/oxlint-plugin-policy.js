@@ -963,29 +963,40 @@ const STYLE_MESSAGES = {
     'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0114).',
 };
 
-/** Every AST node under `node`, itself included, in source order. */
-const descendants = (node) =>
-  node.type === 'ConditionalExpression'
-    ? [node, ...descendants(node.consequent), ...descendants(node.alternate)]
-    : [
-        node,
-        ...Object.entries(node)
-          .filter(([key]) => key !== 'parent')
-          .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
-          .filter((value) => typeof value?.type === 'string')
-          .flatMap(descendants),
-      ];
+/** Class-value nodes, excluding predicates and call targets. */
+const classChildren = (node) => {
+  if (node.type === 'ConditionalExpression') return [node.consequent, node.alternate];
+  if (node.type === 'LogicalExpression' && node.operator === '&&') return [node.right];
+  if (node.type === 'CallExpression')
+    return [
+      ...(node.callee.type === 'MemberExpression' ? [node.callee.object] : []),
+      ...node.arguments,
+    ];
+  return Object.entries(node)
+    .filter(([key]) => key !== 'parent')
+    .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
+    .filter((value) => typeof value?.type === 'string');
+};
+
+/** Both sides of || and ?? can yield a class value. */
+const descendants = (node) => [node, ...classChildren(node).flatMap(descendants)];
 
 const isStringLiteral = (node) => node.type === 'Literal' && typeof node.value === 'string';
 const classLiteral = (node) => {
   if (isStringLiteral(node)) return [[node, node.value]];
   return node.type === 'TemplateElement' ? [[node, node.value.cooked ?? '']] : [];
 };
-const isClassComposition = (node) =>
+const isCnImport = (definition) =>
+  definition.type === 'ImportBinding' &&
+  definition.node.type === 'ImportSpecifier' &&
+  importedName(definition.node) === 'cn' &&
+  definition.parent.importKind !== 'type' &&
+  definition.node.importKind !== 'type';
+
+const isClassComposition = (node, isUiCn) =>
   (node.type === 'BinaryExpression' && node.operator === '+') ||
   (node.type === 'TemplateLiteral' && node.expressions.length > 0) ||
-  (node.type === 'CallExpression' &&
-    !(node.callee.type === 'Identifier' && node.callee.name === 'cn'));
+  (node.type === 'CallExpression' && !isUiCn(node.callee));
 
 const noArbitraryStyles = {
   meta: { type: 'problem', schema: [], messages: STYLE_MESSAGES },
@@ -1005,18 +1016,33 @@ const noArbitraryStyles = {
     const constants = new Map();
     const classValues = [];
 
-    // A class string sits in a `className`/`class` value or in a same-file const it names.
-    const classStrings = (node, seen) =>
+    const isUiCn = (node) => {
+      if (node.type !== 'Identifier' || node.name !== 'cn') return false;
+      const reference = context.sourceCode
+        .getScope(node)
+        .references.find(({ identifier }) => identifier === node);
+      return (
+        reference?.resolved?.defs.some((definition) => {
+          const source = definition.parent?.source?.value;
+          if (!isCnImport(definition)) return false;
+          return (
+            source === '@repo/ui' ||
+            (repositoryPath(context).startsWith('packages/ui/') &&
+              source.startsWith('.') &&
+              posix
+                .normalize(posix.join(posix.dirname(repositoryPath(context)), source))
+                .replace(/\.ts$/, '') === 'packages/ui/src/cn')
+          );
+        }) ?? false
+      );
+    };
+
+    // Resolve class constants before deduplicating nodes shared by attributes and cn calls.
+    const classNodes = (node, seen) =>
       descendants(node).flatMap((child) => {
-        if (isClassComposition(child)) context.report({ node: child, messageId: 'merge' });
-        if (child.type === 'Identifier' && constants.has(child.name) && !seen.has(child.name)) {
-          const value = constants.get(child.name);
-          if (isStringLiteral(value) || value.type === 'TemplateLiteral') {
-            context.report({ node: child, messageId: 'merge' });
-          }
-          return classStrings(value, new Set([...seen, child.name]));
-        }
-        return classLiteral(child);
+        if (child.type !== 'Identifier' || !constants.has(child.name) || seen.has(child.name))
+          return [child];
+        return [child, ...classNodes(constants.get(child.name), new Set([...seen, child.name]))];
       });
 
     return {
@@ -1031,11 +1057,18 @@ const noArbitraryStyles = {
         }
       },
       'Program:exit': () => {
-        new Map(classValues.flatMap((value) => classStrings(value, new Set()))).forEach(
-          (text, node) => {
-            check(node, text);
-          },
-        );
+        new Set(classValues.flatMap((value) => classNodes(value, new Set()))).forEach((node) => {
+          const constant = node.type === 'Identifier' && constants.get(node.name);
+          if (
+            isClassComposition(node, isUiCn) ||
+            (constant && (isStringLiteral(constant) || constant.type === 'TemplateLiteral'))
+          ) {
+            context.report({ node, messageId: 'merge' });
+          }
+          classLiteral(node).forEach(([literal, text]) => {
+            check(literal, text);
+          });
+        });
       },
     };
   },

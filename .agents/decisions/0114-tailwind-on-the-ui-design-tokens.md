@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-03
+- **Amended by:** [ADR 0121](0121-tailwind-lint-through-oxlint.md)
 - **Amends:** [The api, ui, greeting and contract](0032-api-ui-greeting-and-contract.md) (the `@repo/ui` styles) and [Playwright screenshot comparisons](0052-playwright-visual-regression.md) (refreshed baselines)
 
 ## Context
@@ -56,14 +57,11 @@ possible and check it.
 
 - An agent changes the look in one place, the `@theme` block, and every result
   follows. A new token is a reviewed change to that block.
-- Known open gap: with the colour, radius and font resets, a default-palette
-  or unknown class (`bg-red-500`, `text-white`, `font-mono`, `rounded-sm`)
-  compiles to no CSS, and no gate rejects it. The reference visual baselines
-  would show such a class in the greeting screens, but showcase trial results
-  have no visual baselines, so nothing catches it there. The proposed future
-  check reads the class strings in web and `@repo/ui` sources, builds them with
-  Tailwind's compiler from `packages/ui/src/styles.css`, and fails on any
-  utility-shaped token that produces no CSS.
+- Known open gap, closed by [ADR 0121](0121-tailwind-lint-through-oxlint.md):
+  default-palette and unknown classes (`bg-red-500`, `text-white`, `font-mono`,
+  `rounded-sm`) compiled to no CSS after the resets. The Oxlint Tailwind plugin
+  now reads the real UI theme and rejects them in production TypeScript class
+  strings and `cn` calls.
 - Tailwind's preflight replaces browser defaults (line height 1.5, no heading or
   list styles), so the greeting screens change slightly. The visual baselines
   are refreshed with this change and the PR shows before and after screenshots.

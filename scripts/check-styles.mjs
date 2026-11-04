@@ -150,7 +150,7 @@ function runCli() {
   const failures = checkStyles(paths.map((path) => ({ path, text: readFileSync(path, 'utf8') })));
 
   if (failures.length > 0) {
-    console.error('Style policy violations (ADR 0114):\n');
+    console.error('Style policy violations (ADR 0114, ADR 0121):\n');
     console.error(
       failures.map(({ path, line, message }) => `✗ ${path}:${line} ${message}`).join('\n'),
     );
