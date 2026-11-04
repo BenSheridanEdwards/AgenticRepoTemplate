@@ -149,6 +149,7 @@ test.each([
   );
   expect(benchLockfile(duplicated, 2)).toBe(once);
   expect(importerKeys(once).filter(isReference)).toEqual(importerKeys(lock).filter(isReference));
+  expect(once).toBe(benchLockfile(readFileSync('pnpm-lock.yaml', 'utf8'), 2));
   expect(once.slice(once.indexOf('\npackages:'))).toBe(lock.slice(lock.indexOf('\npackages:')));
   expect(once).toContain('version: link:../../../packages/ui');
   expect(once).toContain('version: link:../api');

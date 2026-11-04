@@ -280,7 +280,7 @@ it('collects the PR file list even when main already contains the same Unicode-p
 describe('--collect', () => {
   const directory = mkdtempSync(join(tmpdir(), 'blast-radius-'));
   const output = join(directory, 'evidence.json');
-  // Parallel tests may add workspace projects; pnpm exec must not reinstall mid-run.
+  // Tests must never let pnpm reinstall the checkout while other suites use it.
   const collect = (env: Record<string, string>) =>
     spawnSync(process.execPath, ['scripts/blast-radius.mjs', '--collect'], {
       encoding: 'utf8',
