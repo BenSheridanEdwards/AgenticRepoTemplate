@@ -1,8 +1,9 @@
 # 98. Oxlint replaces ESLint
 
 - **Status:** Accepted (merged in #268); completed by ADR 0103; amended by
-  [0102](0102-react-doctor-rules-run-as-an-oxlint-plugin.md) and
-  [0109](0109-declarative-policy-lint.md)
+  [0102](0102-react-doctor-rules-run-as-an-oxlint-plugin.md),
+  [0109](0109-declarative-policy-lint.md) and
+  [0118](0118-anti-slop-lints-showcase-results.md)
 - **Date:** 2026-11-01
 - **Amends:** 0010, 0015 (deleted), 0019 and [0073](0073-adopt-the-typescript-toolchain-standard.md). K10 records their supersessions.
 
@@ -17,7 +18,8 @@ ESLint beside Oxlint until equivalent checks prove the replacement.
 Run core policy first through `oxlint.config.ts`, with every enabled rule at
 error. Resolve the local JS plugin from the config URL so another working
 directory uses the same rules. Ignore ESLint disable directives.
-Keep `.oxlintrc.json` for anti-slop; it skips `showcase/**` under ADR 0080.
+Keep `.oxlintrc.json` for anti-slop; it lints showcase results under
+[ADR 0118](0118-anti-slop-lints-showcase-results.md).
 The policy config includes showcase and uses ESLint's six output/vendor ignores.
 
 | Existing rule | Oxlint replacement |
