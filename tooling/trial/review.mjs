@@ -34,16 +34,11 @@ const SCHEMA_ARG = '{{REVIEW_SCHEMA}}';
 /** What Oxlint prints, before its JSON report, when a path holds no file it lints. */
 const NO_FILES = 'No files found to lint.';
 
-/**
- * The two lint configs a review runs, as `pnpm lint:anti-slop` and
- * `pnpm lint:policy` run them. `.oxlintrc.json` ignores `showcase/**`, so the
- * review lints with a copy beside it that drops only that ignore.
- */
+/** The configs used by `pnpm lint:anti-slop` and `pnpm lint:policy`. */
 const LINTS = [
-  { name: 'anti-slop', config: '.oxlintrc.json', unignore: ['showcase/**'] },
-  { name: 'policy', config: 'oxlint.config.ts', unignore: [] },
+  { name: 'anti-slop', config: '.oxlintrc.json' },
+  { name: 'policy', config: 'oxlint.config.ts' },
 ];
-const REVIEW_CONFIG = '.oxlintrc.review.json';
 
 const NOTE = {
   file: { type: 'string' },
@@ -89,7 +84,6 @@ const JUDGMENT = shape({
 });
 const LINT = shape({
   config: text(),
-  unignored: list(text()),
   exitCode: count(),
   files: count(),
   findings: count(),
@@ -157,13 +151,13 @@ function parseJson(output, what) {
 /**
  * Oxlint's `-f json` report as counts per rule, each with its first examples.
  *
- * @param {{ config: string, unignore: readonly string[] }} lint
+ * @param {{ config: string }} lint
  * @param {number} exitCode
  * @param {string} stdout
  */
-function summarizeLint({ config, unignore }, exitCode, stdout) {
+function summarizeLint({ config }, exitCode, stdout) {
   if (stdout.trimStart().startsWith(NO_FILES)) {
-    return { config, unignored: [...unignore], exitCode, files: 0, findings: 0, rules: [] };
+    return { config, exitCode, files: 0, findings: 0, rules: [] };
   }
   const report = parseJson(stdout, `oxlint --config ${config}`);
   const findings = report.diagnostics.map((diagnostic) => ({
@@ -186,7 +180,6 @@ function summarizeLint({ config, unignore }, exitCode, stdout) {
   });
   return {
     config,
-    unignored: [...unignore],
     exitCode,
     files: report.number_of_files,
     findings: findings.length,
@@ -302,13 +295,6 @@ function resultClone(plan) {
 /** @param {import('./run-trial.mjs').Deps} deps */
 async function lintResult(plan, cwd, deps) {
   const oxlint = join(cwd, 'node_modules/.bin/oxlint');
-  const configFor = ({ config, unignore }) => {
-    if (unignore.length === 0) return config;
-    const source = JSON.parse(readFileSync(join(cwd, config), 'utf8'));
-    const ignorePatterns = source.ignorePatterns.filter((pattern) => !unignore.includes(pattern));
-    writeFileSync(join(cwd, REVIEW_CONFIG), JSON.stringify({ ...source, ignorePatterns }));
-    return REVIEW_CONFIG;
-  };
   const runs = await Promise.all(
     LINTS.map((lint) =>
       deps.exec(
@@ -323,7 +309,7 @@ async function lintResult(plan, cwd, deps) {
           oxlint,
           '--no-ignore',
           '--config',
-          configFor(lint),
+          lint.config,
           '-f',
           'json',
           `showcase/${plan.id}`,

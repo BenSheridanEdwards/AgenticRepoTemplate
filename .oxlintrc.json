@@ -22,8 +22,7 @@
     ".pi/**",
     ".roo/**",
     ".windsurf/**",
-    "vendor/**",
-    "showcase/**"
+    "vendor/**"
   ],
   "rules": {
     "anti-slop/require-safety-comment-for-type-assertion": "error",
