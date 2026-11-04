@@ -1,4 +1,4 @@
-# Agentic Repo Template
+# Software Factory Template
 
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
