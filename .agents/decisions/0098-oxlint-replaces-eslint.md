@@ -1,12 +1,14 @@
 # 98. Oxlint replaces ESLint
 
-- **Status:** Proposed; Completed by ADR 0103
+- **Status:** Accepted (merged in #268); completed by ADR 0103; amended by
+  [0102](0102-react-doctor-rules-run-as-an-oxlint-plugin.md) and
+  [0109](0109-declarative-policy-lint.md)
 - **Date:** 2026-11-01
-- **Amends:** 0010, 0015, 0019 and [0073](0073-adopt-the-typescript-toolchain-standard.md). K10 records their supersessions.
+- **Amends:** 0010, 0015 (deleted), 0019 and [0073](0073-adopt-the-typescript-toolchain-standard.md). K10 records their supersessions.
 
 ## Context
 
-Ben asked on 31 October: "Replace ESLint with Oxlint ENTIRELY".
+The maintainer decided on 31 October 2026 to replace ESLint with Oxlint entirely.
 The TypeScript toolchain standard establishes the migration target. Keep
 ESLint beside Oxlint until equivalent checks prove the replacement.
 
@@ -37,7 +39,7 @@ The policy config includes showcase and uses ESLint's six output/vendor ignores.
 | `no-restricted-syntax` | Replace the loop and glob selectors with JS plugin rules in K3. |
 | `noInlineConfig` reports directives | Disable ESLint directive handling; the suppression gate rejects directives. K10 waits for that gate. |
 | `eslint-env` and `exported` comments | Retire their ESLint interpretation with K10. |
-| Compiler `config` and `gating` | Drop in K10 under Ben's approved plan; the app has no Compiler build options or gating directives. |
+| Compiler `config` and `gating` | Drop in K10 under the maintainer's approved plan; the app has no Compiler build options or gating directives. |
 
 K3 adds core parity and a single-process fixture harness. K4 enables the
 repository plugin; K5 proves slice/import/schema/hook placement; K6 proves

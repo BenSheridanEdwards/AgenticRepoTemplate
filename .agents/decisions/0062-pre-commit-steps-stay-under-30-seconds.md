@@ -1,6 +1,7 @@
 # 62. Pre-commit steps stay under 30 seconds; the up-to-date check runs at push
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #142), amended by [0070](0070-vendored-anti-slop-oxlint-rules.md)
+  (anti-slop runs in pre-commit)
 - **Date:** 2026-10-24
 - **Amends:** [0002](0002-quality-gates-as-code.md),
   [0028](0028-pre-push-runs-the-full-local-gate-suite.md)
@@ -9,10 +10,10 @@
 
 ## Context
 
-On 24 October 2026 at 12:06 BST Ben asked to move the up-to-date-with-main
+On 24 October 2026 at 12:06 BST the maintainer asked to move the up-to-date-with-main
 check from pre-commit to pre-push, and set a rule: every pre-commit check
 finishes in under 30 seconds, and a slower one is examined carefully and likely
-moved out of pre-commit. At 12:07 BST he kept the format check in pre-commit,
+moved out of pre-commit. At 12:07 BST the maintainer kept the format check in pre-commit,
 since it takes a few seconds. This decision follows that final revision.
 
 Pre-commit ran a networked freshness check with an offline fallback to the

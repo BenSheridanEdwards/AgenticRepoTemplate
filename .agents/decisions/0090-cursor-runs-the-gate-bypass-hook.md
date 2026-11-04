@@ -1,6 +1,6 @@
 # 90. Cursor runs the gate-bypass hook
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #259)
 - **Date:** 2026-10-31
 - **Amends:** [Block the common hook bypasses, not only the long flag](0027-block-common-hook-bypasses.md)
 

@@ -1,6 +1,6 @@
 # 87. CI re-runs every local hook step
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #256)
 - **Date:** 2026-10-31
 - **Builds on:** [One fail-closed required-gate contract](0017-required-gates-aggregate.md), [Block the common hook bypasses, not only the long flag](0027-block-common-hook-bypasses.md)
 

@@ -1,12 +1,12 @@
 # 64. Label every pull request with a merge confidence level
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #145), amended by [0089](0089-thin-coverage-blocks-the-merge.md)
 - **Date:** 2026-10-22
 - **Builds on:** [0017](0017-required-gates-aggregate.md),
   [0045](0045-prds-state-intent-and-link-their-specs.md)
 
 Delivery is staged: slice helpers, grading helpers, then the CLI and workflow.
-The workflow activates last; this proposed decision describes the complete result.
+The workflow activates last; this decision describes the complete result.
 
 ## Context
 

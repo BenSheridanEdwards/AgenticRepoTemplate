@@ -177,15 +177,17 @@ including inherited findings.
 ## Showcase results
 
 The trial harness creates `showcase/<id>/` in a fresh clone and records evidence
-in `docs/trials/<id>.json`. Follow the reference layout, roles, scripts and
+in `docs/trials/<id>.json`, with the result's code as `docs/trials/<id>.patch`.
+The result stays on its trial branch; main keeps only the evidence
+([ADR 0115](../decisions/0115-the-todo-research-project.md)). Follow the reference layout, roles, scripts and
 dependencies with the id as npm scope (`@todo-01/web`, `@todo-01/api`). Import
 only the result's own api (types only) and `@repo/ui`.
 
 Every gate includes results through shared globs (`tooling/trial/inclusion.test.ts`).
 Each result must reach 80 percent coverage and pass its own E2E specs plus
-`tooling/trial/acceptance/todo.spec.ts` as `<id>-acceptance`. The six recorded
-Todo results retain only the duplication and health exceptions in
-[ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md).
+`tooling/trial/acceptance/todo.spec.ts` as `<id>-acceptance`. A recorded result keeps only a duplication and health exception that
+[ADR 0059](../decisions/0059-preserve-recorded-trial-outputs-in-duplication-analysis.md)
+names; none is named today.
 
 `node tooling/trial/compare.mjs` compares all runs, including failures, in
 `docs/trials/comparison.md`. Keep differences within the freedoms listed in

@@ -1,6 +1,6 @@
 # 99. Pin every Action by commit SHA
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #271)
 - **Date:** 2026-11-01
 - **Amended by:** [0113](0113-dependabot-and-the-pin-check-cover-composite-actions.md)
 

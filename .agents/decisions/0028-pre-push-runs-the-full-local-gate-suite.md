@@ -1,6 +1,6 @@
 # 28. Pre-push runs the full local gate suite
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #86)
 - **Date:** 2026-10-17
 - **Amends:** [0002](0002-quality-gates-as-code.md)
 - **Amended by:** [0062](0062-pre-commit-steps-stay-under-30-seconds.md)

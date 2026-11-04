@@ -1,6 +1,6 @@
 # 66. The PR body accounts for changes to PRD-covered behaviour
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #149)
 - **Date:** 2026-10-25
 - **Builds on:** [0045](0045-prds-state-intent-and-link-their-specs.md), [0057](0057-pr-body-names-its-prds-and-north-star-commit.md), [0058](0058-prds-name-the-code-they-cover.md)
 
@@ -16,7 +16,7 @@ This advances the North Star's software-factory outcome: every agent meets
 the same executable standard, and the reviewer sees the affected intent and
 its evidence. It follows Sarah Fim's [video](https://x.com/sarahfim/status/2108298553823203613)
 and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited by
-[the North Star](../NORTH_STAR.md).
+[the North Star](../../docs/NORTH_STAR.md).
 
 ## Decision
 
@@ -63,6 +63,6 @@ and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited by
 - The check proves that the declaration exists and the relevant
   PRD changes are present. Review still judges the explanation,
   coverage declarations, and whether a PRD update reflects the behaviour change.
-- Piece 2's workflow edit requires Ben's head-commit enforcement
-  sign-off under ADRs 0023 and 0024. Ben accepts this ADR by approving the PR.
+- Piece 2's workflow edit requires the approver's head-commit
+  enforcement sign-off under ADRs 0023 and 0024. The approver accepts this ADR by approving the PR.
   Product behaviour and the E2E behaviour map stay unchanged.

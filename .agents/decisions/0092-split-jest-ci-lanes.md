@@ -1,6 +1,6 @@
 # 92. Split Jest CI lanes
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #264)
 - **Date:** 2026-11-01
 
 ## Context

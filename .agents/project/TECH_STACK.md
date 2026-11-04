@@ -45,7 +45,7 @@ tool needs an ADR. [QUALITY_GATES.md](QUALITY_GATES.md) lists where each runs.
 
 ## Boundaries to respect
 
-- Each lint rule has one owner. Biome owns formatting and general lint; Oxlint owns policy, React hooks, Compiler and React Doctor rules; the React Doctor CLI owns project checks ([ADR 0010](../decisions/0010-lint-engine-ownership.md), [ADR 0015](../decisions/0015-eslint-policy-stack-wiring.md)). Biome is the only formatter.
+- Each lint rule has one owner. Biome owns formatting and general lint; Oxlint owns policy, React hooks, Compiler and React Doctor rules; the React Doctor CLI owns project checks ([ADR 0010](../decisions/0010-lint-engine-ownership.md), [ADR 0102](../decisions/0102-react-doctor-rules-run-as-an-oxlint-plugin.md), [ADR 0103](../decisions/0103-eslint-is-retired.md)). Biome is the only formatter.
 - Use Jest for unit tests and Playwright for E2E. A new runner needs an ADR (`pnpm check:adr`). Unit tests assert behaviour and stub stylesheets through `tooling/jest/jest.style-stub.cjs`.
 - Keep server state in TanStack Query, form state in React Hook Form, validation in Effect Schema, transport in tRPC, and primitives in `@repo/ui`.
 - A router library, global store, second schema library (such as zod), second data-fetching library, database client, ORM, auth library or TypeScript runner (`tsx`, `ts-node` for the api) each needs an ADR first. A result keeps its data in memory in the feature's `integrations.ts`.
