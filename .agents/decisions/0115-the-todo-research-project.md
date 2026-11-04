@@ -1,6 +1,7 @@
 # 115. The to-do research project: a turn limit, results kept as patches, and an anti-slop review
 
-- **Status:** Proposed (the maintainer accepts it by approving the PR)
+- **Status:** Proposed (the maintainer accepts it by approving the PR); amended by
+  [0118](0118-anti-slop-lints-showcase-results.md) for lint scope and review configs
 - **Date:** 2026-11-03
 - **Amends:** [0034](0034-trial-harness-and-evidence.md),
   [0035](0035-trial-comparison.md), [0048](0048-trial-tasks-and-codex.md)
@@ -26,10 +27,8 @@ Three recorded rules no longer fit the study:
   merges each passed result branch, and [0035](0035-trial-comparison.md) reads
   a passed run from those tracked files. The study needs its results, not six
   copies of trial code that every gate must then carry.
-- Nothing judges the code itself. `pnpm verify` runs the vendored anti-slop
-  rules, but `.oxlintrc.json` ignores `showcase/**`
-  ([0080](0080-oxlint-skips-every-showcase-result.md)), so those rules never
-  see a trial result.
+- Nothing judges the code itself beyond the gates. The study needs a
+  reviewer's judgment alongside the mechanical lint counts.
 
 ## Decision
 
@@ -62,9 +61,9 @@ clone, or the agent's clone when no check ran. It has two parts:
 - Mechanical: it runs the scaffold's Oxlint over `showcase/<id>/` with
   `-f json`, once with the vendored anti-slop config and once with the policy
   config, and records the count per rule and the first three file and line
-  examples of each. For the anti-slop run it writes a copy of `.oxlintrc.json`
-  into the workdir that drops only the `showcase/**` ignore, and records that
-  dropped pattern. `.oxlintrc.json` itself stays as it is.
+  examples of each. It uses `.oxlintrc.json` and `oxlint.config.ts` directly,
+  as the gates do. Both configs include showcase results under
+  [0118](0118-anti-slop-lints-showcase-results.md).
 - Judgment: one fresh reviewer session reads the result and answers
   `tooling/trial/review-prompt.md` in a fixed JSON schema: `wouldWant`
   (`yes` or `no`), `why`, grouped `flags` with file and line, and `praise`.
@@ -81,8 +80,9 @@ the codebase rules of the new trial prompt. Nothing new is vendored.
 
 The review is evidence, not a gate. It never changes a run's status. It runs
 only in the research loop: no CI workflow, Git hook, `pnpm verify` step, PR
-template or confidence grade calls it, and `pnpm lint:anti-slop`, its rules
-and [0070](0070-vendored-anti-slop-oxlint-rules.md) stay as they are.
+template or confidence grade calls it. The lint commands and rule severities
+stay as they are; [0118](0118-anti-slop-lints-showcase-results.md) brings
+showcase results into the anti-slop gate's scope.
 `compare.mjs --brief todo` adds an "Anti-slop review" section after the
 verdict, with one row per run, totals per agent, and each run's flags by group
 and its praise. Reviewer text appears inside code spans. A to-do run with no
@@ -106,6 +106,7 @@ the Tailwind design-token change, because the prompt names Tailwind and the
 - The reviewer is a model, so its judgment varies between sessions. The
   record keeps the reviewer's version and prompt hash, and the mechanical
   counts are repeatable.
-- A run that passed `pnpm verify` can still show anti-slop findings, because
-  `verify` never applies those rules to `showcase/`.
+- `pnpm verify` applies anti-slop rules to showcase results in trial clones.
+  The research review also records findings for failed runs and adds judgment
+  beyond those rules.
 - No dependency is added.
