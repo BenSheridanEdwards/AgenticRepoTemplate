@@ -18,7 +18,7 @@ the codebase's own style, allows Tailwind with only scalable values, states a
 limit of 100 turns and asks one judging question: would you want this code as
 your codebase?
 
-Three recorded rules no longer fit the study:
+Two recorded rules no longer fit the study, and one gap remains:
 
 - No turn limit exists. [0038](0038-trial-isolation-and-no-time-limit.md)
   removed the time limit, and the Claude argv in

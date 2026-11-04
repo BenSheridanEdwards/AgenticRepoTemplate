@@ -112,7 +112,6 @@ it.each([
   'any-result',
 ])('lints showcase/%s with generic and package-source anti-slop rules', (id) => {
   const path = `showcase/${id}/web/src/example.ts`;
-  write('clean.ts', 'export const count = 1;');
   write(path, "Reflect.get(value, 'id'); typeof value === 'string';");
   expect(lint()).toMatchObject({
     status: 1,

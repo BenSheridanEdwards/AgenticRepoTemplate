@@ -1,6 +1,6 @@
 # 118. Anti-slop lints showcase results
 
-- **Status:** Accepted (the maintainer approved this change)
+- **Status:** Proposed (the maintainer accepts it by approving the PR)
 - **Date:** 2026-11-04
 - **Supersedes:** [0080](0080-oxlint-skips-every-showcase-result.md)
 - **Amends:** [0115](0115-the-todo-research-project.md) for the review config
