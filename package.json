@@ -14,6 +14,7 @@
   },
   "scripts": {
     "bench": "node scripts/bench/run.mjs",
+    "ci:audit": "node scripts/ci-audit.mjs",
     "dev": "pnpm --parallel --filter @repo/web --filter @repo/api dev",
     "build": "pnpm -r build",
     "preview": "pnpm --filter @repo/web preview",

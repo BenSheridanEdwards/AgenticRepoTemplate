@@ -1,0 +1,32 @@
+[
+  {
+    "path": ".github/workflows/ci.yml",
+    "before": "jobs:\n  quality:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0\n      - name: Architecture gate\n        run: pnpm arch:gate\n      - name: Install Chromium\n        run: pnpm e2e:install\n",
+    "after": "jobs:\n  quality:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/setup-node@0123456789abcdef0123456789abcdef01234567 # v7.1.0\n      - name: Architecture gate\n        run: \"true\"\n      - name: Run anti-slop lint\n        run: pnpm lint:anti-slop\n  visual:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm visual\n"
+  },
+  {
+    "path": "biome.json",
+    "before": "{\"linter\":{\"enabled\":true}}",
+    "after": "{\"linter\":{\"enabled\":false}}"
+  },
+  {
+    "path": "docs/NORTH_STAR.md",
+    "before": "same\nold\n",
+    "after": "same\nnew\nextra\n"
+  },
+  {
+    "path": ".husky/new-hook",
+    "before": null,
+    "after": "pnpm lint:anti-slop\n"
+  },
+  {
+    "path": ".husky/old-hook",
+    "before": "pnpm lint\n",
+    "after": null
+  },
+  {
+    "path": ".husky/pre-commit",
+    "before": "#!/usr/bin/env sh\npnpm arch:gate\npnpm lint:policy\nexit 0\n",
+    "after": "#!/usr/bin/env sh\nexit 0\npnpm arch:gate\npnpm lint:policy\n"
+  }
+]
