@@ -5,7 +5,7 @@ tool needs an ADR. [QUALITY_GATES.md](QUALITY_GATES.md) lists where each runs.
 
 | Concern | Owner | Notes |
 | --- | --- | --- |
-| Language and typecheck | **TypeScript 7.0.2** (`strict`, `pnpm typecheck`) | Run `node node_modules/@typescript/native/bin/tsc` by path through the exact `npm:typescript@7.0.2` alias. TypeScript 5.9.3 stays as a library for Jest's ts-node loader, commitlint's config loader and React Doctor. |
+| Language and typecheck | **TypeScript** (`strict`), checked by **Bun 1.4.4** (`pnpm typecheck`) | `scripts/typecheck.mjs` runs `bun check --no-script` from the exact `bun` dev dependency's per-platform binary ([ADR 0120](../decisions/0120-bun-checks-types.md)). The `npm:typescript@7.0.2` alias stays for API report declarations; TypeScript 5.9.3 stays as a library for Jest's ts-node loader, commitlint's config loader and React Doctor. |
 | Workspace | **pnpm workspaces** | `apps/*`, `packages/*` and each showcase result (`showcase/*/web`, `showcase/*/api`); the root configs own every gate. |
 | UI | **React 19** | Function components + hooks only. |
 | UI primitives | **`@repo/ui`** (`packages/ui`) | `Button`, `TextField`, `cn` and `styles.css`; `react` and `tailwindcss` are its peers. |

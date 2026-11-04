@@ -60,7 +60,7 @@ rules live in [AGENTS.md](../../AGENTS.md); proof requirements live in
 
 Pre-commit runs these steps in order:
 
-1. `pnpm typecheck` runs TypeScript 7.0.2 by `node node_modules/@typescript/native/bin/tsc`.
+1. `pnpm typecheck` runs `bun check --no-script` over each program through `scripts/typecheck.mjs`.
 2. `pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .`
 3. `pnpm lint:anti-slop`
 4. `pnpm fallow:audit`
@@ -107,8 +107,8 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
   ([ADR 0121](../decisions/0121-tailwind-lint-through-oxlint.md)).
 - React Doctor (`pnpm react-doctor`) owns the project-level checks the
   per-file plugins leave out, such as duplicated JSX across files.
-- TypeScript 7 owns type semantics through `pnpm typecheck`, running the
-  `@typescript/native` alias by path over four programs:
+- TypeScript owns type semantics; `pnpm typecheck` checks them with the pinned
+  Bun's `bun check` ([ADR 0120](../decisions/0120-bun-checks-types.md)) over four programs:
   `tsconfig.json` (web packages and `packages/ui`, with the DOM and no Node
   types), `tsconfig.node.json` (root configs, Vite configs and e2e specs, on
   Node), `tsconfig.api.json` (api packages, `NodeNext`, `.ts` import

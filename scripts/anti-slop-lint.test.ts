@@ -9,7 +9,7 @@ it('keeps the seven-day install cooldown and trusted builds', () => {
   const workspace = readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8');
   expect(Number(workspace.match(/^minimumReleaseAge: (\d+)$/m)?.[1])).toBeGreaterThanOrEqual(10080);
   expect(workspace.split('allowBuilds:')[1]?.split('\n\n')[0]).toBe(
-    "\n  # Scarf's telemetry postinstall must never run.\n  '@scarf/scarf': false\n  '@biomejs/biome': true\n  '@swc/core': true\n  esbuild: true",
+    "\n  # Scarf's telemetry postinstall must never run.\n  '@scarf/scarf': false\n  '@biomejs/biome': true\n  '@swc/core': true\n  esbuild: true\n  # Its postinstall only links a binary, which CI's --ignore-scripts install\n  # skips anyway; scripts/bun.mjs runs the per-platform binary by path (ADR 0120).\n  bun: false",
   );
   const files = readdirSync(join(ROOT, '.github'), { recursive: true, withFileTypes: true })
     .filter(
