@@ -5,7 +5,7 @@ This PR loosens or rewrites what the gates enforce, or changes product intent:
 
 | File | Area | Change |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | CI workflows | Removes the step `Install Chromium`; Bumps `actions/setup-node` from `2499707` (`v6.5.0`) to `0123456` (`v7.1.0`); Changes the step `Architecture gate`; Adds the step `Run anti-slop lint`; Adds the job `visual` |
+| `.github/workflows/ci.yml` | CI workflows | Adds the job `visual`; Removes the step `Install Chromium`; Bumps `actions/setup-node` from `2499707` (`v6.5.0`) to `0123456` (`v7.1.0`); Changes the step `Architecture gate`; Adds the step `Run anti-slop lint` |
 | `.husky/new-hook` | Git hooks | Adds this file |
 | `.husky/old-hook` | Git hooks | Deletes this file |
 | `biome.json` | Biome config | Sets `linter.enabled` to `false` |

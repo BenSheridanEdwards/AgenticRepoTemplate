@@ -173,6 +173,16 @@ describe('readable workflow summaries', () => {
     ).toEqual([expected]);
   });
 
+  it('keeps the committed sample identical to the rendered comment', () => {
+    const directory = join(import.meta.dirname, '../docs/proof/readable-enforcement-signoff');
+    const changes = JSON.parse(readFileSync(join(directory, 'sample-changes.json'), 'utf8'));
+    const expected = readFileSync(join(directory, 'comment.md'), 'utf8').replaceAll(
+      '@maintainer',
+      `@${APPROVER}`,
+    );
+    expect(signoffComment({ head: HEAD, problems: enforcementProblems(changes) })).toBe(expected);
+  });
+
   it('names an added step and a removed step', () => {
     const before = workflow('      - name: Install Chromium\n        run: pnpm e2e:install');
     const after = workflow('      - name: Run anti-slop lint\n        run: pnpm lint:anti-slop');
