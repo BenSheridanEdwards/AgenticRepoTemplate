@@ -1,34 +1,43 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { platformPackages } from './bun.mjs';
+import { PROGRAMS } from './typecheck.mjs';
 
-const compiler = 'node_modules/@typescript/native/bin/tsc';
+const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+/** Runs the pinned Bun through its by-path runner, as `pnpm typecheck` does. */
+const bun = (args: string[]) =>
+  spawnSync(process.execPath, ['scripts/bun.mjs', ...args], { encoding: 'utf8' });
 
-test('every typecheck program runs the pinned native compiler by path', () => {
-  const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
-  expect(manifest.devDependencies['@typescript/native']).toBe('npm:typescript@7.0.2');
-  const commands = manifest.scripts.typecheck.split(' && ');
-  expect(commands).toHaveLength(3);
-  commands.forEach((command: string) => {
-    expect(command.startsWith(`node ${compiler} `)).toBe(true);
-  });
-  expect(manifest.scripts.typecheck).not.toMatch(/(?:^|[&;|]\s*)tsc\b/);
-  expect(manifest.scripts.typecheck).toContain('-b --force tsconfig.json');
+test('typecheck runs Bun over the web, node and domain programs from one script', () => {
+  expect(manifest.scripts.typecheck).toBe('node scripts/typecheck.mjs');
+  expect(manifest.devDependencies.bun).toBe('1.4.4');
+  expect(PROGRAMS).toEqual([
+    ['-b', 'tsconfig.json'],
+    ['-p', 'tsconfig.node.json'],
+    ['-p', 'tsconfig.domain.json'],
+  ]);
 });
 
-test('the root lockfile importer resolves the alias independently of Fallow', () => {
+test('the root lockfile importer pins Bun exactly', () => {
   const lock = readFileSync('pnpm-lock.yaml', 'utf8');
   const root = lock.split('\n  .:\n')[1]?.split('\n  apps/')[0];
-  expect(root).toContain(
-    "      '@typescript/native':\n        specifier: npm:typescript@7.0.2\n        version: typescript@7.0.2",
-  );
+  expect(root).toContain('      bun:\n        specifier: 1.4.4\n        version: 1.4.4');
 });
 
-test('the native compiler reports Version 7.0.2', () => {
-  const result = spawnSync(process.execPath, [compiler, '-v'], { encoding: 'utf8' });
+test.each([
+  ['darwin', 'arm64', '@oven/bun-darwin-aarch64'],
+  ['linux', 'x64', '@oven/bun-linux-x64'],
+  ['win32', 'x64', '@oven/bun-windows-x64'],
+])('looks for Bun on %s-%s in %s, then its musl build', (platform, arch, name) => {
+  expect(platformPackages(platform, arch)).toEqual([name, `${name}-musl`]);
+});
+
+test('the per-platform binary reports the pinned version without the postinstall script', () => {
+  const result = bun(['--version']);
   expect(result.error).toBeUndefined();
   expect(result.status).toBe(0);
-  expect(result.stdout.trim()).toBe('Version 7.0.2');
+  expect(result.stdout.trim()).toBe(manifest.devDependencies.bun);
 });
 
 test.each([false, true])('the strict base config rejects a seeded type error: %s', (invalid) => {
@@ -47,16 +56,14 @@ test.each([false, true])('the strict base config rejects a seeded type error: %s
       resolve(directory, 'index.ts'),
       `export const n: number = ${invalid ? "'x'" : '1'};\n`,
     );
-    const result = spawnSync(process.execPath, [compiler, '-p', directory, '--pretty', 'false'], {
-      encoding: 'utf8',
-    });
+    const result = bun(['check', '--no-script', '-p', directory]);
     expect(result.error).toBeUndefined();
     if (invalid) {
       expect(result.status).not.toBe(0);
-      expect(result.stdout).toContain('TS2322');
+      expect(result.stdout).toMatch(/index\.ts\(1,14\): error TS2322/);
     } else {
       expect(result.status).toBe(0);
-      expect(result.stdout).toBe('');
+      expect(result.stdout).not.toContain('error TS');
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });

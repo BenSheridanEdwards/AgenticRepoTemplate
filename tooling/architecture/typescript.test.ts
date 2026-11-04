@@ -7,7 +7,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const TSC_BIN = resolve(REPOSITORY_ROOT, 'node_modules/@typescript/native/bin/tsc');
+/** The checker `pnpm typecheck` runs, so these cases prove what the gate enforces (ADR 0120). */
+const BUN = resolve(REPOSITORY_ROOT, 'scripts/bun.mjs');
 
 /**
  * Type-checks `files` as an ES module package whose tsconfig extends the
@@ -29,7 +30,7 @@ function typeCheck(program: 'tsconfig.json' | 'tsconfig.api.json', files: Record
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), source);
     });
-    const run = spawnSync(process.execPath, [TSC_BIN, '-p', 'tsconfig.json', '--noEmit'], {
+    const run = spawnSync(process.execPath, [BUN, 'check', '--no-script', '-p', 'tsconfig.json'], {
       cwd: directory,
       encoding: 'utf8',
     });
@@ -58,7 +59,7 @@ function typeCheckAtRepoPaths(program: 'tsconfig.domain.json', files: Record<str
       mkdirSync(dirname(join(directory, path)), { recursive: true });
       writeFileSync(join(directory, path), source);
     });
-    const run = spawnSync(process.execPath, [TSC_BIN, '-p', program, '--noEmit'], {
+    const run = spawnSync(process.execPath, [BUN, 'check', '--no-script', '-p', program], {
       cwd: directory,
       encoding: 'utf8',
     });
