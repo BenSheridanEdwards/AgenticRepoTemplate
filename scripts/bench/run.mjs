@@ -129,6 +129,8 @@ function prepare(directory, ref) {
       .join(''),
   ).join('');
   writeFileSync(lockPath, lock.replace('\npackages:', `${importers}\npackages:`));
+  // The archive's lockfile and temporary filesystem may need a different store than the checkout.
+  command(directory, 'pnpm', ['fetch', '--ignore-scripts']);
   command(directory, 'pnpm', ['install', '--offline', '--no-frozen-lockfile']);
   command(directory, 'git', ['add', '.']);
   command(directory, 'pnpm', ['arch:diagram']);
