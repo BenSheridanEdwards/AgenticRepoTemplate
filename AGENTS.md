@@ -12,6 +12,7 @@ Read [REVIEW.md](REVIEW.md) before reviewing a pull request.
 pnpm install          # install dependencies (Node ≥ 22.18, pnpm)
 pnpm e2e:install    # one-time: download the pinned Chromium that pnpm e2e and the pre-push hook need
 pnpm bench            # measure cold, warm and one-change gates on 60 generated packages
+pnpm ci:audit owner/repo # split recent CI jobs into waiting, setup and work (docs/ci-speed.md)
 pnpm typecheck        # TypeScript 7 by path; TypeScript 5.9 stays for tools using its API
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
 pnpm lint:policy      # Oxlint: policy, React hooks, React Compiler and React Doctor rules
