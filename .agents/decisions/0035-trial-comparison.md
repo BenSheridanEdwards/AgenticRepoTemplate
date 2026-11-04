@@ -1,7 +1,10 @@
 # 35. Compare the three Todo results within the spec freedoms
 
-- **Status:** Proposed (Ben accepts it by approving the PR), amended by
-  [0036](0036-effect-4.md), [0047](0047-trial-fixtures-and-the-no-evidence-state.md)
+- **Status:** Accepted (merged in #94), amended by
+  [0036](0036-effect-4.md), [0047](0047-trial-fixtures-and-the-no-evidence-state.md),
+  [0037](0037-type-only-edges-and-flagged-re-exports.md), [0069](0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md),
+  [0076](0076-stable-trial-installs-scope-and-brief-comparison.md) and
+  [0115](0115-the-todo-research-project.md)
 - **Date:** 2026-10-18
 - **Implements:** [0034](0034-trial-harness-and-evidence.md)
 - **Adds to:** [0014](0014-fallow-owns-architecture-checks.md), superseding none of it

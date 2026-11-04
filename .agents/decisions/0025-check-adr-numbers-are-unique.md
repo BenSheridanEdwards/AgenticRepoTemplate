@@ -1,6 +1,6 @@
 # 25. Check that each ADR number is used once
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #82)
 - **Date:** 2026-10-16
 - **Enforces:** [0001](0001-record-architecture-decisions.md)
 
@@ -12,7 +12,7 @@ different names, so git merges both without a conflict, and two ADRs end up
 with one number. On 2026-10-16 this happened three times:
 
 - `chore/remove-styleproof` added `0015-pause-styleproof-…` while main took
-  `0015-eslint-policy-stack-wiring` (#61). An agent spotted it and renumbered
+  `0015-eslint-policy-stack-wiring` (#61, since deleted). An agent spotted it and renumbered
   the pause ADR to 0016 in the merge (since superseded by ADR 0052).
 - A local head-commit branch's `0016-pr-body-names-its-head-commit` now
   clashes with main's `0016-pause-styleproof-…` (#63).

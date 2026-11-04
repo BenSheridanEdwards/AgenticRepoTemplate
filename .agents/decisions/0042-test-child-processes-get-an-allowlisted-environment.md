@@ -1,6 +1,6 @@
 # 42. Test child processes get an allowlisted environment
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #103)
 - **Date:** 2026-10-19
 - **Builds on:** [0028](0028-pre-push-runs-the-full-local-gate-suite.md)
 

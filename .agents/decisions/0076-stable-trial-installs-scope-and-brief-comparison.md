@@ -1,6 +1,6 @@
 # 76. Stabilize trial installs and check scope per brief
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #171)
 - **Date:** 2026-10-26
 - **Amends:** [0034](0034-trial-harness-and-evidence.md), [0035](0035-trial-comparison.md), [0071](0071-a-second-trial-brief.md)
 

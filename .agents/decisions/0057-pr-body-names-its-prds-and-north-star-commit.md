@@ -1,6 +1,6 @@
 # 57. The PR body names its PRDs and North Star commit
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #131)
 - **Date:** 2026-10-23
 - **Builds on:** [0029](0029-pr-body-names-its-head-commit.md), [0045](0045-prds-state-intent-and-link-their-specs.md)
 
@@ -17,7 +17,7 @@ carries standards across agents and harnesses, and a person can judge a PR
 from its stated outcome and evidence. It follows the executable-standards
 principle behind Sarah Fim's [video](https://x.com/sarahfim/status/2108298553823203613)
 and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited in
-[the North Star](../NORTH_STAR.md).
+[the North Star](../../docs/NORTH_STAR.md).
 
 ## Decision
 
@@ -29,7 +29,7 @@ and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited in
   using the existing word-count rule for `Not applicable` proof.
 - Add exactly one `- North Star commit:` line there. Its value is one SHA of
   7-40 hex characters, optionally in balanced backticks. Compare it as a
-  case-insensitive prefix of the last commit to change `.agents/NORTH_STAR.md`
+  case-insensitive prefix of the last commit to change `docs/NORTH_STAR.md`
   as seen at the PR head. A PR that changes the North Star names the commit
   making that edit, rather than the previous North Star revision.
 - Extend `validatePullRequest` with the injected ports `listPrdFiles()` and
@@ -40,7 +40,7 @@ and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited in
 - Wire the CLI ports to Git. List PRDs from the head's tree, so the CI merge
   checkout and local uncommitted files cannot change membership. Read the
   North Star revision with
-  `git log -1 --format=%H <head> -- .agents/NORTH_STAR.md`. Keep the existing
+  `git log -1 --format=%H <head> -- docs/NORTH_STAR.md`. Keep the existing
   `PR_HEAD_SHA` handling and local `git rev-parse HEAD` fallback; local
   `pnpm validate:pr` needs no new environment variables.
 - Set `fetch-depth: 0` on the checkout in `.github/workflows/pr-quality.yml`
@@ -61,6 +61,6 @@ and [write-up](https://x.com/sarahfim/status/2109736893198016898), cited in
   Review still judges whether the PRDs selected, the reason for `None`, and
   the proposed outcome fit the change. PRD-impact checks and approval for
   edits to product intent remain separate work.
-- The workflow edit requires Ben's head-commit enforcement sign-off under
-  ADRs 0023 and 0024. Ben accepts this ADR by approving the PR. This change
+- The workflow edit requires the approver's head-commit enforcement sign-off
+  under ADRs 0023 and 0024. The approver accepts this ADR by approving the PR. This change
   adds no dependency or product behaviour.

@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 /**
  * Writes docs/trials/comparison.md: the full pass count, the proof that the
- * Todo trials shared one baseline, and every aspect of the results compared
+ * Todo trials shared one baseline, every aspect of the results compared
  * under ADR 0035 and ADR 0037, each identical, inside a named spec freedom,
- * or outside the spec. `node tooling/trial/compare.mjs` writes it;
- * compare.test.ts holds the committed report equal to a fresh one.
+ * or outside the spec, and each to-do run's anti-slop review (ADR 0115).
+ * `node tooling/trial/compare.mjs` writes it; compare.test.ts holds the
+ * committed report equal to a fresh one.
  *
  * @typedef {import('./evidence.mjs').TrialEvidence} TrialEvidence
  * @typedef {import('./result-facts.mjs').ResultFacts} ResultFacts
  * @typedef {import('./dimensions.mjs').Comparison} Comparison
  * @typedef {import('./dimensions.mjs').Difference} Difference
- * @typedef {{ readonly evidence: TrialEvidence, readonly source: string, readonly facts: ResultFacts }} Run
+ * @typedef {import('./review.mjs').Review} Review
+ * @typedef {{ readonly evidence: TrialEvidence, readonly source: string, readonly facts: ResultFacts, readonly review?: Review | null }} Run
+ *   `review`: the run's anti-slop review, null when a to-do run has none yet
  * @typedef {{ readonly id: string, readonly paths: readonly { readonly path: string, readonly before: boolean }[] }} TmpPaths
  *   the distinct `/tmp` paths a run's tool calls name, in first-seen order; `before`: in `result.outsideReads`
  * @typedef {{ readonly since: string, readonly text: string }} Drift
@@ -33,6 +36,7 @@ import { listResults } from '../results.mjs';
 import { andList, compareResults, REVOKED_FREEDOMS, SCAFFOLD_ROLES } from './dimensions.mjs';
 import { validateEvidence } from './evidence.mjs';
 import { readContract, readResultFacts, sortText, treeFromPatch } from './result-facts.mjs';
+import { validateReview } from './review.mjs';
 import { renderPrompt } from './run-trial.mjs';
 import { streamEvents, toolInputs } from './stream.mjs';
 
@@ -610,6 +614,106 @@ function renderVerdict(runs, comparison, checks, tmp) {
   ];
 }
 
+/** A reviewer's note as one code span, so its words stay out of the doc phrasing checks. */
+const note = (value) => span(value.replace(/\s+/g, ' ').trim());
+const at = ({ file, line }) => code(line === null ? file : `${file}:${line}`);
+const lintCount = (review, name) =>
+  review ? code(String(review.lint[name].findings)) : code('(none)');
+
+/** One run's review: the reviewer's answer, its flags by group, its praise and the lint findings. */
+function renderReview({ evidence, review }) {
+  const id = code(evidence.trial.id);
+  if (!review) return [`### ${id}`, 'No review is recorded for this run.'];
+  const { judgment, lint } = review;
+  const groups = [...new Set(judgment.flags.map((flag) => flag.group))].sort(sortText);
+  const findings = ['anti-slop', 'policy'].flatMap((name) =>
+    lint[name].rules.map(
+      (rule) =>
+        `- ${code(name)} ${code(rule.rule)} ${code(String(rule.count))}: ${rule.examples.map((example) => `${at(example)} ${note(example.message)}`).join('; ')}`,
+    ),
+  );
+  return [
+    `### ${id}`,
+    `Would want this code as the codebase: ${code(judgment.wouldWant)}. ${note(judgment.why)}`,
+    ...(groups.length === 0
+      ? ['Flags: none.']
+      : groups.map((group) =>
+          [
+            `Flags, ${code(group)}:`,
+            judgment.flags
+              .filter((flag) => flag.group === group)
+              .map((flag) => `- ${at(flag)} ${note(flag.note)}`)
+              .join('\n'),
+          ].join('\n\n'),
+        )),
+    judgment.praise.length === 0
+      ? 'Praise: none.'
+      : [
+          'Praise:',
+          judgment.praise.map((item) => `- ${at(item)} ${note(item.note)}`).join('\n'),
+        ].join('\n\n'),
+    findings.length === 0
+      ? 'Lint findings: none.'
+      : ['Lint findings:', findings.join('\n')].join('\n\n'),
+  ];
+}
+
+/**
+ * Each to-do run's anti-slop review (ADR 0115), as a table per run and per
+ * agent, then each run's flags and praise.
+ *
+ * @param {readonly Run[]} runs
+ */
+function renderReviews(runs) {
+  const agents = [...new Set(runs.map(({ evidence }) => evidence.agent.name ?? 'claude'))];
+  return [
+    '## Anti-slop review',
+    "After each run, one fresh reviewer session read its code with read access only and answered the judging question: would you want this code as your codebase? The lint columns count the findings of the vendored anti-slop rules (`.oxlintrc.json`) and the policy rules (`oxlint.config.ts`) over the run's `showcase/<id>/`. `pnpm verify` denies both, so a run that passed `verify` shows `0`.",
+    table(
+      [
+        'Run',
+        'Agent',
+        'Reviewer',
+        'Anti-slop lint',
+        'Policy lint',
+        'Would want',
+        'Flags',
+        'Praise',
+      ],
+      runs.map(({ evidence: e, review }) => [
+        code(e.trial.id),
+        code(e.agent.name ?? 'claude'),
+        review ? code(`${review.reviewer.name} ${review.reviewer.version}`) : code('(none)'),
+        lintCount(review, 'anti-slop'),
+        lintCount(review, 'policy'),
+        code(review?.judgment.wouldWant ?? '(none)'),
+        code(review ? String(review.judgment.flags.length) : '(none)'),
+        code(review ? String(review.judgment.praise.length) : '(none)'),
+      ]),
+    ),
+    table(
+      ['Agent', 'Runs reviewed', 'Would want: yes', 'Lint findings', 'Flags', 'Praise'],
+      agents.map((agent) => {
+        const reviews = runs
+          .filter(({ evidence }) => (evidence.agent.name ?? 'claude') === agent)
+          .map(({ review }) => review)
+          .filter(Boolean);
+        const total = (read) =>
+          code(String(reviews.reduce((sum, review) => sum + read(review), 0)));
+        return [
+          code(agent),
+          code(String(reviews.length)),
+          code(String(reviews.filter((review) => review.judgment.wouldWant === 'yes').length)),
+          total((review) => review.lint['anti-slop'].findings + review.lint.policy.findings),
+          total((review) => review.judgment.flags.length),
+          total((review) => review.judgment.praise.length),
+        ];
+      }),
+    ),
+    ...runs.flatMap(renderReview),
+  ];
+}
+
 /**
  * The report for `runs`, reading the prompt template and the streams through
  * `readText`.
@@ -647,6 +751,7 @@ export function renderComparison(runs, readText, options = {}) {
     `# ${brief === 'todo' ? 'Todo' : 'Notes'} trial comparison`,
     `This report compares the ${brief === 'todo' ? 'Todo' : 'Notes'} trial results under ADR 0035 and ADR 0037: the full pass count, the shared baseline, and every aspect of five dimensions, each identical, inside a named spec freedom, or outside the spec.`,
     ...renderVerdict(matchingRuns, comparison, checks, tmp),
+    ...(brief === 'todo' ? renderReviews(matchingRuns) : []),
     ...comparison.method.flatMap(({ id, title }) =>
       renderDimension(
         title,
@@ -680,7 +785,9 @@ export function renderComparison(runs, readText, options = {}) {
  */
 function trialRecordFiles(root) {
   const dir = join(root, TRIALS);
-  return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.json')) : [];
+  return existsSync(dir)
+    ? readdirSync(dir).filter((name) => name.endsWith('.json') && !name.endsWith('.review.json'))
+    : [];
 }
 
 /**
@@ -727,7 +834,9 @@ function readRuns(root, readText, brief) {
       .filter((result) => !records.some((e) => e.trial.id === result.id && !matchesBrief(e, brief)))
       .map((result) => result.id),
     evidences
-      .filter((e) => e.result.status === 'passed' && e.task?.land !== 'patch')
+      .filter(
+        (e) => e.result.status === 'passed' && e.task?.land !== 'patch' && e.result.patch === null,
+      )
       .map((e) => e.trial.id),
   );
   return evidences.map((evidence) => {
@@ -742,11 +851,18 @@ function readRuns(root, readText, brief) {
   });
 }
 
-/** A passed run's tracked files under `showcase/<id>`, or a failed run's patch. */
+/**
+ * A run's patch, or, for a passed run recorded before ADR 0115 kept every
+ * patch, its tracked files under `showcase/<id>`.
+ */
 function readRunTree(root, evidence, readText) {
   const id = evidence.trial.id;
   const resultRoot = `showcase/${id}`;
-  if (evidence.result.status === 'passed' && evidence.task?.land !== 'patch') {
+  if (
+    evidence.result.status === 'passed' &&
+    evidence.task?.land !== 'patch' &&
+    evidence.result.patch === null
+  ) {
     const files = execFileSync('git', ['ls-files', '-z', resultRoot], {
       cwd: root,
       encoding: 'utf8',
@@ -764,8 +880,8 @@ function readRunTree(root, evidence, readText) {
 }
 
 /**
- * Throws unless the result folders under `showcase/` are the passed runs,
- * compared as sets.
+ * Throws unless the result folders under `showcase/` are the passed runs that
+ * kept no patch, compared as sets.
  *
  * @param {readonly string[]} landed
  * @param {readonly string[]} passed
@@ -814,6 +930,7 @@ function readComparison(root, brief) {
     ({ evidence, source, resultRoot, tree, streamText }) => ({
       evidence,
       source,
+      review: brief === 'todo' ? readReview(root, evidence, readText) : null,
       facts: readResultFacts({
         id: evidence.trial.id,
         brief,
@@ -827,6 +944,20 @@ function readComparison(root, brief) {
     }),
   );
   return { runs, readText };
+}
+
+/**
+ * A to-do run's `docs/trials/<id>.review.json`, or null when it has none.
+ * Throws when the review names another run or another result commit.
+ */
+function readReview(root, evidence, readText) {
+  const path = `${TRIALS}/${evidence.trial.id}.review.json`;
+  if (!existsSync(join(root, path))) return null;
+  const review = validateReview(JSON.parse(readText(path)));
+  if (review.id !== evidence.trial.id || review.run.commit !== evidence.result.commit) {
+    throw new Error(`compare: ${path} reviews another run than ${evidence.trial.id}'s record.`);
+  }
+  return review;
 }
 
 /** The report for the repository at `root`, from committed files only. */
@@ -860,6 +991,9 @@ export function comparisonFailures(runs, readText, brief = 'todo') {
     ...compared
       .filter(({ evidence }) => evidence.result.status !== 'passed')
       .map(({ evidence }) => `Failed run: ${evidence.trial.id}`),
+    ...(brief === 'todo' ? compared : [])
+      .filter(({ review }) => !review)
+      .map(({ evidence }) => `Missing review: ${evidence.trial.id}`),
   ];
 }
 

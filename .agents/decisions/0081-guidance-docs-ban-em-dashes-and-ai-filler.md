@@ -1,6 +1,6 @@
 # 81. Guidance docs ban em dashes and AI filler
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #222)
 - **Date:** 2026-10-29
 - **Follows:** [ADR 0021](0021-guidance-docs-state-the-action.md)
 

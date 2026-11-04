@@ -1,6 +1,6 @@
 # 51. The PR body names no machine-local path
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #120)
 - **Date:** 2026-10-22
 - **Builds on:** [0020](0020-pr-process-checks.md), [0029](0029-pr-body-names-its-head-commit.md)
 

@@ -1,6 +1,6 @@
 # 85. The UI kit imports no other role, types included
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #253)
 - **Date:** 2026-10-31
 - **Amends:** [Allow type-only edges between roles and dropping a gate-flagged re-export](0037-type-only-edges-and-flagged-re-exports.md), for `ui` only
 

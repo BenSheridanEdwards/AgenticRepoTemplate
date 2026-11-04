@@ -6,7 +6,7 @@
 
 ## Context
 
-[`DEFINITION_OF_DONE.md`](../project/DEFINITION_OF_DONE.md),
+[`DEFINITION_OF_DONE.md`](../project/PR_QUALITY.md#definition-of-done) (now a section of `PR_QUALITY.md`),
 [`PR_QUALITY.md`](../project/PR_QUALITY.md), and the PR template stated the PR
 proof rules as prose and checkboxes. The `PR quality` check only confirmed that
 an image marker or the words `Not applicable` appeared in the proof section. A
@@ -52,6 +52,7 @@ ask for an ADR with each new dependency, and nothing checked that either.
   `synchronize` event, so an older PR body may need its proof line updated.
 - `check:adr` covers the dependency case of "change a rule through an ADR".
   Recognising any other rule change stays with the reviewer.
-- Both scripts sit under `scripts/` and the workflows under `.github/`, so
-  changes to them need the enforcement sign-off from
-  ADR 0007 (superseded by ADRs 0023 and 0024).
+- Both scripts sit under `scripts/` and the workflows under `.github/`.
+  ADR 0007 asked for enforcement sign-off on all of them. Under ADRs 0023
+  and 0024 only the workflows are guarded, because neither script is in
+  `GUARDS`.

@@ -1,6 +1,6 @@
 # 113. Dependabot and the pin check cover composite actions
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #304)
 - **Date:** 2026-11-03
 - **Amends:** [0099](0099-pin-every-action-by-commit-sha.md)
 

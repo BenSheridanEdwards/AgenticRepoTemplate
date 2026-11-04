@@ -1,11 +1,11 @@
 # 70. Vendored anti-slop rules through a narrowly scoped Oxlint engine
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #153)
 - **Date:** 2026-10-25
 - **Follows:** [0010](0010-lint-engine-ownership.md),
   [0011](0011-effect-schema-everywhere.md),
   [0024](0024-sign-off-only-loosening-enforcement-changes.md) and
-  [0063](0063-advisory-declarative-style-lint.md)
+  ADR 0063 (deleted; see [0079](0079-no-advisory-lint.md))
 - **Amends:** [0046](0046-fail-lint-on-warnings.md) only for the separate
   report-only advisory command described below.
 - **Superseded in part by:** [ADR 0073](0073-adopt-the-typescript-toolchain-standard.md).
@@ -14,12 +14,13 @@
   `@oxlint/plugins` are pinned to exactly `1.89.0`, superseding the
   `1.78.0` pins and binding-version references below. The new versions
   need fresh Security clearance; provenance and installation safeguards
-  remain. Separate PRs implement this target; this ADR stays Proposed.
-- **Amended by:** [0074](0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md)
+  remain. Separate PRs implement this target.
+- **Amended by:** [0074](0074-the-400-line-pr-limit-applies-to-stacked-migration-prs.md),
+  [0079](0079-no-advisory-lint.md)
 
 ## Context
 
-Ben requested an anti-slop rollout for TypeScript projects on 25 October 2026.
+The maintainer requested an anti-slop rollout for TypeScript projects on 25 October 2026.
 The rules identify weak type contracts, module mocking, avoidable transforms
 and unreadable spacing. Biome owns formatting and general lint; ESLint owns
 policy and React rules. A third engine earns its place only by running the
@@ -27,10 +28,10 @@ vendored anti-slop plugin, with existing ownership preserved. These rules are
 distinct from the ESLint policies in [0050](0050-anti-slop-lint-policies.md).
 
 Security cleared the rollout with caveats at 23:20 GMT on 25 October 2026;
-Ben instructed the build at 23:24 GMT. This records that clearance for upstream
+the maintainer instructed the build at 23:24 GMT. This records that clearance for upstream
 commit `13909c9e07590f5a85d93c62712259fe14a883f7`, the two packages and both
-platform bindings below. Ben's amendments replace the plan's proposed 1.81.0
-pins and vendoring size exemption. The ADR remains Proposed.
+platform bindings below. The maintainer's amendments replace the plan's proposed 1.81.0
+pins and vendoring size exemption.
 
 ## Decision
 
@@ -112,7 +113,7 @@ the pre-commit budget in [0062](0062-pre-commit-steps-stay-under-30-seconds.md).
 
 `pnpm lint:anti-slop:advisory` selects the separate advisory config explicitly.
 It runs outside CI gates, `pnpm verify` and hooks: the same scoped exception
-to ADR 0046 made by ADR 0063. Promote a noisy rule to the gate at `error`
+to ADR 0046 made by ADR 0063 (deleted; see ADR 0079). Promote a noisy rule to the gate at `error`
 in the PR that clears its last finding. Existing lint gates remain strict.
 
 Exclude the six recorded trial folders by name: `showcase/todo-01/**`,
@@ -138,8 +139,8 @@ the existing protection of both paths.
 `tooling/anti-slop/advisory.json` remains unguarded because it gates nothing.
 This change leaves `package.json` outside the guard; reviewers check script
 wiring. Main's gate judges PRs, so the extension takes effect after landing.
-This piece changes the gate itself and therefore needs Ben's head-specific
-sign-off. Builders leave the enforcement checkbox to Ben and his orchestrator.
+This piece changes the gate itself and therefore needs the approver's head-specific
+sign-off. Builders leave the enforcement checkbox to the approver and their orchestrator.
 
 The workflow piece adds `pnpm lint:anti-slop:changed`: run the advisory CLI
 in JSON mode, intersect findings with added lines from

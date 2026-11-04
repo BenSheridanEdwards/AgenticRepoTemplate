@@ -1,6 +1,6 @@
 # 82. Retire GitNexus, graphify, verify-gates.sh and the ArchitectPlaybook audits
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #226)
 - **Date:** 2026-10-29
 
 ## Context

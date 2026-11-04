@@ -28,6 +28,7 @@ import {
 } from './compare.mjs';
 import { compareResults, FREEDOMS, UI_PRIMITIVE_FOR } from './dimensions.mjs';
 import { readContract, readGateFindings, readResultFacts, treeFromPatch } from './result-facts.mjs';
+import { validateReview } from './review.mjs';
 import { renderPrompt } from './run-trial.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -1064,6 +1065,56 @@ describe('readResultFacts', () => {
 
 const evidence = (id: string) => JSON.parse(read(`docs/trials/${id}.json`));
 
+const lint = (config: string, findings = 0) => ({
+  config,
+  unignored: config === '.oxlintrc.json' ? ['showcase/**'] : [],
+  exitCode: findings === 0 ? 0 : 1,
+  files: 30,
+  findings,
+  rules:
+    findings === 0
+      ? []
+      : [
+          {
+            rule: 'anti-slop/no-unknown-parameters',
+            count: findings,
+            examples: [
+              {
+                file: 'showcase/x/api/src/domain.ts',
+                line: 4,
+                message: 'Parameter leaves input unparsed.',
+              },
+            ],
+          },
+        ],
+});
+
+/** A valid review of `record`, the one a reviewer would write for its result commit. */
+const reviewOf = (record: ReturnType<typeof evidence>, judgment = {}) =>
+  validateReview({
+    schema: 1,
+    id: record.trial.id,
+    run: {
+      agent: record.agent.name ?? 'claude',
+      status: record.result.status,
+      commit: record.result.commit,
+      patch: record.result.patch,
+    },
+    reviewedAt: '2026-11-03T12:00:00.000Z',
+    read: 'check',
+    lint: { 'anti-slop': lint('.oxlintrc.json'), policy: lint('oxlint.config.ts') },
+    reviewer: {
+      name: 'claude',
+      cli: 'claude',
+      version: '2.1.300 (Claude Code)',
+      argv: ['claude', '-p'],
+      promptSha256: 'a'.repeat(64),
+      durationMs: 60000,
+      fake: false,
+    },
+    judgment: { wouldWant: 'yes', why: 'Small and clear.', flags: [], praise: [], ...judgment },
+  });
+
 describe('agent and task comparison baselines', () => {
   const records = () =>
     ['todo-01', 'todo-02', 'todo-03'].map((id, index) => {
@@ -1362,6 +1413,7 @@ describe('renderComparison', () => {
     );
     expect(headings).toEqual([
       'Verdict',
+      'Anti-slop review',
       'Structure',
       'Public API',
       'Dependencies',
@@ -1373,6 +1425,54 @@ describe('renderComparison', () => {
       'Inside a spec freedom',
       'Diagrams',
     ]);
+  });
+
+  it("shows each run's review, its flags by group and its praise, and the totals per agent", () => {
+    const reviewed = runs().map((run, index) => ({
+      ...run,
+      review: reviewOf(
+        run.evidence,
+        index === 0
+          ? {
+              wouldWant: 'no',
+              why: 'Never ship\nthis.',
+              flags: [
+                {
+                  group: 'noise',
+                  file: 'showcase/todo-01/web/src/a.ts',
+                  line: 3,
+                  note: 'A wrapper.',
+                },
+                {
+                  group: 'boundaries',
+                  file: 'showcase/todo-01/api/src/b.ts',
+                  line: null,
+                  note: 'Imports the router.',
+                },
+              ],
+              praise: [{ file: 'showcase/todo-01/web/src/c.tsx', line: 9, note: 'Clear form.' }],
+            }
+          : {},
+      ),
+    }));
+    const section =
+      renderComparison(reviewed, read).split('## Anti-slop review')[1]?.split('\n## ')[0] ?? '';
+    expect(section).toContain(
+      '| `todo-01` | `claude` | `claude 2.1.300 (Claude Code)` | `0` | `0` | `no` | `2` | `1` |',
+    );
+    expect(section).toContain(
+      'Flags, `boundaries`:\n\n- `showcase/todo-01/api/src/b.ts` `Imports the router.`',
+    );
+    expect(section).toContain(
+      'Flags, `noise`:\n\n- `showcase/todo-01/web/src/a.ts:3` `A wrapper.`',
+    );
+    expect(section).toContain('Praise:\n\n- `showcase/todo-01/web/src/c.tsx:9` `Clear form.`');
+    expect(section).toContain('`no`. `Never ship this.`');
+    expect(section).toContain('| `claude` | `3` | `2` | `0` | `2` | `1` |');
+  });
+
+  it('marks a to-do run that has no review yet', () => {
+    expect(renderComparison(runs(), read)).toContain('No review is recorded for this run.');
   });
 
   it('lists only the baseline rows a rendered report can show, with the template caveat', () => {
@@ -1468,14 +1568,26 @@ describe('hasTrialEvidence', () => {
 });
 
 describe('comparison exit status', () => {
-  const runs = ['todo-01', 'todo-02'].map((id) => ({
-    evidence: { ...evidence(id), result: { ...evidence(id).result, status: 'passed' } },
-    source: `showcase/${id}`,
-    facts: facts(id),
-  }));
+  const runs = ['todo-01', 'todo-02'].map((id) => {
+    const record = { ...evidence(id), result: { ...evidence(id).result, status: 'passed' } };
+    return {
+      evidence: record,
+      source: `showcase/${id}`,
+      facts: facts(id),
+      review: reviewOf(record),
+    };
+  });
 
   it('accepts identical passing runs on a shared baseline', () => {
     expect(comparisonFailures(runs, read)).toEqual([]);
+  });
+
+  it('names each to-do run that has no anti-slop review', () => {
+    const unreviewed = runs.map((run, index) => ({
+      ...run,
+      review: index === 1 ? null : run.review,
+    }));
+    expect(comparisonFailures(unreviewed, read)).toEqual(['Missing review: todo-02']);
   });
 
   it('names both a failed run and a split baseline even when the builds match', () => {
@@ -1487,12 +1599,46 @@ describe('comparison exit status', () => {
     ]);
   });
 
+  type Landing = 'showcase' | 'patch';
+  const keptPatch = (landing: Landing, id: string) =>
+    landing === 'patch' ? `docs/trials/${id}.patch` : null;
+  const readFrom = (landing: Landing, brief: string) =>
+    landing === 'patch' ? 'from `docs/trials/todo-01.patch`' : `from \`showcase/${brief}-01\``;
+
+  /** For patch landing, commits each result, keeps it as `docs/trials/<id>.patch` and removes `showcase/`. */
+  const land = (landing: Landing, root: string, ids: readonly string[]) => {
+    if (landing === 'showcase') return;
+    const git = (...args: string[]) =>
+      execFileSync(
+        'git',
+        [
+          '-c',
+          'user.name=Trial',
+          '-c',
+          'user.email=trial@example.com',
+          '-c',
+          'commit.gpgsign=false',
+          ...args,
+        ],
+        { cwd: root, encoding: 'utf8' },
+      );
+    ids.forEach((id) => {
+      git('commit', '-q', '-m', id, '--', `showcase/${id}`);
+      writeFileSync(
+        join(root, `docs/trials/${id}.patch`),
+        git('format-patch', '-1', '--stdout', 'HEAD'),
+      );
+    });
+    git('rm', '-r', '-q', 'showcase');
+  };
+
   it.each([
-    ['todo', false],
-    ['todo', true],
-    ['notes', false],
-    ['notes', true],
-  ] as const)('compares %s records and exits according to mutation output differences: %p', (brief, differs) => {
+    ['todo', false, 'showcase'],
+    ['todo', true, 'showcase'],
+    ['todo', false, 'patch'],
+    ['notes', false, 'showcase'],
+    ['notes', true, 'showcase'],
+  ] as const)('compares %s records and exits according to mutation output differences: %p, results read from %s', (brief, differs, landing) => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'compare-cli-')));
     const write = (path: string, text: string) => {
       mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -1535,45 +1681,49 @@ describe('comparison exit status', () => {
         tree.forEach((text, path) => {
           write(`showcase/${id}/${path}`, text);
         });
-        write(
-          `docs/trials/${id}.json`,
-          JSON.stringify({
-            ...run.evidence,
-            schema: 2,
-            trial: { ...run.evidence.trial, id, branch: `trial/${id}` },
-            prompt: {
-              path: promptPath,
-              templateSha256: hash(template),
-              sha256: hash(prompt),
-              text: prompt,
-            },
-            task: {
-              name: brief,
-              definitionSha256: 'b'.repeat(64),
-              target: null,
-              checks: ['install', 'verify', 'e2e', 'structure'],
-              land: 'showcase',
-            },
-            agent: {
-              ...run.evidence.agent,
-              name: 'claude',
-              modelSource: 'stream',
-              reasoningEffort: null,
-            },
-            run: { ...run.evidence.run, tokenUsage: null },
-            failures: [],
-            result: {
-              ...run.evidence.result,
-              patch: null,
-              outsideReads: [],
-              changedPaths: [...tree.keys()].map((path) => `showcase/${id}/${path}`),
-            },
-          }),
-        );
+        const record = {
+          ...run.evidence,
+          schema: 2,
+          trial: { ...run.evidence.trial, id, branch: `trial/${id}` },
+          prompt: {
+            path: promptPath,
+            templateSha256: hash(template),
+            sha256: hash(prompt),
+            text: prompt,
+          },
+          task: {
+            name: brief,
+            definitionSha256: 'b'.repeat(64),
+            target: null,
+            checks: ['install', 'verify', 'e2e', 'structure'],
+            land: 'showcase',
+          },
+          agent: {
+            ...run.evidence.agent,
+            name: 'claude',
+            modelSource: 'stream',
+            reasoningEffort: null,
+          },
+          run: { ...run.evidence.run, tokenUsage: null },
+          failures: [],
+          result: {
+            ...run.evidence.result,
+            patch: keptPatch(landing, id),
+            outsideReads: [],
+            changedPaths: [...tree.keys()].map((path) => `showcase/${id}/${path}`),
+          },
+        };
+        write(`docs/trials/${id}.json`, JSON.stringify(record));
+        write(`docs/trials/${id}.review.json`, JSON.stringify(reviewOf(record)));
         write(run.evidence.stream.path, read(run.evidence.stream.path));
       });
       execFileSync('git', ['init', '--quiet', root]);
       execFileSync('git', ['add', 'showcase'], { cwd: root });
+      land(
+        landing,
+        root,
+        runs.map((run) => run.evidence.trial.id),
+      );
       const cli = join(root, 'tooling/trial/compare.mjs');
       const args = brief === 'todo' ? [] : ['--brief', brief];
       const result = spawnSync(process.execPath, [cli, ...args], {
@@ -1592,6 +1742,7 @@ describe('comparison exit status', () => {
       expect(report).toContain(`Consistency: \`${differs ? 'inconsistent' : 'consistent'}\``);
       expect(report).toContain(`\`${promptPath}\` as committed`);
       expect(report).toContain('Baseline: shared');
+      expect(report).toContain(readFrom(landing, brief));
       if (brief === 'notes') {
         expect(report).toContain('# Notes trial comparison');
         expect(report).toContain('two mutations for create and delete');

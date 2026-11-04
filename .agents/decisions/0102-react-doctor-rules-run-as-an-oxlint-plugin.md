@@ -1,6 +1,6 @@
 # 102. React Doctor rules run as an Oxlint plugin
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #280)
 - **Date:** 2026-11-01
 - **Amends:** [Oxlint replaces ESLint](0098-oxlint-replaces-eslint.md)
 
@@ -26,6 +26,18 @@ Keep ESLint's configuration and the React Doctor CLI command unchanged during
 the migration. The CLI keeps its project checks. The parity test compares
 ESLint and Oxlint settings and the exact 349 names; runtime fixtures prove
 fetch-in-effect and class-component findings and Biome's image-alt ownership.
+
+### React Doctor CLI
+
+This carries the CLI split from ADR 0015 (deleted). The Oxlint plugin runs
+React Doctor's per-file rules. `pnpm react-doctor` runs the project checks
+the plugin cannot express, as `react-doctor . --no-lint --no-supply-chain
+--no-telemetry --blocking warning --yes`. `--no-lint` leaves per-file rules
+to Oxlint, `--no-supply-chain` leaves dependency risk to `pnpm audit` and
+Dependabot, `--no-telemetry` keeps the scan off the network, and `--blocking
+warning` fails the run on a warning. Both React Doctor packages stay pinned
+to exact versions. `singleOwnerRules` in `oxlint.config.ts` names the owner
+of each rule that another engine also implements.
 
 ## Consequences
 
