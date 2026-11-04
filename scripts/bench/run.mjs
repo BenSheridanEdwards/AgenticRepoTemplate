@@ -78,6 +78,8 @@ function resolveRef(ref) {
   return resolved.stdout.trim();
 }
 
+const store = command(repository, 'pnpm', ['store', 'path']).trim();
+
 function prepare(directory, ref) {
   const archive = spawnSync('git', ['archive', resolveRef(ref)], {
     cwd: repository,
@@ -111,7 +113,8 @@ function prepare(directory, ref) {
     writeFileSync(join(directory, path), content);
   });
   command(directory, 'git', ['checkout', '-b', 'bench']);
-  // Reuse locked resolutions so offline setup needs no registry metadata.
+  // Reuse locked resolutions; offline prevents tarball downloads, while release-age
+  // verification may still request registry metadata.
   const lockPath = join(directory, 'pnpm-lock.yaml');
   const lock = readFileSync(lockPath, 'utf8');
   const importers = Array.from({ length: packages / 2 }, (_, index) =>
@@ -129,9 +132,16 @@ function prepare(directory, ref) {
       .join(''),
   ).join('');
   writeFileSync(lockPath, lock.replace('\npackages:', `${importers}\npackages:`));
-  // The archive's lockfile and temporary filesystem may need a different store than the checkout.
-  command(directory, 'pnpm', ['fetch', '--ignore-scripts']);
-  command(directory, 'pnpm', ['install', '--offline', '--no-frozen-lockfile']);
+  // A temporary filesystem may select an empty default store instead of the caller's warm store.
+  console.log(
+    command(directory, 'pnpm', [
+      'install',
+      '--offline',
+      '--no-frozen-lockfile',
+      '--store-dir',
+      store,
+    ]),
+  );
   command(directory, 'git', ['add', '.']);
   command(directory, 'pnpm', ['arch:diagram']);
   command(directory, 'git', ['add', '.']);

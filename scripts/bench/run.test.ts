@@ -7,8 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { text } from 'node:stream/consumers';
 
-test('populates an empty store for an archived workspace before running offline', async () => {
-  const script = resolve('scripts/bench/run.mjs');
+async function arrangeStoreFixture() {
   const root = mkdtempSync(join(tmpdir(), 'bench-store-'));
   const repository = join(root, 'repository');
   const write = (path: string, content: string) => {
@@ -18,8 +17,10 @@ test('populates an empty store for an archived workspace before running offline'
   write('package/package.json', '{"name":"bench-dependency","version":"1.0.0","main":"index.js"}');
   write('package/index.js', 'module.exports = "available";');
   const tarball = execFileSync('tar', ['-czf', '-', 'package'], { cwd: repository });
+  const tarballRequests = jest.fn();
   const server = createServer((request, response) => {
     if (request.url?.endsWith('.tgz')) {
+      tarballRequests(request.url);
       response.end(tarball);
       return;
     }
@@ -46,10 +47,10 @@ test('populates an empty store for an archived workspace before running offline'
   await once(server, 'listening');
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Missing tarball server address');
-  const run = async (executable: string, args: string[], store: string) => {
+  const run = async (executable: string, args: string[], offline = false) => {
     const child = spawn(executable, args, {
       cwd: repository,
-      env: { ...process.env, pnpm_config_store_dir: join(root, store) },
+      env: { ...process.env, pnpm_config_offline: String(offline) },
       timeout: 30_000,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -60,38 +61,59 @@ test('populates an empty store for an archived workspace before running offline'
     ]);
     return { status, stdout, stderr };
   };
-  try {
-    write('.npmrc', `registry=http://127.0.0.1:${address.port}/\n`);
-    write('.gitignore', 'node_modules/\n');
-    write('.fallowrc.jsonc', '{\n}\n');
+  write('.npmrc', `registry=http://127.0.0.1:${address.port}/\n`);
+  write('.gitignore', 'node_modules/\n.pnpm-store/\n');
+  write('.fallowrc.jsonc', '{\n}\n');
+  write(
+    'package.json',
+    JSON.stringify({
+      private: true,
+      packageManager: 'pnpm@11.3.0',
+      dependencies: { 'bench-dependency': '1.0.0' },
+      scripts: {
+        'arch:diagram': 'node -e ""',
+        probe: `node -e "require('node:assert/strict').equal(require('bench-dependency'), 'available')"`,
+      },
+    }),
+  );
+  write(
+    'pnpm-workspace.yaml',
+    "packages: ['apps/*', 'showcase/*/web', 'showcase/*/api']\nminimumReleaseAge: 10080\nstoreDir: .pnpm-store\n",
+  );
+  ['web', 'api'].forEach((kind) => {
     write(
-      'package.json',
+      `apps/${kind}/package.json`,
       JSON.stringify({
-        private: true,
-        packageManager: 'pnpm@11.3.0',
-        dependencies: { 'bench-dependency': `http://127.0.0.1:${address.port}/dependency.tgz` },
-        scripts: {
-          'arch:diagram': 'node -e ""',
-          probe: `node -e "require('node:assert/strict').equal(require('bench-dependency'), 'available')"`,
-        },
+        name: `@repo/${kind}`,
+        dependencies: { 'bench-dependency': '1.0.0' },
       }),
     );
-    write(
-      'pnpm-workspace.yaml',
-      "packages: ['apps/*', 'showcase/*/web', 'showcase/*/api']\nminimumReleaseAge: 10080\n",
-    );
-    ['web', 'api'].forEach((kind) => {
-      write(
-        `apps/${kind}/package.json`,
-        JSON.stringify({
-          name: `@repo/${kind}`,
-          dependencies: { 'bench-dependency': `http://127.0.0.1:${address.port}/dependency.tgz` },
-        }),
-      );
-    });
-    write('apps/web/src/App.tsx', 'export const fixture = true;\n');
-    const lock = await run('pnpm', ['install', '--lockfile-only', '--ignore-scripts'], 'seed');
-    expect(lock).toEqual(expect.objectContaining({ status: 0, stderr: '' }));
+  });
+  write('apps/web/src/App.tsx', 'export const fixture = true;\n');
+  return {
+    repository,
+    run,
+    tarballRequests,
+    close: async () => {
+      server.closeAllConnections();
+      server.close();
+      await once(server, 'close');
+      rmSync(root, { recursive: true, force: true });
+    },
+  };
+}
+
+test('reuses the caller store offline when archived workspaces select another store', async () => {
+  const fixture = await arrangeStoreFixture();
+  const { repository, run, tarballRequests } = fixture;
+  try {
+    const seed = await run('pnpm', ['install', '--ignore-scripts']);
+    expect(seed).toEqual(expect.objectContaining({ status: 0, stderr: '' }));
+    expect(tarballRequests).toHaveBeenCalledWith('/dependency.tgz');
+    tarballRequests.mockClear();
+    const callerStore = await run('pnpm', ['store', 'path']);
+    expect(callerStore.status).toBe(0);
+    expect(callerStore.stdout.trim()).toContain(join(repository, '.pnpm-store'));
     execFileSync('git', ['init', '-b', 'main'], { cwd: repository });
     execFileSync('git', ['add', '.'], { cwd: repository });
     execFileSync(
@@ -99,23 +121,31 @@ test('populates an empty store for an archived workspace before running offline'
       ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'],
       { cwd: repository },
     );
-    expect(existsSync(join(root, 'empty-store'))).toBe(false);
     const result = await run(
       'node',
-      [script, '--packages', '2', '--steps', 'probe', '--compare', 'main'],
-      'empty-store',
+      [
+        resolve('scripts/bench/run.mjs'),
+        '--packages',
+        '2',
+        '--steps',
+        'probe',
+        '--compare',
+        'main',
+      ],
+      true,
     );
     expect(result).toEqual(expect.objectContaining({ status: 0, stderr: '' }));
     expect(result.stdout).toContain('| probe | one-change |');
+    expect(result.stdout.match(/reused 1, downloaded 0/g)).toHaveLength(2);
+    expect(tarballRequests).not.toHaveBeenCalled();
     const directories = [...result.stdout.matchAll(/Workspace: (.+)/g)].map((match) => match[1]);
     expect(directories).toHaveLength(2);
     directories.forEach((directory) => {
-      expect(existsSync(String(directory))).toBe(false);
+      expect(join(directory, '.pnpm-store')).not.toBe(dirname(callerStore.stdout.trim()));
+      expect(existsSync(directory)).toBe(false);
     });
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-    rmSync(root, { recursive: true, force: true });
+    await fixture.close();
   }
 }, 60_000);
 
