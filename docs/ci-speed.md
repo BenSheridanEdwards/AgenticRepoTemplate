@@ -124,7 +124,7 @@ and are named by role, since this repository is public.
 | Private D: website | local and hosted | 3 s | 82 s | 4 s | 3% | 6 s | 3,091 |
 | Private E: Dagger pipeline | local | 40 s | 3 min | 8 s | 30% | 8 s | 157 |
 | StyleProof | hosted | 3 s | 17 s | 19 s | 21% | 41 s | 716 |
-| AgenticRepoTemplate | hosted | 3 s | 18 s | 3 s | 31% | 13 s | 153 |
+| SoftwareFactoryTemplate | hosted | 3 s | 18 s | 3 s | 31% | 13 s | 153 |
 
 The template's setup median counts docs-only lanes that skip install; its
 installing jobs spend about 20 s on setup. Private A's 150 runs cover about one day.
