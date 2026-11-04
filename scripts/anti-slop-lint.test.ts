@@ -95,14 +95,32 @@ it.each`
   expect(lint()).toMatchObject({ status: 0, diagnostics: [] });
 });
 
-it('skips agent, vendor and recorded trial directories', () => {
-  const ignored = `.agent .agents .claude .codex .continue .cursor .gemini .opencode .pi .roo .windsurf vendor
-showcase/todo-01 showcase/todo-02 showcase/todo-03 showcase/todo-codex-01 showcase/todo-codex-02 showcase/todo-codex-03
-showcase/notes-01 showcase/any-result`;
+it('skips agent and vendor directories', () => {
+  const ignored =
+    '.agent .agents .claude .codex .continue .cursor .gemini .opencode .pi .roo .windsurf vendor';
   ignored.split(/\s+/).forEach((path) => {
     write(`${path}/example.ts`, "Reflect.get(value, 'id');");
   });
   write('clean.ts', 'export const count = 1;\n\ndebugger;');
+  expect(lint()).toMatchObject({ status: 0, diagnostics: [] });
+});
+
+it.each([
+  'todo-01',
+  'todo-codex-01',
+  'notes-01',
+  'any-result',
+])('lints showcase/%s with generic and package-source anti-slop rules', (id) => {
+  const path = `showcase/${id}/web/src/example.ts`;
+  write(path, "Reflect.get(value, 'id'); typeof value === 'string';");
+  expect(lint()).toMatchObject({
+    status: 1,
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({ code: 'anti-slop(no-reflect-get)', filename: path }),
+      expect.objectContaining({ code: 'anti-slop(no-runtime-typeof)', filename: path }),
+    ]),
+  });
+  write(path, 'export const name = "Ada";');
   expect(lint()).toMatchObject({ status: 0, diagnostics: [] });
 });
 

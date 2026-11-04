@@ -103,8 +103,9 @@ afterEach(() => {
 });
 
 describe('runReview', () => {
-  it('records the anti-slop findings in the result, which the gate config ignores, and the judgment', async () => {
+  it('records findings with the gate configs directly and the judgment', async () => {
     const clone = checkClone();
+    const config = readFileSync(join(clone, '.oxlintrc.json'), 'utf8');
     const reviewer = fakeReviewer();
 
     const written = await review('claude', reviewer);
@@ -113,7 +114,6 @@ describe('runReview', () => {
     expect(validateReview(written)).toEqual(written);
     expect(written.lint['anti-slop']).toMatchObject({
       config: '.oxlintrc.json',
-      unignored: ['showcase/**'],
       exitCode: 1,
       files: 2,
     });
@@ -128,7 +128,9 @@ describe('runReview', () => {
         },
       ],
     });
-    expect(written.lint.policy).toMatchObject({ config: 'oxlint.config.ts', unignored: [] });
+    expect(written.lint.policy).toMatchObject({ config: 'oxlint.config.ts' });
+    expect(existsSync(join(clone, '.oxlintrc.review.json'))).toBe(false);
+    expect(readFileSync(join(clone, '.oxlintrc.json'), 'utf8')).toBe(config);
     expect(written).toMatchObject({
       id: 'todo-01',
       read: 'check',

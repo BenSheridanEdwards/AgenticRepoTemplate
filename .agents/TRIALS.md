@@ -78,7 +78,9 @@ harness starts a new baseline: run all six trials again.
    ```
 
    The review lints `showcase/<id>/` with the vendored anti-slop rules and
-   the policy rules, then asks one fresh reviewer session, with read access
+   the policy rules using `.oxlintrc.json` and `oxlint.config.ts` directly,
+   as the gates do. Both configs include showcase results. It then asks one
+   fresh reviewer session, with read access
    only, the judging question in `tooling/trial/review-prompt.md`. It writes
    `docs/trials/<id>.review.json`: lint counts per rule with file and line
    examples, and the reviewer's answer, grouped flags and praise. Claude
