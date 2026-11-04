@@ -10,6 +10,12 @@ Executable standards beat written promises. Consistency is infrastructure.
 The TypeScript, React and tRPC greeting app gives every gate real code to check.
 A person owns the change, reviews the proof, merges and deploys.
 
+## Take the fifteen-minute tour
+
+[Follow the seven-step walkthrough](docs/software-factory-tour.md): clear intent,
+useful checks, executable architecture, fast feedback and a human review decision.
+Each stop pairs a readable example with the real source.
+
 ## Quick start
 
 Requires Node 22.18 or higher and pnpm. Start with [AGENTS.md](AGENTS.md)
@@ -35,7 +41,7 @@ Follow that slice when adding a feature.
 | --- | --- |
 | [Context](AGENTS.md) and [harnesses](.agents/HARNESSES.md) | Agent entry points, commands, hooks and settings. |
 | [Quality gates](.agents/project/QUALITY_GATES.md) | Local and CI checks, with the [required-check inventory](docs/required-gates.md). |
-| [Ten-minute software factory tour](docs/software-factory-tour.md) | Seven screen-share stops with measured timings, positive/negative controls and explicit enforcement limits. |
+| [Fifteen-minute software factory tour](docs/software-factory-tour.md) | Seven readable stops with illustrated examples, source links and a clear path through the repository. |
 | [Definition of Done and PR contract](.agents/project/PR_QUALITY.md) | Completion criteria and the proof a reviewer needs. |
 | [Architecture](.agents/project/ARCHITECTURE.md) and [conventions](.agents/project/CONVENTIONS.md) | Module roles, allowed imports and code patterns; [templates](.agents/templates/) to copy. |
 | [Product intent](docs/prd/greeting.md) and [North Star](docs/NORTH_STAR.md) | The greeting's promises and the template's direction; [ADRs](.agents/decisions/) record decisions. |

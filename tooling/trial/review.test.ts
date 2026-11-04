@@ -8,6 +8,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -90,7 +91,8 @@ const review = (agent: 'claude' | 'codex', agentCommand = fakeReviewer()) =>
 const reviewPath = () => join(root, 'docs/trials/todo-01.review.json');
 
 beforeEach(() => {
-  caseDir = mkdtempSync(join(tmpdir(), 'review-'));
+  // macOS links /var to /private/var; the reviewer reports the resolved path.
+  caseDir = realpathSync(mkdtempSync(join(tmpdir(), 'review-')));
   root = join(caseDir, 'checkout');
   workdir = join(caseDir, 'todo-01-20261103T120000Z');
   put(join(root, 'docs/trials/todo-01.json'), JSON.stringify(RECORD));
