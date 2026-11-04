@@ -18,7 +18,8 @@ implementation PRs move the installed tools and guidance to it.
 The maintainer approved the whole standard on 26 Oct 2026 at 12:11 GMT:
 "Go with the whole standard as proposed". The approver's sign-off, 26 Oct 2026 13:31 GMT,
 decision 6, approves the planned lint-rule changes in StyleProof,
-AgenticRepoTemplate and SoftwareFactoryTemplate. The approver's decisions 2 and 4 at that
+this repository (then AgenticRepoTemplate) and BulletproofRepository (then
+SoftwareFactoryTemplate). The approver's decisions 2 and 4 at that
 time approve the showcase shim and exact Oxlint 1.89.0 pins respectively.
 The ADR remains Proposed; the approver owns acceptance and any head-specific
 enforcement approval required by the gate.
