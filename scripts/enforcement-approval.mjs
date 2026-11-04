@@ -78,7 +78,16 @@ function lineSummary(before, after) {
   const added = now.length - common;
   const removed = was.length - common;
 
-  if (added + removed === 0) return 'Reorders lines or changes line endings';
+  if (before.replaceAll('\r\n', '\n') === after.replaceAll('\r\n', '\n')) {
+    return 'Changes line endings';
+  }
+  if (added + removed === 0) {
+    const moved = now.filter((line, index) => line !== was[index]);
+
+    return moved.length
+      ? `Moves ${moved.length} lines: first moved line ${inert(short(moved[0].trim()))}`
+      : 'Changes the final newline';
+  }
 
   return `Changes ${added + removed} ${added + removed === 1 ? 'line' : 'lines'}: adds ${added}, removes ${removed}`;
 }
@@ -146,7 +155,7 @@ function withoutBlocks(text, blocks) {
   return linesOf(text)
     .filter((_line, index) => !covered.has(index))
     .join('\n')
-    .replace(/\n+$/, '');
+    .replace(/(?<!\n)\n+$/, '');
 }
 
 /** @param {string} value */
@@ -157,6 +166,14 @@ function stepField(text, key) {
   const lines = linesOf(text);
 
   if (lines.length === 0) return '';
+  const flow = lines[0].match(/^ *- +\{(.*)\}\s*$/);
+
+  if (flow) {
+    const fields = flow[1].matchAll(/(?:^|,)\s*([\w-]+):\s*("[^"]*"|'[^']*'|[^,{}]+)/g);
+    const field = [...fields].find((field) => field[1] === key);
+
+    return yamlScalar(field?.[2] ?? '');
+  }
   const indent = lines[0].search(/\S/) + 2;
   const pattern = new RegExp(`^ {${indent}}${key}:`);
   const index = lines
@@ -199,10 +216,11 @@ function workflowSteps(text) {
   const steps = entries.map((block) => {
     const uses = stepField(block.text, 'uses');
     const pin = actionPin(uses);
-    const name = stepField(block.text, 'name') || stepField(block.text, 'run') || uses;
+    const run = stepField(block.text, 'run');
+    const name = stepField(block.text, 'name') || run;
     const key = stepField(block.text, 'id') || stepField(block.text, 'name') || pin.action || name;
 
-    return { ...block, ...pin, key, name };
+    return { ...block, ...pin, key, name, run };
   });
 
   return [...Map.groupBy(steps, (step) => step.key).values()]
@@ -212,8 +230,15 @@ function workflowSteps(text) {
     .toSorted((left, right) => left.start - right.start);
 }
 
-/** @param {string} name */
-const stepName = (name) => (name ? `the step ${inert(short(name))}` : 'an unnamed step');
+/** @param {ReturnType<typeof workflowSteps>[number]} step */
+function stepName(step) {
+  if (step.name) return `the step ${inert(short(step.name))}`;
+  if (step.action) {
+    return `the step ${inert(short(step.action))}${step.ref ? ` at ${pin(step)}` : ''}`;
+  }
+
+  return 'an unnamed step';
+}
 
 /** @param {string} text */
 function withoutUses(text) {
@@ -269,13 +294,11 @@ function stepChanges(before, after) {
     was.some((step, index) => step.key !== now[index].key);
 
   const reasons = [
-    ...was
-      .filter((step) => !newSteps.has(step.key))
-      .map((step) => `Removes ${stepName(step.name)}`),
+    ...was.filter((step) => !newSteps.has(step.key)).map((step) => `Removes ${stepName(step)}`),
     ...now.flatMap((step) => {
       const old = oldSteps.get(step.key);
 
-      if (!old) return [`Adds ${stepName(step.name)}`];
+      if (!old) return [`Adds ${stepName(step)}`];
 
       const pins = pinChanges(old, step);
 
@@ -283,7 +306,9 @@ function stepChanges(before, after) {
         ...pins,
         ...(withoutUses(old.text) !== withoutUses(step.text) ||
         (old.text !== step.text && pins.length === 0)
-          ? [`Changes ${stepName(step.name)}`]
+          ? [
+              `Changes ${stepName(step)}${old.run !== step.run ? `: run ${inert(short(old.run))} → ${inert(short(step.run))}` : ''}`,
+            ]
           : []),
       ];
     }),
@@ -309,7 +334,7 @@ function workflowChanges(before, after) {
   const matched = now.flatMap((job) => {
     const old = oldJobs.get(job.key);
 
-    return old ? [stepChanges(old.text, job.text)] : [];
+    return old ? [{ ...stepChanges(old.text, job.text), key: job.key }] : [];
   });
 
   return [
@@ -320,10 +345,12 @@ function workflowChanges(before, after) {
       .filter((job) => !oldJobs.has(job.key))
       .map((job) => `Adds the job ${inert(short(yamlScalar(job.key)))}`),
     ...matched.flatMap((steps) => steps.reasons),
-    ...remainderChanges(
-      [withoutBlocks(before, was), ...matched.map((steps) => steps.before)].join('\n'),
-      [withoutBlocks(after, now), ...matched.map((steps) => steps.after)].join('\n'),
+    ...matched.flatMap((steps) =>
+      remainderChanges(steps.before, steps.after).map(
+        (reason) => `${reason} in the job ${inert(short(yamlScalar(steps.key)))}`,
+      ),
     ),
+    ...remainderChanges(withoutBlocks(before, was), withoutBlocks(after, now)),
   ];
 }
 
@@ -338,6 +365,9 @@ const rewrite = ({ before, after }) => {
 /** @type {Judge} */
 const describeWorkflow = (change) => {
   if (change.before === null || change.after === null) return rewrite(change);
+  if (change.before.replaceAll('\r\n', '\n') === change.after.replaceAll('\r\n', '\n')) {
+    return ['Changes line endings'];
+  }
   const changes = workflowChanges(change.before, change.after);
 
   return changes.length ? changes : rewrite(change);

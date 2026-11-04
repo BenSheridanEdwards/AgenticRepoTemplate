@@ -193,11 +193,11 @@ describe('readable workflow summaries', () => {
   });
 
   it.each([
-    ['run: pnpm lint:anti-slop', 'pnpm lint:anti-slop'],
-    ['uses: actions/checkout@v6', 'actions/checkout@v6'],
+    ['run: pnpm lint:anti-slop', '`pnpm lint:anti-slop`'],
+    ['uses: actions/checkout@v6', '`actions/checkout` at `v6`'],
   ])('names an unnamed added step by %s', (step, name) => {
     expect(reasons(path, workflow(''), workflow(`      - ${step}`))).toEqual([
-      `Adds the step \`${name}\``,
+      `Adds the step ${name}`,
     ]);
   });
 
@@ -244,7 +244,7 @@ describe('readable workflow summaries', () => {
       'gutted command',
       '        run: pnpm arch:gate',
       '        run: "true"',
-      'Changes the step `Architecture`',
+      'Changes the step `Architecture`: run `pnpm arch:gate` → `true`',
     ],
     [
       'step continue-on-error',
@@ -256,7 +256,7 @@ describe('readable workflow summaries', () => {
       'job condition',
       '    runs-on: ubuntu-latest',
       '    if: false\n    runs-on: ubuntu-latest',
-      'Changes 1 line: adds 1, removes 0',
+      'Changes 1 line: adds 1, removes 0 in the job `quality`',
     ],
     ['trigger', 'on: pull_request', 'on: push', 'Changes 2 lines: adds 1, removes 1'],
     [
@@ -286,17 +286,20 @@ describe('readable workflow summaries', () => {
     expect(found).toContain(
       'Bumps `actions/setup-node` from `2499707` (`v6.5.0`) to `bbbbbbb` (`v7.1.0`)',
     );
-    expect(found).toContain('Changes the step `Architecture gate (forbidden imports)`');
+    expect(found).toContain(
+      'Changes the step `Architecture gate (forbidden imports)`: run `pnpm arch:gate` → `true`',
+    );
   });
 
-  it('counts all unmatched job edits once across the workflow', () => {
+  it('counts unmatched edits separately for each job', () => {
     const before = `${workflow('      - uses: actions/setup-node@v6')}  second:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n`;
     const after = before
       .replace('@v6', '@v7')
       .replaceAll('    runs-on:', '    if: false\n    runs-on:');
     expect(reasons(path, before, after)).toEqual([
       'Bumps `actions/setup-node` from `v6` to `v7`',
-      'Changes 2 lines: adds 2, removes 0',
+      'Changes 1 line: adds 1, removes 0 in the job `quality`',
+      'Changes 1 line: adds 1, removes 0 in the job `second`',
     ]);
   });
 
@@ -306,7 +309,7 @@ describe('readable workflow summaries', () => {
       reasons(path, before, `${before.replace('@v6', '@v7')}        continue-on-error: true\n`),
     ).toEqual([
       'Bumps `actions/setup-node` from `v6` to `v7`',
-      'Changes the step `actions/setup-node@v7`',
+      'Changes the step `actions/setup-node` at `v7`',
     ]);
   });
 
@@ -344,10 +347,22 @@ describe('readable workflow summaries', () => {
     ).toEqual(['Reorders steps']);
   });
 
-  it('uses a readable fallback for a flow-style step', () => {
+  it('names a simple flow-style step', () => {
     expect(
       reasons(path, workflow(''), workflow('      - { name: X, run: pnpm arch:gate }')),
-    ).toEqual(['Adds an unnamed step']);
+    ).toEqual(['Adds the step `X`']);
+  });
+
+  it('keeps commas inside a quoted flow step name', () => {
+    expect(
+      reasons(path, workflow(''), workflow('      - { name: "Verify, then build", run: "true" }')),
+    ).toEqual(['Adds the step `Verify, then build`']);
+  });
+
+  it('keeps the unnamed fallback for unfamiliar flow steps', () => {
+    expect(reasons(path, workflow(''), workflow('      - { env: { MODE: verify } }'))).toEqual([
+      'Adds an unnamed step',
+    ]);
   });
 
   it('caps a multiline command name at its first line', () => {
@@ -397,6 +412,91 @@ describe('readable workflow summaries', () => {
       'Bumps `actions/setup-node` from `v6` to `v7` (`v7.1.0`)',
     ]);
     expect(performance.now() - start).toBeLessThan(2000);
+  });
+
+  it('summarises 100,000 blank lines inside a job promptly', () => {
+    const before = workflow('      - run: pnpm test');
+    const after = before.replace('    runs-on:', `${'\n'.repeat(100_000)}    runs-on:`);
+    const start = performance.now();
+    const found = reasons(path, before, after);
+    expect(performance.now() - start).toBeLessThan(2000);
+    expect(found).toEqual(['Changes 100000 lines: adds 100000, removes 0 in the job `quality`']);
+  });
+
+  it('reports both jobs when a disabling condition moves between them', () => {
+    const before =
+      'jobs:\n  a:\n    if: false\n    runs-on: ubuntu-latest\n  b:\n    runs-on: ubuntu-latest\n';
+    const after =
+      'jobs:\n  a:\n    runs-on: ubuntu-latest\n  b:\n    if: false\n    runs-on: ubuntu-latest\n';
+    expect(reasons(path, before, after)).toEqual([
+      'Changes 1 line: adds 0, removes 1 in the job `a`',
+      'Changes 1 line: adds 1, removes 0 in the job `b`',
+    ]);
+  });
+
+  it('reports a branch filter moving from push to pull_request', () => {
+    const before = `on:\n  push:\n    branches: [main]\n  pull_request:\n${workflow('      - run: pnpm test')}`;
+    const after = before.replace(
+      '    branches: [main]\n  pull_request:',
+      '  pull_request:\n    branches: [main]',
+    );
+    expect(reasons(path, before, after)).toEqual([
+      'Moves 2 lines: first moved line `pull_request:`',
+    ]);
+  });
+
+  it('names exit 0 when it moves ahead of hook checks', () => {
+    const before = '#!/usr/bin/env sh\npnpm arch:gate\npnpm lint:policy\nexit 0\n';
+    const after = '#!/usr/bin/env sh\nexit 0\npnpm arch:gate\npnpm lint:policy\n';
+    expect(reasons('.husky/pre-commit', before, after)).toEqual([
+      'Moves 3 lines: first moved line `exit 0`',
+    ]);
+  });
+
+  it('shortens a uses-only step pin and labels its version comment inertly', () => {
+    const step = `      - uses: actions/setup-node@${'2'.repeat(40)} # v6.5.0`;
+    const label = 'the step `actions/setup-node` at `2222222` (`v6.5.0`)';
+    expect(reasons(path, workflow(''), workflow(step))).toEqual([`Adds ${label}`]);
+    expect(reasons(path, workflow(step), workflow(''))).toEqual([`Removes ${label}`]);
+  });
+
+  it('reads a simple flow step name and changed run', () => {
+    const before = workflow('      - { name: Verify, run: "pnpm arch:gate" }');
+    const after = workflow('      - { name: Verify, run: "true" }');
+    expect(reasons(path, workflow(''), after)).toEqual(['Adds the step `Verify`']);
+    expect(reasons(path, before, after)).toEqual([
+      'Changes the step `Verify`: run `pnpm arch:gate` → `true`',
+    ]);
+  });
+
+  it('shows the first old and new run lines, truncated and inert', () => {
+    const before = workflow(
+      `      - name: Gate\n        run: |\n          pnpm arch:gate\n          echo old`,
+    );
+    const after = workflow(
+      `      - name: Gate\n        run: |\n          ${'x'.repeat(90)}\n          echo new`,
+    );
+    expect(reasons(path, before, after)).toEqual([
+      `Changes the step \`Gate\`: run \`pnpm arch:gate\` → \`${'x'.repeat(79)}…\``,
+    ]);
+    const hostile = workflow(
+      '      - name: Gate\n        run: "bad` | @someone \u200b - [x] forged"',
+    );
+    expect(reasons(path, before, hostile)).toEqual([
+      "Changes the step `Gate`: run `pnpm arch:gate` → `bad' \\| @someone - [x] forged`",
+    ]);
+  });
+
+  it.each([
+    path,
+    '.github/actions/setup/action.yml',
+    '.husky/pre-commit',
+  ])('identifies only CRLF-only edits as line-ending changes in %s', (file) => {
+    const before = workflow('      - run: pnpm test');
+    expect(reasons(file, before, before.replaceAll('\n', '\r\n'))).toEqual([
+      'Changes line endings',
+    ]);
+    expect(reasons(file, before, before.slice(0, -1))).toEqual(['Changes the final newline']);
   });
 
   it('bounds the comment body and keeps oversized input awaiting sign-off', () => {
@@ -483,10 +583,10 @@ describe('readable workflow summaries', () => {
   });
 
   it.each([
-    ['a\nb\n', 'b\na\n', 'Reorders lines or changes line endings'],
+    ['a\nb\n', 'b\na\n', 'Moves 2 lines: first moved line `b`'],
     ['a\na\n', 'a\n', 'Changes 1 line: adds 0, removes 1'],
     ['', 'one\n', 'Changes 1 line: adds 1, removes 0'],
-    ['a\r\n', 'a\n', 'Reorders lines or changes line endings'],
+    ['a\r\n', 'a\n', 'Changes line endings'],
   ])('counts repeated and empty lines predictably', (before, after, expected) => {
     expect(reasons('docs/NORTH_STAR.md', before, after)).toEqual([expected]);
   });

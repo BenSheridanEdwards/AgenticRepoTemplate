@@ -20,7 +20,9 @@ this head's expected comment, so identical inputs must produce identical text.
 Describe each guarded file's change in plain English derived deterministically
 from its before and after text. A small indentation-based workflow reader names
 added and removed jobs and steps. Name a step by its `name`, then its `run` or
-`uses` value, capped at 80 characters; use only the first line of a run block.
+`uses` action name, capped at 80 characters; use only the first line of a run block.
+Show a uses-only step's short pin beside its version comment and read simple
+flow-style step names. Show the old and new first run lines when a command changes.
 Describe action pin changes with the short commit SHA beside any trailing
 version comment. Version comments are unverified PR text, so the SHA identifies
 the actual pin. When a commit changes but its comment stays the same, name the
@@ -28,21 +30,25 @@ new commit rather than claiming a version bump. Deduplicate reasons before
 truncating them and join them in one cell with consistent capitalisation.
 
 Keep the JSON leaf-diff reasons and their enforcement classification. For other
-edits, count added and removed line occurrences; describe a pure reordering or
-line-ending change explicitly. Describe added and deleted files clearly. The
-reader recognises ordinary block YAML. Describe matched steps whose text
+edits, count added and removed line occurrences. For a pure reordering, count
+lines out of place and name the first moved line with a bounded inert excerpt.
+Reserve line-ending descriptions for CRLF-only changes. Describe added and
+deleted files clearly. The reader recognises ordinary block YAML. Describe matched steps whose text
 changes beyond `uses` as changed steps. Compare the remaining text after taking
-out recognised step and job blocks, and append its line summary whenever it
-differs. Thus a recognised bump cannot hide an unrecognised command, condition,
-trigger or permission edit. Describe pure step reordering as such. Use an
-unnamed-step fallback for flow YAML. The reader never executes or imports PR code.
+out recognised step and job blocks, comparing each job's remainder by job name
+and the file's remainder separately. Append each differing remainder's line
+summary with its job name where applicable. Thus a recognised bump cannot hide
+an unrecognised command, condition, trigger or permission edit. Describe pure step reordering as such. Use an
+unnamed-step fallback for unfamiliar flow YAML. The reader never executes or
+imports PR code.
 
 Bound the table to 100 rows and 48,000 UTF-8 bytes, leaving room below GitHub's
 65,536-character comment limit for the fixed text, omission notice and approval
 label. Omitted rows still require sign-off and direct the maintainer to the full
 diff. Use the same row budget for unticked and labelled bodies. Parse version
 comments with a linear string search, reduce indentation candidates rather than
-spreading arguments, and bound the workflow job to ten minutes.
+spreading arguments, trim trailing empty lines with a linear scan, and bound
+the workflow job to ten minutes.
 
 Pass every PR-derived name, version and path through the existing `inert()`
 escaping. Preserve the head-bound fresh-tick protocol, author checks and status

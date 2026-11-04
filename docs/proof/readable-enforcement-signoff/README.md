@@ -24,7 +24,9 @@ JS
 
 The CI sample deliberately combines an action pin bump with replacing
 `pnpm arch:gate` by `"true"` in the existing Architecture gate step. Both changes
-appear in the same row. Version comments remain unverified; both short commit
+appear in the same row, including the old and new command. The hook sample
+moves `exit 0` ahead of the checks and names it as the first of three lines out
+of place. Version comments remain unverified; both short commit
 pins appear beside them.
 
 The focused Jest suite covers the summaries, escaping, repeatability and tick

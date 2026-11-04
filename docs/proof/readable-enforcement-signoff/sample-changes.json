@@ -23,5 +23,10 @@
     "path": ".husky/old-hook",
     "before": "pnpm lint\n",
     "after": null
+  },
+  {
+    "path": ".husky/pre-commit",
+    "before": "#!/usr/bin/env sh\npnpm arch:gate\npnpm lint:policy\nexit 0\n",
+    "after": "#!/usr/bin/env sh\nexit 0\npnpm arch:gate\npnpm lint:policy\n"
   }
 ]
