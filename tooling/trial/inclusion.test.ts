@@ -330,7 +330,7 @@ console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntri
 
   it('is in every TypeScript program that covers its kind of file', () => {
     const filesOf = (config: string) =>
-      run(['node', 'node_modules/@typescript/native/bin/tsc', '-p', config, '--listFilesOnly'])
+      run(['node', 'scripts/bun.mjs', 'check', '--no-script', '-p', config, '--listFilesOnly'])
         .stdout.split('\n')
         .filter((path) => path.includes('/showcase/x/'))
         .map((path) => path.slice(path.indexOf('showcase/x/')));
@@ -354,14 +354,7 @@ console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntri
       {
         'showcase/x/api/src/features/greeting/seed.ts': "export { greet } from './application';\n",
       },
-      () =>
-        run([
-          'node',
-          'node_modules/@typescript/native/bin/tsc',
-          '-p',
-          'tsconfig.api.json',
-          '--noEmit',
-        ]),
+      () => run(['node', 'scripts/bun.mjs', 'check', '--no-script', '-p', 'tsconfig.api.json']),
     );
     const errors = checked.stdout.split('\n').filter((line) => line.includes('error TS'));
 

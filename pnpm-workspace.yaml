@@ -19,6 +19,9 @@ allowBuilds:
   '@biomejs/biome': true
   '@swc/core': true
   esbuild: true
+  # Its postinstall only links a binary, which CI's --ignore-scripts install
+  # skips anyway; scripts/bun.mjs runs the per-platform binary by path (ADR 0120).
+  bun: false
 
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:

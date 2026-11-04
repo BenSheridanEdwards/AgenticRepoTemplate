@@ -1,6 +1,7 @@
 # 105. TypeScript 7 is the only typechecker
 
-- **Status:** Accepted (merged in #287)
+- **Status:** Accepted (merged in #287); amended by
+  [0120](0120-bun-checks-types.md) (Bun runs `pnpm typecheck`)
 - **Date:** 2026-11-02
 
 ## Context
