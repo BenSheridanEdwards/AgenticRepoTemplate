@@ -276,15 +276,19 @@ describe('readable workflow summaries', () => {
 
   it('reports a bump and gutted architecture gate in the real CI workflow', () => {
     const before = readFileSync(join(import.meta.dirname, '../.github/workflows/ci.yml'), 'utf8');
+    // Read the live pin, so a Dependabot bump of setup-node keeps this test valid.
+    const [, sha = '', version = ''] =
+      before.match(/actions\/setup-node@([a-f0-9]{40}) # (v[^\s]+)/) ?? [];
     const after = before
-      .replace(
-        /actions\/setup-node@[a-f0-9]+ # v[^\n]+/,
-        `actions/setup-node@${'b'.repeat(40)} # v7.1.0`,
+      .replaceAll(
+        `actions/setup-node@${sha} # ${version}`,
+        `actions/setup-node@${'b'.repeat(40)} # v99.0.0`,
       )
       .replace('run: pnpm arch:gate', 'run: "true"');
     const found = reasons(path, before, after);
+    expect(sha).toHaveLength(40);
     expect(found).toContain(
-      'Bumps `actions/setup-node` from `2499707` (`v6.5.0`) to `bbbbbbb` (`v7.1.0`)',
+      `Bumps \`actions/setup-node\` from \`${sha.slice(0, 7)}\` (\`${version}\`) to \`bbbbbbb\` (\`v99.0.0\`)`,
     );
     expect(found).toContain(
       'Changes the step `Architecture gate (forbidden imports)`: run `pnpm arch:gate` → `true`',
