@@ -15,8 +15,8 @@ repositories into waiting, setup and work. The two public repositories on
 GitHub-hosted runners waited 3 seconds at p50. The five private repositories
 on the Mac mini and Mac Studio runners waited up to 336 seconds at p50 and
 over two hours at p90. Checks with under 30 seconds of work spent as long
-on setup. Jobs without `timeout-minutes` held a local runner for up to 24
-hours after they hung.
+on setup. One job with no `timeout-minutes` hung for 3.7 hours on a local
+runner.
 
 ## Decision
 

@@ -58,7 +58,7 @@ Each technique lists its measured gain and its status in this template.
 
 | Technique | Evidence | Template |
 | --- | --- | --- |
-| Set `timeout-minutes` on every job | Our audit: cancelled jobs held local runners for 24 h, 7 h and 5.3 h | Open |
+| Set `timeout-minutes` on every job | Our audit: one job in Private B hung for 3.7 h with no timeout. A job queued for a missing runner label stays queued whatever its timeout | Open |
 | Cancel superseded runs with `concurrency: cancel-in-progress` | Each push frees the slots of the run it replaces | Done |
 | Move every job when changing runner, the small ones too | Boardy left two 5-second jobs behind; each waited 10 minutes and became the slowest part of the run | Applies when moving |
 | Put light jobs of 15 minutes or less on `ubuntu-slim` (1 vCPU container, GA January 2026) | Frees full VMs for heavy lanes; untested here | Open: try for `up-to-date` and `required-gates` |
@@ -131,9 +131,11 @@ installing jobs spend about 20 s on setup. Private A's 150 runs cover about one 
 
 ### What the baseline shows
 
-1. **Hung jobs fill local runners.** With `timeout-minutes` unset, cancelled jobs
-   ran for 24 h, 7 h and 5.3 h in Private D and 5.3 h and 3.7 h in Private B,
-   each holding a runner slot. Set a timeout on every job first.
+1. **Read long jobs before calling them hung.** Private D's 24 h, 7 h and 5.3 h
+   jobs recorded no steps: they sat queued for a retired runner label until
+   someone cancelled them. `timeout-minutes` counts only running time, so remove
+   the dead label. Private B's upstream monitor did hang for 3.7 h with no
+   timeout; set a timeout on every job for that case.
 2. **Tiny checks wait longest.** Private A runs nine checks as separate jobs,
    each spending 25 to 42 s on setup for 17 to 33 s of work, then waiting about
    50 minutes at p50 for a slot. Merge them into one job. Its change-detection
@@ -159,10 +161,11 @@ Prices and policies as of 3 November 2026; check the linked page before budgetin
 - **Self-hosted runners:** free today. GitHub announced a $0.002 a minute
   platform charge for private repositories from March 2026, then postponed it
   with no new date. Re-check before relying on local runners being free.
-- **Blacksmith:** 3,000 free 2-vCPU minutes a month per organisation, then
-  per-minute billing. Blacksmith publishes no free plan for public
-  repositories. Set a spending limit before any trial: one team was invoiced
-  after the allowance ran out.
+- **Blacksmith:** its docs list 3,000 free 2-vCPU minutes a month per
+  organisation, then per-minute billing. We could not confirm a free plan for
+  public repositories; read its pricing page before relying on this. Set a
+  spending limit before any trial: one team was invoiced after the allowance
+  ran out.
 - **Others:** RunsOn is free for non-commercial use; Ubicloud lists a small free
   allowance. Depot and Namespace list trials only.
 - **Expect the bill to grow with speed.** Boardy's CI bill went from $230 to
