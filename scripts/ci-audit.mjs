@@ -13,6 +13,8 @@ import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
+import { githubApi } from './github-api.mjs';
+
 const SETUP_STEP =
   /set up job|checkout|setup|set up|install|cache|restore|pnpm store|toolchain|download artifact|initiali[sz]e/i;
 const TEARDOWN_STEP = /^post |complete job|save .*cache|upload/i;
@@ -192,13 +194,7 @@ async function runCli() {
   }
   const token =
     process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
-  const api = async (path) => {
-    const response = await fetch(`https://api.github.com/repos/${repo}/${path}`, {
-      headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' },
-    });
-    if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-    return response.json();
-  };
+  const api = githubApi({ repo, token });
   const result = await audit({ api, runs: Number(runs), since: values.since, until: values.until });
   const summary = summarize(result.rows, result.runs);
   console.log(
