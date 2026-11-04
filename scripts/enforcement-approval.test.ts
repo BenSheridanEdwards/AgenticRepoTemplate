@@ -147,15 +147,169 @@ describe('guardedPaths', () => {
       { filename: 'docs/moved.yml', previous_filename: '.github/workflows/moved.yml' },
     ]);
 
-    expect(reasons(path, 'on: push', null)).toEqual(['deletes the file']);
+    expect(reasons(path, 'on: push', null)).toEqual(['Deletes this file']);
+  });
+});
+
+describe('readable workflow summaries', () => {
+  const path = '.github/workflows/ci.yml';
+  const workflow = (steps: string) =>
+    `jobs:\n  quality:\n    runs-on: ubuntu-latest\n    steps:\n${steps}\n`;
+
+  it.each([
+    ['old # v6.5.0', 'new # v7.1.0', 'v6.5.0', 'v7.1.0'],
+    ['v6', 'v7', 'v6', 'v7'],
+  ])('describes an action pin change from %s to %s', (before, after, was, now) => {
+    expect(
+      reasons(
+        path,
+        workflow(`      - uses: actions/setup-node@${before}`),
+        workflow(`      - uses: actions/setup-node@${after}`),
+      ),
+    ).toEqual([`Bumps \`actions/setup-node\` from \`${was}\` to \`${now}\``]);
+  });
+
+  it('names an added step and a removed step', () => {
+    const before = workflow('      - name: Install Chromium\n        run: pnpm e2e:install');
+    const after = workflow('      - name: Run anti-slop lint\n        run: pnpm lint:anti-slop');
+    expect(reasons(path, before, after)).toEqual([
+      'Removes the step `Install Chromium`; Adds the step `Run anti-slop lint`',
+    ]);
+  });
+
+  it.each([
+    ['run: pnpm lint:anti-slop', 'pnpm lint:anti-slop'],
+    ['uses: actions/checkout@v6', 'actions/checkout@v6'],
+  ])('names an unnamed added step by %s', (step, name) => {
+    expect(reasons(path, workflow(''), workflow(`      - ${step}`))).toEqual([
+      `Adds the step \`${name}\``,
+    ]);
+  });
+
+  it('describes added and removed jobs without listing their steps', () => {
+    const before = 'jobs:\n  old:\n    steps:\n      - run: echo old\n';
+    const after = 'jobs:\n  visual:\n    steps:\n      - run: pnpm visual\n';
+    expect(reasons(path, before, after)).toEqual(['Removes the job `old`; Adds the job `visual`']);
+  });
+
+  it('summarises composite action pins and repeated action steps separately', () => {
+    const before =
+      'runs:\n  using: composite\n  steps:\n    - uses: actions/setup-node@v6\n    - uses: actions/setup-node@v6\n';
+    const after = before.replaceAll('@v6', '@v7');
+    expect(reasons('.github/actions/setup/action.yml', before, after)).toEqual([
+      'Bumps `actions/setup-node` from `v6` to `v7`; Bumps `actions/setup-node` from `v6` to `v7`',
+    ]);
+  });
+
+  it('reads reusable workflow pins and ignores job comments', () => {
+    const before =
+      'jobs:\n  # explain: this job\n  quality:\n    uses: owner/repo/.github/workflows/check.yml@v1\n';
+    const after = before.replace('@v1', '@v2').replace('explain:', 'new comment:');
+    expect(reasons(path, before, after)).toEqual([
+      'Bumps `owner/repo/.github/workflows/check.yml` from `v1` to `v2`',
+    ]);
+  });
+
+  it('falls back when an existing workflow is empty or uses flow YAML', () => {
+    expect(reasons(path, '', 'jobs: {}\n')).toEqual(['Changes 1 line: adds 1, removes 0']);
+    expect(reasons(path, 'jobs: {}\n', '')).toEqual(['Changes 1 line: adds 0, removes 1']);
+  });
+
+  it('names an unnamed multiline run step by its command', () => {
+    expect(
+      reasons(path, workflow(''), workflow('      - run: |\n          pnpm lint:anti-slop')),
+    ).toEqual(['Adds the step `pnpm lint:anti-slop`']);
+  });
+
+  it('keeps multiple JSON reasons in one file row', () => {
+    const problems = enforcementProblems([
+      {
+        path: 'biome.json',
+        before: '{"linter":{"enabled":true,"recommended":true}}',
+        after: '{"linter":{"enabled":false,"recommended":false}}',
+      },
+    ]);
+    expect(
+      signoffComment({ head: HEAD, problems })
+        .split('\n')
+        .filter((line) => line.startsWith('| `biome.json`')),
+    ).toEqual([
+      '| `biome.json` | Biome config | sets `linter.enabled` to `false`; sets `linter.recommended` to `false` |',
+    ]);
+  });
+
+  it.each([
+    ['a\nb\n', 'b\na\n', 'Reorders lines or changes line endings'],
+    ['a\na\n', 'a\n', 'Changes 1 line: adds 0, removes 1'],
+    ['', 'one\n', 'Changes 1 line: adds 1, removes 0'],
+    ['a\r\n', 'a\n', 'Reorders lines or changes line endings'],
+  ])('counts repeated and empty lines predictably', (before, after, expected) => {
+    expect(reasons('docs/NORTH_STAR.md', before, after)).toEqual([expected]);
+  });
+
+  it('summarises unrecognised edits using added and removed line counts', () => {
+    expect(reasons('docs/NORTH_STAR.md', 'same\nold\n', 'same\nnew\nextra\n')).toEqual([
+      'Changes 3 lines: adds 2, removes 1',
+    ]);
+  });
+
+  it.each([
+    [null, 'jobs: {}', 'Adds this file'],
+    ['jobs: {}', null, 'Deletes this file'],
+  ])('describes file creation and deletion', (before, after, expected) => {
+    expect(reasons(path, before, after)).toEqual([expected]);
+  });
+
+  it.each([
+    [
+      '      - name: |\n          bad` | @someone \u200b\n          - [x] forged\n        run: echo hello',
+      'bad',
+    ],
+    ['      - name: "bad` | @someone \u200b\t- [x] forged"\n        run: echo hello', 'bad'],
+    ['      - uses: actions/setup-node@new # v7` | @someone \u200b\t- [x] forged', 'v7'],
+  ])('keeps hostile PR text inert in the table and tick protocol', (step, content) => {
+    const before = workflow('      - uses: actions/setup-node@old # v6');
+    const after = workflow(step);
+    const changes = [{ path, before, after }];
+    const problems = enforcementProblems(changes);
+    const body = signoffComment({ head: HEAD, problems });
+    expect(body).toContain(content);
+    expect(body).not.toContain('\u200b');
+    expect(body.split('\n').filter((line) => /^- \[[ x]\]/.test(line))).toEqual([
+      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+    ]);
+    const rows = body.split('\n').filter((line) => line.startsWith('| '));
+    expect(rows).toHaveLength(3);
+    expect(rows[2]?.split(/(?<!\\)\|/)).toHaveLength(5);
+    expect(rows[2]).toContain('\\|');
+    expect(rows[2]).toMatch(/`[^`]*@someone[^`]*`/);
+    expect(signoffComment({ head: HEAD, problems: enforcementProblems(changes) })).toBe(body);
+    const to = tick(body);
+    const plan = planApproval({
+      head: HEAD,
+      problems,
+      signedOff: false,
+      comment: { body: to, updatedAt: '2026-10-12T14:00:00Z' },
+      event: { kind: 'comment', sender: ben, from: body, to, at: '2026-10-12T14:00:00Z' },
+    });
+    expect(plan.status?.state).toBe('success');
+    expect(
+      planApproval({
+        head: HEAD,
+        problems: enforcementProblems(changes),
+        signedOff: true,
+        comment: { body: plan.commentBody ?? '' },
+        event: { kind: 'pull' },
+      }),
+    ).toEqual({ commentBody: plan.commentBody, status: null });
   });
 });
 
 describe('rewrite judge', () => {
   it.each([
-    [null, 'npx lint-staged', 'adds enforcement code'],
-    ['npx lint-staged', 'true', 'edits enforcement code'],
-    ['npx lint-staged', null, 'deletes the file'],
+    [null, 'npx lint-staged', 'Adds this file'],
+    ['npx lint-staged', 'true', 'Changes 2 lines: adds 1, removes 1'],
+    ['npx lint-staged', null, 'Deletes this file'],
   ])('reads %p → %p as "%s"', (before, after, reason) => {
     expect(reasons('.husky/pre-commit', before, after)).toEqual([reason]);
   });
@@ -165,7 +319,7 @@ describe('rewrite judge', () => {
     'scripts/enforcement-approval.mjs',
     'scripts/enforcement-approval.test.ts',
   ])('names an edit to the gate itself in %s', (path) => {
-    expect(reasons(path, 'a', 'b')).toEqual(['edits the enforcement-approval gate']);
+    expect(reasons(path, 'a', 'b')).toEqual(['Changes 2 lines: adds 1, removes 1']);
   });
 });
 
@@ -177,9 +331,11 @@ describe('anti-slop enforcement', () => {
     'apps/web/oxlint.config.mjs',
     'oxlint.config.json',
   ])('requires sign-off for every addition, edit and deletion of %s', (path) => {
-    expect(reasons(path, null, '{}')).toEqual(['adds enforcement code']);
-    expect(reasons(path, '{}', '{"$schema":"new"}')).toEqual(['edits enforcement code']);
-    expect(reasons(path, '{}', null)).toEqual(['deletes the file']);
+    expect(reasons(path, null, '{}')).toEqual(['Adds this file']);
+    expect(reasons(path, '{}', '{"$schema":"new"}')).toEqual([
+      'Changes 2 lines: adds 1, removes 1',
+    ]);
+    expect(reasons(path, '{}', null)).toEqual(['Deletes this file']);
   });
 
   it.each([
@@ -237,7 +393,9 @@ describe('product intent', () => {
       ]);
     });
 
-    expect(reasons(path, 'intent', 'updated intent')).toEqual(['edits product intent']);
+    expect(reasons(path, 'intent', 'updated intent')).toEqual([
+      'Changes 2 lines: adds 1, removes 1',
+    ]);
   });
 
   it.each([
@@ -497,7 +655,11 @@ describe('enforcementProblems', () => {
         { path: '.husky/pre-commit', before: 'a', after: 'b' },
       ]),
     ).toEqual([
-      { path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' },
+      {
+        path: '.husky/pre-commit',
+        area: 'Git hooks',
+        reason: 'Changes 2 lines: adds 1, removes 1',
+      },
       { path: 'biome.json', area: 'Biome config', reason: 'removes `linter.enabled`' },
     ]);
   });
@@ -602,7 +764,7 @@ describe('signoffComment', () => {
     const problems = Array.from({ length: 150 }, (_, index) => ({
       path: `scripts/s${index}.mjs`,
       area: 'Gate scripts',
-      reason: 'edits enforcement code',
+      reason: 'Changes 2 lines: adds 1, removes 1',
     }));
 
     const body = signoffComment({ head: 'a'.repeat(40), problems });
@@ -1059,7 +1221,9 @@ describe('run', () => {
     },
   });
 
-  const HOOK = [{ path: '.husky/pre-commit', area: 'Git hooks', reason: 'edits enforcement code' }];
+  const HOOK = [
+    { path: '.husky/pre-commit', area: 'Git hooks', reason: 'Changes 2 lines: adds 1, removes 1' },
+  ];
   const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`;
 
   const boxLines = (body: string | undefined) =>
@@ -1079,7 +1243,7 @@ describe('run', () => {
 
     await run({ github, context: pullRequestContext, core });
     expect(comments[0]?.body).toContain(
-      '| `docs/prd/greeting.md` | Product intent | edits product intent |',
+      '| `docs/prd/greeting.md` | Product intent | Changes 2 lines: adds 1, removes 1 |',
     );
     await run({ github, context: editBy(ben, (body) => tick(body)), core });
     expect(boxLines(comments[0]?.body)).toEqual([
@@ -1119,9 +1283,7 @@ describe('run', () => {
     });
 
     await run({ github, context: pullRequestContext, core });
-    expect(comments[0]?.body).toContain(
-      '| `.husky/pre-push` | Git hooks | adds enforcement code |',
-    );
+    expect(comments[0]?.body).toContain('| `.husky/pre-push` | Git hooks | Adds this file |');
   });
 
   it('fails loudly when reading a file fails for any reason but absence', async () => {
