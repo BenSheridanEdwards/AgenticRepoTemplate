@@ -29,9 +29,10 @@ pass that absolute path to every generated workspace's install with `--store-dir
 Keep setup outside the measurements and reuse locked resolutions without a fetch.
 pnpm copies packages when the temporary filesystem cannot hard-link to that store.
 Before `--compare`, populate the caller's store with the locked dependencies of
-both refs; missing tarballs fail offline. Preserve the seven-day minimum release
-age: pnpm may contact the registry for publication metadata during lockfile
-verification even with `--offline`; this flag prevents tarball downloads.
+both refs; missing tarballs fail offline. Set `minimumReleaseAge` to 0 for commands in this
+throwaway workspace only. Every locked package already passed the seven-day policy
+in the caller's own install, and the check would otherwise query the registry for
+about 1,100 packages on each fresh runner and hang when the registry is down.
 
 ## Consequences
 

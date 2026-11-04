@@ -29,7 +29,8 @@ planWorkspace({ packages, reference: {} });
 const steps = values.steps.split(',');
 if (steps.some((step) => !/^[a-z][a-z:-]*$/.test(step))) throw new Error('Invalid step name');
 const repository = process.cwd();
-const environment = { ...process.env, FALLOW_BASE: 'main' };
+// The caller's install already applied the release-age policy to every locked package (ADR 0101).
+const environment = { ...process.env, FALLOW_BASE: 'main', pnpm_config_minimum_release_age: '0' };
 // A caller's hook must not bind the throwaway copy to its original Git index.
 Object.keys(environment)
   .filter((key) => key.startsWith('GIT_'))
@@ -113,8 +114,7 @@ function prepare(directory, ref) {
     writeFileSync(join(directory, path), content);
   });
   command(directory, 'git', ['checkout', '-b', 'bench']);
-  // Reuse locked resolutions; offline prevents tarball downloads, while release-age
-  // verification may still request registry metadata.
+  // Reuse locked resolutions; offline prevents tarball downloads.
   const lockPath = join(directory, 'pnpm-lock.yaml');
   const lock = readFileSync(lockPath, 'utf8');
   const importers = Array.from({ length: packages / 2 }, (_, index) =>
