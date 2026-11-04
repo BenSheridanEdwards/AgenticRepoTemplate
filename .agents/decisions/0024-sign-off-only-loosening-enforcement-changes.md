@@ -1,7 +1,9 @@
 # 24. The approver signs off only the changes that loosen enforcement
 
 - **Status:** Accepted; superseded in part by
-  [0060](0060-product-intent-needs-sign-off.md)
+  [0060](0060-product-intent-needs-sign-off.md); amended by
+  [0122](0122-sign-off-follows-the-guarded-changes.md), which keeps a tick across
+  an update whose guarded changes are identical
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md), which
   sets the guarded paths; this record adds the gate's own script and test

@@ -110,6 +110,14 @@ function moveSummary(was, now) {
 }
 
 /**
+ * A sentence for one quoted line replaced by another, noting a spacing-only edit.
+ *
+ * @param {string} old @param {string} fresh
+ */
+const replacement = (old, fresh) =>
+  old === fresh ? `Changes only the spacing of ${old}` : `Replaces ${old} with ${fresh}`;
+
+/**
  * One plain sentence for a text edit that quotes the first changed line.
  *
  * @param {string} before @param {string} after
@@ -136,7 +144,7 @@ function lineSummary(before, after) {
       ? `Removes the line ${firstOld}`
       : `Removes ${lines(removed)}, starting with ${firstOld}`;
   }
-  if (added === 1 && removed === 1) return `Replaces ${firstOld} with ${firstNew}`;
+  if (added === 1 && removed === 1) return replacement(firstOld, firstNew);
 
   return `Edits ${lines(added + removed)} (adds ${added}, removes ${removed}), starting with ${firstOld} → ${firstNew}`;
 }
@@ -629,7 +637,12 @@ function hookChanges(before, after) {
   if (added.length === 1 && removed.length === 1) {
     const [old, fresh] = quotePair(removed[0], added[0]);
 
-    return { found: [`Replaces the command ${old} with ${fresh}`], explained };
+    const sentence =
+      old === fresh
+        ? `Changes only the spacing of the command ${old}`
+        : `Replaces the command ${old} with ${fresh}`;
+
+    return { found: [sentence], explained };
   }
 
   return {
@@ -1112,7 +1125,7 @@ export function approvalLabel({ name, login, at }) {
  * is not the gate's label and carries nothing.
  */
 const LABEL =
-  /^<sub><i>Approved by ([\p{L}\p{N} .'&#;-]{1,800}) @([A-Za-z0-9-]{1,39}) on ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm))(?:; carried from `[0-9a-f]{7}`, whose guarded changes are identical)?<\/i><\/sub>$/u;
+  /^<sub><i>Approved by ([\p{L}\p{N} .'&#;-]{1,1100}) @([A-Za-z0-9-]{1,39}) on ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm))(?:; carried from `[0-9a-f]{7}`, whose guarded changes are identical)?<\/i><\/sub>$/u;
 
 /**
  * The label for a sign-off carried from an earlier head, rebuilt from the
@@ -1265,17 +1278,34 @@ function isLabelled(body, unticked) {
   return box.test(`${text}\n`) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked;
 }
 
-/** @param {string} head @returns {CommitStatus} */
-const signedOffStatus = (head) => ({
+/**
+ * The sign-off status for `head`, naming the guarded-change fingerprint it
+ * approved so a later run can check that nothing guarded moved since.
+ *
+ * @param {string} head @param {string} fingerprint @param {string} [from]  the head the approver ticked, when carried
+ * @returns {CommitStatus}
+ */
+const signedOffStatus = (head, fingerprint, from = head) => ({
   state: 'success',
-  description: `${APPROVER} signed off at ${head.slice(0, 7)}`,
+  description: `${APPROVER} signed off at ${from.slice(0, 7)}${from === head ? '' : `; carried to ${head.slice(0, 7)}`}${fingerprint ? `; guard ${fingerprint.slice(0, 40)}` : ''}`,
 });
 
-/** @param {string} from @param {string} head @returns {CommitStatus} */
-const carriedStatus = (from, head) => ({
-  state: 'success',
-  description: `${APPROVER} signed off at ${from.slice(0, 7)}; same guarded changes at ${head.slice(0, 7)}`,
-});
+/**
+ * The commit and fingerprint a gate sign-off status names, or undefined for any
+ * other description. A status from before fingerprints names no fingerprint.
+ *
+ * @param {string | undefined} description
+ * @returns {{ head: string, fingerprint: string | null } | undefined}
+ */
+function signedOffIn(description) {
+  const match = description?.match(
+    /^(\S+) signed off at ([0-9a-f]{7})(?:; carried to ([0-9a-f]{7}))?(?:; guard ([0-9a-f]{40}))?$/,
+  );
+
+  if (!match || match[1] !== APPROVER) return undefined;
+
+  return { head: match[3] ?? match[2], fingerprint: match[4] ?? null };
+}
 
 /** @type {CommitStatus} */
 const WAITING = {
@@ -1292,10 +1322,10 @@ const WAITING = {
  * comment is unchanged since it, clear any other edit, and name whoever else
  * left a tick. Returns undefined for a fresh tick the comment has moved past.
  *
- * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, event: CommentEdit }} input
+ * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, event: CommentEdit, fingerprint: string }} input
  * @returns {Plan | undefined}
  */
-function planEdit({ head, problems, comment, event }) {
+function planEdit({ head, problems, comment, event, fingerprint }) {
   const unticked = signoffComment({ head, problems });
 
   if (!isFreshTick({ event, unticked: normalise(unticked) })) {
@@ -1323,7 +1353,7 @@ function planEdit({ head, problems, comment, event }) {
       problems,
       approval: { name: name ?? null, login, at: new Date(event.at) },
     }),
-    status: signedOffStatus(head),
+    status: signedOffStatus(head, fingerprint),
   };
 }
 
@@ -1340,10 +1370,18 @@ function planEdit({ head, problems, comment, event }) {
  * A PR event with `carry`, an earlier head's verified sign-off whose guarded
  * changes match this head's, carries that sign-off to this head.
  *
- * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, signedOff: boolean, event: GateEvent, carry?: Carry }} input
+ * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, signedOff: boolean, event: GateEvent, carry?: Carry, fingerprint?: string }} input
  * @returns {Plan}
  */
-export function planApproval({ head, problems, comment, signedOff, event, carry }) {
+export function planApproval({
+  head,
+  problems,
+  comment,
+  signedOff,
+  event,
+  carry,
+  fingerprint = '',
+}) {
   if (problems.length === 0) {
     return {
       commentBody: comment ? CLEAR_BODY : null,
@@ -1351,7 +1389,8 @@ export function planApproval({ head, problems, comment, signedOff, event, carry 
     };
   }
 
-  const edit = event.kind === 'comment' && planEdit({ head, problems, comment, event });
+  const edit =
+    event.kind === 'comment' && planEdit({ head, problems, comment, event, fingerprint });
 
   if (edit) return edit;
   const unticked = signoffComment({ head, problems });
@@ -1361,22 +1400,25 @@ export function planApproval({ head, problems, comment, signedOff, event, carry 
   }
 
   return (
-    carriedPlan({ head, problems, event, carry }) ?? { commentBody: unticked, status: WAITING }
+    carriedPlan({ head, problems, event, carry, fingerprint }) ?? {
+      commentBody: unticked,
+      status: WAITING,
+    }
   );
 }
 
 /**
  * The plan that carries a verified earlier sign-off to a new head on a PR event.
  *
- * @param {{ head: string, problems: Problem[], event: GateEvent, carry?: Carry }} input
+ * @param {{ head: string, problems: Problem[], event: GateEvent, carry?: Carry, fingerprint: string }} input
  * @returns {Plan | undefined}
  */
-function carriedPlan({ head, problems, event, carry }) {
+function carriedPlan({ head, problems, event, carry, fingerprint }) {
   if (event.kind !== 'pull' || !carry || carry.from === head) return undefined;
 
   return {
     commentBody: signoffComment({ head, problems, carry }),
-    status: carriedStatus(carry.from, head),
+    status: signedOffStatus(head, fingerprint, carry.from),
   };
 }
 
@@ -1402,6 +1444,20 @@ async function readFile(github, repo, path, ref) {
 }
 
 /**
+ * Every comment the gate wrote as its sign-off, oldest first.
+ *
+ * @param {Array<{ id: number, body?: string, user?: { login: string } }>} comments
+ */
+const gateComments = (comments) =>
+  comments.filter(
+    (comment) =>
+      comment.user?.login === GATE_AUTHOR &&
+      (comment.body?.startsWith(COMMENT_MARKER) ||
+        (comment.body?.includes(APPROVAL_TEXT) &&
+          comment.body.includes('## Enforcement sign-off'))),
+  );
+
+/**
  * The gate's own comment, or undefined when there is none. A comment a person
  * posts never counts, whatever it says. On an edit, the edited comment comes
  * first, and it counts when its marker was there before the edit. A gate
@@ -1411,18 +1467,6 @@ async function readFile(github, repo, path, ref) {
  * @param {Array<{ id: number, body?: string, updated_at?: string, user?: { login: string } }>} comments
  * @param {GateEvent} event
  */
-/**
- * Every comment the gate wrote as its sign-off, oldest first.
- *
- * @param {Array<{ id: number, body?: string, user?: { login: string } }>} comments
- */
-const gateComments = (comments) =>
-  comments.filter(
-    (comment) =>
-      comment.user?.login === GATE_AUTHOR &&
-      (comment.body?.startsWith(COMMENT_MARKER) || comment.body?.includes(APPROVAL_TEXT)),
-  );
-
 function findSignoffComment(comments, event) {
   const hadMarker = (/** @type {number} */ id) =>
     event.kind === 'comment' &&
@@ -1478,7 +1522,7 @@ async function gateEvent(github, context) {
  *
  * @param {any} github @param {{ owner: string, repo: string }} repo @param {string} head
  */
-async function isSignedOff(github, repo, head) {
+async function signOffOn(github, repo, head) {
   const { data: statuses } = await github.rest.repos.listCommitStatusesForRef({
     ...repo,
     ref: head,
@@ -1489,18 +1533,9 @@ async function isSignedOff(github, repo, head) {
     (/** @type {{ context: string, creator?: { login: string } }} */ status) =>
       status.context === STATUS_CONTEXT && status.creator?.login === GATE_AUTHOR,
   );
+  const signed = latest?.state === 'success' ? signedOffIn(latest.description) : undefined;
 
-  const signed = signedOffStatus(head);
-  const carried = `; same guarded changes at ${head.slice(0, 7)}`;
-
-  return (
-    latest?.state === signed.state &&
-    (latest?.description === signed.description ||
-      Boolean(
-        latest?.description?.startsWith(`${APPROVER} signed off at `) &&
-          latest.description.endsWith(carried),
-      ))
-  );
+  return signed?.head === head.slice(0, 7) ? signed : undefined;
 }
 
 /**
@@ -1516,14 +1551,35 @@ async function verifiedCarry({ github, repo, number, base, head, changes, commen
   const approved = comment && approvedIn(comment.body);
 
   if (!approved || approved.head === head) return undefined;
-  if (!(await isSignedOff(github, repo, approved.head))) return undefined;
-  if (!(await isCommitOf({ github, repo, number, sha: approved.head }))) return undefined;
-  const earlier = await guardedChangesAt({ github, repo, base, ref: approved.head });
+  const signed = await signOffOn(github, repo, approved.head);
 
-  if (earlier === null || guardFingerprint(earlier) !== guardFingerprint(changes)) return undefined;
+  if (!signed) return undefined;
+  if (!(await isCommitOf({ github, repo, number, sha: approved.head }))) return undefined;
+  // A sign-off from before fingerprints is checked by reading the approved head again.
+  const earlier =
+    signed.fingerprint ??
+    (await guardedChangesAt({ github, repo, base, ref: approved.head }).then((found) =>
+      found ? guardFingerprint(found).slice(0, 40) : null,
+    ));
+
+  if (earlier !== guardFingerprint(changes).slice(0, 40)) return undefined;
   const { name, handle, time } = approved;
 
   return { from: approved.head, name, handle, time };
+}
+
+/**
+ * Whether `head` holds the gate's sign-off for exactly these guarded changes.
+ * A sign-off from before fingerprints names none and holds as it did.
+ *
+ * @param {{ github: any, repo: { owner: string, repo: string }, head: string, fingerprint: string }} input
+ */
+async function holdsSignOff({ github, repo, head, fingerprint }) {
+  const signed = await signOffOn(github, repo, head);
+
+  return Boolean(
+    signed && (signed.fingerprint ?? fingerprint.slice(0, 40)) === fingerprint.slice(0, 40),
+  );
 }
 
 /**
@@ -1601,7 +1657,16 @@ async function guardedChangesAt({ github, repo, base, ref }) {
  * @param {{ github: any, repo: { owner: string, repo: string }, number: number, existing: { id: number, body: string } | undefined, older: number[], body: string | null, repost: boolean }} input
  */
 async function writeComment({ github, repo, number, existing, older, body, repost }) {
-  if (body === null || body === existing?.body) return;
+  if (body === null) return;
+  if (body === existing?.body) {
+    await Promise.allSettled(
+      older
+        .filter((id) => id !== existing.id)
+        .map((id) => github.rest.issues.deleteComment({ ...repo, comment_id: id })),
+    );
+
+    return;
+  }
   if (existing && !repost) {
     await github.rest.issues.updateComment({ ...repo, comment_id: existing.id, body });
 
@@ -1658,7 +1723,8 @@ export async function run({ github, context, core }) {
 
   const event = await gateEvent(github, context);
   const existing = findSignoffComment(comments, event);
-  const signedOff = await isSignedOff(github, repo, head);
+  const fingerprint = guardFingerprint(changes);
+  const signedOff = await holdsSignOff({ github, repo, head, fingerprint });
   const carry = await carryFor({
     github,
     repo,
@@ -1670,7 +1736,15 @@ export async function run({ github, context, core }) {
     listed: files.length,
   });
 
-  const plan = planApproval({ head, problems, comment: existing, signedOff, event, carry });
+  const plan = planApproval({
+    head,
+    problems,
+    comment: existing,
+    signedOff,
+    event,
+    carry,
+    fingerprint,
+  });
 
   await writeComment({
     github,

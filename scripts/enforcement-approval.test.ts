@@ -1428,6 +1428,7 @@ interface PaginationParameters {
 
 interface GitHubState {
   head: string;
+  mergeBase?: string;
   profiles: Record<string, string | null>;
 }
 
@@ -1505,7 +1506,7 @@ function fakeGitHub({
 
         return {
           data: {
-            merge_base_commit: { sha: mergeBaseAt[ref] ?? MERGE_BASE },
+            merge_base_commit: { sha: mergeBaseAt[ref] ?? state.mergeBase ?? MERGE_BASE },
             files: filesAt[ref] ?? files,
           },
         };
@@ -2045,7 +2046,9 @@ describe('guard comment placement and approval carry-over', () => {
       expect.objectContaining({
         sha: NEXT,
         state: 'success',
-        description: `${APPROVER} signed off at aaaaaaa; same guarded changes at bbbbbbb`,
+        description: expect.stringMatching(
+          new RegExp(`^${APPROVER} signed off at aaaaaaa; carried to bbbbbbb; guard [0-9a-f]{40}$`),
+        ),
       }),
     );
     await run({ github: fake.github, context: pullRequestContext, core });
@@ -2113,6 +2116,50 @@ describe('guard comment placement and approval carry-over', () => {
     expect(box).toContain('carried from `bbbbbbb`');
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: THIRD, state: 'success' }),
+    );
+  });
+});
+
+describe('sign-off bound to the guarded changes', () => {
+  const PATH = '.husky/pre-commit';
+  const OTHER_BASE = 'f'.repeat(40);
+
+  it('clears a sign-off when the base moves under the same head', async () => {
+    const fake = fakeGitHub({
+      files: [{ filename: PATH }],
+      contents: {
+        [MERGE_BASE]: { [PATH]: 'a\nq' },
+        [OTHER_BASE]: { [PATH]: 'a\nr' },
+        [HEAD]: { [PATH]: 'x\nb' },
+      },
+    });
+    await run({ github: fake.github, context: pullRequestContext, core });
+    await run({ github: fake.github, context: fake.editBy(ben, (body) => tick(body)), core });
+    expect(fake.calls.createCommitStatus.at(-1)?.state).toBe('success');
+    fake.state.mergeBase = OTHER_BASE;
+    await run({ github: fake.github, context: pullRequestContext, core });
+    expect(fake.calls.createCommitStatus.at(-1)).toEqual(
+      expect.objectContaining({ sha: HEAD, state: 'failure' }),
+    );
+  });
+
+  it('carries a sign-off made before fingerprints by reading the approved head again', async () => {
+    const fake = fakeGitHub({
+      files: [{ filename: PATH }],
+      contents: {
+        [MERGE_BASE]: { [PATH]: 'npx lint-staged' },
+        [HEAD]: { [PATH]: 'true' },
+        [NEXT]: { [PATH]: 'true' },
+      },
+    });
+    await run({ github: fake.github, context: pullRequestContext, core });
+    await run({ github: fake.github, context: fake.editBy(ben, (body) => tick(body)), core });
+    const signed = fake.calls.createCommitStatus.at(-1);
+    if (signed) signed.description = `${APPROVER} signed off at aaaaaaa`;
+    fake.state.head = NEXT;
+    await run({ github: fake.github, context: pullRequestContext, core });
+    expect(fake.calls.createCommitStatus.at(-1)).toEqual(
+      expect.objectContaining({ sha: NEXT, state: 'success' }),
     );
   });
 });

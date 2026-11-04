@@ -34,12 +34,17 @@ earlier approval to that head only when all of these hold:
 - this PR's gate comment shows the gate's own ticked label for an earlier head,
   matched against a strict pattern and naming the approver's handle;
 - the gate's own latest `enforcement-approval` status on that earlier head is
-  the sign-off;
+  the sign-off, and the fingerprint it names equals this head's;
 - GitHub lists that earlier head as a commit of this PR;
 - the PR lists fewer files than the API limit, and the earlier head's
   comparison lists fewer than 300, so no guarded file can hide;
-- the gate reads the earlier head's guarded files from GitHub again, and the
-  two fingerprints are identical.
+- for a sign-off made before fingerprints, whose status names none, the gate
+  reads the earlier head's guarded files from GitHub again and the two
+  fingerprints are identical.
+
+The sign-off status names the fingerprint it approved. A later run on the same
+head keeps the approval only while the current fingerprint matches, so moving
+the PR to another base, or any other change to the guarded text, clears it.
 
 Any difference in any guarded file clears the tick. That includes an update
 from main that itself changed a guarded file the PR also changes, because the
