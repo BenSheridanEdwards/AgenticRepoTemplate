@@ -1,6 +1,23 @@
+Think clearly and speak in standard English. Let everything follow from that: implement the code that this codebase wants, based on its lint rules.
+
 # Todo trial {{ID}}
 
 You are running trial {{N}} of three independent Todo trials in this repository. Work alone in this one session. Nobody will answer a question or correct you, so make every decision from the repository's own docs and checks, and repair your own mistakes until the checks pass.
+
+## How to build it
+
+Build a simple, production-level to-do app. Make sensible decisions. Do not overcomplicate. Make no fancy UI.
+
+- Sort your imports.
+- Keep code next to the code that uses it.
+- Keep each data layer inside its boundary. Import only in the directions that `.agents/project/ARCHITECTURE.md` permits.
+- Use the global primitives from `@repo/ui`.
+- Keep state thin. Put it in custom `use*` hooks.
+- Use React Hook Form for forms and React Query (TanStack Query) for server state.
+- Style with Tailwind. Use only scalable Tailwind values: the theme scale and the shared `@theme` tokens in `packages/ui`. Use no arbitrary values, such as `w-[13px]`. Use no inline `style` props and no one-off CSS values. Then the result uses one shared design system.
+- You have 100 turns maximum. Finish the work, with every check passing, inside this limit.
+
+The judging question is: would you want this code as your codebase?
 
 ## What to build
 

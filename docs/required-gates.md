@@ -31,6 +31,7 @@ Every hook command and every `verify` step has a required CI equivalent.
 child command is checked below. The PR title is the squash commit message,
 so title validation repeats commitlint. CI Biome and secret scans cover
 the full tree and history rather than staged files.
+Action pins are read from the workflows and composite actions, so a Dependabot bump needs no edit here.
 
 | Hook or script | Local command | Workflow job | CI step |
 | --- | --- | --- | --- |
@@ -49,8 +50,8 @@ the full tree and history rather than staged files.
 | `package.json verify` | `pnpm lint:anti-slop` | `ci.yml` `quality` | `pnpm lint:anti-slop` |
 | `.husky/pre-commit` | `pnpm exec biome check --error-on-warnings --staged --no-errors-on-unmatched .` | `ci.yml` `quality` | `pnpm check` |
 | `package.json verify` | `pnpm check` | `ci.yml` `quality` | `pnpm check` |
-| `.husky/pre-commit` | `pnpm fallow:audit` | `ci.yml` `fallow` | `fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1 with.command: audit` |
-| `package.json verify` | `pnpm fallow:audit` | `ci.yml` `fallow` | `fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1 with.command: audit` |
+| `.husky/pre-commit` | `pnpm fallow:audit` | `ci.yml` `fallow` | `fallow-rs/fallow with.command: audit` |
+| `package.json verify` | `pnpm fallow:audit` | `ci.yml` `fallow` | `fallow-rs/fallow with.command: audit` |
 | `.husky/pre-commit` | `pnpm secret-scan` | `ci.yml` `security` | `bash scripts/secret-scan-ci.sh` |
 | `.husky/pre-push` | `sh scripts/require-up-to-date-main.sh --pushed-refs` | `ci.yml` `up-to-date` | `sh scripts/require-up-to-date-main.sh` |
 | `.husky/pre-push` | `pnpm verify` | `ci.yml` `required-gates` | `node scripts/required-gates.mjs --decide` |

@@ -55,9 +55,9 @@ const commit = (cwd, message) =>
     'git',
     [
       '-c',
-      'user.name=Ben Sheridan-Edwards',
+      'user.name=Bench Maintainer',
       '-c',
-      'user.email=bensheridanedwards@gmail.com',
+      'user.email=bench@example.invalid',
       'commit',
       '--allow-empty',
       '-m',

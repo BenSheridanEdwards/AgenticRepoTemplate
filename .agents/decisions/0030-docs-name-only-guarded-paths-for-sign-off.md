@@ -1,13 +1,13 @@
 # 30. Docs name only guarded paths when they mention sign-off
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #85)
 - **Date:** 2026-10-17
 - **Builds on:** [0023](0023-protect-only-the-files-that-run-the-gates.md)
 - **Amended by:** [ADR 0082](0082-retire-gitnexus-graphify-verify-gates-and-architectplaybook-audits.md)
 
 ## Context
 
-The enforcement gate decides which files need Ben's sign-off from one table in
+The enforcement gate decides which files need the approver's sign-off from one table in
 `scripts/enforcement-approval.mjs`. Several guidance docs also name those files
 in prose. When the table changes, the prose stays as it was, and every check
 stays green.
@@ -39,7 +39,7 @@ gate leaves unguarded.
   rules, through the `guardedPaths` function that
   `scripts/enforcement-approval.mjs` exports. A linked code span is judged by
   its link target. A folder or glob is guarded when every tracked file it
-  covers is guarded, so `.husky` and `eslint.config.*` pass and `scripts/`
+  covers is guarded, so `.husky` and `oxlint.config.*` pass and `scripts/`
   fails. In a glob, `**/` matches zero or more folders, so `.github/**/*.yml`
   covers `.github/ci.yml` as well as the workflows.
 - A claim that a file needs no sign-off, goes without it, or sits outside it

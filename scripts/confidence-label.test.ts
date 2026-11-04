@@ -21,6 +21,7 @@ import {
   requiredCheckResults,
   sliceOf,
 } from './confidence-label.mjs';
+import { LIST_FILES_LIMIT } from './enforcement-approval.mjs';
 import { AGGREGATE, REQUIRED_GATES } from './required-gates.mjs';
 
 const greetingSpec = {
@@ -412,6 +413,118 @@ describe('CLI', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
+  const documentationChanged =
+    '.agents/decisions/0110-north-star-product-definition.md\ndocs/GLOSSARY.md\ndocs/NORTH_STAR.md';
+
+  it.each([
+    'stub',
+    'missing',
+  ])('grades documentation-only changes green with %s coverage and no blast radius', (kind) => {
+    const coverage = join(root, 'coverage.json');
+    if (kind === 'stub') writeFileSync(coverage, '{}');
+    const output = join(root, 'output');
+    const summary = join(root, 'summary');
+    const result = run('--decide', {
+      CHANGED: documentationChanged,
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: coverage,
+      BLAST_RADIUS_FILE: join(root, 'absent'),
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: summary,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe('level=green\nlabel=confidence: green\n');
+    expect(result.stdout).toContain('documentation only');
+    expect(result.stdout).not.toContain('unavailable');
+  });
+
+  it.each([
+    ['source', 'packages/ui/src/Button.tsx', 'coverage'],
+    ['source', 'packages/ui/src/Button.tsx', 'blast radius'],
+    ['mixed', 'README.md\ndocs/GLOSSARY.md\npackages/ui/src/Button.tsx', 'coverage'],
+    ['mixed', 'README.md\ndocs/GLOSSARY.md\npackages/ui/src/Button.tsx', 'blast radius'],
+  ])('fails closed for %s changes (%s) with missing %s evidence', (_, changed, missing) => {
+    const output = join(root, 'output');
+    const summary = join(root, 'summary');
+    const result = run('--decide', {
+      CHANGED: changed,
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: missing === 'coverage' ? join(root, 'absent') : writeCoverage(),
+      BLAST_RADIUS_FILE:
+        missing === 'blast radius'
+          ? join(root, 'absent')
+          : writeBlastRadius(JSON.stringify(blastEvidence(changed))),
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: summary,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
+    expect(result.stdout).toContain(`${missing} unavailable`);
+    expect(result.stdout).not.toContain('documentation only');
+  });
+
+  it('grades documentation-only changes red when a required check fails without evidence', () => {
+    const output = join(root, 'output');
+    const summary = join(root, 'summary');
+    const failedCheck = requiredCheckNames()[0];
+    const runs = JSON.parse(passingRuns()).map((run: { name: string; conclusion: string }) => ({
+      ...run,
+      conclusion: run.name === failedCheck ? 'failure' : run.conclusion,
+    }));
+    const result = run('--decide', {
+      CHANGED: documentationChanged,
+      CHECK_RUNS: JSON.stringify(runs),
+      COVERAGE_FILE: join(root, 'absent'),
+      BLAST_RADIUS_FILE: join(root, 'absent'),
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: summary,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
+    expect(result.stdout).toContain(`Required check \`${failedCheck}\` is failure`);
+    expect(result.stdout).toContain('documentation only');
+    expect(result.stdout).not.toContain('unavailable');
+  });
+
+  it('grades an empty changed-file list red without evidence', () => {
+    const output = join(root, 'output');
+    const result = run('--decide', {
+      CHANGED: '',
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: join(root, 'absent'),
+      BLAST_RADIUS_FILE: join(root, 'absent'),
+      GITHUB_OUTPUT: output,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe('level=red\nlabel=confidence: red\n');
+    expect(result.stdout).toContain('coverage unavailable');
+    expect(result.stdout).toContain('blast radius unavailable');
+    expect(result.stdout).not.toContain('documentation only');
+  });
+
+  it.each([
+    [LIST_FILES_LIMIT - 1, 'green'],
+    [LIST_FILES_LIMIT, 'red'],
+  ])('grades %s Markdown files %s without evidence at the PR files API cap', (count, level) => {
+    const output = join(root, 'output');
+    const result = run('--decide', {
+      CHANGED: Array.from({ length: count }, (_, i) => `docs/n${i}.md`).join('\n'),
+      CHECK_RUNS: passingRuns(),
+      COVERAGE_FILE: join(root, 'absent'),
+      BLAST_RADIUS_FILE: join(root, 'absent'),
+      GITHUB_OUTPUT: output,
+    });
+    expect(result.status).toBe(0);
+    expect(readFileSync(output, 'utf8')).toBe(`level=${level}\nlabel=confidence: ${level}\n`);
+    if (level === 'green') {
+      expect(result.stdout).toContain('documentation only');
+      return;
+    }
+    expect(result.stdout).toContain('coverage unavailable');
+    expect(result.stdout).toContain('blast radius unavailable');
+    expect(result.stdout).not.toContain('documentation only');
+  });
+
   it('reads the PR checkout as data and writes the red label and gap summary', () => {
     [greetingSpec, greetingPrd].forEach((file) => {
       const path = join(root, file.path.replaceAll('greeting', 'fixture-covered'));
@@ -540,7 +653,7 @@ describe('CLI', () => {
     'wrong head',
     'partial',
   ])('grades %s blast-radius evidence red', (kind) => {
-    const evidence = blastEvidence('README.md');
+    const evidence = blastEvidence('package.json');
     const text =
       kind === 'malformed'
         ? 'not JSON'
@@ -550,7 +663,7 @@ describe('CLI', () => {
             files: kind === 'partial' ? [] : evidence.files,
           }) + (kind === 'oversize' ? ' '.repeat(5 * 1024 * 1024) : '');
     const result = run('--decide', {
-      CHANGED: 'README.md',
+      CHANGED: 'package.json',
       CHECK_RUNS: passingRuns(),
       COVERAGE_FILE: writeCoverage(),
       BLAST_RADIUS_FILE:
@@ -651,6 +764,69 @@ describe('decideConfidence', () => {
     expect(decision.level).toBe('red');
     expect(decision.reasons.at(-1)).toContain('coverage unavailable');
     expect(decision.reasons).toHaveLength(conclusion === 'success' ? 1 : 2);
+  });
+
+  it('grades documentation-only changes green without coverage or blast-radius evidence', () => {
+    const decision = decideConfidence({
+      requiredChecks: allPassing,
+      gaps: [],
+      docsOnlyChange: true,
+      coverageUnavailable: true,
+      blastRadiusUnavailable: true,
+    });
+    expect(decision.level).toBe('green');
+    const reasons = decision.reasons.join('\n');
+    expect(reasons).toContain('documentation only');
+    expect(reasons).toMatch(/unit coverage.*import blast radius.*do not apply/);
+    expect(reasons).toMatch(/[Ee]very required gate passed/);
+    expect(reasons).not.toContain('coverage unavailable');
+    expect(reasons).not.toContain('blast radius unavailable');
+    expect(reasons).not.toContain('line-coverage threshold');
+  });
+
+  it.each([
+    'failure',
+    'pending',
+  ])('grades documentation-only changes red with a %s required check without evidence', (conclusion) => {
+    const decision = decideConfidence({
+      requiredChecks: [{ name: 'Required gates', conclusion }],
+      gaps: [],
+      docsOnlyChange: true,
+      coverageUnavailable: true,
+      blastRadiusUnavailable: true,
+    });
+    expect(decision.level).toBe('red');
+    const reasons = decision.reasons.join('\n');
+    expect(reasons).toContain('Required gates');
+    expect(reasons).toContain(conclusion);
+    expect(reasons).toContain('documentation only');
+    expect(reasons).toMatch(/unit coverage.*import blast radius.*do not apply/);
+    expect(reasons).not.toContain('unavailable');
+  });
+
+  it('keeps documentation-only changes amber when a gap remains', () => {
+    const decision = decideConfidence({
+      requiredChecks: allPassing,
+      gaps: ['Import blast radius crosses units.'],
+      docsOnlyChange: true,
+      coverageUnavailable: true,
+      blastRadiusUnavailable: true,
+    });
+    expect(decision.level).toBe('amber');
+    expect(decision.reasons).toEqual([
+      'Import blast radius crosses units.',
+      expect.stringContaining('documentation only'),
+    ]);
+  });
+
+  it('grades unavailable blast radius red for code changes by default', () => {
+    const decision = decideConfidence({
+      requiredChecks: allPassing,
+      gaps: [],
+      blastRadiusUnavailable: true,
+    });
+    expect(decision.level).toBe('red');
+    expect(decision.reasons.join('\n')).toContain('blast radius unavailable');
   });
 
   it('grades red when a required check is not success', () => {

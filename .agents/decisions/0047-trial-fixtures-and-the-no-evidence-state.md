@@ -1,6 +1,6 @@
 # 47. Keep trial unit tests on fixtures and handle the no-evidence state
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #108)
 - **Date:** 2026-10-20
 - **Amends:** [0035](0035-trial-comparison.md)
 - **Implements:** [0034](0034-trial-harness-and-evidence.md)

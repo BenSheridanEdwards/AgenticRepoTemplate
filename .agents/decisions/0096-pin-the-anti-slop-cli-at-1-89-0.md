@@ -1,12 +1,12 @@
 # 96. Pin the anti-slop CLI at 1.89.0
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #270)
+- **Replaces:** ADR 0072 (deleted)
 
 ## Context
 
-Ben asked on 31 Oct 2026 to update the anti-slop pins. This amends
-[Pin the anti-slop CLI dependencies](0072-pin-anti-slop-cli-dependencies.md)
-and implements the pins in
+The maintainer asked on 31 Oct 2026 to update the anti-slop pins. This replaces
+ADR 0072 (deleted), which pinned both packages at exactly `1.78.0`, and implements the pins in
 [Adopt the TypeScript toolchain standard](0073-adopt-the-typescript-toolchain-standard.md).
 
 ## Decision

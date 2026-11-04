@@ -1,6 +1,6 @@
 # 77. Pin the trial public API shapes
 
-- **Status:** Proposed (Ben accepts it by approving the PR)
+- **Status:** Accepted (merged in #184)
 - **Date:** 2026-10-27
 - **Amends:** [0071](0071-a-second-trial-brief.md),
   [0069](0069-trial-comparison-fixes-file-layout-and-mutation-outputs.md),
@@ -10,7 +10,7 @@
 
 The North Star trial on scaffold `88d5539` (main `9646c85`) failed: deletion
 returned an item, an id object or null, and Todo toggle varied in both input
-and output. Ben approved tightening the contracts and rerunning the trial
+and output. The maintainer approved tightening the contracts and rerunning the trial
 on 26 October 2026. This decision covers the public API only.
 
 ## Decision

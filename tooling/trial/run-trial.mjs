@@ -9,8 +9,8 @@
  * It clones the invoking checkout at the scaffold revision into a fresh
  * workdir, runs one fresh Claude session on the fixed prompt, commits the
  * result, runs every check on a clean clone of that commit and writes
- * `docs/trials/<id>.json` (plus a patch when the run fails) into the invoking
- * checkout. Each command that runs the trial's code gets a private temp and
+ * `docs/trials/<id>.json` and the result's patch into the invoking checkout,
+ * so the result code stays on its branch and only the evidence lands (ADR 0115). Each command that runs the trial's code gets a private temp and
  * cache folder inside the workdir, with the temp folder mounted over `/tmp`
  * by bubblewrap, and none runs under a time limit (ADR 0038). It never deletes the workdir; it prints the path for whoever runs the
  * next trial.
@@ -58,6 +58,9 @@ const HARNESS_FILES = [
   'tasks/notes.json',
 ];
 
+/** The most turns a Claude session may take (ADR 0115); the prompt states the same limit. */
+export const MAX_TURNS = 100;
+
 /** The brief's command, plus the flags that make the session recordable. Never `--resume` or `--continue`. */
 const AGENT_FLAGS = [
   '-p',
@@ -68,6 +71,8 @@ const AGENT_FLAGS = [
   '--output-format',
   'stream-json',
   '--verbose',
+  '--max-turns',
+  String(MAX_TURNS),
   '--session-id',
 ];
 
@@ -724,8 +729,8 @@ async function commitResult(plan, deps) {
 }
 
 /**
- * Keeps the code of a failed run: its commits since the scaffold plus
- * everything left uncommitted.
+ * Keeps the code of every run the agent started: its commits since the
+ * scaffold plus everything left uncommitted.
  *
  * @param {TrialPlan} plan
  * @param {Deps} deps
@@ -1174,10 +1179,7 @@ export async function runTrial(plan, deps) {
     stream: { path: null, sha256: null, userTextEvents: null },
   };
   const state = preparationFailure ? initialState : await runStages(initialState);
-  if (
-    (state.failures.length > 0 && state.run.agentExitCode !== null) ||
-    plan.task.land === 'patch'
-  ) {
+  if (state.run.agentExitCode !== null || plan.task.land === 'patch') {
     state.result.patch = await writePatch(plan, deps);
   }
   const evidence = toEvidence(state, deps.now());

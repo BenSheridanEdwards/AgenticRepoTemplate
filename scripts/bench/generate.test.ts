@@ -55,19 +55,55 @@ test.each([0, 1, 3, -2, 2.5])('rejects invalid package count %s', (packages) => 
   expect(() => planWorkspace({ packages, reference })).toThrow();
 });
 
-test('only generated clones are added to the two Fallow ignore lists', () => {
-  const insertion =
-    /,\n {6}\/\/ generated benchmark clones of the reference result, temp copy only\n {6}"showcase\/bench-\*\/\*\*"/g;
-  const original = readFileSync('.fallowrc.jsonc', 'utf8').replace(insertion, '');
+const BENCH = 'showcase/bench-*/**';
+const withBench = (config: {
+  duplicates?: { ignore?: string[] };
+  health?: { ignore?: string[] };
+}) => ({
+  ...config,
+  duplicates: { ...config.duplicates, ignore: [...(config.duplicates?.ignore ?? []), BENCH] },
+  health: { ...config.health, ignore: [...(config.health?.ignore ?? []), BENCH] },
+});
+const list = (key: string, items: string) => `  "${key}": {\n    "ignore": [${items}]\n  }`;
+
+test.each([
+  ['the repository config', readFileSync('.fallowrc.jsonc', 'utf8')],
+  ['no ignore lists', '{\n  // kept\n  "rules": {}\n}\n'],
+  ['empty ignore lists', `{\n${list('duplicates', '')},\n${list('health', '')}\n}\n`],
+  [
+    'named entries',
+    `{\n${list('duplicates', '\n      "showcase/todo-01/**"\n    ')},\n${list('health', '\n      "showcase/todo-01/**"\n    ')}\n}\n`,
+  ],
+])('adds only the generated clones to both Fallow ignore lists: %s', (_case, original) => {
   const edited = benchFallowConfig(original);
   expect(benchFallowConfig(edited)).toBe(edited);
-  const config = parse(original);
-  config.duplicates.ignore.push('showcase/bench-*/**');
-  config.health.ignore.push('showcase/bench-*/**');
-  expect(parse(edited)).toEqual(config);
-  expect(edited.replace(insertion, '')).toBe(original);
-  expect(matchesGlob('showcase/bench-001/web/src/App.tsx', 'showcase/bench-*/**')).toBe(true);
+  expect(parse(edited)).toEqual(withBench(parse(original)));
+  original
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .forEach((line) => {
+      expect(edited).toContain(line.trimEnd().replace(/\]$/, ''));
+    });
+});
+
+test('names the fix when a clone-detection block starts with another setting', () => {
+  expect(() => benchFallowConfig('{\n  "duplicates": {\n    "mode": "mild"\n  }\n}\n')).toThrow(
+    'put "ignore" first in "duplicates"',
+  );
+});
+
+test('keeps future showcase results out of the generated clone pattern', () => {
+  expect(matchesGlob('showcase/bench-001/web/src/App.tsx', BENCH)).toBe(true);
   ['apps/web/src/App.tsx', 'showcase/notes-04/web/src/App.tsx'].forEach((path) => {
-    expect(matchesGlob(path, 'showcase/bench-*/**')).toBe(false);
+    expect(matchesGlob(path, BENCH)).toBe(false);
   });
+});
+
+test.each([
+  ['a leading comment', '// config\n{\n}\n'],
+  ['CRLF line endings', '{\r\n}\r\n'],
+])('names the fix when absent lists cannot be added: %s', (_case, original) => {
+  expect(() => benchFallowConfig(original)).toThrow(
+    'start the file with "{" on its own line using LF line endings',
+  );
 });

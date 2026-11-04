@@ -6,7 +6,7 @@
 
 ## Context
 
-Ben asked lint to ensure declarative code. Native declarative lint covers
+The maintainer asked lint to ensure declarative code. Native declarative lint covers
 branch shape and collection idioms; policy selectors cover the remaining syntax.
 
 ## Decision

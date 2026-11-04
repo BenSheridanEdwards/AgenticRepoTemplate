@@ -1,15 +1,18 @@
 # 79. Every lint rule is an error or removed
 
-- **Status:** Proposed
+- **Status:** Accepted (merged in #214), amended by
+  [0103](0103-eslint-is-retired.md) (Oxlint owns its rules) and
+  [0109](0109-declarative-policy-lint.md)
 - **Date:** 2026-10-29
-- **Supersedes:** [0063](0063-advisory-declarative-style-lint.md)
+- **Replaces:** ADR 0063 (deleted), whose advisory `pnpm lint:declarative`
+  command and configs were removed in #230
 - **Amends:** [0070](0070-vendored-anti-slop-oxlint-rules.md) for the advisory split and
   [0046](0046-fail-lint-on-warnings.md) for Fallow warnings
 
 ## Context
 
-Ben decided on 29 October: "We don't want advice, all warnings become errors
-if it forces the code into the shape we want". Advisory findings leave agents
+The maintainer decided on 29 October 2026 that no lint stays advisory: every
+warning becomes an error when it forces the code into the agreed shape. Advisory findings leave agents
 with standards that the gates do not enforce. Layout and naming word bans
 also create noise without improving the contracts.
 

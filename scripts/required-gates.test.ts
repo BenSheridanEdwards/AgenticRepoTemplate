@@ -49,7 +49,11 @@ function repoFile(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
 }
 
+const COMPOSITE_ACTIONS = ['.github/actions/setup/action.yml'];
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const REAL_FILES = {
+  '.github/actions/setup/action.yml': repoFile('.github/actions/setup/action.yml'),
   '.husky/pre-commit': repoFile('.husky/pre-commit'),
   '.husky/pre-push': repoFile('.husky/pre-push'),
   '.husky/commit-msg': repoFile('.husky/commit-msg'),
@@ -61,15 +65,70 @@ const REAL_FILES = {
   'pr-quality.yml': repoFile('.github/workflows/pr-quality.yml'),
 };
 
+function runCheckIn(files: Record<string, string>) {
+  mkdirSync(join(process.cwd(), '.scratch'), { recursive: true });
+  const root = mkdtempSync(join(process.cwd(), '.scratch/required-gates-'));
+  try {
+    Object.entries(files).forEach(([name, text]) => {
+      const path = join(
+        root,
+        name.startsWith('.github/') || !name.endsWith('.yml') ? name : `.github/workflows/${name}`,
+      );
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+    });
+    return spawnSync('node', [join(root, 'scripts/required-gates.mjs'), '--check'], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH },
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function currentPin(action: string) {
+  const line = REAL_FILES['ci.yml'].split('\n').find((line) => line.includes(`uses: ${action}@`));
+  if (!line) {
+    throw new Error(`No uses: ${action}@ pin found in ci.yml`);
+  }
+  return line.slice(line.indexOf('uses: ') + 'uses: '.length).trim();
+}
+
+const SN_OLD = currentPin('actions/setup-node');
+const SN_NEW = `actions/setup-node@${'d'.repeat(40)} # v99.0.0`;
+const FA_OLD = currentPin('fallow-rs/fallow');
+const FA_NEW = `fallow-rs/fallow@${'e'.repeat(40)} # v99.0.0`;
+const CO_OLD = currentPin('actions/checkout');
+const CO_NEW = `actions/checkout@${'b'.repeat(40)} # v99.0.0`;
+
+function bumpWorkflows(
+  replacements: ReadonlyArray<readonly [string, string]>,
+  workflowsOnly = false,
+) {
+  return (files: typeof REAL_FILES) =>
+    Object.fromEntries(
+      Object.keys(files)
+        .filter((name) => name.endsWith('.yml') && (!workflowsOnly || !name.includes('/')))
+        .map((name) => [
+          name,
+          replacements.reduce((text, [from, to]) => text.replaceAll(from, to), files[name]),
+        ]),
+    );
+}
+
 function contractErrors(
-  edit: (files: typeof REAL_FILES) => Partial<typeof REAL_FILES> = () => ({}),
+  edit: (
+    files: typeof REAL_FILES,
+  ) => Partial<typeof REAL_FILES> & Record<string, string> = () => ({}),
   hookSteps = HOOK_STEPS,
+  compositeActions = COMPOSITE_ACTIONS,
 ) {
   const files = { ...REAL_FILES, ...edit(REAL_FILES) };
   return checkContract({
     readWorkflow: (name: keyof typeof REAL_FILES) => files[name],
     readFile: (name: keyof typeof REAL_FILES) => files[name],
     hookSteps,
+    compositeActions,
     inventory: renderInventory(),
   });
 }
@@ -416,12 +475,165 @@ describe('checkContract', () => {
   it('requires the pinned aggregate and Fallow commits', () => {
     expect(contractErrors()).toEqual([]);
     const errors = contractErrors((files) => ({
-      'ci.yml': files['ci.yml'].replaceAll(
-        'fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1',
-        'fallow-rs/fallow@v3.33.1',
-      ),
+      'ci.yml': files['ci.yml'].replaceAll(FA_OLD, 'fallow-rs/fallow@v3.33.1'),
     }));
     expect(errors).toContainEqual(expect.stringContaining('pnpm fallow:audit'));
+  });
+
+  it.each<{ label: string; replacements: Array<[string, string]> }>([
+    { label: 'setup-node bump (as Dependabot #274)', replacements: [[SN_OLD, SN_NEW]] },
+    { label: 'fallow bump (as Dependabot #273)', replacements: [[FA_OLD, FA_NEW]] },
+    { label: 'checkout bump', replacements: [[CO_OLD, CO_NEW]] },
+    {
+      label: 'all three bumps together',
+      replacements: [
+        [SN_OLD, SN_NEW],
+        [FA_OLD, FA_NEW],
+        [CO_OLD, CO_NEW],
+      ],
+    },
+  ])('accepts $label across every contract workflow and composite action', ({ replacements }) => {
+    const bump = bumpWorkflows(replacements);
+    const bumped = bump(REAL_FILES);
+    expect(bumped['ci.yml']).not.toBe(REAL_FILES['ci.yml']);
+    expect(replacements.every(([from, to]) => to !== from && bumped['ci.yml'].includes(to))).toBe(
+      true,
+    );
+    expect(contractErrors(bump)).toEqual([]);
+  });
+
+  it('rejects a setup-node half bump with both versions in one error', () => {
+    const otherPin = `actions/setup-node@${'c'.repeat(40)} # v99.0.0`;
+    const versionComment = SN_OLD.slice(SN_OLD.indexOf('#'));
+    const errors = contractErrors((files) => {
+      const [before, aggregate] = files['ci.yml'].split('\n  required-gates:\n');
+      return {
+        'ci.yml': `${before}\n  required-gates:\n${aggregate.replace(SN_OLD, otherPin)}`,
+      };
+    });
+    expect(
+      errors.some(
+        (error) =>
+          error.includes('actions/setup-node') &&
+          error.includes(versionComment) &&
+          error.includes('v99.0.0'),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects a setup-node bump that skips the composite action (as Dependabot #274)', () => {
+    const errors = contractErrors(bumpWorkflows([[SN_OLD, SN_NEW]], true));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('actions/setup-node');
+    expect(errors[0]).toContain('.github/actions/setup/action.yml');
+    expect(errors[0]).toContain(SN_OLD.slice(SN_OLD.indexOf('#')));
+    expect(errors[0]).toContain('v99.0.0');
+    expect(errors[0]).toMatch(
+      new RegExp(`${escapeRegExp(SN_OLD)}\` in [^;]*\\.github/actions/setup/action\\.yml`),
+    );
+  });
+
+  it('rejects a composite action that bumps setup-node alone', () => {
+    const errors = contractErrors((files) => ({
+      '.github/actions/setup/action.yml': files['.github/actions/setup/action.yml'].replaceAll(
+        SN_OLD,
+        SN_NEW,
+      ),
+    }));
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('.github/actions/setup/action.yml');
+    expect(errors[0]).toContain('v99.0.0');
+    expect(errors[0]).toContain('ci.yml');
+  });
+
+  it('requires a full commit SHA for setup-node in a composite action', () => {
+    const errors = contractErrors((files) => ({
+      '.github/actions/setup/action.yml': files['.github/actions/setup/action.yml'].replaceAll(
+        SN_OLD,
+        'actions/setup-node@v6',
+      ),
+    }));
+    expect(errors).toContainEqual(expect.stringMatching(/actions\/setup-node@v6.*full commit SHA/));
+  });
+
+  it('reads every listed composite action', () => {
+    const errors = contractErrors(
+      () => ({
+        '.github/actions/other/action.yml': `name: Other\nruns:\n  using: composite\n  steps:\n    - uses: actions/checkout@${'f'.repeat(40)} # v99.0.0\n`,
+      }),
+      HOOK_STEPS,
+      [...COMPOSITE_ACTIONS, '.github/actions/other/action.yml'],
+    );
+    expect(errors).toContainEqual(
+      expect.stringMatching(/actions\/checkout.*\.github\/actions\/other\/action\.yml/),
+    );
+  });
+
+  it('ignores commented-out uses lines in a composite action', () => {
+    expect(
+      contractErrors((files) => ({
+        '.github/actions/setup/action.yml': `${files['.github/actions/setup/action.yml']}\n    # - uses: actions/setup-node@v1\n`,
+      })),
+    ).toEqual([]);
+  });
+
+  it('requires the Fallow audit step when it is removed', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replace(
+        / {6}- uses: fallow-rs\/fallow@[^\n]+\n[\s\S]*? {10}review-comments: true\n/,
+        '',
+      ),
+    }));
+    expect(errors).toContainEqual(
+      expect.stringContaining('fallow-rs/fallow is not used by any contract workflow'),
+    );
+    expect(errors).toContainEqual(
+      expect.stringMatching(/`pnpm fallow:audit`.*missing `fallow-rs\/fallow with.command: audit`/),
+    );
+  });
+
+  it('requires a full commit SHA for the Fallow action', () => {
+    const errors = contractErrors((files) => ({
+      'ci.yml': files['ci.yml'].replaceAll(
+        FA_OLD,
+        FA_OLD.replace(/@[a-f0-9]{40}/, (sha) => sha.slice(0, 8)),
+      ),
+    }));
+    expect(errors).toContainEqual(expect.stringMatching(/fallow-rs\/fallow.*full commit SHA/));
+  });
+
+  it('rejects a full SHA with a non-semver version comment', () => {
+    const errors = contractErrors(bumpWorkflows([[FA_OLD, FA_OLD.replace(/#.*$/, '# latest')]]));
+    expect(errors).toContainEqual(expect.stringMatching(/fallow-rs\/fallow.*full commit SHA/));
+  });
+
+  it('accepts a prerelease version comment', () => {
+    expect(
+      contractErrors(bumpWorkflows([[FA_OLD, FA_OLD.replace(/#.*$/, '# v3.36.0-rc.1')]])),
+    ).toEqual([]);
+  });
+
+  it('requires setup-node in the aggregate job', () => {
+    const errors = contractErrors((files) => {
+      const [before, aggregate] = files['ci.yml'].split('\n  required-gates:\n');
+      return {
+        'ci.yml': `${before}\n  required-gates:\n${aggregate.replace(
+          `      - uses: ${SN_OLD}\n        with:\n          node-version-file: .nvmrc\n`,
+          '',
+        )}`,
+      };
+    });
+    expect(errors).toContainEqual(
+      expect.stringContaining('job `required-gates` differs from the contract'),
+    );
+  });
+
+  it('renders the Fallow audit inventory with pins read from the workflows', () => {
+    const inventory = renderInventory();
+    expect(inventory).toContain('`fallow-rs/fallow with.command: audit`');
+    expect(inventory).not.toContain(FA_OLD.split('@')[1]?.split(' ')[0]);
+    expect(inventory).not.toContain(FA_OLD.slice(FA_OLD.indexOf('#')));
+    expect(inventory).toContain('read from the workflows');
   });
 
   it.each([
@@ -429,41 +641,52 @@ describe('checkContract', () => {
     'coverage job',
     'integration job',
   ])('exits 1 from --check without the %s', (missing) => {
-    mkdirSync(join(process.cwd(), '.scratch'), { recursive: true });
-    const root = mkdtempSync(join(process.cwd(), '.scratch/required-gates-'));
-    try {
-      const files = {
-        ...REAL_FILES,
-        'ci.yml':
-          missing === 'integration job'
-            ? REAL_FILES['ci.yml'].replace(/\n {2}integration:\n[\s\S]*?(?=\n {2}[\w-]+:\n)/, '')
-            : missing === 'coverage job'
-              ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
-              : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
-        'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
-        'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
-        'docs/required-gates.md': renderInventory(),
-      };
-      Object.entries(files).forEach(([name, text]) => {
-        const path = join(root, name.endsWith('.yml') ? `.github/workflows/${name}` : name);
-        mkdirSync(dirname(path), { recursive: true });
-        writeFileSync(path, text);
-      });
-      const result = spawnSync('node', [join(root, 'scripts/required-gates.mjs'), '--check'], {
-        encoding: 'utf8',
-        env: { PATH: process.env.PATH },
-      });
-      expect(result.status).toBe(1);
-      expect(result.stdout + result.stderr).toMatch(
+    const files = {
+      ...REAL_FILES,
+      'ci.yml':
         missing === 'integration job'
-          ? /integration/
+          ? REAL_FILES['ci.yml'].replace(/\n {2}integration:\n[\s\S]*?(?=\n {2}[\w-]+:\n)/, '')
           : missing === 'coverage job'
-            ? /coverage/
-            : /\.husky\/pre-commit.*pnpm lint:anti-slop/,
-      );
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+            ? REAL_FILES['ci.yml'].replace(/\n {2}coverage:\n[\s\S]*?(?=\n {2}build:)/, '')
+            : REAL_FILES['ci.yml'].replace('      - run: pnpm lint:anti-slop\n', ''),
+      'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+      'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
+      'docs/required-gates.md': renderInventory(),
+    };
+    const result = runCheckIn(files);
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(
+      missing === 'integration job'
+        ? /integration/
+        : missing === 'coverage job'
+          ? /coverage/
+          : /\.husky\/pre-commit.*pnpm lint:anti-slop/,
+    );
+  });
+
+  it('exits 1 from --check when a workflow bump skips the composite action', () => {
+    const files = {
+      ...REAL_FILES,
+      ...bumpWorkflows([[SN_OLD, SN_NEW]], true)(REAL_FILES),
+      'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+      'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
+      'docs/required-gates.md': renderInventory(),
+    };
+    const result = runCheckIn(files);
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toMatch(/\.github\/actions\/setup\/action\.yml/);
+  });
+
+  it('exits 0 from --check when workflows and the composite action bump together', () => {
+    const files = {
+      ...REAL_FILES,
+      ...bumpWorkflows([[SN_OLD, SN_NEW]])(REAL_FILES),
+      'scripts/required-gates.mjs': repoFile('scripts/required-gates.mjs'),
+      'scripts/enforcement-approval.mjs': repoFile('scripts/enforcement-approval.mjs'),
+      'docs/required-gates.md': renderInventory(),
+    };
+    const result = runCheckIn(files);
+    expect(result.status).toBe(0);
   });
 
   it('fails when a required lane is dropped from the aggregate needs', () => {
@@ -793,6 +1016,7 @@ describe('checkContract', () => {
     const errors = checkContract({
       readWorkflow: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
       readFile: (name: keyof typeof REAL_FILES) => REAL_FILES[name],
+      compositeActions: COMPOSITE_ACTIONS,
       inventory: renderInventory().replace('Security audit', 'Security'),
     });
     expect(errors.join('\n')).toContain('pnpm gates:inventory');
