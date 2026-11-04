@@ -182,7 +182,9 @@ Chromium, inspect and commit changes, then rerun `pnpm visual`
 
 See the guarded-path rule in [AGENTS.md](../../AGENTS.md#rules-and-what-enforces-them).
 The workflow uses main's script and reads PR files as data. Approval belongs to
-the configured approver and the current head; a new head resets it.
+the configured approver and the guarded changes; a new head keeps it only when
+those changes are identical, and the newest sign-off comment is always the last
+one in the PR ([ADR 0122](../decisions/0122-sign-off-follows-the-guarded-changes.md)).
 [ADR 0023](../decisions/0023-protect-only-the-files-that-run-the-gates.md),
 [ADR 0024](../decisions/0024-sign-off-only-loosening-enforcement-changes.md) and
 [ADR 0060](../decisions/0060-product-intent-needs-sign-off.md) record the rules.

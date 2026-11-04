@@ -6,14 +6,15 @@
  * default branch's checkout through `actions/github-script`, so the copy on main
  * judges every PR. It reads the guarded files at the merge base and at the PR
  * head through the API, never runs PR code, and ranks each change with the
- * guard that owns the path. When a change needs sign-off, it keeps one comment that
- * lists the changes and carries a checkbox bound to the head commit, and sets
- * the `enforcement-approval` commit status. The status turns green only on the
- * edit event in which the GitHub user from ENFORCEMENT_APPROVER (default
- * BenSheridanEdwards) turns this head's unticked box
- * into a ticked one. The gate then labels the box with who ticked it and when.
- * Any other edit, and a new head, rewrites the comment unticked. See
- * `.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md`.
+ * guard that owns the path. When a change needs sign-off, it keeps one comment,
+ * always the last gate comment in the PR, that lists the changes and carries a
+ * checkbox, and sets the `enforcement-approval` commit status. The status turns
+ * green only on the edit event in which the GitHub user from ENFORCEMENT_APPROVER
+ * (default BenSheridanEdwards) turns this head's unticked box into a ticked one;
+ * the gate then labels the box with who ticked it and when. A new head keeps
+ * that approval only when its guarded changes match the approved head's exactly.
+ * Any other edit, and any other new head, rewrites the comment unticked. See
+ * ADRs 0024 and 0122 in `.agents/decisions/`.
  *
  * `GUARDS`, `enforcementProblems`, `signoffComment` and `planApproval` are the
  * pure core. `run` is the thin GitHub shell. Invoked directly,
@@ -21,6 +22,7 @@
  * `{ head, problems }` for a local branch.
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 /** The commit status context a branch-protection rule can require. */
 export const STATUS_CONTEXT = 'enforcement-approval';
@@ -43,7 +45,8 @@ export const APPROVER = process.env.ENFORCEMENT_APPROVER || 'BenSheridanEdwards'
  * @typedef {{ kind: 'comment', commentId?: number, sender: { login: string, type: string, name?: string | null }, from: string | null, to: string, at: string }} CommentEdit  an edit of the gate's comment, as the event reports it
  * @typedef {{ kind: 'pull' } | CommentEdit} GateEvent
  * @typedef {{ state: 'success' | 'failure', description: string }} CommitStatus
- * @typedef {{ filename: string, previous_filename?: string }} PullRequestFile
+ * @typedef {{ filename: string, previous_filename?: string, status?: string, patch?: string }} PullRequestFile
+ * @typedef {{ from: string, label: string }} Carry  an earlier head's sign-off whose guarded changes match this head's
  */
 
 /**
@@ -64,33 +67,112 @@ const inert = (text) =>
 const linesOf = (text) =>
   text ? text.replaceAll('\r\n', '\n').replace(/\n$/, '').split('\n') : [];
 
-/** @param {string} before @param {string} after */
-function lineSummary(before, after) {
+/**
+ * The lines each side holds and how many each side has that the other lacks,
+ * counting repeated lines as copies.
+ *
+ * @param {string} before @param {string} after
+ */
+function lineDiff(before, after) {
   const was = linesOf(before);
   const now = linesOf(after);
-  const counts = (/** @type {string[]} */ lines) => Map.groupBy(lines, (line) => line);
-  const oldCounts = counts(was);
-  const newCounts = counts(now);
+  const oldCounts = Map.groupBy(was, (line) => line);
+  const newCounts = Map.groupBy(now, (line) => line);
   const common = [...oldCounts].reduce(
     (total, [line, copies]) => total + Math.min(copies.length, newCounts.get(line)?.length ?? 0),
     0,
   );
-  const added = now.length - common;
-  const removed = was.length - common;
 
+  return {
+    was,
+    now,
+    oldCounts,
+    newCounts,
+    added: now.length - common,
+    removed: was.length - common,
+  };
+}
+
+/** @param {number} count */
+const lines = (count) => `${count} ${count === 1 ? 'line' : 'lines'}`;
+
+/**
+ * A sentence for an edit that adds and removes no line: a move or a newline.
+ *
+ * @param {string[]} was @param {string[]} now
+ */
+function moveSummary(was, now) {
+  const moved = now.filter((line, index) => line !== was[index]);
+
+  return moved.length
+    ? `Moves ${moved.length} lines: first moved line ${inert(short(moved[0].trim()))}`
+    : 'Changes the final newline';
+}
+
+/**
+ * One plain sentence for a text edit that quotes the first changed line.
+ *
+ * @param {string} before @param {string} after
+ */
+function lineSummary(before, after) {
   if (before.replaceAll('\r\n', '\n') === after.replaceAll('\r\n', '\n')) {
     return 'Changes line endings';
   }
-  if (added + removed === 0) {
-    const moved = now.filter((line, index) => line !== was[index]);
+  const { was, now, oldCounts, newCounts, added, removed } = lineDiff(before, after);
 
-    return moved.length
-      ? `Moves ${moved.length} lines: first moved line ${inert(short(moved[0].trim()))}`
-      : 'Changes the final newline';
+  if (added + removed === 0) return moveSummary(was, now);
+  const firstNew = quote(firstUnmatched(now, oldCounts));
+  const firstOld = quote(firstUnmatched(was, newCounts));
+
+  if (removed === 0) {
+    return added === 1
+      ? `Adds the line ${firstNew}`
+      : `Adds ${lines(added)}, starting with ${firstNew}`;
   }
+  if (added === 0) {
+    return removed === 1
+      ? `Removes the line ${firstOld}`
+      : `Removes ${lines(removed)}, starting with ${firstOld}`;
+  }
+  if (added === 1 && removed === 1) return `Replaces ${firstOld} with ${firstNew}`;
 
-  return `Changes ${added + removed} ${added + removed === 1 ? 'line' : 'lines'}: adds ${added}, removes ${removed}`;
+  return `Edits ${lines(added + removed)} (adds ${added}, removes ${removed}), starting with ${firstOld} → ${firstNew}`;
 }
+
+/**
+ * How many lines changed, as the last sentence after the named changes.
+ *
+ * @param {string} before @param {string} after
+ */
+function lineTotals(before, after) {
+  const { added, removed } = lineDiff(before, after);
+
+  return {
+    changed: added + removed,
+    sentence: `${lines(added + removed)} changed in all: ${added} added, ${removed} removed`,
+  };
+}
+
+/**
+ * The first line of `lines` that `other` does not hold, counting copies.
+ *
+ * @param {string[]} lines @param {Map<string, string[]>} other
+ */
+function firstUnmatched(lines, other) {
+  const used = new Map();
+
+  return (
+    lines.find((line) => {
+      const seen = (used.get(line) ?? 0) + 1;
+      used.set(line, seen);
+
+      return seen > (other.get(line)?.length ?? 0);
+    }) ?? ''
+  );
+}
+
+/** @param {string} line */
+const quote = (line) => inert(short(line.trim()) || '(blank line)');
 
 /** @param {string} text */
 const short = (text) => (text.length > 80 ? `${text.slice(0, 79)}…` : text);
@@ -362,12 +444,211 @@ const rewrite = ({ before, after }) => {
   return [lineSummary(before, after)];
 };
 
+/**
+ * Up to four inert names, then how many more.
+ *
+ * @param {string[]} names
+ */
+const listed = (names) =>
+  names.length > 4
+    ? `${names.slice(0, 4).map(inert).join(', ')} and ${names.length - 4} more`
+    : names.map(inert).join(', ');
+
+/**
+ * Entries `pattern` captures as [name, value], keyed by name.
+ *
+ * @param {string} text @param {RegExp} pattern
+ * @returns {Map<string, string>}
+ */
+const captured = (text, pattern) =>
+  new Map([...text.matchAll(pattern)].map((match) => [match[1], match[2] ?? '']));
+
+/** Lint rule severities in a config: `'plugin/rule': 'error'`. */
+const SEVERITY = /^\s*['"]([\w@./-]+\/[\w./-]+|[a-z][\w-]*)['"]\s*:\s*['"](off|warn|error)['"]/gm;
+
+/** Rule definitions in a plugin's `rules` object: `'rule-name': ruleValue,` or `'rule-name': {`. */
+const RULE_DEFINITION = /^ {4}['"]([a-z][a-z0-9-]*)['"]\s*:\s*(?:\{|[A-Za-z_$][\w$]*,)\s*$/gm;
+
+/**
+ * The text of a plugin's top-level `rules: {` object, or '' when it has none.
+ *
+ * @param {string} text
+ */
+const rulesBlock = (text) => {
+  const lines = linesOf(text);
+  const start = lines.findIndex((line) => /^ {2}rules: \{\s*$/.test(line));
+  if (start < 0) return '';
+  const end = lines.findIndex((line, index) => index > start && /^ {2}\},?\s*$/.test(line));
+
+  return lines.slice(start + 1, end < 0 ? undefined : end).join('\n');
+};
+
+/** Packages a file loads: imports and `import.meta.resolve`. */
+const LOADED = /(?:from\s+|import\s+|import\.meta\.resolve\(\s*)['"]([^'"./][^'"]*)['"]/g;
+
+/**
+ * Plain-English sentences for the structure a lint config or plugin changes:
+ * rules turned on, off or re-ranked, rule definitions added or removed, and
+ * packages loaded or dropped. Line counts follow, so nothing reads as smaller.
+ *
+ * @param {string} before @param {string} after
+ */
+function codeChanges(before, after) {
+  const [wasRules, nowRules] = [before, after].map((text) => captured(text, SEVERITY));
+  const turnedOn = [...nowRules].filter(([name]) => !wasRules.has(name));
+  const dropped = [...wasRules].filter(([name]) => !nowRules.has(name));
+  const reranked = [...nowRules].filter(
+    ([name, level]) => wasRules.has(name) && wasRules.get(name) !== level,
+  );
+  const [wasDefined, nowDefined] = [before, after].map(
+    (text) => new Set(captured(rulesBlock(text), RULE_DEFINITION).keys()),
+  );
+  const [wasLoaded, nowLoaded] = [before, after].map(
+    (text) => new Set(captured(text, LOADED).keys()),
+  );
+  const byLevel = Map.groupBy(turnedOn, ([, level]) => level);
+
+  return [
+    ...[...nowLoaded].filter((name) => !wasLoaded.has(name)).map((name) => `Loads ${inert(name)}`),
+    ...[...wasLoaded]
+      .filter((name) => !nowLoaded.has(name))
+      .map((name) => `Stops loading ${inert(name)}`),
+    ...[...nowDefined]
+      .filter((name) => !wasDefined.has(name))
+      .map((name) => `Adds the lint rule ${inert(name)}`),
+    ...[...wasDefined]
+      .filter((name) => !nowDefined.has(name))
+      .map((name) => `Removes the lint rule ${inert(name)}`),
+    ...[...byLevel].map(([level, rules]) =>
+      level === 'off'
+        ? `Lists ${rules.length === 1 ? 'the lint rule' : `${rules.length} lint rules`} ${listed(rules.map(([name]) => name))} as off`
+        : `Turns on ${rules.length === 1 ? 'the lint rule' : `${rules.length} lint rules`} at ${level}: ${listed(rules.map(([name]) => name))}`,
+    ),
+    ...dropped.map(
+      ([name, level]) => `Stops configuring the lint rule ${inert(name)} (was ${level})`,
+    ),
+    ...reranked.map(
+      ([name, level]) =>
+        `${level === 'off' ? 'Turns off' : 'Changes'} the lint rule ${inert(name)} from ${wasRules.get(name)} to ${level}`,
+    ),
+  ];
+}
+
+/** @param {string} text @returns {Map<string, string>} section heading → section text */
+const sections = (text) => {
+  const lines = linesOf(text);
+  const starts = lines.flatMap((line, index) => (/^#{1,6} /.test(line) ? [index] : []));
+  const headings = starts.map((start) => lines[start].replace(/^#+ /, '').trim());
+  const intro =
+    starts[0] === 0
+      ? []
+      : [['(introduction)', lines.slice(0, starts[0] ?? lines.length).join('\n')]];
+  // A repeated heading gets its occurrence number, so one copy cannot hide another's change.
+  const named = starts.map((start, index) => {
+    const copies = headings.slice(0, index).filter((heading) => heading === headings[index]).length;
+
+    return [
+      copies ? `${headings[index]} (${copies + 1})` : headings[index],
+      lines.slice(start + 1, starts[index + 1] ?? lines.length).join('\n'),
+    ];
+  });
+
+  return new Map(/** @type {[string, string][]} */ ([...intro, ...named]));
+};
+
+/**
+ * Plain-English sentences for a markdown document: sections added, removed
+ * and rewritten, by heading.
+ *
+ * @param {string} before @param {string} after
+ */
+function markdownChanges(before, after) {
+  if (![before, after].some((text) => /^#{1,6} /m.test(text))) return [];
+  const [was, now] = [before, after].map(sections);
+  const added = [...now.keys()].filter((heading) => !was.has(heading));
+  const removed = [...was.keys()].filter((heading) => !now.has(heading));
+  const rewritten = [...now.keys()].filter(
+    (heading) => was.has(heading) && was.get(heading) !== now.get(heading),
+  );
+  const phrase = (/** @type {string} */ verb, /** @type {string[]} */ headings) =>
+    `${verb} the ${headings.length === 1 ? 'section' : `${headings.length} sections`} ${listed(headings)}`;
+
+  return [
+    ...(added.length ? [phrase('Adds', added)] : []),
+    ...(removed.length ? [phrase('Removes', removed)] : []),
+    ...(rewritten.length ? [phrase('Rewrites', rewritten)] : []),
+  ];
+}
+
+/** @param {string} text */
+const commands = (text) =>
+  linesOf(text)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+
+/**
+ * Plain-English sentences for a Git hook: commands added and removed.
+ *
+ * @param {string} before @param {string} after
+ */
+function hookChanges(before, after) {
+  const [was, now] = [before, after].map(commands);
+  const added = now.filter((line) => !was.includes(line));
+  const removed = was.filter((line) => !now.includes(line));
+
+  if (added.length === 1 && removed.length === 1) {
+    return [`Replaces the command ${quote(removed[0])} with ${quote(added[0])}`];
+  }
+
+  return [
+    ...added.map((line) => `Adds the command ${quote(line)}`),
+    ...removed.map((line) => `Removes the command ${quote(line)}`),
+  ];
+}
+
+/**
+ * The sentence for an added or deleted file or a line-ending-only edit, or
+ * undefined when the change needs reading.
+ *
+ * @param {FileChange} change
+ * @returns {string[] | undefined}
+ */
+const edgeCase = ({ path, before, after }) => {
+  if (before === null || after === null) return rewrite({ path, before, after });
+
+  return before.replaceAll('\r\n', '\n') === after.replaceAll('\r\n', '\n')
+    ? ['Changes line endings']
+    : undefined;
+};
+
+/**
+ * A judge that names the structure `describe` finds, then the line totals, and
+ * falls back to the line summary when it finds nothing.
+ *
+ * @param {(before: string, after: string) => string[]} describe
+ * @returns {Judge}
+ */
+const describedBy = (describe) => (change) => {
+  const edge = edgeCase(change);
+
+  if (edge || change.before === null || change.after === null) return edge ?? [];
+  const found = describe(change.before, change.after);
+  const totals = lineTotals(change.before, change.after);
+
+  if (!found.length || totals.changed === 0) return [lineSummary(change.before, change.after)];
+
+  return totals.changed > 2 ? [...found, totals.sentence] : found;
+};
+
+const describeCode = describedBy(codeChanges);
+const describeMarkdown = describedBy(markdownChanges);
+const describeHook = describedBy(hookChanges);
+
 /** @type {Judge} */
 const describeWorkflow = (change) => {
-  if (change.before === null || change.after === null) return rewrite(change);
-  if (change.before.replaceAll('\r\n', '\n') === change.after.replaceAll('\r\n', '\n')) {
-    return ['Changes line endings'];
-  }
+  const edge = edgeCase(change);
+
+  if (edge || change.before === null || change.after === null) return edge ?? [];
   const changes = workflowChanges(change.before, change.after);
 
   return changes.length ? changes : rewrite(change);
@@ -631,7 +912,7 @@ export const GUARDS = [
   {
     area: 'Vendored lint rules',
     paths: [/^vendor\/anti-slop\//, /(^|\/)oxlint\.config\.[^/]+$/],
-    judge: rewrite,
+    judge: describeCode,
   },
   {
     area: 'Oxlint config',
@@ -643,7 +924,7 @@ export const GUARDS = [
     paths: [/^\.github\/workflows\//, /^\.github\/actions\//],
     judge: describeWorkflow,
   },
-  { area: 'Git hooks', paths: [/^\.husky\//], judge: rewrite },
+  { area: 'Git hooks', paths: [/^\.husky\//], judge: describeHook },
   {
     area: 'Lint config',
     paths: [
@@ -651,7 +932,7 @@ export const GUARDS = [
       /^tooling\/oxlint-plugin-policy\.js$/,
       /^scripts\/check-suppressions\.mjs$/,
     ],
-    judge: rewrite,
+    judge: describeCode,
   },
   {
     area: 'Biome config',
@@ -667,7 +948,7 @@ export const GUARDS = [
   {
     area: 'Product intent',
     paths: [/^docs\/prd\//, /^docs\/NORTH_STAR\.md$/],
-    judge: rewrite,
+    judge: describeMarkdown,
   },
 ];
 
@@ -786,6 +1067,58 @@ export function approvalLabel({ name, login, at }) {
   return `<sub><i>Approved by ${shown} @${handle} on ${londonTime(at)}</i></sub>`;
 }
 
+/** The approval note in a labelled box, without its tags. */
+const LABEL_TEXT = /<sub><i>(Approved by [^<\n]*)<\/i><\/sub>/;
+
+/**
+ * The label for a sign-off carried from an earlier head. It repeats who
+ * approved and when, from the gate's own earlier label, and names that head.
+ *
+ * @param {Carry} carry
+ */
+const carriedLabel = ({ from, label }) =>
+  `<sub><i>${label.replace(/; carried from .*$/, '').slice(0, 300)}; carried from ${inert(from.slice(0, 7))}, whose guarded changes are identical</i></sub>`;
+
+/**
+ * The approver's note and the commit a labelled gate comment approved, or
+ * undefined when the box is not ticked and labelled.
+ *
+ * @param {string} body
+ * @returns {{ head: string, label: string } | undefined}
+ */
+function approvedIn(body) {
+  const box = normalise(body).match(
+    /\n- \[x\] Approve these enforcement changes at `([0-9a-f]{40})` (<sub><i>Approved by [^<\n]*<\/i><\/sub>)$/m,
+  );
+  const label = box?.[2].match(LABEL_TEXT)?.[1];
+
+  return box && label ? { head: box[1], label } : undefined;
+}
+
+/**
+ * A fingerprint of the guarded changes: each guarded file's path, status, old
+ * path and patch, with hunk line numbers dropped, so an update from main that
+ * leaves those hunks alone keeps it. Null when a guarded file has no patch.
+ *
+ * @param {PullRequestFile[]} files
+ * @returns {string | null}
+ */
+export function guardFingerprint(files) {
+  const guarded = files
+    .filter((file) => guardFor(file.filename) || guardFor(file.previous_filename ?? ''))
+    .map((file) => ({
+      path: file.filename,
+      from: file.previous_filename ?? null,
+      status: file.status ?? null,
+      patch: file.patch?.replace(/^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/gm, '@@') ?? null,
+    }))
+    .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
+
+  if (guarded.some((file) => file.patch === null && file.status !== 'renamed')) return null;
+
+  return createHash('sha256').update(JSON.stringify(guarded)).digest('hex');
+}
+
 /** @param {string} login */
 const refusalNote = (login) =>
   `A tick by ${inert(login)} was cleared. Only ${APPROVER} signs off enforcement changes.`;
@@ -799,11 +1132,12 @@ const REFUSAL_NOTE =
  * a note that names whose tick the gate just cleared, or ticked with the label
  * when the gate has just seen the approver tick it.
  *
- * @param {{ head: string, problems: Problem[], approval?: Approval, refusedBy?: string }} input
+ * @param {{ head: string, problems: Problem[], approval?: Approval, refusedBy?: string, carry?: Carry }} input
  */
-export function signoffComment({ head, problems, approval, refusedBy }) {
-  const box = approval
-    ? `- [x] ${APPROVAL_TEXT}${inert(head)} ${approvalLabel(approval)}`
+export function signoffComment({ head, problems, approval, refusedBy, carry }) {
+  const label = carry ? carriedLabel(carry) : approval ? approvalLabel(approval) : null;
+  const box = label
+    ? `- [x] ${APPROVAL_TEXT}${inert(head)} ${label}`
     : `- [ ] ${APPROVAL_TEXT}${inert(head)}`;
 
   const rows = [...Map.groupBy(problems, (problem) => problem.path).values()].map((group) => ({
@@ -825,7 +1159,7 @@ export function signoffComment({ head, problems, approval, refusedBy }) {
   const footer = [
     '',
     ...(refusedBy === undefined ? [] : [refusalNote(refusedBy), '']),
-    `@${APPROVER} signs off by ticking the box below in GitHub. The tick counts for commit ${inert(head)} only. A new push clears it, and a tick from any other account is cleared.`,
+    `@${APPROVER} signs off by ticking the box below in GitHub. The tick covers the guarded changes listed above at commit ${inert(head)}. An update that leaves those changes identical keeps it; a push that changes them clears it, and a tick from any other account is cleared.`,
     box,
     '',
   ];
@@ -900,6 +1234,12 @@ const signedOffStatus = (head) => ({
   description: `${APPROVER} signed off at ${head.slice(0, 7)}`,
 });
 
+/** @param {string} from @param {string} head @returns {CommitStatus} */
+const carriedStatus = (from, head) => ({
+  state: 'success',
+  description: `${APPROVER} signed off at ${from.slice(0, 7)}; same guarded changes at ${head.slice(0, 7)}`,
+});
+
 /** @type {CommitStatus} */
 const WAITING = {
   state: 'failure',
@@ -960,10 +1300,13 @@ function planEdit({ head, problems, comment, event }) {
  * the gate's latest status for the head is the sign-off, and resets anything
  * else.
  *
- * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, signedOff: boolean, event: GateEvent }} input
+ * A PR event with `carry`, an earlier head's verified sign-off whose guarded
+ * changes match this head's, carries that sign-off to this head.
+ *
+ * @param {{ head: string, problems: Problem[], comment: { body: string, updatedAt?: string } | undefined, signedOff: boolean, event: GateEvent, carry?: Carry }} input
  * @returns {Plan}
  */
-export function planApproval({ head, problems, comment, signedOff, event }) {
+export function planApproval({ head, problems, comment, signedOff, event, carry }) {
   if (problems.length === 0) {
     return {
       commentBody: comment ? CLEAR_BODY : null,
@@ -978,6 +1321,12 @@ export function planApproval({ head, problems, comment, signedOff, event }) {
 
   if (signedOff && comment && isLabelled(comment.body, normalise(unticked))) {
     return { commentBody: comment.body, status: null };
+  }
+  if (event.kind === 'pull' && carry && carry.from !== head) {
+    return {
+      commentBody: signoffComment({ head, problems, carry }),
+      status: carriedStatus(carry.from, head),
+    };
   }
 
   return { commentBody: unticked, status: WAITING };
@@ -1014,6 +1363,18 @@ async function readFile(github, repo, path, ref) {
  * @param {Array<{ id: number, body?: string, updated_at?: string, user?: { login: string } }>} comments
  * @param {GateEvent} event
  */
+/**
+ * Every comment the gate wrote as its sign-off, oldest first.
+ *
+ * @param {Array<{ id: number, body?: string, user?: { login: string } }>} comments
+ */
+const gateComments = (comments) =>
+  comments.filter(
+    (comment) =>
+      comment.user?.login === GATE_AUTHOR &&
+      (comment.body?.startsWith(COMMENT_MARKER) || comment.body?.includes(APPROVAL_TEXT)),
+  );
+
 function findSignoffComment(comments, event) {
   const hadMarker = (/** @type {number} */ id) =>
     event.kind === 'comment' &&
@@ -1082,20 +1443,71 @@ async function isSignedOff(github, repo, head) {
   );
 
   const signed = signedOffStatus(head);
+  const carried = `; same guarded changes at ${head.slice(0, 7)}`;
 
-  return latest?.state === signed.state && latest?.description === signed.description;
+  return (
+    latest?.state === signed.state &&
+    (latest?.description === signed.description ||
+      Boolean(
+        latest?.description?.startsWith(`${APPROVER} signed off at `) &&
+          latest.description.endsWith(carried),
+      ))
+  );
 }
 
 /**
- * Create or update the gate's comment when its body changes.
+ * The verified sign-off of an earlier head to carry to `head`: the gate's own
+ * labelled comment names it, the gate's own status on it is the sign-off, and
+ * its guarded changes, read again from GitHub, match this head's exactly.
  *
- * @param {{ github: any, repo: { owner: string, repo: string }, number: number, existing: { id: number, body: string } | undefined, body: string | null }} input
+ * @param {{ github: any, repo: { owner: string, repo: string }, base: string, head: string, files: PullRequestFile[], comment: { body: string } | undefined }} input
+ * @returns {Promise<Carry | undefined>}
  */
-async function writeComment({ github, repo, number, existing, body }) {
+async function verifiedCarry({ github, repo, base, head, files, comment }) {
+  const approved = comment && approvedIn(comment.body);
+  const now = guardFingerprint(files);
+
+  if (!approved || approved.head === head || now === null) return undefined;
+  if (!(await isSignedOff(github, repo, approved.head))) return undefined;
+  const earlier = await fingerprintAt({ github, repo, base, ref: approved.head });
+
+  return now === earlier ? { from: approved.head, label: approved.label } : undefined;
+}
+
+/**
+ * The guarded-change fingerprint of `ref` against `base`, read from GitHub, or
+ * null when the comparison lists too many files to be complete.
+ *
+ * @param {{ github: any, repo: { owner: string, repo: string }, base: string, ref: string }} input
+ */
+async function fingerprintAt({ github, repo, base, ref }) {
+  const { data } = await github.rest.repos.compareCommitsWithBasehead({
+    ...repo,
+    basehead: `${base}...${ref}`,
+  });
+  const files = data.files ?? [];
+
+  return files.length >= 300 ? null : guardFingerprint(files);
+}
+
+/**
+ * Write the gate's comment when its body changes. A PR event posts it fresh at
+ * the bottom of the conversation and deletes every older gate comment, so the
+ * newest sign-off is always last; an edit event updates it in place.
+ *
+ * @param {{ github: any, repo: { owner: string, repo: string }, number: number, existing: { id: number, body: string } | undefined, older: number[], body: string | null, repost: boolean }} input
+ */
+async function writeComment({ github, repo, number, existing, older, body, repost }) {
   if (body === null || body === existing?.body) return;
-  await (existing
-    ? github.rest.issues.updateComment({ ...repo, comment_id: existing.id, body })
-    : github.rest.issues.createComment({ ...repo, issue_number: number, body }));
+  if (existing && !repost) {
+    await github.rest.issues.updateComment({ ...repo, comment_id: existing.id, body });
+
+    return;
+  }
+  await github.rest.issues.createComment({ ...repo, issue_number: number, body });
+  await Promise.all(
+    older.map((id) => github.rest.issues.deleteComment({ ...repo, comment_id: id })),
+  );
 }
 
 /**
@@ -1143,16 +1555,30 @@ export async function run({ github, context, core }) {
 
   const event = await gateEvent(github, context);
   const existing = findSignoffComment(comments, event);
+  const signedOff = await isSignedOff(github, repo, head);
+  const carry =
+    event.kind === 'pull' && problems.length && !signedOff
+      ? await verifiedCarry({
+          github,
+          repo,
+          base: pullRequest.base.sha,
+          head,
+          files,
+          comment: existing,
+        })
+      : undefined;
 
-  const plan = planApproval({
-    head,
-    problems,
-    comment: existing,
-    signedOff: await isSignedOff(github, repo, head),
-    event,
+  const plan = planApproval({ head, problems, comment: existing, signedOff, event, carry });
+
+  await writeComment({
+    github,
+    repo,
+    number,
+    existing,
+    older: gateComments(comments).map((comment) => comment.id),
+    body: plan.commentBody,
+    repost: event.kind === 'pull',
   });
-
-  await writeComment({ github, repo, number, existing, body: plan.commentBody });
 
   if (!plan.status) {
     core.info(`${STATUS_CONTEXT}: left as it is for ${head}`);

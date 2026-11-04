@@ -8,6 +8,7 @@ import {
   GATE_AUTHOR,
   GUARDS,
   guardedPaths,
+  guardFingerprint,
   LIST_FILES_LIMIT,
   londonTime,
   planApproval,
@@ -224,13 +225,13 @@ describe('readable workflow summaries', () => {
     const after = before.replace('@v1', '@v2').replace('explain:', 'new comment:');
     expect(reasons(path, before, after)).toEqual([
       'Bumps `owner/repo/.github/workflows/check.yml` from `v1` to `v2`',
-      'Changes 2 lines: adds 1, removes 1',
+      'Replaces `# explain: this job` with `# new comment: this job`',
     ]);
   });
 
   it('falls back when an existing workflow is empty or uses flow YAML', () => {
-    expect(reasons(path, '', 'jobs: {}\n')).toEqual(['Changes 1 line: adds 1, removes 0']);
-    expect(reasons(path, 'jobs: {}\n', '')).toEqual(['Changes 1 line: adds 0, removes 1']);
+    expect(reasons(path, '', 'jobs: {}\n')).toEqual(['Adds the line `jobs: {}`']);
+    expect(reasons(path, 'jobs: {}\n', '')).toEqual(['Removes the line `jobs: {}`']);
   });
 
   it('names an unnamed multiline run step by its command', () => {
@@ -256,14 +257,14 @@ describe('readable workflow summaries', () => {
       'job condition',
       '    runs-on: ubuntu-latest',
       '    if: false\n    runs-on: ubuntu-latest',
-      'Changes 1 line: adds 1, removes 0 in the job `quality`',
+      'Adds the line `if: false` in the job `quality`',
     ],
-    ['trigger', 'on: pull_request', 'on: push', 'Changes 2 lines: adds 1, removes 1'],
+    ['trigger', 'on: pull_request', 'on: push', 'Replaces `on: pull_request` with `on: push`'],
     [
       'permissions',
       'permissions: {}',
       'permissions: write-all',
-      'Changes 2 lines: adds 1, removes 1',
+      'Replaces `permissions: {}` with `permissions: write-all`',
     ],
   ])('reports a bump together with a %s change', (_case, from, to, expected) => {
     const before = `on: pull_request\npermissions: {}\n${workflow('      - uses: actions/setup-node@v6\n      - name: Architecture\n        run: pnpm arch:gate')}`;
@@ -298,8 +299,8 @@ describe('readable workflow summaries', () => {
       .replaceAll('    runs-on:', '    if: false\n    runs-on:');
     expect(reasons(path, before, after)).toEqual([
       'Bumps `actions/setup-node` from `v6` to `v7`',
-      'Changes 1 line: adds 1, removes 0 in the job `quality`',
-      'Changes 1 line: adds 1, removes 0 in the job `second`',
+      'Adds the line `if: false` in the job `quality`',
+      'Adds the line `if: false` in the job `second`',
     ]);
   });
 
@@ -420,7 +421,7 @@ describe('readable workflow summaries', () => {
     const start = performance.now();
     const found = reasons(path, before, after);
     expect(performance.now() - start).toBeLessThan(2000);
-    expect(found).toEqual(['Changes 100000 lines: adds 100000, removes 0 in the job `quality`']);
+    expect(found).toEqual(['Adds 100000 lines, starting with `(blank line)` in the job `quality`']);
   });
 
   it('reports both jobs when a disabling condition moves between them', () => {
@@ -429,8 +430,8 @@ describe('readable workflow summaries', () => {
     const after =
       'jobs:\n  a:\n    runs-on: ubuntu-latest\n  b:\n    if: false\n    runs-on: ubuntu-latest\n';
     expect(reasons(path, before, after)).toEqual([
-      'Changes 1 line: adds 0, removes 1 in the job `a`',
-      'Changes 1 line: adds 1, removes 0 in the job `b`',
+      'Removes the line `if: false` in the job `a`',
+      'Adds the line `if: false` in the job `b`',
     ]);
   });
 
@@ -584,8 +585,8 @@ describe('readable workflow summaries', () => {
 
   it.each([
     ['a\nb\n', 'b\na\n', 'Moves 2 lines: first moved line `b`'],
-    ['a\na\n', 'a\n', 'Changes 1 line: adds 0, removes 1'],
-    ['', 'one\n', 'Changes 1 line: adds 1, removes 0'],
+    ['a\na\n', 'a\n', 'Removes the line `a`'],
+    ['', 'one\n', 'Adds the line `one`'],
     ['a\r\n', 'a\n', 'Changes line endings'],
   ])('counts repeated and empty lines predictably', (before, after, expected) => {
     expect(reasons('docs/NORTH_STAR.md', before, after)).toEqual([expected]);
@@ -593,7 +594,7 @@ describe('readable workflow summaries', () => {
 
   it('summarises unrecognised edits using added and removed line counts', () => {
     expect(reasons('docs/NORTH_STAR.md', 'same\nold\n', 'same\nnew\nextra\n')).toEqual([
-      'Changes 3 lines: adds 2, removes 1',
+      'Edits 3 lines (adds 2, removes 1), starting with `old` → `new`',
     ]);
   });
 
@@ -652,7 +653,7 @@ describe('readable workflow summaries', () => {
 describe('rewrite judge', () => {
   it.each([
     [null, 'npx lint-staged', 'Adds this file'],
-    ['npx lint-staged', 'true', 'Changes 2 lines: adds 1, removes 1'],
+    ['npx lint-staged', 'true', 'Replaces the command `npx lint-staged` with `true`'],
     ['npx lint-staged', null, 'Deletes this file'],
   ])('reads %p → %p as "%s"', (before, after, reason) => {
     expect(reasons('.husky/pre-commit', before, after)).toEqual([reason]);
@@ -663,7 +664,7 @@ describe('rewrite judge', () => {
     'scripts/enforcement-approval.mjs',
     'scripts/enforcement-approval.test.ts',
   ])('names an edit to the gate itself in %s', (path) => {
-    expect(reasons(path, 'a', 'b')).toEqual(['Changes 2 lines: adds 1, removes 1']);
+    expect(reasons(path, 'a', 'b')).toEqual(['Replaces `a` with `b`']);
   });
 });
 
@@ -677,7 +678,7 @@ describe('anti-slop enforcement', () => {
   ])('requires sign-off for every addition, edit and deletion of %s', (path) => {
     expect(reasons(path, null, '{}')).toEqual(['Adds this file']);
     expect(reasons(path, '{}', '{"$schema":"new"}')).toEqual([
-      'Changes 2 lines: adds 1, removes 1',
+      'Replaces `{}` with `{"$schema":"new"}`',
     ]);
     expect(reasons(path, '{}', null)).toEqual(['Deletes this file']);
   });
@@ -738,7 +739,7 @@ describe('product intent', () => {
     });
 
     expect(reasons(path, 'intent', 'updated intent')).toEqual([
-      'Changes 2 lines: adds 1, removes 1',
+      'Replaces `intent` with `updated intent`',
     ]);
   });
 
@@ -1002,7 +1003,7 @@ describe('enforcementProblems', () => {
       {
         path: '.husky/pre-commit',
         area: 'Git hooks',
-        reason: 'Changes 2 lines: adds 1, removes 1',
+        reason: 'Replaces the command `a` with `b`',
       },
       { path: 'biome.json', area: 'Biome config', reason: 'removes `linter.enabled`' },
     ]);
@@ -1433,6 +1434,7 @@ interface GitHubState {
 interface GitHubCalls {
   createComment: string[];
   updateComment: number;
+  deleteComment: number[];
   createCommitStatus: CommitStatusParameters[];
 }
 
@@ -1440,16 +1442,19 @@ function fakeGitHub({
   files,
   contents,
   comments = [],
+  filesAt = {},
 }: {
-  files: { filename: string; previous_filename?: string }[];
+  files: { filename: string; previous_filename?: string; patch?: string }[];
   contents: Record<string, Record<string, string>>;
   comments?: Comment[];
+  filesAt?: Record<string, { filename: string; previous_filename?: string; patch?: string }[]>;
 }) {
   const state: GitHubState = { head: HEAD, profiles: { [APPROVER]: 'Ben' } };
 
   const calls: GitHubCalls = {
     createComment: [],
     updateComment: 0,
+    deleteComment: [],
     createCommitStatus: [],
   };
 
@@ -1458,13 +1463,13 @@ function fakeGitHub({
   const rest = {
     pulls: {
       get: async () => ({ data: { head: { sha: state.head }, base: { sha: 'base-sha' } } }),
-      listFiles: async () => ({ data: files }),
+      listFiles: async () => ({ data: filesAt[state.head] ?? files }),
     },
     issues: {
       listComments: async () => ({ data: comments }),
       createComment: async ({ body }: { body: string }) => {
         calls.createComment.push(body);
-        const id = comments.length + 1;
+        const id = Math.max(0, ...comments.map((entry) => entry.id)) + calls.createComment.length;
         comments.push({ id, node_id: `node-${id}`, body, user: { login: GATE_AUTHOR } });
 
         return { data: {} };
@@ -1480,12 +1485,23 @@ function fakeGitHub({
 
         return { data: {} };
       },
+      deleteComment: async ({ comment_id }: { comment_id: number }) => {
+        calls.deleteComment.push(comment_id);
+        const index = comments.findIndex((entry) => entry.id === comment_id);
+
+        if (index >= 0) comments.splice(index, 1);
+
+        return { data: {} };
+      },
     },
     repos: {
       compareCommitsWithBasehead: async ({ basehead }: { basehead: string }) => {
-        expect(basehead).toBe(`base-sha...${state.head}`);
+        const [base, ref = ''] = basehead.split('...');
+        expect(base).toBe('base-sha');
 
-        return { data: { merge_base_commit: { sha: MERGE_BASE } } };
+        return {
+          data: { merge_base_commit: { sha: MERGE_BASE }, files: filesAt[ref] ?? files },
+        };
       },
       getContent: async ({ path, ref }: { path: string; ref: string }) => {
         const content = contents[ref]?.[path];
@@ -1566,7 +1582,11 @@ describe('run', () => {
   });
 
   const HOOK = [
-    { path: '.husky/pre-commit', area: 'Git hooks', reason: 'Changes 2 lines: adds 1, removes 1' },
+    {
+      path: '.husky/pre-commit',
+      area: 'Git hooks',
+      reason: 'Replaces the command `npx lint-staged` with `true`',
+    },
   ];
   const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`;
 
@@ -1587,7 +1607,7 @@ describe('run', () => {
 
     await run({ github, context: pullRequestContext, core });
     expect(comments[0]?.body).toContain(
-      '| `docs/prd/greeting.md` | Product intent | Changes 2 lines: adds 1, removes 1 |',
+      '| `docs/prd/greeting.md` | Product intent | Replaces `intent` with `updated intent` |',
     );
     await run({ github, context: editBy(ben, (body) => tick(body)), core });
     expect(boxLines(comments[0]?.body)).toEqual([
@@ -1937,5 +1957,189 @@ describe('enforcement-approval workflow', () => {
     expect(workflow).toContain(`github.event.comment.user.login == '${GATE_AUTHOR}'`);
     expect(workflow).toContain(`startsWith(github.event.comment.body, '${COMMENT_MARKER}')`);
     expect(workflow).toContain(`startsWith(github.event.changes.body.from, '${COMMENT_MARKER}')`);
+  });
+});
+
+describe('guard comment placement and approval carry-over', () => {
+  const HOOK_PATCH = '@@ -1 +1 @@\n-npx lint-staged\n+true';
+  const hookFiles = (patch?: string) =>
+    patch === undefined
+      ? [{ filename: '.husky/pre-commit', status: 'modified' }]
+      : [{ filename: '.husky/pre-commit', status: 'modified', patch }];
+  const setup = (nextPatch: string | null = HOOK_PATCH) =>
+    fakeGitHub({
+      files: hookFiles(HOOK_PATCH),
+      filesAt: {
+        [HEAD]: hookFiles(HOOK_PATCH),
+        [NEXT]: hookFiles(nextPatch?.replace('@@ -1 +1 @@', '@@ -4 +4 @@') ?? undefined),
+      },
+      contents: {
+        [MERGE_BASE]: { '.husky/pre-commit': 'npx lint-staged' },
+        [HEAD]: { '.husky/pre-commit': 'true' },
+        [NEXT]: { '.husky/pre-commit': 'true' },
+      },
+    });
+  const boxes = (body: string | undefined) =>
+    (body ?? '').split('\n').filter((line) => line.startsWith('- ['));
+
+  it('posts a fresh comment at the bottom and deletes the old one when the head moves', async () => {
+    const { github, comments, calls, state } = setup('@@ -1 +1 @@\n-npx lint-staged\n+exit 0');
+    await run({ github, context: pullRequestContext, core });
+    const first = comments[0]?.id;
+    comments.push({
+      id: 99,
+      node_id: 'node-99',
+      body: 'a human reply',
+      user: { login: 'someone' },
+    });
+    state.head = NEXT;
+    await run({ github, context: pullRequestContext, core });
+    expect(calls.deleteComment).toEqual([first]);
+    expect(comments.at(-1)?.body).toContain(`Approve these enforcement changes at \`${NEXT}\``);
+    expect(comments.filter((comment) => comment.user?.login === GATE_AUTHOR)).toHaveLength(1);
+  });
+
+  it('carries the approver tick to an update whose guarded changes are identical', async () => {
+    const { github, comments, calls, state, editBy } = setup();
+    await run({ github, context: pullRequestContext, core });
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    state.head = NEXT;
+    await run({ github, context: pullRequestContext, core });
+    const [box] = boxes(comments.at(-1)?.body);
+    expect(box).toContain(`- [x] Approve these enforcement changes at \`${NEXT}\``);
+    expect(box).toContain(`Approved by Ben @${APPROVER}`);
+    expect(box).toContain('carried from `aaaaaaa`, whose guarded changes are identical');
+    expect(calls.createCommitStatus.at(-1)).toEqual(
+      expect.objectContaining({
+        sha: NEXT,
+        state: 'success',
+        description: `${APPROVER} signed off at aaaaaaa; same guarded changes at bbbbbbb`,
+      }),
+    );
+    await run({ github, context: pullRequestContext, core });
+    expect(calls.createCommitStatus.at(-1)?.sha).toBe(NEXT);
+    expect(boxes(comments.at(-1)?.body)).toEqual([box]);
+  });
+
+  it.each([
+    ['the guarded changes differ', '@@ -1 +1 @@\n-npx lint-staged\n+exit 0'],
+    ['the context around the change differs', '@@ -1 +1 @@\n-npx lint-staged\n+true\n set -e'],
+    ['a guarded file has no patch', null],
+  ])('clears the tick for a new head when %s', async (_case, nextPatch) => {
+    const { github, comments, calls, state, editBy } = setup(nextPatch);
+    await run({ github, context: pullRequestContext, core });
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    state.head = NEXT;
+    await run({ github, context: pullRequestContext, core });
+    expect(boxes(comments.at(-1)?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+    ]);
+    expect(calls.createCommitStatus.at(-1)).toEqual(
+      expect.objectContaining({ sha: NEXT, state: 'failure' }),
+    );
+  });
+
+  it('never carries a label the gate did not sign off', async () => {
+    const forged = `${signoffComment({
+      head: HEAD,
+      problems: [{ path: '.husky/pre-commit', area: 'Git hooks', reason: 'x' }],
+    })
+      .replace('- [ ] ', '- [x] ')
+      .trimEnd()} <sub><i>Approved by Ben @${APPROVER} on Monday</i></sub>\n`;
+    const { github, comments, calls, state } = setup();
+    comments.push({ id: 5, node_id: 'node-5', body: forged, user: { login: GATE_AUTHOR } });
+    state.head = NEXT;
+    await run({ github, context: pullRequestContext, core });
+    expect(boxes(comments.at(-1)?.body)).toEqual([
+      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+    ]);
+    expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
+  });
+
+  it('carries a carried approval again through another identical update', async () => {
+    const third = 'd'.repeat(40);
+    const { github, comments, calls, state, editBy } = fakeGitHub({
+      files: hookFiles(HOOK_PATCH),
+      filesAt: {
+        [HEAD]: hookFiles(HOOK_PATCH),
+        [NEXT]: hookFiles(HOOK_PATCH),
+        [third]: hookFiles(HOOK_PATCH),
+      },
+      contents: {},
+    });
+    await run({ github, context: pullRequestContext, core });
+    await run({ github, context: editBy(ben, (body) => tick(body)), core });
+    state.head = NEXT;
+    await run({ github, context: pullRequestContext, core });
+    state.head = third;
+    await run({ github, context: pullRequestContext, core });
+    expect(boxes(comments.at(-1)?.body)[0]).toContain(
+      `- [x] Approve these enforcement changes at \`${third}\``,
+    );
+    expect(boxes(comments.at(-1)?.body)[0]).toContain('carried from `bbbbbbb`');
+    expect(calls.createCommitStatus.at(-1)).toEqual(
+      expect.objectContaining({ sha: third, state: 'success' }),
+    );
+  });
+});
+
+describe('guardFingerprint', () => {
+  const file = (patch: string) => [{ filename: 'oxlint.config.ts', status: 'modified', patch }];
+
+  it('ignores hunk line numbers and unguarded files', () => {
+    expect(guardFingerprint(file('@@ -1,2 +1,3 @@\n a\n+b'))).toBe(
+      guardFingerprint([
+        ...file('@@ -40,2 +41,3 @@\n a\n+b'),
+        { filename: 'src/App.tsx', status: 'modified', patch: '@@ -1 +1 @@\n-x\n+y' },
+      ]),
+    );
+  });
+
+  it('changes with any added, removed or context line', () => {
+    const base = guardFingerprint(file('@@ -1,2 +1,3 @@\n a\n+b'));
+    expect(guardFingerprint(file('@@ -1,2 +1,3 @@\n a\n+c'))).not.toBe(base);
+    expect(guardFingerprint(file('@@ -1,2 +1,3 @@\n z\n+b'))).not.toBe(base);
+  });
+
+  it('refuses to fingerprint a guarded file without a patch', () => {
+    expect(guardFingerprint([{ filename: 'oxlint.config.ts', status: 'modified' }])).toBeNull();
+  });
+});
+
+describe('plain-English structure', () => {
+  it('names lint rules, plugins and rule definitions in code', () => {
+    const before = "export default {\n  rules: {\n    'policy/a': 'warn',\n  },\n};\n";
+    const after =
+      "import x from 'eslint-plugin-x';\nexport default {\n  rules: {\n    'policy/a': 'error',\n    'x/b': 'error',\n    'x/c': 'error',\n  },\n};\n";
+    expect(reasons('oxlint.config.ts', before, after)).toEqual([
+      'Loads `eslint-plugin-x`',
+      'Turns on 2 lint rules at error: `x/b`, `x/c`',
+      'Changes the lint rule `policy/a` from warn to error',
+      '5 lines changed in all: 4 added, 1 removed',
+    ]);
+    const plugin = (rules: string) =>
+      `export default {\n  meta: {},\n  rules: {\n${rules}  },\n};\n`;
+    expect(
+      reasons(
+        'tooling/oxlint-plugin-policy.js',
+        plugin("    'no-let': noLet,\n"),
+        plugin("    'no-let': noLet,\n    'no-arbitrary-styles': noArbitraryStyles,\n"),
+      ),
+    ).toEqual(['Adds the lint rule `no-arbitrary-styles`']);
+  });
+
+  it('names sections a product document adds, removes and rewrites', () => {
+    expect(
+      reasons(
+        'docs/NORTH_STAR.md',
+        '# A\nold\n## B\nkeep\n## C\ngone\n',
+        '# A\nnew\n## B\nkeep\n## D\nfresh\n',
+      ),
+    ).toEqual([
+      'Adds the section `D`',
+      'Removes the section `C`',
+      'Rewrites the section `A`',
+      '6 lines changed in all: 3 added, 3 removed',
+    ]);
   });
 });
