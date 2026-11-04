@@ -29,7 +29,8 @@ planWorkspace({ packages, reference: {} });
 const steps = values.steps.split(',');
 if (steps.some((step) => !/^[a-z][a-z:-]*$/.test(step))) throw new Error('Invalid step name');
 const repository = process.cwd();
-const environment = { ...process.env, FALLOW_BASE: 'main' };
+// The caller's install already applied the release-age policy to every locked package (ADR 0101).
+const environment = { ...process.env, FALLOW_BASE: 'main', pnpm_config_minimum_release_age: '0' };
 // A caller's hook must not bind the throwaway copy to its original Git index.
 Object.keys(environment)
   .filter((key) => key.startsWith('GIT_'))
@@ -78,6 +79,8 @@ function resolveRef(ref) {
   return resolved.stdout.trim();
 }
 
+const store = command(repository, 'pnpm', ['store', 'path']).trim();
+
 function prepare(directory, ref) {
   const archive = spawnSync('git', ['archive', resolveRef(ref)], {
     cwd: repository,
@@ -111,7 +114,7 @@ function prepare(directory, ref) {
     writeFileSync(join(directory, path), content);
   });
   command(directory, 'git', ['checkout', '-b', 'bench']);
-  // Reuse locked resolutions so offline setup needs no registry metadata.
+  // Reuse locked resolutions; offline prevents tarball downloads.
   const lockPath = join(directory, 'pnpm-lock.yaml');
   const lock = readFileSync(lockPath, 'utf8');
   const importers = Array.from({ length: packages / 2 }, (_, index) =>
@@ -129,7 +132,16 @@ function prepare(directory, ref) {
       .join(''),
   ).join('');
   writeFileSync(lockPath, lock.replace('\npackages:', `${importers}\npackages:`));
-  command(directory, 'pnpm', ['install', '--offline', '--no-frozen-lockfile']);
+  // A temporary filesystem may select an empty default store instead of the caller's warm store.
+  console.log(
+    command(directory, 'pnpm', [
+      'install',
+      '--offline',
+      '--no-frozen-lockfile',
+      '--store-dir',
+      store,
+    ]),
+  );
   command(directory, 'git', ['add', '.']);
   command(directory, 'pnpm', ['arch:diagram']);
   command(directory, 'git', ['add', '.']);
