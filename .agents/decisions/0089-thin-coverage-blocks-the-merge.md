@@ -34,7 +34,7 @@ blast-radius gaps remain amber. Keep label names, colours and Jest thresholds.
 There is no human override. The only threshold-change path is a reviewed change
 to `jest.config.ts`. The maintainer's non-blocking Q7, "coverage override", in the Phase J
 cleanup plan asks whether to add an override and guard that config. It remains
-an open question in [Make changed-file coverage a required gate](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/issues/234).
+an open question in [Make changed-file coverage a required gate](https://github.com/BenSheridanEdwards/SoftwareFactoryTemplate/issues/234).
 This decision adds neither an override nor a new guarded path.
 
 ## Consequences
