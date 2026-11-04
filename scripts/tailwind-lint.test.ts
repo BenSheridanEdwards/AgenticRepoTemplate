@@ -68,6 +68,7 @@ it('enforces each adopted rule in web, UI and showcase using the real v4 theme',
     );
     write(`${root}/src/merge.tsx`, 'const view = <p className={`p-4 $' + '{extra}`} />;');
     write(`${root}/src/join.tsx`, "const view = <p className={['p-4', extra].join(' ')} />;");
+    write(`${root}/src/partial.tsx`, "const view = <p className={cn('bg-' + color)} />;");
     write(`${root}/src/add.tsx`, "const view = <p className={'p-4 ' + extra} />;");
     write(`${root}/src/inline.tsx`, 'const view = <p style={{margin: 0}} className="w-[13px]" />;');
   });
@@ -76,46 +77,29 @@ it('enforces each adopted rule in web, UI and showcase using the real v4 theme',
   const result = lint();
   expect(result.stderr).toBe('');
   expect(result.status).toBe(1);
-  const diagnostics = JSON.parse(result.stdout)
-    .diagnostics.map((diagnostic: { filename: string; code: string }) => ({
-      ...diagnostic,
-      filename: diagnostic.filename.replace(`${directory}/`, ''),
-    }))
-    .filter(
-      ({ code }: { code: string }) =>
-        code.startsWith('better-tailwindcss(') || code === 'policy(no-arbitrary-styles)',
-    );
+  const diagnostics = JSON.parse(result.stdout).diagnostics.filter(
+    ({ code }: { code: string }) =>
+      code.startsWith('better-tailwindcss(') || code === 'policy(no-arbitrary-styles)',
+  );
+  const expected = [
+    ...cases.map(([name, , rule]) => [name, `better-tailwindcss(${rule})`]),
+    ...['rawConstant', 'merge', 'join', 'add', 'inline'].map((name) => [
+      name,
+      'policy(no-arbitrary-styles)',
+    ]),
+    ['constant', 'better-tailwindcss(no-unknown-classes)'],
+    ['partial', 'better-tailwindcss(no-concatenated-classes)'],
+  ];
   roots.forEach((root) => {
-    cases.forEach(([name, , rule]) => {
-      expect(diagnostics).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            filename: `${root}/src/${name}.tsx`,
-            code: `better-tailwindcss(${rule})`,
-            severity: 'error',
-          }),
-        ]),
-      );
-    });
-    ['rawConstant', 'merge', 'join', 'add', 'inline'].forEach((name) => {
-      expect(diagnostics).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            filename: `${root}/src/${name}.tsx`,
-            code: 'policy(no-arbitrary-styles)',
-            severity: 'error',
-          }),
-        ]),
-      );
-    });
-    expect(diagnostics).toEqual(
-      expect.arrayContaining([
+    expected.forEach(([name, code]) => {
+      expect(diagnostics).toContainEqual(
         expect.objectContaining({
-          filename: `${root}/src/constant.tsx`,
-          code: 'better-tailwindcss(no-unknown-classes)',
+          filename: expect.stringContaining(`${root}/src/${name}.tsx`),
+          code,
+          severity: 'error',
         }),
-      ]),
-    );
+      );
+    });
   });
   expect(
     diagnostics.filter(({ filename }: { filename: string }) =>

@@ -6,36 +6,17 @@
 
 ## Context
 
-The maintainer requested a fuller Tailwind lint set without restoring ESLint or
-adding a second formatter. Tailwind v4 silently drops off-theme utilities after
-the colour, radius and font resets. The two primitives also join default and
-caller classes without resolving conflicting utilities.
+The maintainer requested a fuller Tailwind lint set without restoring ESLint or adding a second formatter. Tailwind v4 silently drops off-theme utilities after the colour, radius and font resets. The two primitives also join default and caller classes without resolving conflicting utilities.
 
 ## Decision
 
-Pin `eslint-plugin-better-tailwindcss` 4.10.0 as an Oxlint JS plugin. Its
-`entryPoint` is the absolute path to `packages/ui/src/styles.css`; `cwd` resolves
-Tailwind from `apps/web`. This reads the real v4 design system, including resets
-and custom variants. Enable the seven rules below at error in production web,
-showcase web and UI TypeScript. Tests keep their sentinel classes. Keep
-`--deny-warnings`, Biome formatting, existing hooks and existing CI jobs.
+Pin `eslint-plugin-better-tailwindcss` 4.10.0 as an Oxlint JS plugin. Its `entryPoint` is the absolute path to `packages/ui/src/styles.css`; `cwd` resolves Tailwind from `apps/web`. This reads the real v4 design system, including resets and custom variants. Enable the seven rules below at error in production web, showcase web and UI TypeScript. Tests keep their sentinel classes. Keep `--deny-warnings`, Biome formatting, existing hooks and existing CI jobs.
 
-Use `cn` from `@repo/ui` to compose complete strings. Its only dependency,
-`tailwind-merge` 3.7.0, resolves default/caller conflicts across arguments, which
-the lint plugin cannot see. Class constants also use `cn('...')`: the plugin
-checks calls but does not follow arbitrarily named identifiers. Extend the
-existing `policy/no-arbitrary-styles` to reject raw class constants, string
-addition, interpolation and other class-building calls, while retaining its
-arbitrary-value and inline-style checks. Allow `@apply` only in the UI theme
-file through the existing `lint:styles` script.
+Use `cn` from `@repo/ui` to compose complete strings. Its only dependency, `tailwind-merge` 3.7.0, resolves default/caller conflicts across arguments, which the lint plugin cannot see. Class constants also use `cn('...')`: the plugin checks calls but does not follow arbitrarily named identifiers. Extend the existing `policy/no-arbitrary-styles` to reject raw class constants, string addition, interpolation and other class-building calls, while retaining its arbitrary-value and inline-style checks. Allow `@apply` only in the UI theme file through the existing `lint:styles` script.
 
 ### Rule decisions and measured costs
 
-Times are seconds of wall time for a fresh lint process on the real tree,
-median of three runs. Each isolated row includes the existing policy rules,
-plugin loading and CSS compilation; rows are overlapping costs, not additive.
-The machine was an arm64 Mac14,13, 12 logical CPUs, 96 GiB RAM, Node 26.12.1,
-pnpm 11.3.0. Concurrent sessions make sub-second differences noisy.
+Times are seconds of wall time for a fresh lint process on the real tree, median of three runs. Each isolated row includes the existing policy rules, plugin loading and CSS compilation; rows are overlapping costs, not additive. The machine was an arm64 Mac14,13, 12 logical CPUs, 96 GiB RAM, Node 26.12.1, pnpm 11.3.0. Concurrent sessions make sub-second differences noisy.
 
 | Rule | Prevents | Tool | Local cost and false positives | Upkeep/version risk | Adopted and why |
 | --- | --- | --- | --- | --- | --- |
@@ -54,16 +35,7 @@ pnpm 11.3.0. Concurrent sessions make sub-second differences noisy.
 | Biome sorting | Same order concern | Biome 2.5.1 `useSortedClasses` | Rejected before activation; no added gate cost | Pinned schema exposes no v4 stylesheet setting; 2.6 changes rule/config | No; defer the upgrade and keep all Tailwind lint with Oxlint |
 | Generic class flattening | Nested object/array class input | `clsx` | Rejected before installation; no added runtime cost | Another input API and dependency | No; current callers need strings and conditional false/null/undefined only |
 
-Before: `lint:policy` 2.390/1.303/1.322s, `lint:styles`
-0.767/0.749/0.743s, Biome `check` 2.268/0.996/0.931s. After the complete set:
-`lint:policy` 1.555/1.617/1.796s, median 1.617s, +0.295s against the
-before median. Disabling all seven new rules with CLI `-A` measured
-1.981/3.820/1.572s, illustrating load noise rather than a speedup from rules.
-Biome after: 1.139/1.003/1.019s. The hosted quality job runs the same `lint:policy` and `lint:styles` commands;
-record its before/after step durations and final local hook timings in the PR.
-Measured staged pre-commit steps: typecheck 2.444s, Biome 1.484s, anti-slop
-3.788s, Fallow 5.585s and gitleaks 1.830s. All passed. The pre-commit command
-set stays unchanged, with its 30-second per-step budget.
+Before: `lint:policy` 2.390/1.303/1.322s, `lint:styles` 0.767/0.749/0.743s, Biome `check` 2.268/0.996/0.931s. After the complete set: `lint:policy` 1.555/1.617/1.796s, median 1.617s, +0.295s against the before median. Disabling all seven new rules with CLI `-A` measured 1.981/3.820/1.572s, illustrating load noise rather than a speedup from rules. Biome after: 1.139/1.003/1.019s. The hosted quality job runs the same `lint:policy` and `lint:styles` commands; record its before/after step durations and final local hook timings in the PR. Measured staged pre-commit steps: typecheck 2.444s, Biome 1.484s, anti-slop 3.788s, Fallow 5.585s and gitleaks 1.830s. All passed. The pre-commit command set stays unchanged, with its 30-second per-step budget.
 
 ## Alternatives and evidence
 
@@ -74,15 +46,6 @@ set stays unchanged, with its 30-second per-step budget.
 
 ## Consequences
 
-`pnpm lint:policy`, `pnpm verify` and the current quality lane own the expanded
-set. The runtime class strings retain their utilities and variants; the Visual
-regression job uses the existing baselines. Class-order autofix and Biome reach
-a fixed point in the regression fixture. Run additional fix passes when fixes
-overlap, then inspect the result. Review semantic utility replacements manually.
+`pnpm lint:policy`, `pnpm verify` and the current quality lane own the expanded set. The runtime class strings retain their utilities and variants; the Visual regression job uses the existing baselines. Class-order autofix and Biome reach a fixed point in the regression fixture. Run additional fix passes when fixes overlap, then inspect the result. Review semantic utility replacements manually.
 
-The plugin parses TypeScript/JSX through Oxlint. HTML retains ADR 0114's style,
-arbitrary-value and colour checks; CSS retains the central-theme policy.
-Imported computed class values and runtime strings remain outside static class
-validation. Keep reusable class constants in `cn` calls so they are checked at
-their definition. Upgrades must rerun the real-theme and autofix fixtures.
-Revert this ADR's implementation together to remove the plugin and helper.
+The plugin parses TypeScript/JSX through Oxlint. HTML retains ADR 0114's style, arbitrary-value and colour checks; CSS retains the central-theme policy. Imported computed class values and runtime strings remain outside static class validation. Keep reusable class constants in `cn` calls so they are checked at their definition. Upgrades must rerun the real-theme and autofix fixtures. Revert this ADR's implementation together to remove the plugin and helper.
