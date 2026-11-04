@@ -280,13 +280,13 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
     {
       path: `${root}/src/constant.tsx`,
       source:
-        "const CARD = cn('p-4 w-(--x)');\nconst view = <p className={cn(CARD, 'flex')}>Hi</p>;",
+        "import { cn } from '@repo/ui';\nconst CARD = cn('p-4 w-(--x)');\nconst view = <p className={cn(CARD, 'flex')}>Hi</p>;",
       code: 'policy(no-arbitrary-styles)',
     },
     {
       path: `${root}/src/chained.tsx`,
       source:
-        "const BASE = cn('bg-[#fff]');\nconst CARD = cn(BASE, 'p-4');\nconst view = <p class={CARD}>Hi</p>;",
+        "import { cn } from '@repo/ui';\nconst BASE = cn('bg-[#fff]');\nconst CARD = cn(BASE, 'p-4');\nconst view = <p class={CARD}>Hi</p>;",
       codes: [
         'policy(no-arbitrary-styles)',
         'policy(no-arbitrary-styles)',
@@ -296,6 +296,7 @@ const controls = [<Button />, <TextField label="Name" />, <input type="checkbox"
     {
       path: `${root}/src/scale.tsx`,
       source: [
+        "import { cn } from '@repo/ui';",
         "const ISSUE = 'Issue #123';",
         "const field = form.querySelector('input[name=email]');",
         "const path = 'items[0]';",
