@@ -1067,7 +1067,6 @@ const evidence = (id: string) => JSON.parse(read(`docs/trials/${id}.json`));
 
 const lint = (config: string, findings = 0) => ({
   config,
-  unignored: config === '.oxlintrc.json' ? ['showcase/**'] : [],
   exitCode: findings === 0 ? 0 : 1,
   files: 30,
   findings,
