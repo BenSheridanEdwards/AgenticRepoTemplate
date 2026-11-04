@@ -157,23 +157,28 @@ describe('readable workflow summaries', () => {
     `jobs:\n  quality:\n    runs-on: ubuntu-latest\n    steps:\n${steps}\n`;
 
   it.each([
-    ['old # v6.5.0', 'new # v7.1.0', 'v6.5.0', 'v7.1.0'],
-    ['v6', 'v7', 'v6', 'v7'],
-  ])('describes an action pin change from %s to %s', (before, after, was, now) => {
+    [
+      'old # v6.5.0',
+      'new # v7.1.0',
+      'Bumps `actions/setup-node` from `old` (`v6.5.0`) to `new` (`v7.1.0`)',
+    ],
+    ['v6', 'v7', 'Bumps `actions/setup-node` from `v6` to `v7`'],
+  ])('describes an action pin change from %s to %s', (before, after, expected) => {
     expect(
       reasons(
         path,
         workflow(`      - uses: actions/setup-node@${before}`),
         workflow(`      - uses: actions/setup-node@${after}`),
       ),
-    ).toEqual([`Bumps \`actions/setup-node\` from \`${was}\` to \`${now}\``]);
+    ).toEqual([expected]);
   });
 
   it('names an added step and a removed step', () => {
     const before = workflow('      - name: Install Chromium\n        run: pnpm e2e:install');
     const after = workflow('      - name: Run anti-slop lint\n        run: pnpm lint:anti-slop');
     expect(reasons(path, before, after)).toEqual([
-      'Removes the step `Install Chromium`; Adds the step `Run anti-slop lint`',
+      'Removes the step `Install Chromium`',
+      'Adds the step `Run anti-slop lint`',
     ]);
   });
 
@@ -189,24 +194,27 @@ describe('readable workflow summaries', () => {
   it('describes added and removed jobs without listing their steps', () => {
     const before = 'jobs:\n  old:\n    steps:\n      - run: echo old\n';
     const after = 'jobs:\n  visual:\n    steps:\n      - run: pnpm visual\n';
-    expect(reasons(path, before, after)).toEqual(['Removes the job `old`; Adds the job `visual`']);
-  });
-
-  it('summarises composite action pins and repeated action steps separately', () => {
-    const before =
-      'runs:\n  using: composite\n  steps:\n    - uses: actions/setup-node@v6\n    - uses: actions/setup-node@v6\n';
-    const after = before.replaceAll('@v6', '@v7');
-    expect(reasons('.github/actions/setup/action.yml', before, after)).toEqual([
-      'Bumps `actions/setup-node` from `v6` to `v7`; Bumps `actions/setup-node` from `v6` to `v7`',
+    expect(reasons(path, before, after)).toEqual([
+      'Removes the job `old`',
+      'Adds the job `visual`',
     ]);
   });
 
-  it('reads reusable workflow pins and ignores job comments', () => {
+  it('deduplicates identical bumps across composite action steps', () => {
+    const before = `runs:\n  using: composite\n  steps:\n${'    - uses: actions/setup-node@v6\n'.repeat(6)}`;
+    const after = before.replaceAll('@v6', '@v7');
+    expect(reasons('.github/actions/setup/action.yml', before, after)).toEqual([
+      'Bumps `actions/setup-node` from `v6` to `v7`',
+    ]);
+  });
+
+  it('reads reusable workflow pins and reports changed job comments', () => {
     const before =
       'jobs:\n  # explain: this job\n  quality:\n    uses: owner/repo/.github/workflows/check.yml@v1\n';
     const after = before.replace('@v1', '@v2').replace('explain:', 'new comment:');
     expect(reasons(path, before, after)).toEqual([
       'Bumps `owner/repo/.github/workflows/check.yml` from `v1` to `v2`',
+      'Changes 2 lines: adds 1, removes 1',
     ]);
   });
 
@@ -219,6 +227,232 @@ describe('readable workflow summaries', () => {
     expect(
       reasons(path, workflow(''), workflow('      - run: |\n          pnpm lint:anti-slop')),
     ).toEqual(['Adds the step `pnpm lint:anti-slop`']);
+  });
+
+  it.each([
+    [
+      'gutted command',
+      '        run: pnpm arch:gate',
+      '        run: "true"',
+      'Changes the step `Architecture`',
+    ],
+    [
+      'step continue-on-error',
+      '        run: pnpm arch:gate',
+      '        run: pnpm arch:gate\n        continue-on-error: true',
+      'Changes the step `Architecture`',
+    ],
+    [
+      'job condition',
+      '    runs-on: ubuntu-latest',
+      '    if: false\n    runs-on: ubuntu-latest',
+      'Changes 1 line: adds 1, removes 0',
+    ],
+    ['trigger', 'on: pull_request', 'on: push', 'Changes 2 lines: adds 1, removes 1'],
+    [
+      'permissions',
+      'permissions: {}',
+      'permissions: write-all',
+      'Changes 2 lines: adds 1, removes 1',
+    ],
+  ])('reports a bump together with a %s change', (_case, from, to, expected) => {
+    const before = `on: pull_request\npermissions: {}\n${workflow('      - uses: actions/setup-node@v6\n      - name: Architecture\n        run: pnpm arch:gate')}`;
+    const after = before.replace('@v6', '@v7').replace(from, to);
+    expect(reasons(path, before, after)).toEqual([
+      'Bumps `actions/setup-node` from `v6` to `v7`',
+      expected,
+    ]);
+  });
+
+  it('reports a bump and gutted architecture gate in the real CI workflow', () => {
+    const before = readFileSync(join(import.meta.dirname, '../.github/workflows/ci.yml'), 'utf8');
+    const after = before
+      .replace(
+        /actions\/setup-node@[a-f0-9]+ # v[^\n]+/,
+        `actions/setup-node@${'b'.repeat(40)} # v7.1.0`,
+      )
+      .replace('run: pnpm arch:gate', 'run: "true"');
+    const found = reasons(path, before, after);
+    expect(found).toContain(
+      'Bumps `actions/setup-node` from `2499707` (`v6.5.0`) to `bbbbbbb` (`v7.1.0`)',
+    );
+    expect(found).toContain('Changes the step `Architecture gate (forbidden imports)`');
+  });
+
+  it('counts all unmatched job edits once across the workflow', () => {
+    const before = `${workflow('      - uses: actions/setup-node@v6')}  second:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n`;
+    const after = before
+      .replace('@v6', '@v7')
+      .replaceAll('    runs-on:', '    if: false\n    runs-on:');
+    expect(reasons(path, before, after)).toEqual([
+      'Bumps `actions/setup-node` from `v6` to `v7`',
+      'Changes 2 lines: adds 2, removes 0',
+    ]);
+  });
+
+  it('reports a bump and another edit in the same action step', () => {
+    const before = workflow('      - uses: actions/setup-node@v6');
+    expect(
+      reasons(path, before, `${before.replace('@v6', '@v7')}        continue-on-error: true\n`),
+    ).toEqual([
+      'Bumps `actions/setup-node` from `v6` to `v7`',
+      'Changes the step `actions/setup-node@v7`',
+    ]);
+  });
+
+  it('shows commit pins beside unverified version comments', () => {
+    expect(
+      reasons(
+        path,
+        workflow(`      - uses: actions/setup-node@${'a'.repeat(40)} # v6.5.0`),
+        workflow(`      - uses: actions/setup-node@${'b'.repeat(40)} # v7.1.0`),
+      ),
+    ).toEqual(['Bumps `actions/setup-node` from `aaaaaaa` (`v6.5.0`) to `bbbbbbb` (`v7.1.0`)']);
+  });
+
+  it('names a changed commit pin when the version comment is unchanged', () => {
+    const before = workflow(`      - uses: actions/setup-node@${'a'.repeat(40)} # v6.5.0`);
+    expect(reasons(path, before, before.replace('a'.repeat(40), 'b'.repeat(40)))).toEqual([
+      'Changes the pin of `actions/setup-node` to commit `bbbbbbb`',
+    ]);
+  });
+
+  it('does not call a changed version comment a commit bump', () => {
+    const before = workflow(`      - uses: actions/setup-node@${'a'.repeat(40)} # v6.5.0`);
+    expect(reasons(path, before, before.replace('v6.5.0', 'v7.1.0'))).toEqual([
+      'Changes the version comment for `actions/setup-node` from `v6.5.0` to `v7.1.0`',
+    ]);
+  });
+
+  it('describes pure step reordering', () => {
+    expect(
+      reasons(
+        path,
+        workflow('      - run: pnpm arch:gate\n      - run: pnpm lint:policy'),
+        workflow('      - run: pnpm lint:policy\n      - run: pnpm arch:gate'),
+      ),
+    ).toEqual(['Reorders steps']);
+  });
+
+  it('uses a readable fallback for a flow-style step', () => {
+    expect(
+      reasons(path, workflow(''), workflow('      - { name: X, run: pnpm arch:gate }')),
+    ).toEqual(['Adds an unnamed step']);
+  });
+
+  it('caps a multiline command name at its first line', () => {
+    expect(
+      reasons(
+        path,
+        workflow(''),
+        workflow('      - run: |\n          pnpm arch:gate\n          echo hidden'),
+      ),
+    ).toEqual(['Adds the step `pnpm arch:gate`']);
+  });
+
+  it.each(['name', 'run', 'uses'])('caps a long %s at 80 characters', (field) => {
+    expect(reasons(path, workflow(''), workflow(`      - ${field}: ${'x'.repeat(4105)}`))).toEqual([
+      `Adds the step \`${'x'.repeat(79)}…\``,
+    ]);
+  });
+
+  it('caps action names, refs and comments in bump descriptions', () => {
+    const action = 'x'.repeat(200);
+    const before = workflow(`      - uses: ${action}@${'y'.repeat(200)} # v${'z'.repeat(200)}`);
+    const after = workflow(`      - uses: ${action}@${'q'.repeat(200)} # v${'w'.repeat(200)}`);
+    const found = reasons(path, before, after).join();
+    expect(found).toContain('…');
+    expect(found.length).toBeLessThan(450);
+  });
+
+  it('truncates distinct workflow reasons only after deduplication', () => {
+    const steps = Array.from({ length: 12 }, (_, index) => `      - run: check-${index}`).join(
+      '\n',
+    );
+    const found = reasons(path, workflow(''), workflow(steps));
+    expect(found).toHaveLength(11);
+    expect(found.at(-1)).toBe('and 2 more changes');
+  });
+
+  it('handles 200,000 job-like lines without overflowing the argument stack', () => {
+    const after = `jobs:\n${'  quality:\n'.repeat(200_000)}`;
+    expect(reasons(path, 'jobs:\n', after)).toEqual(['Adds the job `quality`']);
+  });
+
+  it('parses a version comment after 100,000 spaces promptly', () => {
+    const before = workflow('      - uses: actions/setup-node@v6');
+    const after = workflow(`      - uses: actions/setup-node@v7${' '.repeat(100_000)} # v7.1.0`);
+    const start = performance.now();
+    expect(reasons(path, before, after)).toEqual([
+      'Bumps `actions/setup-node` from `v6` to `v7` (`v7.1.0`)',
+    ]);
+    expect(performance.now() - start).toBeLessThan(2000);
+  });
+
+  it('bounds the comment body and keeps oversized input awaiting sign-off', () => {
+    const problems = Array.from({ length: 150 }, (_, index) => ({
+      path: `.github/workflows/ci-${index}.yml`,
+      area: 'CI workflows',
+      reason: `Changes the step \`${'x'.repeat(5000)}\``,
+    }));
+    const plan = planApproval({
+      head: HEAD,
+      problems,
+      signedOff: false,
+      comment: undefined,
+      event: { kind: 'pull' },
+    });
+    expect(plan.status?.state).toBe('failure');
+    expect(Buffer.byteLength(plan.commentBody ?? '', 'utf8')).toBeLessThan(65_536);
+    expect(plan.commentBody).toMatch(/and \d+ more changes/i);
+    expect(plan.commentBody).toContain(`- [ ] Approve these enforcement changes at \`${HEAD}\``);
+    expect(plan.commentBody).toBe(signoffComment({ head: HEAD, problems }));
+  });
+
+  it('keeps bounded rows identical through a fresh tick and labelled rerun', () => {
+    const problems = Array.from({ length: 150 }, (_, index) => ({
+      path: `.github/workflows/ci-${index}.yml`,
+      area: 'CI workflows',
+      reason: `Changes the step \`${'界'.repeat(500)}\``,
+    }));
+    const body = signoffComment({ head: HEAD, problems });
+    const to = tick(body);
+    const plan = planApproval({
+      head: HEAD,
+      problems,
+      signedOff: false,
+      comment: { body: to, updatedAt: '2026-10-12T14:00:00Z' },
+      event: { kind: 'comment', sender: ben, from: body, to, at: '2026-10-12T14:00:00Z' },
+    });
+    expect(plan.status?.state).toBe('success');
+    expect(Buffer.byteLength(plan.commentBody ?? '', 'utf8')).toBeLessThan(65_536);
+    expect(
+      planApproval({
+        head: HEAD,
+        problems,
+        signedOff: true,
+        comment: { body: plan.commentBody ?? '' },
+        event: { kind: 'pull' },
+      }),
+    ).toEqual({ commentBody: plan.commentBody, status: null });
+  });
+
+  it('reports an oversized row even when no row fits in the body', () => {
+    const problems = [{ path, area: 'CI workflows', reason: 'x'.repeat(70_000) }];
+    const body = signoffComment({ head: HEAD, problems });
+    expect(Buffer.byteLength(body, 'utf8')).toBeLessThan(65_536);
+    expect(body).toContain('And 1 more changes; review the full diff');
+  });
+
+  it('reports a replaced action beside an unrelated bump', () => {
+    const before = workflow(
+      '      - uses: actions/setup-node@v6\n      - name: Gate\n        uses: owner/gate@v1',
+    );
+    const after = before.replace('@v6', '@v7').replace('owner/gate', 'owner/noop');
+    expect(reasons(path, before, after)).toEqual([
+      'Bumps `actions/setup-node` from `v6` to `v7`',
+      'Changes the step `Gate`',
+    ]);
   });
 
   it('keeps multiple JSON reasons in one file row', () => {
@@ -234,7 +468,7 @@ describe('readable workflow summaries', () => {
         .split('\n')
         .filter((line) => line.startsWith('| `biome.json`')),
     ).toEqual([
-      '| `biome.json` | Biome config | sets `linter.enabled` to `false`; sets `linter.recommended` to `false` |',
+      '| `biome.json` | Biome config | Sets `linter.enabled` to `false`; Sets `linter.recommended` to `false` |',
     ]);
   });
 
@@ -745,7 +979,7 @@ describe('signoffComment', () => {
   it('lists the problems and carries one unticked box bound to the head commit', () => {
     const body = signoffComment({ head: HEAD, problems: PROBLEMS });
     expect(body.startsWith(COMMENT_MARKER)).toBe(true);
-    expect(body).toContain('| `biome.json` | Biome config | sets `linter.enabled` to `false` |');
+    expect(body).toContain('| `biome.json` | Biome config | Sets `linter.enabled` to `false` |');
     expect(body).toContain(`@${APPROVER}`);
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
       `- [ ] Approve these enforcement changes at \`${HEAD}\``,
@@ -769,7 +1003,7 @@ describe('signoffComment', () => {
 
     const body = signoffComment({ head: 'a'.repeat(40), problems });
     expect(body.split('\n').filter((line) => line.startsWith('| `scripts/'))).toHaveLength(100);
-    expect(body).toContain('| | | and 50 more changes |');
+    expect(body).toContain('| | | And 50 more changes; review the full diff |');
   });
 
   it('renders a hostile path inert, keeping a single approval line', () => {

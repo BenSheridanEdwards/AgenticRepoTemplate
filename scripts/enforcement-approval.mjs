@@ -83,19 +83,23 @@ function lineSummary(before, after) {
   return `Changes ${added + removed} ${added + removed === 1 ? 'line' : 'lines'}: adds ${added}, removes ${removed}`;
 }
 
+/** @param {string} text */
+const short = (text) => (text.length > 80 ? `${text.slice(0, 79)}…` : text);
+
 /** @param {string} text @param {string} key */
 function yamlSection(text, key) {
   const lines = linesOf(text);
-  const start = lines.findIndex((line) => new RegExp(`^ *${key}: *(?:#.*)?$`).test(line));
+  const pattern = new RegExp(`^ *${key}: *(?:#.*)?$`);
+  const start = lines.findIndex((line) => pattern.test(line));
 
-  if (start === -1) return '';
+  if (start === -1) return { text: '', start: 0 };
   const indent = lines[start].search(/\S/);
   const rest = lines.slice(start + 1);
   const end = rest.findIndex(
     (line) => line.trim() && !line.trimStart().startsWith('#') && line.search(/\S/) <= indent,
   );
 
-  return rest.slice(0, end === -1 ? undefined : end).join('\n');
+  return { text: rest.slice(0, end === -1 ? undefined : end).join('\n'), start: start + 1 };
 }
 
 /** Direct mapping entries or sequence items; nested block-scalar text stays in its block.
@@ -109,13 +113,40 @@ function yamlBlocks(text, pattern) {
 
     return match ? [{ index, indent: match[1].length, key: match[2] }] : [];
   });
-  const indent = Math.min(...candidates.map((item) => item.indent));
+  const indent = candidates.reduce((minimum, item) => Math.min(minimum, item.indent), Infinity);
   const starts = candidates.filter((item) => item.indent === indent);
 
   return starts.map((item, index) => ({
     key: item.key,
     text: lines.slice(item.index, starts[index + 1]?.index).join('\n'),
+    start: item.index,
+    end: starts[index + 1]?.index ?? lines.length,
   }));
+}
+
+/** @param {string} text @param {string} key @param {RegExp} pattern */
+function sectionBlocks(text, key, pattern) {
+  const section = yamlSection(text, key);
+
+  return yamlBlocks(section.text, pattern).map((block) => ({
+    ...block,
+    start: block.start + section.start,
+    end: block.end + section.start,
+  }));
+}
+
+/** @param {string} text @param {{ start: number, end: number }[]} blocks */
+function withoutBlocks(text, blocks) {
+  const covered = new Set(
+    blocks.flatMap(({ start, end }) =>
+      Array.from({ length: end - start }, (_, index) => start + index),
+    ),
+  );
+
+  return linesOf(text)
+    .filter((_line, index) => !covered.has(index))
+    .join('\n')
+    .replace(/\n+$/, '');
 }
 
 /** @param {string} value */
@@ -127,115 +158,189 @@ function stepField(text, key) {
 
   if (lines.length === 0) return '';
   const indent = lines[0].search(/\S/) + 2;
+  const pattern = new RegExp(`^ {${indent}}${key}:`);
   const index = lines
     .map((line, index) => (index === 0 ? line.replace('- ', '  ') : line))
-    .findIndex((line) => new RegExp(`^ {${indent}}${key}:`).test(line));
+    .findIndex((line) => pattern.test(line));
 
   if (index === -1) return '';
   const field = lines[index];
   const value = yamlScalar(field.slice(field.indexOf(':') + 1));
 
   if (!/^[|>][-+]?(?:\s+#.*)?$/.test(value)) return value;
-  const rest = lines.slice(index + 1);
-  const end = rest.findIndex((line) => line.trim() && line.search(/\S/) <= indent);
+  const next = lines[index + 1] ?? '';
 
-  return rest
-    .slice(0, end === -1 ? undefined : end)
-    .map((line) => line.trim())
-    .join(' ');
+  return next.search(/\S/) > indent ? next.trim() : '';
+}
+
+/** @param {string} uses */
+function actionPin(uses) {
+  const commentIndex = uses.indexOf(' #');
+  const reference = yamlScalar(commentIndex === -1 ? uses : uses.slice(0, commentIndex));
+  const comment = commentIndex === -1 ? '' : uses.slice(commentIndex + 2).trim();
+  const at = reference.lastIndexOf('@');
+
+  return {
+    reference,
+    comment,
+    action: at === -1 ? reference : reference.slice(0, at),
+    ref: at === -1 ? '' : reference.slice(at + 1),
+  };
 }
 
 /** @param {string} text */
 function workflowSteps(text) {
-  const blocks = yamlBlocks(yamlSection(text, 'steps'), /^( *)- +(.+)/);
-  const entries = blocks.length ? blocks : stepField(text, 'uses') ? [{ text }] : [];
-  const steps = entries.map(({ text }) => {
-    const uses = stepField(text, 'uses');
-    const reference = yamlScalar(uses.split(/\s+#/)[0]);
-    const at = reference.lastIndexOf('@');
-    const action = at === -1 ? reference : reference.slice(0, at);
-    const version = uses.match(/\s+#\s*(v.+)$/)?.[1] ?? reference.slice(at + 1);
-    const name = stepField(text, 'name') || stepField(text, 'run') || uses;
-    const key = stepField(text, 'id') || stepField(text, 'name') || action || name;
+  const blocks = sectionBlocks(text, 'steps', /^( *)- +(.+)/);
+  const entries = blocks.length
+    ? blocks
+    : stepField(text, 'uses')
+      ? [{ text, start: 0, end: linesOf(text).length }]
+      : [];
+  const steps = entries.map((block) => {
+    const uses = stepField(block.text, 'uses');
+    const pin = actionPin(uses);
+    const name = stepField(block.text, 'name') || stepField(block.text, 'run') || uses;
+    const key = stepField(block.text, 'id') || stepField(block.text, 'name') || pin.action || name;
 
-    return { key, name, action, version, reference };
+    return { ...block, ...pin, key, name };
   });
 
-  return steps.map((step, index) => ({
-    ...step,
-    key: JSON.stringify([
-      step.key,
-      steps.slice(0, index).filter((item) => item.key === step.key).length,
-    ]),
-  }));
+  return [...Map.groupBy(steps, (step) => step.key).values()]
+    .flatMap((group) =>
+      group.map((step, index) => ({ ...step, key: JSON.stringify([step.key, index]) })),
+    )
+    .toSorted((left, right) => left.start - right.start);
 }
+
+/** @param {string} name */
+const stepName = (name) => (name ? `the step ${inert(short(name))}` : 'an unnamed step');
+
+/** @param {string} text */
+function withoutUses(text) {
+  const lines = linesOf(text);
+  const indent = (lines[0] ?? '').search(/\S/) + 2;
+  const pattern = new RegExp(`^ {${indent}}uses:`);
+
+  return lines
+    .filter((line, index) => !pattern.test(index === 0 ? line.replace('- ', '  ') : line))
+    .join('\n');
+}
+
+/** @param {{ ref: string, comment: string }} step */
+const pin = (step) => {
+  const ref = /^[a-f0-9]{7,40}$/i.test(step.ref) ? step.ref.slice(0, 7) : short(step.ref);
+
+  return `${inert(ref)}${step.comment ? ` (${inert(short(step.comment))})` : ''}`;
+};
+
+/** @param {ReturnType<typeof workflowSteps>[number]} old @param {ReturnType<typeof workflowSteps>[number]} step */
+function pinChanges(old, step) {
+  if (!step.action || step.action !== old.action) return [];
+  const action = inert(short(step.action));
+
+  if (step.reference === old.reference) {
+    return step.comment !== old.comment
+      ? [
+          `Changes the version comment for ${action} from ${inert(short(old.comment))} to ${inert(short(step.comment))}`,
+        ]
+      : [];
+  }
+  if (step.comment && step.comment === old.comment) {
+    const commit = /^[a-f0-9]{7,40}$/i.test(step.ref) ? 'commit ' : '';
+
+    return [`Changes the pin of ${action} to ${commit}${pin({ ...step, comment: '' })}`];
+  }
+
+  return [`Bumps ${action} from ${pin(old)} to ${pin(step)}`];
+}
+
+/** @param {string} before @param {string} after */
+const remainderChanges = (before, after) => (before === after ? [] : [lineSummary(before, after)]);
 
 /** @param {string} before @param {string} after */
 function stepChanges(before, after) {
   const was = workflowSteps(before);
   const now = workflowSteps(after);
+  const oldSteps = new Map(was.map((step) => [step.key, step]));
+  const newSteps = new Map(now.map((step) => [step.key, step]));
+  const reordered =
+    was.length === now.length &&
+    was.every((step) => newSteps.has(step.key)) &&
+    was.some((step, index) => step.key !== now[index].key);
 
-  return [
+  const reasons = [
     ...was
-      .filter((step) => !now.some((item) => item.key === step.key))
-      .map((step) => `Removes the step ${inert(step.name)}`),
+      .filter((step) => !newSteps.has(step.key))
+      .map((step) => `Removes ${stepName(step.name)}`),
     ...now.flatMap((step) => {
-      const old = was.find((item) => item.key === step.key);
+      const old = oldSteps.get(step.key);
 
-      if (!old) return [`Adds the step ${inert(step.name)}`];
-      if (
-        step.action &&
-        step.action === old.action &&
-        (step.reference !== old.reference || step.version !== old.version)
-      ) {
-        return [`Bumps ${inert(step.action)} from ${inert(old.version)} to ${inert(step.version)}`];
-      }
+      if (!old) return [`Adds ${stepName(step.name)}`];
 
-      return [];
+      const pins = pinChanges(old, step);
+
+      return [
+        ...pins,
+        ...(withoutUses(old.text) !== withoutUses(step.text) ||
+        (old.text !== step.text && pins.length === 0)
+          ? [`Changes ${stepName(step.name)}`]
+          : []),
+      ];
     }),
+    ...(reordered ? ['Reorders steps'] : []),
   ];
+
+  return { reasons, before: withoutBlocks(before, was), after: withoutBlocks(after, now) };
 }
 
 /** @param {string} before @param {string} after */
 function workflowChanges(before, after) {
-  const jobs = (/** @type {string} */ text) =>
-    yamlBlocks(yamlSection(text, 'jobs'), /^( *)([^ :][^:]*):/);
+  const jobs = (/** @type {string} */ text) => sectionBlocks(text, 'jobs', /^( *)([^ :][^:]*):/);
   const was = jobs(before);
   const now = jobs(after);
 
-  if (was.length + now.length === 0) return stepChanges(before, after);
+  if (was.length + now.length === 0) {
+    const steps = stepChanges(before, after);
+
+    return [...steps.reasons, ...remainderChanges(steps.before, steps.after)];
+  }
+  const oldJobs = new Map(was.map((job) => [job.key, job]));
+  const newJobs = new Map(now.map((job) => [job.key, job]));
+  const matched = now.flatMap((job) => {
+    const old = oldJobs.get(job.key);
+
+    return old ? [stepChanges(old.text, job.text)] : [];
+  });
 
   return [
     ...was
-      .filter((job) => !now.some((item) => item.key === job.key))
-      .map((job) => `Removes the job ${inert(yamlScalar(job.key))}`),
-    ...now.flatMap((job) => {
-      const old = was.find((item) => item.key === job.key);
-
-      return old ? stepChanges(old.text, job.text) : [`Adds the job ${inert(yamlScalar(job.key))}`];
-    }),
+      .filter((job) => !newJobs.has(job.key))
+      .map((job) => `Removes the job ${inert(short(yamlScalar(job.key)))}`),
+    ...now
+      .filter((job) => !oldJobs.has(job.key))
+      .map((job) => `Adds the job ${inert(short(yamlScalar(job.key)))}`),
+    ...matched.flatMap((steps) => steps.reasons),
+    ...remainderChanges(
+      [withoutBlocks(before, was), ...matched.map((steps) => steps.before)].join('\n'),
+      [withoutBlocks(after, now), ...matched.map((steps) => steps.after)].join('\n'),
+    ),
   ];
 }
 
 /** @type {Judge} */
-const rewrite = ({ path, before, after }) => {
+const rewrite = ({ before, after }) => {
   if (before === null) return ['Adds this file'];
   if (after === null) return ['Deletes this file'];
-  const changes = /^\.github\/(workflows|actions)\//.test(path)
-    ? workflowChanges(before, after)
-    : [];
-  const shown = changes.slice(0, MAX_REASONS);
 
-  return [
-    changes.length
-      ? [
-          ...shown,
-          ...(changes.length > shown.length
-            ? [`and ${changes.length - shown.length} more changes`]
-            : []),
-        ].join('; ')
-      : lineSummary(before, after),
-  ];
+  return [lineSummary(before, after)];
+};
+
+/** @type {Judge} */
+const describeWorkflow = (change) => {
+  if (change.before === null || change.after === null) return rewrite(change);
+  const changes = workflowChanges(change.before, change.after);
+
+  return changes.length ? changes : rewrite(change);
 };
 
 /**
@@ -506,7 +611,7 @@ export const GUARDS = [
   {
     area: 'CI workflows',
     paths: [/^\.github\/workflows\//, /^\.github\/actions\//],
-    judge: rewrite,
+    judge: describeWorkflow,
   },
   { area: 'Git hooks', paths: [/^\.husky\//], judge: rewrite },
   {
@@ -673,10 +778,12 @@ export function signoffComment({ head, problems, approval, refusedBy }) {
 
   const rows = [...Map.groupBy(problems, (problem) => problem.path).values()].map((group) => ({
     ...group[0],
-    reason: group.map((problem) => problem.reason).join('; '),
+    reason: group
+      .map((problem) => problem.reason.charAt(0).toUpperCase() + problem.reason.slice(1))
+      .join('; '),
   }));
 
-  return [
+  const header = [
     COMMENT_MARKER,
     '## Enforcement sign-off',
     '',
@@ -684,15 +791,34 @@ export function signoffComment({ head, problems, approval, refusedBy }) {
     '',
     '| File | Area | Change |',
     '| --- | --- | --- |',
-    ...rows
-      .slice(0, MAX_ROWS)
-      .map((problem) => `| ${inert(problem.path)} | ${problem.area} | ${problem.reason} |`),
-    ...(rows.length > MAX_ROWS ? [`| | | and ${rows.length - MAX_ROWS} more changes |`] : []),
+  ];
+  const footer = [
     '',
     ...(refusedBy === undefined ? [] : [refusalNote(refusedBy), '']),
     `@${APPROVER} signs off by ticking the box below in GitHub. The tick counts for commit ${inert(head)} only. A new push clears it, and a tick from any other account is cleared.`,
     box,
     '',
+  ];
+  // A fixed row budget leaves space for the footer and keeps labelled and unticked rows identical.
+  const budget = 48_000;
+  const shown = rows.slice(0, MAX_ROWS).reduce(
+    (state, problem) => {
+      const line = `| ${inert(problem.path)} | ${problem.area} | ${problem.reason} |`;
+      const bytes = Buffer.byteLength(`${line}\n`, 'utf8');
+
+      return state.bytes + bytes <= budget
+        ? { lines: [...state.lines, line], bytes: state.bytes + bytes }
+        : state;
+    },
+    { lines: [], bytes: 0 },
+  );
+  const omitted = rows.length - shown.lines.length;
+
+  return [
+    ...header,
+    ...shown.lines,
+    ...(omitted ? [`| | | And ${omitted} more changes; review the full diff |`] : []),
+    ...footer,
   ].join('\n');
 }
 

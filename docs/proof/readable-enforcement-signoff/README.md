@@ -22,7 +22,12 @@ writeFileSync('docs/proof/readable-enforcement-signoff/comment.md', body);
 JS
 ```
 
+The CI sample deliberately combines an action pin bump with replacing
+`pnpm arch:gate` by `"true"` in the existing Architecture gate step. Both changes
+appear in the same row. Version comments remain unverified; both short commit
+pins appear beside them.
+
 The focused Jest suite covers the summaries, escaping, repeatability and tick
-protocol. Its eleven initial summary regressions fail on the original script;
-the full suite passes after the change. The app E2E map remains unchanged
+protocol. The initial summary regressions and the review regression cases fail on their
+respective unfixed implementations; the full suite passes after the fixes. The app E2E map remains unchanged
 because the changed surface is a GitHub automation comment, outside the app.
