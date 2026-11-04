@@ -992,7 +992,7 @@ describe('validatePullRequest', () => {
 
     it.each([
       '`pnpm verify` passed; logs in `<tmp>/verify.log`',
-      '![greeting](https://github.com/BenSheridanEdwards/AgenticRepoTemplate/blob/feat/x/docs/proof/greeting/a.png?raw=1)',
+      '![greeting](https://github.com/BenSheridanEdwards/SoftwareFactoryTemplate/blob/feat/x/docs/proof/greeting/a.png?raw=1)',
       "bubblewrap mounts the trial's temp folder over `/tmp`",
       '`apps/web/src/routes/greeting/GreetingPage.tsx`',
       '`node scripts/enforcement-approval.mjs --git origin/main HEAD`',
