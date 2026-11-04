@@ -12,6 +12,8 @@
 import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+import { githubApi } from './github-api.mjs';
+
 const AGGREGATE_CHECK = 'Required gates';
 
 /** True only when a merged PR into main has `mainTree` as its head tree and passed. */
@@ -64,13 +66,7 @@ export async function decide({ api, sha }) {
 
 async function runCli() {
   const { GH_TOKEN: token, REPO: repo, SHA: sha } = process.env;
-  const api = async (path) => {
-    const response = await fetch(`https://api.github.com/repos/${repo}/${path}`, {
-      headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' },
-    });
-    if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-    return response.json();
-  };
+  const api = githubApi({ repo, token });
   const passed = Boolean(token && repo && sha) && (await decide({ api, sha }));
   console.log(`passed=${passed}`);
 }
