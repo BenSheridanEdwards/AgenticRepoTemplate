@@ -953,6 +953,8 @@ export const arbitraryClasses = (text) => text.match(ARBITRARY_CLASS) ?? [];
 export const colourLiterals = (text) => text.match(COLOUR_LITERAL) ?? [];
 
 const STYLE_MESSAGES = {
+  merge:
+    'Build class constants and compose complete strings with cn from @repo/ui; remove concatenation, interpolation and other helpers (ADR 0121).',
   arbitrary:
     'Replace the Tailwind arbitrary value `{{value}}` with a class on the theme scale or a `@repo/ui` token (ADR 0114).',
   colour:
@@ -962,14 +964,28 @@ const STYLE_MESSAGES = {
 };
 
 /** Every AST node under `node`, itself included, in source order. */
-const descendants = (node) => [
-  node,
-  ...Object.entries(node)
-    .filter(([key]) => key !== 'parent')
-    .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
-    .filter((value) => typeof value?.type === 'string')
-    .flatMap(descendants),
-];
+const descendants = (node) =>
+  node.type === 'ConditionalExpression'
+    ? [node, ...descendants(node.consequent), ...descendants(node.alternate)]
+    : [
+        node,
+        ...Object.entries(node)
+          .filter(([key]) => key !== 'parent')
+          .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
+          .filter((value) => typeof value?.type === 'string')
+          .flatMap(descendants),
+      ];
+
+const isStringLiteral = (node) => node.type === 'Literal' && typeof node.value === 'string';
+const classLiteral = (node) => {
+  if (isStringLiteral(node)) return [[node, node.value]];
+  return node.type === 'TemplateElement' ? [[node, node.value.cooked ?? '']] : [];
+};
+const isClassComposition = (node) =>
+  (node.type === 'BinaryExpression' && node.operator === '+') ||
+  (node.type === 'TemplateLiteral' && node.expressions.length > 0) ||
+  (node.type === 'CallExpression' &&
+    !(node.callee.type === 'Identifier' && node.callee.name === 'cn'));
 
 const noArbitraryStyles = {
   meta: { type: 'problem', schema: [], messages: STYLE_MESSAGES },
@@ -992,19 +1008,22 @@ const noArbitraryStyles = {
     // A class string sits in a `className`/`class` value or in a same-file const it names.
     const classStrings = (node, seen) =>
       descendants(node).flatMap((child) => {
+        if (isClassComposition(child)) context.report({ node: child, messageId: 'merge' });
         if (child.type === 'Identifier' && constants.has(child.name) && !seen.has(child.name)) {
-          return classStrings(constants.get(child.name), new Set([...seen, child.name]));
+          const value = constants.get(child.name);
+          if (isStringLiteral(value) || value.type === 'TemplateLiteral') {
+            context.report({ node: child, messageId: 'merge' });
+          }
+          return classStrings(value, new Set([...seen, child.name]));
         }
-        if (child.type === 'Literal' && typeof child.value === 'string') {
-          return [[child, child.value]];
-        }
-        return child.type === 'TemplateElement' ? [[child, child.value.cooked ?? '']] : [];
+        return classLiteral(child);
       });
 
     return {
       'VariableDeclaration[kind="const"] > VariableDeclarator[id.type="Identifier"]': (node) => {
         if (node.init) constants.set(node.id.name, node.init);
       },
+      'CallExpression[callee.name="cn"]': (node) => classValues.push(node),
       JSXAttribute(node) {
         if (node.name.name === 'style') context.report({ node, messageId: 'style' });
         if (['className', 'class'].includes(node.name.name) && node.value) {

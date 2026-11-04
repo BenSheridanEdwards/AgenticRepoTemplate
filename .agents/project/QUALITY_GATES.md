@@ -100,6 +100,11 @@ See [ADR 0028](../decisions/0028-pre-push-runs-the-full-local-gate-suite.md).
 - Oxlint (`pnpm lint:anti-slop`) runs the vendored generic and Effect
   anti-slop plugins with built-ins off. Its separate `oxlint.config.ts` runs
   core policy, including showcase sources ([ADR 0098](../decisions/0098-oxlint-replaces-eslint.md)).
+- Oxlint also runs the pinned `eslint-plugin-better-tailwindcss` against
+  `packages/ui/src/styles.css` for production web/UI class lists. Run
+  `pnpm lint:policy --fix` for class ordering. Biome keeps general formatting;
+  `pnpm lint:styles` owns CSS/HTML policy and `@apply` placement
+  ([ADR 0121](../decisions/0121-tailwind-lint-through-oxlint.md)).
 - React Doctor (`pnpm react-doctor`) owns the project-level checks the
   per-file plugins leave out, such as duplicated JSX across files.
 - TypeScript 7 owns type semantics through `pnpm typecheck`, running the

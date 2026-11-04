@@ -1791,8 +1791,10 @@ describe('the committed comparison', () => {
     );
   });
 
-  it('maps every function @repo/ui exports, and only those, as a primitive', () => {
-    const exported = [...read('packages/ui/etc/ui.api.md').matchAll(/^export function (\w+)\(/gm)]
+  it('maps every component @repo/ui exports, and only those, as a primitive', () => {
+    const exported = [
+      ...read('packages/ui/etc/ui.api.md').matchAll(/^export function ([A-Z]\w*)\(/gm),
+    ]
       .map(([, name]) => name)
       .sort();
     expect([...new Set(Object.values(UI_PRIMITIVE_FOR))].sort()).toEqual(exported);
