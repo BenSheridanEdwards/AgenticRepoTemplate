@@ -46,7 +46,7 @@ export const APPROVER = process.env.ENFORCEMENT_APPROVER || 'BenSheridanEdwards'
  * @typedef {{ kind: 'pull' } | CommentEdit} GateEvent
  * @typedef {{ state: 'success' | 'failure', description: string }} CommitStatus
  * @typedef {{ filename: string, previous_filename?: string, status?: string, patch?: string }} PullRequestFile
- * @typedef {{ from: string, label: string }} Carry  an earlier head's sign-off whose guarded changes match this head's
+ * @typedef {{ from: string, name: string, handle: string, time: string }} Carry  an earlier head's sign-off whose guarded changes match this head's
  */
 
 /**
@@ -121,8 +121,10 @@ function lineSummary(before, after) {
   const { was, now, oldCounts, newCounts, added, removed } = lineDiff(before, after);
 
   if (added + removed === 0) return moveSummary(was, now);
-  const firstNew = quote(firstUnmatched(now, oldCounts));
-  const firstOld = quote(firstUnmatched(was, newCounts));
+  const [firstOld, firstNew] = quotePair(
+    firstUnmatched(was, newCounts),
+    firstUnmatched(now, oldCounts),
+  );
 
   if (removed === 0) {
     return added === 1
@@ -173,6 +175,23 @@ function firstUnmatched(lines, other) {
 
 /** @param {string} line */
 const quote = (line) => inert(short(line.trim()) || '(blank line)');
+
+/**
+ * Quote a replaced line and its replacement so both show where they differ:
+ * a long pair drops the prefix they share, after an ellipsis.
+ *
+ * @param {string} was @param {string} now
+ */
+function quotePair(was, now) {
+  const [left, right] = [was.trim(), now.trim()];
+
+  if (left.length <= 80 && right.length <= 80) return [quote(left), quote(right)];
+  const shared = [...left].findIndex((char, index) => char !== right[index]);
+  const start = Math.max(0, (shared < 0 ? Math.min(left.length, right.length) : shared) - 20);
+  const cut = (/** @type {string} */ text) => (start ? `…${text.slice(start)}` : text);
+
+  return [quote(cut(left)), quote(cut(right))];
+}
 
 /** @param {string} text */
 const short = (text) => (text.length > 80 ? `${text.slice(0, 79)}…` : text);
@@ -460,8 +479,18 @@ const listed = (names) =>
  * @param {string} text @param {RegExp} pattern
  * @returns {Map<string, string>}
  */
-const captured = (text, pattern) =>
-  new Map([...text.matchAll(pattern)].map((match) => [match[1], match[2] ?? '']));
+const captured = (text, pattern) => {
+  const matches = [...text.matchAll(pattern)];
+
+  // A repeated name gets its occurrence number, so one copy cannot hide another's change.
+  return new Map(
+    matches.map((match, index) => {
+      const copies = matches.slice(0, index).filter((other) => other[1] === match[1]).length;
+
+      return [copies ? `${match[1]} (${copies + 1})` : match[1], match[2] ?? ''];
+    }),
+  );
+};
 
 /** Lint rule severities in a config: `'plugin/rule': 'error'`. */
 const SEVERITY = /^\s*['"]([\w@./-]+\/[\w./-]+|[a-z][\w-]*)['"]\s*:\s*['"](off|warn|error)['"]/gm;
@@ -595,15 +624,21 @@ function hookChanges(before, after) {
   const [was, now] = [before, after].map(commands);
   const added = now.filter((line) => !was.includes(line));
   const removed = was.filter((line) => !now.includes(line));
+  const explained = added.length + removed.length;
 
   if (added.length === 1 && removed.length === 1) {
-    return [`Replaces the command ${quote(removed[0])} with ${quote(added[0])}`];
+    const [old, fresh] = quotePair(removed[0], added[0]);
+
+    return { found: [`Replaces the command ${old} with ${fresh}`], explained };
   }
 
-  return [
-    ...added.map((line) => `Adds the command ${quote(line)}`),
-    ...removed.map((line) => `Removes the command ${quote(line)}`),
-  ];
+  return {
+    found: [
+      ...added.map((line) => `Adds the command ${quote(line)}`),
+      ...removed.map((line) => `Removes the command ${quote(line)}`),
+    ],
+    explained,
+  };
 }
 
 /**
@@ -625,19 +660,23 @@ const edgeCase = ({ path, before, after }) => {
  * A judge that names the structure `describe` finds, then the line totals, and
  * falls back to the line summary when it finds nothing.
  *
- * @param {(before: string, after: string) => string[]} describe
+ * @param {(before: string, after: string) => string[] | { found: string[], explained: number }} describe
  * @returns {Judge}
  */
 const describedBy = (describe) => (change) => {
   const edge = edgeCase(change);
 
   if (edge || change.before === null || change.after === null) return edge ?? [];
-  const found = describe(change.before, change.after);
+  const described = describe(change.before, change.after);
+  const { found, explained } = Array.isArray(described)
+    ? { found: described, explained: -1 }
+    : described;
   const totals = lineTotals(change.before, change.after);
 
   if (!found.length || totals.changed === 0) return [lineSummary(change.before, change.after)];
 
-  return totals.changed > 2 ? [...found, totals.sentence] : found;
+  // Line totals follow unless the named changes account for every changed line.
+  return explained === totals.changed ? found : [...found, totals.sentence];
 };
 
 const describeCode = describedBy(codeChanges);
@@ -1067,56 +1106,54 @@ export function approvalLabel({ name, login, at }) {
   return `<sub><i>Approved by ${shown} @${handle} on ${londonTime(at)}</i></sub>`;
 }
 
-/** The approval note in a labelled box, without its tags. */
-const LABEL_TEXT = /<sub><i>(Approved by [^<\n]*)<\/i><\/sub>/;
+/**
+ * The parts of a label the gate wrote: a name the gate escaped, the approver's
+ * handle and a London time, with an optional earlier carry note. Anything else
+ * is not the gate's label and carries nothing.
+ */
+const LABEL =
+  /^<sub><i>Approved by ([\p{L}\p{N} .'&#;-]{1,800}) @([A-Za-z0-9-]{1,39}) on ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm))(?:; carried from `[0-9a-f]{7}`, whose guarded changes are identical)?<\/i><\/sub>$/u;
 
 /**
- * The label for a sign-off carried from an earlier head. It repeats who
- * approved and when, from the gate's own earlier label, and names that head.
+ * The label for a sign-off carried from an earlier head, rebuilt from the
+ * checked parts of the gate's earlier label, naming the commit ticked.
  *
  * @param {Carry} carry
  */
-const carriedLabel = ({ from, label }) =>
-  `<sub><i>${label.replace(/; carried from .*$/, '').slice(0, 300)}; carried from ${inert(from.slice(0, 7))}, whose guarded changes are identical</i></sub>`;
+const carriedLabel = ({ from, name, handle, time }) =>
+  `<sub><i>Approved by ${name} @${handle} on ${time}; carried from ${inert(from.slice(0, 7))}, whose guarded changes are identical</i></sub>`;
 
 /**
- * The approver's note and the commit a labelled gate comment approved, or
- * undefined when the box is not ticked and labelled.
+ * The approver's checked label parts and the commit a labelled gate comment
+ * approved, or undefined when the box is not the gate's ticked, labelled box.
  *
  * @param {string} body
- * @returns {{ head: string, label: string } | undefined}
+ * @returns {Omit<Carry, 'from'> & { head: string } | undefined}
  */
 function approvedIn(body) {
   const box = normalise(body).match(
-    /\n- \[x\] Approve these enforcement changes at `([0-9a-f]{40})` (<sub><i>Approved by [^<\n]*<\/i><\/sub>)$/m,
+    /\n- \[x\] Approve these enforcement changes at `([0-9a-f]{40})` (<sub><i>[^\n]*<\/i><\/sub>)$/m,
   );
-  const label = box?.[2].match(LABEL_TEXT)?.[1];
+  const label = box?.[2].match(LABEL);
 
-  return box && label ? { head: box[1], label } : undefined;
+  if (!box || !label || label[2] !== APPROVER) return undefined;
+
+  return { head: box[1], name: label[1], handle: label[2], time: label[3] };
 }
 
 /**
- * A fingerprint of the guarded changes: each guarded file's path, status, old
- * path and patch, with hunk line numbers dropped, so an update from main that
- * leaves those hunks alone keeps it. Null when a guarded file has no patch.
+ * A fingerprint of the guarded changes: every guarded path with its exact text
+ * at the merge base and at the head. An update from main that leaves every
+ * guarded file alone keeps it; any other difference changes it.
  *
- * @param {PullRequestFile[]} files
- * @returns {string | null}
+ * @param {FileChange[]} changes
  */
-export function guardFingerprint(files) {
-  const guarded = files
-    .filter((file) => guardFor(file.filename) || guardFor(file.previous_filename ?? ''))
-    .map((file) => ({
-      path: file.filename,
-      from: file.previous_filename ?? null,
-      status: file.status ?? null,
-      patch: file.patch?.replace(/^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/gm, '@@') ?? null,
-    }))
-    .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
+export function guardFingerprint(changes) {
+  const entries = changes
+    .map(({ path, before, after }) => [path, before, after])
+    .sort(([left], [right]) => (String(left) < String(right) ? -1 : 1));
 
-  if (guarded.some((file) => file.patch === null && file.status !== 'renamed')) return null;
-
-  return createHash('sha256').update(JSON.stringify(guarded)).digest('hex');
+  return createHash('sha256').update(JSON.stringify(entries)).digest('hex');
 }
 
 /** @param {string} login */
@@ -1322,14 +1359,25 @@ export function planApproval({ head, problems, comment, signedOff, event, carry 
   if (signedOff && comment && isLabelled(comment.body, normalise(unticked))) {
     return { commentBody: comment.body, status: null };
   }
-  if (event.kind === 'pull' && carry && carry.from !== head) {
-    return {
-      commentBody: signoffComment({ head, problems, carry }),
-      status: carriedStatus(carry.from, head),
-    };
-  }
 
-  return { commentBody: unticked, status: WAITING };
+  return (
+    carriedPlan({ head, problems, event, carry }) ?? { commentBody: unticked, status: WAITING }
+  );
+}
+
+/**
+ * The plan that carries a verified earlier sign-off to a new head on a PR event.
+ *
+ * @param {{ head: string, problems: Problem[], event: GateEvent, carry?: Carry }} input
+ * @returns {Plan | undefined}
+ */
+function carriedPlan({ head, problems, event, carry }) {
+  if (event.kind !== 'pull' || !carry || carry.from === head) return undefined;
+
+  return {
+    commentBody: signoffComment({ head, problems, carry }),
+    status: carriedStatus(carry.from, head),
+  };
 }
 
 /**
@@ -1391,7 +1439,7 @@ function findSignoffComment(comments, event) {
 
   const existing =
     signoff.find((comment) => event.kind === 'comment' && comment.id === event.commentId) ??
-    signoff[0];
+    signoff.at(-1);
 
   return (
     existing && { id: existing.id, body: String(existing.body), updatedAt: existing.updated_at }
@@ -1456,38 +1504,93 @@ async function isSignedOff(github, repo, head) {
 }
 
 /**
- * The verified sign-off of an earlier head to carry to `head`: the gate's own
- * labelled comment names it, the gate's own status on it is the sign-off, and
- * its guarded changes, read again from GitHub, match this head's exactly.
+ * The verified sign-off of an earlier head to carry to `head`. This PR's gate
+ * comment names it with the gate's own label, the gate's own status on it is
+ * the sign-off, it is a commit of this PR, and its guarded files, read again
+ * from GitHub, match this head's exactly.
  *
- * @param {{ github: any, repo: { owner: string, repo: string }, base: string, head: string, files: PullRequestFile[], comment: { body: string } | undefined }} input
+ * @param {{ github: any, repo: { owner: string, repo: string }, number: number, base: string, head: string, changes: FileChange[], comment: { body: string } | undefined }} input
  * @returns {Promise<Carry | undefined>}
  */
-async function verifiedCarry({ github, repo, base, head, files, comment }) {
+async function verifiedCarry({ github, repo, number, base, head, changes, comment }) {
   const approved = comment && approvedIn(comment.body);
-  const now = guardFingerprint(files);
 
-  if (!approved || approved.head === head || now === null) return undefined;
+  if (!approved || approved.head === head) return undefined;
   if (!(await isSignedOff(github, repo, approved.head))) return undefined;
-  const earlier = await fingerprintAt({ github, repo, base, ref: approved.head });
+  if (!(await isCommitOf({ github, repo, number, sha: approved.head }))) return undefined;
+  const earlier = await guardedChangesAt({ github, repo, base, ref: approved.head });
 
-  return now === earlier ? { from: approved.head, label: approved.label } : undefined;
+  if (earlier === null || guardFingerprint(earlier) !== guardFingerprint(changes)) return undefined;
+  const { name, handle, time } = approved;
+
+  return { from: approved.head, name, handle, time };
 }
 
 /**
- * The guarded-change fingerprint of `ref` against `base`, read from GitHub, or
- * null when the comparison lists too many files to be complete.
+ * The carry for this run, or undefined when the run cannot carry: only a PR
+ * event on an unsigned head with a complete file list looks for one.
+ *
+ * @param {{ github: any, repo: { owner: string, repo: string }, number: number, pullRequest: any, changes: FileChange[], comment: { body: string } | undefined, eligible: boolean, listed: number }} input
+ */
+function carryFor({ github, repo, number, pullRequest, changes, comment, eligible, listed }) {
+  if (!eligible || listed >= LIST_FILES_LIMIT) return Promise.resolve(undefined);
+
+  return verifiedCarry({
+    github,
+    repo,
+    number,
+    base: pullRequest.base.sha,
+    head: pullRequest.head.sha,
+    changes,
+    comment,
+  });
+}
+
+/**
+ * Whether GitHub lists `sha` as a commit of pull request `number`.
+ *
+ * @param {{ github: any, repo: { owner: string, repo: string }, number: number, sha: string }} input
+ */
+async function isCommitOf({ github, repo, number, sha }) {
+  try {
+    const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+      ...repo,
+      commit_sha: sha,
+    });
+
+    return data.some((/** @type {{ number: number }} */ pull) => pull.number === number);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Every guarded file's text at `ref` and at its merge base with `base`, or
+ * null when GitHub cannot list the comparison completely or read it at all.
  *
  * @param {{ github: any, repo: { owner: string, repo: string }, base: string, ref: string }} input
+ * @returns {Promise<FileChange[] | null>}
  */
-async function fingerprintAt({ github, repo, base, ref }) {
-  const { data } = await github.rest.repos.compareCommitsWithBasehead({
-    ...repo,
-    basehead: `${base}...${ref}`,
-  });
-  const files = data.files ?? [];
+async function guardedChangesAt({ github, repo, base, ref }) {
+  try {
+    const { data } = await github.rest.repos.compareCommitsWithBasehead({
+      ...repo,
+      basehead: `${base}...${ref}`,
+    });
+    const files = data.files ?? [];
 
-  return files.length >= 300 ? null : guardFingerprint(files);
+    if (files.length >= 300) return null;
+
+    return await Promise.all(
+      guardedPaths(files).map(async (path) => ({
+        path,
+        before: await readFile(github, repo, path, data.merge_base_commit.sha),
+        after: await readFile(github, repo, path, ref),
+      })),
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -1505,7 +1608,7 @@ async function writeComment({ github, repo, number, existing, older, body, repos
     return;
   }
   await github.rest.issues.createComment({ ...repo, issue_number: number, body });
-  await Promise.all(
+  await Promise.allSettled(
     older.map((id) => github.rest.issues.deleteComment({ ...repo, comment_id: id })),
   );
 }
@@ -1556,17 +1659,16 @@ export async function run({ github, context, core }) {
   const event = await gateEvent(github, context);
   const existing = findSignoffComment(comments, event);
   const signedOff = await isSignedOff(github, repo, head);
-  const carry =
-    event.kind === 'pull' && problems.length && !signedOff
-      ? await verifiedCarry({
-          github,
-          repo,
-          base: pullRequest.base.sha,
-          head,
-          files,
-          comment: existing,
-        })
-      : undefined;
+  const carry = await carryFor({
+    github,
+    repo,
+    number,
+    pullRequest,
+    changes,
+    comment: existing,
+    eligible: event.kind === 'pull' && problems.length > 0 && !signedOff,
+    listed: files.length,
+  });
 
   const plan = planApproval({ head, problems, comment: existing, signedOff, event, carry });
 

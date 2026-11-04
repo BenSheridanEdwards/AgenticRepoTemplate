@@ -27,34 +27,41 @@ deletes every older gate comment. An edit event (a tick, an untick, or an edit
 the gate reverts) still updates the comment in place.
 
 **Approval follows the guarded changes.** The gate fingerprints the guarded
-changes: each guarded file's path, status, old path and GitHub patch, with the
-hunk line numbers removed, hashed with SHA-256. On a PR event for a new head,
-the gate carries an earlier approval to that head only when all of these hold:
+changes: every guarded path with its exact text at the merge base and at the
+head, hashed with SHA-256. On a PR event for a new head, the gate carries an
+earlier approval to that head only when all of these hold:
 
-- this PR's gate comment shows a ticked, labelled box for an earlier head;
+- this PR's gate comment shows the gate's own ticked label for an earlier head,
+  matched against a strict pattern and naming the approver's handle;
 - the gate's own latest `enforcement-approval` status on that earlier head is
   the sign-off;
-- the gate reads the earlier head's guarded changes from GitHub again, and the
+- GitHub lists that earlier head as a commit of this PR;
+- the PR lists fewer files than the API limit, and the earlier head's
+  comparison lists fewer than 300, so no guarded file can hide;
+- the gate reads the earlier head's guarded files from GitHub again, and the
   two fingerprints are identical.
 
-Any guarded patch that changes, including a context line, or a guarded file
-without a patch, clears the tick. Only the approver's own tick creates an
-approval, as before. A carried approval posts a success status on the new head
-that names both commits, and the reposted comment repeats who approved, when,
-and the commit they ticked. The commit statuses keep the audit trail.
+Any difference in any guarded file clears the tick. That includes an update
+from main that itself changed a guarded file the PR also changes, because the
+merge-base text differs. Only the approver's own tick creates an approval, as
+before. A carried approval posts a success status on the new head that names
+both commits. The reposted comment rebuilds the label from its checked parts:
+who approved, when, and the commit they ticked. The commit statuses keep the
+audit trail.
 
 **Changes are named.** Lint configs and plugins name the plugins they load, the
 lint rules they add or remove, and the rules they turn on, off or re-rank. Git
 hooks name the commands they add, remove or replace. Product documents name the
-sections they add, remove or rewrite. A line count follows only when more than
-two lines changed. Every remaining fallback quotes the first changed line, for
+sections they add, remove or rewrite. A line count follows unless
+the named sentences account for every changed line. Every remaining fallback quotes the first changed line, for
 example "Replaces `npx lint-staged` with `true`".
 
 ## Consequences
 
 An update from main keeps the approver's tick when it leaves the guarded hunks
 alone, so a ticked PR can be brought up to date and merged without a second
-tick. An update that touches a guarded hunk, or its context, needs a new tick.
+tick. An update from main that changes a guarded file the PR also changes needs a
+new tick.
 The gate makes one more API call (a compare) on PR events that may carry an
 approval. Deleting the old comment removes its edit history from the PR; the
 commit statuses and the new comment's label keep the record of who approved
