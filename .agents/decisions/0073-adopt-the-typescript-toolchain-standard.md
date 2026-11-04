@@ -1,6 +1,7 @@
 # 73. Adopt the TypeScript toolchain standard
 
 - **Status:** Proposed (the approver accepts it); Amended by ADR 0103 (Remaining ESLint checks)
+  and [ADR 0120](0120-bun-checks-types.md) (Bun checks types)
 - **Date:** 2026-10-26
 - **Supersedes in part:** [0070](0070-vendored-anti-slop-oxlint-rules.md)
   for lint ownership, built-in Oxlint rules and version pins; earlier Biome
