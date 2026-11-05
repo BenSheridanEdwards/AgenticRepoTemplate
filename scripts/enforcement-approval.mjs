@@ -501,7 +501,7 @@ const captured = (text, pattern) => {
 };
 
 /** Lint rule severities in a config: `'plugin/rule': 'error'`. */
-const SEVERITY = /^\s*['"]([\w@./-]+\/[\w./-]+|[a-z][\w-]*)['"]\s*:\s*['"](off|warn|error)['"]/gm;
+const SEVERITY = /['"]([\w@./-]+\/[\w./-]+|[a-z][\w-]*)['"]\s*:\s*['"](off|warn|error)['"]/g;
 
 /** Rule definitions in a plugin's `rules` object: `'rule-name': ruleValue,` or `'rule-name': {`. */
 const RULE_DEFINITION = /^ {4}['"]([a-z][a-z0-9-]*)['"]\s*:\s*(?:\{|[A-Za-z_$][\w$]*,)\s*$/gm;
