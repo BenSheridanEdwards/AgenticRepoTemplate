@@ -754,6 +754,7 @@ export function renderAggregateJob(pins) {
     '    if: always()',
     `    needs: [${AGGREGATED.map((gate) => gate.job).join(', ')}]`,
     '    runs-on: ubuntu-latest',
+    '    timeout-minutes: 5',
     '    steps:',
     `      - uses: ${pins.get('actions/checkout') ?? 'actions/checkout@<pin read from the workflows>'}`,
     '        with:',

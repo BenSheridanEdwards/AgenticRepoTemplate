@@ -176,9 +176,14 @@ describe('the committed CI order', () => {
     expect(aggregate).toMatch(/needs: \[[^\]]*\bcoverage\b/);
   });
 
-  it.each(['ci.yml', 'visual.yml'])('caches browsers with mandatory installation in %s', (file) => {
+  it.each([
+    'ci.yml',
+    'visual.yml',
+  ])('restores browsers with mandatory installation in %s', (file) => {
     const workflow = REAL_FILES[file];
-    expect(workflow).toContain('actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0');
+    expect(workflow).toContain(
+      'actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0',
+    );
     expect(workflow).toContain('path: ~/.cache/ms-playwright');
     expect(workflow).toContain(
       'key: $' +
