@@ -10,7 +10,7 @@ This PR loosens or rewrites what the gates enforce, or changes product intent:
 | `.husky/old-hook` | Git hooks | Deletes this file |
 | `.husky/pre-commit` | Git hooks | Moves 3 lines: first moved line `exit 0` |
 | `biome.json` | Biome config | Sets `linter.enabled` to `false` |
-| `docs/NORTH_STAR.md` | Product intent | Changes 3 lines: adds 2, removes 1 |
+| `docs/NORTH_STAR.md` | Product intent | Edits 3 lines (adds 2, removes 1), starting with `old` → `new` |
 
-@maintainer signs off by ticking the box below in GitHub. The tick counts for commit `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` only. A new push clears it, and a tick from any other account is cleared.
+@maintainer signs off by ticking the box below in GitHub. The tick covers the guarded changes listed above at commit `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`. An update that leaves those changes identical keeps it; a push that changes them clears it, and a tick from any other account is cleared.
 - [ ] Approve these enforcement changes at `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
