@@ -24,6 +24,7 @@ jobs:
     name: Branch contains main
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       # The default pull_request checkout is a merge commit that always
       # contains main; check the PR head itself.
@@ -37,6 +38,7 @@ jobs:
   quality:
     name: Type check · lint · format
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -62,6 +64,7 @@ jobs:
   fallow:
     name: Code intelligence (Fallow)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: write
@@ -125,6 +128,7 @@ jobs:
   test:
     name: Unit + component tests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -162,6 +166,7 @@ jobs:
   contract:
     name: Web-API contract
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     env:
       SCARF_ANALYTICS: 'false'
       PACT_DO_NOT_TRACK: 'true'
@@ -184,6 +189,7 @@ jobs:
   integration:
     name: API integration tests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -195,6 +201,7 @@ jobs:
   tooling:
     name: Tooling tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    timeout-minutes: 6
     strategy:
       fail-fast: false
       matrix:
@@ -212,6 +219,7 @@ jobs:
     name: Changed-file coverage
     needs: [test]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -242,6 +250,7 @@ jobs:
   build:
     name: Production build
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -273,6 +282,7 @@ jobs:
   e2e:
     name: End-to-end behaviour map
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -288,18 +298,11 @@ jobs:
       - name: Read Playwright version
         if: steps.scope.outputs.docs-only != 'true'
         id: playwright-version
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync, appendFileSync } from 'node:fs';
-          const lock = readFileSync('pnpm-lock.yaml', 'utf8');
-          const version = lock.match(/^      '@playwright\/test':\n        specifier: .+\n        version: ([^\s(]+)/m)?.[1];
-          if (!version) throw new Error('Missing resolved @playwright/test version');
-          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
-          NODE
-      - name: Cache Chromium
+        run: node scripts/playwright-version.mjs
+      - name: Restore Chromium
         if: steps.scope.outputs.docs-only != 'true'
         id: browser-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ runner.arch }}-${{ env.ImageOS }}-playwright-${{ steps.playwright-version.outputs.version }}
@@ -333,6 +336,7 @@ jobs:
   security:
     name: Security audit
     runs-on: ubuntu-latest
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -371,6 +375,7 @@ jobs:
     if: always()
     needs: [contract, up-to-date, quality, fallow, test, integration, tooling, coverage, build, e2e, security]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -8,7 +8,7 @@ inputs:
     description: Persistent runner store directory from PNPM_STORE_DIR
     default: ''
   save-cache:
-    description: Explicit manual-only cache save opt-in
+    description: Cache save opt-in for trusted main runs (manual dispatch or the cache-seed push)
     default: 'false'
 runs:
   using: composite
@@ -41,7 +41,7 @@ runs:
         INSTALL_COMMAND: ${{ inputs.install-command }}
       run: bash -e -o pipefail -c "$INSTALL_COMMAND"
     - name: Save pnpm store
-      if: inputs.persistent-store == '' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.save-cache == 'true' && steps.restore.outputs.cache-hit != 'true'
+      if: inputs.persistent-store == '' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.save-cache == 'true' && steps.restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.store.outputs.path }}
