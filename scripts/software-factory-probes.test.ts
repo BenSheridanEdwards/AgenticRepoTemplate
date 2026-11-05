@@ -18,7 +18,12 @@ describe('software factory evidence replay', () => {
       {
         path: 'tooling/oxlint-plugin-policy.js',
         area: 'Lint config',
-        reason: 'Changes 2 lines: adds 1, removes 1',
+        reason: 'Turns off the lint rule `policy/state-and-effects-in-hooks` from error to off',
+      },
+      {
+        path: 'tooling/oxlint-plugin-policy.js',
+        area: 'Lint config',
+        reason: '2 lines changed in all: 1 added, 1 removed',
       },
     ]);
     expect(report.lint.proseControl).toEqual([]);
