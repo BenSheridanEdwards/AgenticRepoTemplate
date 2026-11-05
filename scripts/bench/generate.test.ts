@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join, matchesGlob } from 'node:path';
 import { listResults } from '../../tooling/results.mjs';
-import { benchFallowConfig, planWorkspace } from './generate.mjs';
+import { benchFallowConfig, benchLockfile, planWorkspace } from './generate.mjs';
 
 const reference = {
   'apps/web/package.json':
@@ -56,18 +56,20 @@ test.each([0, 1, 3, -2, 2.5])('rejects invalid package count %s', (packages) => 
 });
 
 const BENCH = 'showcase/bench-*/**';
+const withPattern = (ignore: string[] = []) => [...new Set([...ignore, BENCH])];
 const withBench = (config: {
   duplicates?: { ignore?: string[] };
   health?: { ignore?: string[] };
 }) => ({
   ...config,
-  duplicates: { ...config.duplicates, ignore: [...(config.duplicates?.ignore ?? []), BENCH] },
-  health: { ...config.health, ignore: [...(config.health?.ignore ?? []), BENCH] },
+  duplicates: { ...config.duplicates, ignore: withPattern(config.duplicates?.ignore) },
+  health: { ...config.health, ignore: withPattern(config.health?.ignore) },
 });
 const list = (key: string, items: string) => `  "${key}": {\n    "ignore": [${items}]\n  }`;
 
 test.each([
   ['the repository config', readFileSync('.fallowrc.jsonc', 'utf8')],
+  ['an already benchmarked config', benchFallowConfig(readFileSync('.fallowrc.jsonc', 'utf8'))],
   ['no ignore lists', '{\n  // kept\n  "rules": {}\n}\n'],
   ['empty ignore lists', `{\n${list('duplicates', '')},\n${list('health', '')}\n}\n`],
   [
@@ -106,4 +108,55 @@ test.each([
   expect(() => benchFallowConfig(original)).toThrow(
     'start the file with "{" on its own line using LF line endings',
   );
+});
+
+test('benchmark clones omit contract tests while preserving other reference files', () => {
+  const plan = planWorkspace({
+    packages: 2,
+    reference: {
+      ...reference,
+      'apps/web/src/api-client/trpc.contract.test.ts': 'consumer contract',
+      'apps/api/src/server.contract.test.ts': 'provider contract',
+    },
+  });
+  expect(Object.keys(plan).filter((path) => /\.contract\.test\.ts$/.test(path))).toEqual([]);
+  expect(plan).toEqual(planWorkspace({ packages: 2, reference }));
+});
+
+test('benchmark lockfile importers are idempotent and use isolated package names', () => {
+  const lock = readFileSync('pnpm-lock.yaml', 'utf8');
+  const once = benchLockfile(lock, 2);
+  const twice = benchLockfile(once, 2);
+  expect(twice).toBe(once);
+  const keys = once.split('\npackages:')[0].match(/^ {2}\S+:$/gm) ?? [];
+  expect(new Set(keys).size).toBe(keys.length);
+  expect(keys).toContain('  showcase/bench-001/web:');
+  expect(keys).toContain('  showcase/bench-001/api:');
+  expect(once).toContain("'@bench-001/api':");
+});
+
+const importerKeys = (lock: string) => lock.split('\npackages:')[0].match(/^ {2}\S+:$/gm) ?? [];
+const isReference = (key: string) => !key.startsWith('  showcase/bench-');
+
+test.each([
+  ['the repository lockfile', readFileSync('pnpm-lock.yaml', 'utf8')],
+  ['an already benchmarked lockfile', benchLockfile(readFileSync('pnpm-lock.yaml', 'utf8'), 60)],
+])('benchmark lockfile regeneration replaces duplicate and stale benchmark importers: %s', (_case, lock) => {
+  const once = benchLockfile(lock, 2);
+  const duplicated = benchLockfile(lock, 4).replace(
+    '\npackages:',
+    '\n  showcase/bench-001/web:\n    dependencies: {}\n\npackages:',
+  );
+  expect(benchLockfile(duplicated, 2)).toBe(once);
+  expect(importerKeys(once).filter(isReference)).toEqual(importerKeys(lock).filter(isReference));
+  expect(once).toBe(benchLockfile(readFileSync('pnpm-lock.yaml', 'utf8'), 2));
+  expect(once.slice(once.indexOf('\npackages:'))).toBe(lock.slice(lock.indexOf('\npackages:')));
+  expect(once).toContain('version: link:../../../packages/ui');
+  expect(once).toContain('version: link:../api');
+});
+
+test.each(['web', 'api'])('benchmark lockfile rejects a missing apps/%s importer', (kind) => {
+  const other = kind === 'web' ? 'api' : 'web';
+  const lock = `importers:\n  apps/${other}:\n    dependencies: {}\n\npackages:\n`;
+  expect(() => benchLockfile(lock, 2)).toThrow(`Missing locked apps/${kind} importer`);
 });

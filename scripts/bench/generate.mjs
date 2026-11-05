@@ -6,12 +6,14 @@ export function planWorkspace({ packages, reference }) {
   return Object.fromEntries(
     Array.from({ length: packages / 2 }, (_, index) => {
       const scope = `bench-${String(index + 1).padStart(3, '0')}`;
-      return Object.entries(reference).map(([path, text]) => [
-        path.replace(/^apps\//, `showcase/${scope}/`),
-        typeof text === 'string'
-          ? text.replace(/@repo\/(web|api)\b/g, `@${scope}/$1`)
-          : Buffer.from(text),
-      ]);
+      return Object.entries(reference)
+        .filter(([path]) => !path.endsWith('.contract.test.ts'))
+        .map(([path, text]) => [
+          path.replace(/^apps\//, `showcase/${scope}/`),
+          typeof text === 'string'
+            ? text.replace(/@repo\/(web|api)\b/g, `@${scope}/$1`)
+            : Buffer.from(text),
+        ]);
     }).flat(),
   );
 }
@@ -49,4 +51,27 @@ function withBenchIgnore(text, key) {
 export function benchFallowConfig(text) {
   if (text.includes(BENCH_IGNORE)) return text;
   return ['duplicates', 'health'].reduce(withBenchIgnore, text);
+}
+
+/** Replace generated importers while preserving locked reference resolutions. */
+export function benchLockfile(lock, packages) {
+  const baseline = lock.replace(
+    /\n {2}showcase\/bench-\d{3,}\/(?:web|api):\n[\s\S]*?(?=\n {2}\S|\npackages:)/g,
+    '',
+  );
+  const importers = Array.from({ length: packages / 2 }, (_, index) =>
+    ['web', 'api']
+      .map((kind) => {
+        const entry = baseline.match(
+          new RegExp(`\n  apps/${kind}:\n[\\s\\S]*?(?=\n  \\S|\npackages:)`),
+        );
+        if (!entry) throw new Error(`Missing locked apps/${kind} importer`);
+        return entry[0]
+          .replace(`apps/${kind}:`, `showcase/bench-${String(index + 1).padStart(3, '0')}/${kind}:`)
+          .replace(/@repo\/(web|api)/g, `@bench-${String(index + 1).padStart(3, '0')}/$1`)
+          .replaceAll('link:../../packages/', 'link:../../../packages/');
+      })
+      .join(''),
+  ).join('');
+  return baseline.replace('\npackages:', `${importers}\npackages:`);
 }

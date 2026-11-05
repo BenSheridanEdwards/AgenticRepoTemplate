@@ -44,11 +44,11 @@ test('manual save defaults off and the automated dispatcher never enables it', (
   expect(action()).toContain("default: 'false'");
 });
 
-test('save requires main, manual dispatch, explicit opt-in and no exact hit', () => {
+test('save requires main, a trusted dispatch or push, explicit opt-in and no exact hit', () => {
   const save = steps().find((step) => step.includes('uses: actions/cache/save@')) ?? '';
   const condition = save.match(/if: (.*)/)?.[1] ?? '';
   expect(condition).toBe(
-    "inputs.persistent-store == '' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.save-cache == 'true' && steps.restore.outputs.cache-hit != 'true'",
+    "inputs.persistent-store == '' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && inputs.save-cache == 'true' && steps.restore.outputs.cache-hit != 'true'",
   );
   const evaluate = (persistent: string, ref: string, event: string, enabled: string, hit: string) =>
     Function(
@@ -60,11 +60,12 @@ test('save requires main, manual dispatch, explicit opt-in and no exact hit', ()
       `return ${condition.replaceAll('inputs.persistent-store', 'persistent').replaceAll('github.ref', 'ref').replaceAll('github.event_name', 'event').replaceAll('inputs.save-cache', 'enabled').replaceAll('steps.restore.outputs.cache-hit', 'hit')}`,
     )(persistent, ref, event, enabled, hit);
   expect(evaluate('', 'refs/heads/main', 'workflow_dispatch', 'true', 'false')).toBe(true);
+  expect(evaluate('', 'refs/heads/main', 'push', 'true', 'false')).toBe(true);
   [
     ['store', 'refs/heads/main', 'workflow_dispatch', 'true', 'false'],
     ['', 'refs/heads/feature', 'workflow_dispatch', 'true', 'false'],
     ['', 'refs/heads/main', 'pull_request', 'true', 'false'],
-    ['', 'refs/heads/main', 'push', 'true', 'false'],
+    ['', 'refs/heads/feature', 'push', 'true', 'false'],
     ['', 'refs/heads/main', 'workflow_dispatch', 'false', 'false'],
     ['', 'refs/heads/main', 'workflow_dispatch', 'true', 'true'],
   ].forEach(([persistent, ref, event, enabled, hit]) => {
@@ -123,4 +124,26 @@ test('appends a single report line to the existing job summary', () => {
   } finally {
     rmSync(folder, { recursive: true });
   }
+});
+
+test('pull request workflows restore caches and never save them (ADR 0117)', () => {
+  const prWorkflows = ['ci.yml', 'visual.yml', 'lighthouse.yml', 'pr-quality.yml'].map((name) =>
+    read(`.github/workflows/${name}`),
+  );
+  prWorkflows.forEach((text) => {
+    expect(text).not.toMatch(/cache: pnpm|uses: actions\/cache@|uses: actions\/cache\/save@/);
+    expect(text).not.toMatch(/pnpm\/action-setup|run: pnpm install/);
+  });
+});
+
+test('only the main cache-seed workflow saves, on key changes or by hand', () => {
+  const seed = read('.github/workflows/cache-seed.yml');
+  expect(seed).toMatch(/on:\n {2}push:\n {4}branches: \[main\]\n {4}paths:\n/);
+  expect(seed).toContain(
+    '      - pnpm-lock.yaml\n      - .nvmrc\n      - .github/actions/setup/action.yml\n',
+  );
+  expect(seed).toContain("save-cache: 'true'");
+  expect(seed).toContain('uses: actions/cache/save@');
+  expect(seed).toContain('persist-credentials: false');
+  expect(seed).not.toMatch(/pull_request/);
 });

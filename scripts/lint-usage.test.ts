@@ -1,6 +1,13 @@
 /** @jest-environment node */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { parseBiome, parseOxlint, record, runCli } from './lint-usage.mjs';
 
@@ -114,8 +121,13 @@ test('CLI preserves successful exit even when reporting or appending fails', () 
 test('real hook retains its failure and logs both linters, then passes after repair', () => {
   mkdirSync('.scratch', { recursive: true });
   const folder = mkdtempSync(join(process.cwd(), '.scratch/lint-usage-'));
+  // The fixture links checkout dependencies, so pnpm must leave them in place.
   const command = (file: string, args: string[]) =>
-    spawnSync(file, args, { cwd: folder, encoding: 'utf8', env: process.env });
+    spawnSync(file, args, {
+      cwd: folder,
+      encoding: 'utf8',
+      env: { ...process.env, pnpm_config_verify_deps_before_run: 'false' },
+    });
   const source = (path: string) => readFileSync(path, 'utf8');
   mkdirSync(join(folder, 'scripts'));
   mkdirSync(join(folder, '.husky'));
@@ -176,4 +188,5 @@ test('real hook retains its failure and logs both linters, then passes after rep
   writeFileSync(join(folder, 'scripts/lint-usage.mjs'), "throw new Error('broken logger');\n");
   expect(command('sh', ['.husky/pre-commit']).status).toBe(0);
   expect(readFileSync(log, 'utf8').trim().split('\n')).toHaveLength(2);
+  expect(existsSync(join(folder, 'pnpm-lock.yaml'))).toBe(false);
 }, 30000);

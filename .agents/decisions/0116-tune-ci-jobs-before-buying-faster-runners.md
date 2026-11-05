@@ -31,7 +31,8 @@ Call a repository's CI tuned when all of these hold:
 - Each piece of work runs in one job per run.
 - A check whose work takes less time than its setup shares a job with
   other such checks.
-- Every job sets `timeout-minutes`, at about three times its p90.
+- Every job sets `timeout-minutes`, at about three times its p90 and at
+  least 5 minutes.
 
 Evaluate a paid runner service for a repository only once its CI is tuned,
 and judge it on the waiting time the audit reports. Report waiting time on
