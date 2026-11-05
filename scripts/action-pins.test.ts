@@ -76,6 +76,7 @@ function permissionState(text: string) {
 const readOnly = [['contents: read']];
 const baseline = {
   'bench.yml': { workflow: readOnly, jobs: { bench: [] } },
+  'cache-seed.yml': { workflow: readOnly, jobs: { seed: [] } },
   'ci.yml': {
     workflow: readOnly,
     jobs: {

@@ -19,6 +19,7 @@ jobs:
   lighthouse:
     name: Lighthouse budgets
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       # pull_request checks out the test-merge commit; HEAD^1 is the base tip,
       # so `git diff HEAD^1 HEAD` is exactly what the PR changes.
@@ -31,15 +32,10 @@ jobs:
         # a skipped audit costs no install.
         run: node scripts/lighthouse-scope.mjs
       - if: steps.changes.outputs.ui-changed == 'true'
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - if: steps.changes.outputs.ui-changed == 'true'
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        uses: ./.github/actions/setup
         with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - name: Install dependencies
-        if: steps.changes.outputs.ui-changed == 'true'
-        run: pnpm install --frozen-lockfile
+          persistent-store: ${{ vars.PNPM_STORE_DIR }}
+          install-command: pnpm install --frozen-lockfile
       - name: Build
         if: steps.changes.outputs.ui-changed == 'true'
         run: pnpm build
