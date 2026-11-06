@@ -38,7 +38,8 @@ export const APPROVER = process.env.ENFORCEMENT_APPROVER || 'BenSheridanEdwards'
 
 /**
  * @typedef {{ path: string, before: string | null, after: string | null }} FileChange  null = absent at that commit
- * @typedef {{ path: string, area: string, reason: string }} Problem
+ * @typedef {{ path: string, area: string, reason: string, what?: string, effect?: string }} Problem
+ * @typedef {{ what: string, effect: string }} Description
  * @typedef {(change: FileChange) => string[]} Judge  returns reasons; [] = no loosening
  * @typedef {{ area: string, paths: RegExp[], judge: Judge }} Guard
  * @typedef {{ name: string | null, login: string, at: Date }} Approval  who ticked, from their profile, and when
@@ -1014,6 +1015,9 @@ const TOO_MANY_FILES = {
   path: 'this PR',
   area: 'Gate input',
   reason: `changes ${LIST_FILES_LIMIT} or more files, past what the API lists, so the gate cannot see every guarded file`,
+  what: `Changes at least ${LIST_FILES_LIMIT} files, reaching GitHub's file-list limit`,
+  effect:
+    'The guarded-file inventory may be incomplete; the gate requires sign-off rather than assuming hidden files are safe',
 };
 
 /** @param {string} path */
@@ -1033,6 +1037,487 @@ export function guardedPaths(files) {
   return [...new Set(paths.filter((path) => path && guardFor(path)))].sort();
 }
 
+/** @param {unknown} value */
+const describedValue = (value) =>
+  inert(
+    (JSON.stringify(value) ?? 'not set').replace(/\b[0-9a-f]{40}\b/g, (sha) => sha.slice(0, 7)),
+  );
+
+/** @param {string[]} parts */
+const joined = (parts) => [...new Set(parts.filter(Boolean))].join('; ');
+
+/** @param {string} text */
+function sourceUnits(text) {
+  const starts = [...text.matchAll(/^(?:export )?(?:async )?(?:function|const|let|class) (\w+)/gm)];
+
+  return new Map(
+    starts.map((match, index) => {
+      const body = text.slice(match.index, starts[index + 1]?.index).trimEnd();
+      const comments = [...body.matchAll(/\n\/\*\*/g)].map((comment) => comment.index);
+      const code = comments
+        .toReversed()
+        .reduce(
+          (remaining, start) =>
+            remaining.endsWith('*/') ? remaining.slice(0, start).trimEnd() : remaining,
+          body,
+        );
+
+      return [match[1], code];
+    }),
+  );
+}
+
+/** @param {string} before @param {string} after */
+function changedUnits(before, after) {
+  const was = sourceUnits(before);
+  const now = sourceUnits(after);
+
+  return [...new Set([...was.keys(), ...now.keys()])].flatMap((name) =>
+    was.get(name) === now.get(name)
+      ? []
+      : [{ name, before: was.get(name) ?? '', after: now.get(name) ?? '' }],
+  );
+}
+
+/** @param {string} text */
+const declarationValue = (text) => text.replace(/^(?:export )?(?:const|let) \w+ =\s*/, '').trim();
+
+/** @param {ReturnType<typeof changedUnits>[number]} unit */
+const unitDescription = (unit) => {
+  const values = `definition ${describedValue(declarationValue(unit.before))} becomes ${describedValue(declarationValue(unit.after))}`;
+  return `${unit.before ? (unit.after ? 'Rewrites' : 'Removes') : 'Adds'} the check ${inert(unit.name)}: ${values}`;
+};
+
+/** @param {string} text */
+function testScenarios(text) {
+  const pattern =
+    /^[ \t]*(?:it|test|describe)\([ \t]*(['"])([^\n]+?)\1|^[ \t]*\]\)\([ \t]*(['"])([^\n]+?)\3/gm;
+  const starts = [...text.matchAll(pattern)];
+  return new Map(
+    starts.map((match, index) => [
+      match[2] ?? match[4],
+      text.slice(match.index, starts[index + 1]?.index),
+    ]),
+  );
+}
+
+/** @param {string} before @param {string} after @returns {Description} */
+function testDescription(before, after) {
+  const was = testScenarios(before);
+  const now = testScenarios(after);
+  const oldNames = [...was.keys()];
+  const newNames = [...now.keys()];
+  const added = newNames.filter((name) => !oldNames.includes(name));
+  const removed = oldNames.filter((name) => !newNames.includes(name));
+  const updated = newNames.filter((name) => was.has(name) && was.get(name) !== now.get(name));
+
+  return {
+    what: joined([
+      added.length ? `Adds regression coverage: ${added.map(inert).join(', ')}` : '',
+      removed.length
+        ? `Replaces or removes earlier scenarios: ${removed.map(inert).join(', ')}`
+        : '',
+      updated.length ? `Updates scenarios or their fixtures: ${updated.map(inert).join(', ')}` : '',
+      added.length + removed.length + updated.length === 0 ? 'Changes the gate test fixture' : '',
+    ]),
+    effect: newNames.length
+      ? 'The tooling gate must pass these approval and comment scenarios; a regression fails verification before a push or merge.'
+      : 'These regression assertions no longer run in the tooling gate; other tests must cover the removed scenarios.',
+  };
+}
+
+/** @param {string} text */
+const commentFeatures = (text) =>
+  joined([
+    text.includes('head.slice(0, 7)') ? 'seven-character visible hashes' : 'full visible hashes',
+    text.includes('Ran at ') ? 'a London run time' : 'no run time',
+    text.includes('<!-- enforcement-head:') ? 'the full head in a hidden marker' : '',
+    text.includes('| What changed | How it affects |')
+      ? 'a what-changed and effect column for each file'
+      : '',
+  ]);
+
+/** @param {string} before @param {string} after @returns {Description} */
+function gateDescription(before, after) {
+  const was = sourceUnits(before);
+  const now = sourceUnits(after);
+  const changed = changedUnits(before, after);
+  const hasChanged = (/** @type {string[]} */ names) =>
+    changed.some(({ name }) => names.includes(name));
+  const core = ['isApprover', 'isFreshTick', 'guardFingerprint', 'verifiedCarry', 'holdsSignOff'];
+  const unchanged = core.filter((name) => was.has(name) && was.get(name) === now.get(name));
+  const safety = changed.filter(
+    ({ name }) => core.includes(name) || name === 'APPROVER' || name === 'GUARDS',
+  );
+  const presentation = [
+    {
+      matches: hasChanged(['signoffComment']),
+      what: `Changes the sign-off comment from ${commentFeatures(was.get('signoffComment') ?? '')} to ${commentFeatures(now.get('signoffComment') ?? '')}`,
+    },
+    {
+      matches: hasChanged(['approvalLabel', 'carriedLabel', 'LABEL']),
+      what: 'Changes the tick audit label and carried-approval label, including who ticked and the formatted London time',
+    },
+    {
+      matches: hasChanged(['approvedIn', 'commentHead', 'isLabelled']),
+      what: 'Changes exact-head parsing and labelled-comment validation; the full head is read from the hidden marker rather than checkbox text',
+    },
+    {
+      matches: hasChanged(['planEdit', 'planApproval', 'ranAtIn']),
+      what: 'Updates comment-event handling and label recognition to compare the recorded run time without treating the visible short hash as approval evidence',
+    },
+  ]
+    .filter(({ matches }) => matches)
+    .map(({ what }) => what);
+
+  return {
+    what:
+      joined([
+        ...presentation,
+        ...safety.map(unitDescription),
+        presentation.length + safety.length === 0 ? joined(changed.map(unitDescription)) : '',
+      ]) || 'Replaces the enforcement gate definition',
+    effect: joined([
+      'The comment must explain the guarded change before the maintainer ticks; display text does not grant approval',
+      unchanged.length
+        ? `These checks are unchanged: ${unchanged.map(inert).join(', ')} (configured-user authorization, fresh ticks and identical guarded-content carry-over)`
+        : '',
+      safety.length
+        ? 'Approval eligibility or guarded-content carry-over checks change as described above; no unchanged-security claim is inferred'
+        : '',
+      unchanged.length === core.length && safety.length === 0
+        ? `Unchanged: only the configured GitHub User @${APPROVER} can fresh-tick; identical guarded-content fingerprints keep approval across a new head, and changed guarded content clears it`
+        : '',
+    ]),
+  };
+}
+
+/** @param {LeafChange} leaf */
+function settingEffect(leaf) {
+  const path = dotted(leaf.path);
+  const key = String(leaf.path.at(-1));
+  if (path === 'linter.enabled' && leaf.after === false)
+    return 'Looser: Biome stops linting covered source files';
+  if (key === 'recommended' && leaf.after === false)
+    return 'Looser: recommended checks stop being enabled automatically';
+  if (isSeverity(leaf, key)) return severityEffect(leaf, path);
+  if (PERMISSIVE.test(key)) return `Changes which paths bypass checking through ${inert(path)}`;
+  if (COVERAGE.has(key)) return `Changes the files checked by ${inert(path)}`;
+  return `The checker now uses ${describedValue(leaf.after)} for ${inert(path)} instead of ${describedValue(leaf.before)}`;
+}
+
+/** @param {LeafChange} leaf @param {string} path */
+function severityEffect(leaf, path) {
+  if (leaf.after === undefined)
+    return `Stops configuring ${inert(path)}; inherited settings now decide whether its violations block verification`;
+  if (rank(leaf.after) === 0)
+    return `Looser: violations of ${inert(path)} no longer produce a lint finding`;
+  return `Reports ${inert(path)} at ${describedValue(leaf.after)} instead of ${describedValue(leaf.before)}; fail-on-warning still applies`;
+}
+
+/** @param {string} before @param {string} after @returns {Description | undefined} */
+function configurationDescription(before, after) {
+  const was = parseJsonc(before);
+  const now = parseJsonc(after);
+  if (was === undefined || now === undefined) return undefined;
+  const changes = leafChanges(was, now);
+
+  return {
+    what:
+      joined(
+        changes.map(
+          (leaf) =>
+            `Changes ${inert(dotted(leaf.path))} from ${describedValue(leaf.before)} to ${describedValue(leaf.after)}`,
+        ),
+      ) ||
+      `Changes JSON formatting or container structure: ${describedValue(was)} becomes ${describedValue(now)}`,
+    effect:
+      joined(changes.map(settingEffect)) ||
+      'Scalar setting values are unchanged; the guarded rewrite still requires sign-off for its formatting or container change',
+  };
+}
+
+/** @param {string} before @param {string} after @returns {Description} */
+function hookDescription(before, after) {
+  const was = commands(before);
+  const now = commands(after);
+  const removed = was.filter((command) => !now.includes(command));
+  const added = now.filter((command) => !was.includes(command));
+  const exit = now.indexOf('exit 0');
+  const skipped = exit < 0 ? [] : now.slice(exit + 1);
+
+  return {
+    what: joined([
+      added.length ? `Adds hook commands ${listed(added)}` : '',
+      removed.length ? `Removes hook commands ${listed(removed)}` : '',
+      added.length + removed.length === 0 ? `Changes hook command order to ${listed(now)}` : '',
+    ]),
+    effect: hookEffects(added, removed, skipped),
+  };
+}
+
+/** @param {string[]} added @param {string[]} removed @param {string[]} skipped */
+function hookEffects(added, removed, skipped) {
+  const masked = added.filter((command) => withoutSuccessFallback(command) !== command);
+  const exposed = removed.filter(
+    (command) =>
+      command !== withoutSuccessFallback(command) &&
+      added.includes(withoutSuccessFallback(command)),
+  );
+  return joined([
+    skipped.length
+      ? `Looser: ${listed(skipped)} become unreachable after the unconditional successful exit`
+      : '',
+    removed.length ? `The hook no longer executes ${listed(removed)} or their checks` : '',
+    added.length
+      ? `The hook now executes ${listed(added)}; their exit results participate in the hook's checks`
+      : '',
+    masked.length ? `Looser: ${listed(masked)} masks failures with ${inert('|| true')}` : '',
+    exposed.length
+      ? `Removing ${inert('|| true')} exposes the original failure status of ${listed(exposed.map(withoutSuccessFallback))}`
+      : '',
+    skipped.length + added.length + removed.length === 0
+      ? 'Changes which check runs first and which later checks a failure can prevent'
+      : '',
+  ]);
+}
+
+/** @param {string} command */
+const withoutSuccessFallback = (command) => {
+  const operator = command.lastIndexOf('||');
+  return operator >= 0 && command.slice(operator + 2).trim() === 'true'
+    ? command.slice(0, operator).trimEnd()
+    : command;
+};
+
+/** @param {string} before @param {string} after @returns {Description} */
+function productDescription(before, after) {
+  const requirements = (/** @type {string} */ text) =>
+    linesOf(text)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'));
+  const was = requirements(before);
+  const now = requirements(after);
+  const removed = was.filter((line) => !now.includes(line));
+  const added = now.filter((line) => !was.includes(line));
+
+  return {
+    what:
+      joined([
+        ...markdownChanges(before, after),
+        added.length ? `Adds product requirements ${listed(added)}` : '',
+        removed.length ? `Removes product requirements ${listed(removed)}` : '',
+      ]) || 'Reorders the product requirements',
+    effect: `Product intent now includes ${listed(added) || 'the retained requirements'}${removed.length ? ` instead of ${listed(removed)}` : ''}; implementation and behaviour tests must follow the revised intent`,
+  };
+}
+
+/** @param {string} text */
+function yamlEntries(text) {
+  return linesOf(text).flatMap((line) => {
+    const field = line.match(/^( *)(?:- +)?([\w-]+): *(.*)$/);
+    if (field)
+      return [
+        { indent: field[1].length, key: field[2], value: field[3], container: field[3] === '' },
+      ];
+    const member = line.match(/^( *)- +([^:\n]+)$/);
+    return member
+      ? [
+          {
+            indent: member[1].length,
+            key: `contains ${member[2]}`,
+            value: member[2],
+            container: false,
+          },
+        ]
+      : [];
+  });
+}
+
+/** @param {string} text */
+function yamlSettings(text) {
+  const entries = yamlEntries(text);
+  const settings = entries.reduce(
+    (state, match) => {
+      const { indent, key, value, container } = match;
+      const parents = state.parents.filter((parent) => parent.indent < indent);
+      const path = [...parents.map((parent) => parent.key), key].join('.');
+      if (!container) state.entries.set(path, value);
+
+      return {
+        parents: container ? [...parents, { indent, key }] : parents,
+        entries: state.entries,
+      };
+    },
+    { parents: [], entries: new Map() },
+  );
+
+  return new Map([...settings.entries].filter(([path]) => !/\.(?:name|run|uses)$/.test(path)));
+}
+
+/** @param {string} text */
+const validationCommands = (text) =>
+  [...text.matchAll(/(?:^|&&|\|\||;)[ \t]*pnpm ([A-Za-z][\w:-]*)/gm)]
+    .map((match) => `pnpm ${match[1]}`)
+    .filter((command) =>
+      /^pnpm (?:verify|arch:gate|lint(?::[\w-]+)?|check(?::[\w-]+)?|e2e|test(?::[\w-]+)?)$/.test(
+        command,
+      ),
+    );
+
+/** @param {ReturnType<typeof workflowSteps>[number]} step */
+function stepProgram(step) {
+  const lines = linesOf(step.text);
+  const run = lines.findIndex((line) => /^[ \t]*(?:- +)?run: *[|>]/.test(line));
+  if (run < 0) return step.run;
+  const indent = lines[run].search(/\S/);
+  const rest = lines.slice(run + 1);
+  const end = rest.findIndex((line) => line.trim() && line.search(/\S/) <= indent);
+  return rest
+    .slice(0, end < 0 ? undefined : end)
+    .map((line) => line.trim())
+    .join('\n');
+}
+
+/** @param {string} text */
+function workflowCommands(text) {
+  const jobs = sectionBlocks(text, 'jobs', /^( *)([^ :][^:]*):/);
+  const contexts = jobs.length ? jobs.map((job) => job.text) : [text];
+  return contexts.flatMap((context) =>
+    workflowSteps(context).flatMap((step) => validationCommands(stepProgram(step))),
+  );
+}
+
+/** @param {string} before @param {string} after @param {string[]} reasons @returns {Description} */
+function workflowDescription(before, after, reasons) {
+  const was = yamlSettings(before);
+  const now = yamlSettings(after);
+  const settings = [...new Set([...was.keys(), ...now.keys()])].filter(
+    (key) => was.get(key) !== now.get(key),
+  );
+  const named = reasons.filter(
+    (reason) =>
+      !/lines? changed|^(?:Edits |Adds? (?:the line|\d+ lines)|Removes? (?:the line|\d+ lines)|Replaces `|Moves \d+ lines)/.test(
+        reason,
+      ),
+  );
+  const changedSettings = settings.map(
+    (key) =>
+      `Changes workflow ${inert(key)} from ${describedValue(was.get(key))} to ${describedValue(now.get(key))}`,
+  );
+  const currentCommands = new Set(workflowCommands(after));
+  const removed = workflowCommands(before).filter((command) => !currentCommands.has(command));
+
+  return {
+    what:
+      joined([...named, ...changedSettings]) || 'Changes the workflow trigger or job definition',
+    effect: joined([
+      removed.length ? `Looser: this workflow no longer requires ${listed(removed)} to pass` : '',
+      settings.some((key) => /(?:^|\.)if$/.test(key))
+        ? 'The revised condition changes when the named job or step runs'
+        : '',
+      settings.some((key) => /(?:^|\.)continue-on-error$/.test(key))
+        ? 'Changes whether a failed step blocks the named job'
+        : '',
+      settings.some((key) => /(?:^|\.)permissions(?:\.|$)/.test(key))
+        ? 'Changes the GitHub permissions available to the workflow'
+        : '',
+      'The named jobs, steps, action versions and trigger settings above determine which checks execute',
+    ]),
+  };
+}
+
+/** @param {string} before @param {string} after @returns {Description} */
+function optionDescription(before, after) {
+  const pattern =
+    /\b(ignorePatterns|ignores|exclude|includes|files|extends)[ \t]*:[ \t]*(\[(?:'[^'\n]*'|"[^"\n]*"|[^"'[\]])*\]|'[^'\n]*'|"[^"\n]*"|true|false)/g;
+  const was = captured(before, pattern);
+  const now = captured(after, pattern);
+  const keys = [...new Set([...was.keys(), ...now.keys()])].filter(
+    (key) => was.get(key) !== now.get(key),
+  );
+
+  return {
+    what: joined(
+      keys.map(
+        (key) =>
+          `Changes lint option ${inert(key)} from ${describedValue(was.get(key))} to ${describedValue(now.get(key))}`,
+      ),
+    ),
+    effect: keys.length
+      ? 'Changes lint coverage or inherited configuration: ignore and exclude patterns bypass checking; files and includes patterns select checked paths; extends loads the named rule configuration'
+      : '',
+  };
+}
+
+/** @param {string} before @param {string} after @param {string} area @returns {Description} */
+function codeDescription(before, after, area) {
+  const rules = codeChanges(before, after);
+  const units = changedUnits(before, after);
+  const options = optionDescription(before, after);
+  return {
+    what:
+      joined([
+        ...rules,
+        options.what,
+        ...(!rules.length && !options.what ? units.map(unitDescription) : []),
+      ]) ||
+      `Changes the ${area} definition from ${describedValue(before)} to ${describedValue(after)}`,
+    effect:
+      joined([
+        options.effect,
+        rules.some((rule) => rule.startsWith('Turns off'))
+          ? 'Looser: the named lint rules no longer report violations'
+          : '',
+        rules.some((rule) => rule.startsWith('Turns on'))
+          ? 'The named lint rules run at the stated severity; warnings and errors block verification'
+          : '',
+        rules.some((rule) => rule.startsWith('Adds the lint rule'))
+          ? 'Adds rule implementations available to the lint configuration; configured severities decide whether they block'
+          : '',
+        !rules.length
+          ? `The ${area} executes the replacement checks shown above; approval is required for these changed decision rules`
+          : '',
+      ]) ||
+      'Changes the loaded lint rules or their configuration; the named plugins and rule severities determine the checks that run',
+  };
+}
+
+/** Classification stays separate from explanation so wording cannot change which files need approval.
+ * @param {FileChange} change @param {string} area @param {string[]} reasons @returns {Description}
+ */
+function describeGuardedFile(change, area, reasons) {
+  const { path } = change;
+  const before = change.before ?? '';
+  const after = change.after ?? '';
+  if (before.replaceAll('\r\n', '\n') === after.replaceAll('\r\n', '\n')) {
+    return {
+      what: 'Changes line endings',
+      effect: 'Text formatting changes; executable checks and product requirements stay the same',
+    };
+  }
+  const formats = [
+    { matches: path.endsWith('.test.ts'), describe: () => testDescription(before, after) },
+    {
+      matches: path === 'scripts/enforcement-approval.mjs',
+      describe: () => gateDescription(before, after),
+    },
+    {
+      matches: path.endsWith('.json'),
+      describe: () =>
+        configurationDescription(before || '{}', after || '{}') ?? {
+          what: `Replaces ${inert(path)} with invalid JSON`,
+          effect:
+            'The checker cannot read its configuration; approval stays required and the configuration must be repaired',
+        },
+    },
+    { matches: path.startsWith('.husky/'), describe: () => hookDescription(before, after) },
+    { matches: path.endsWith('.md'), describe: () => productDescription(before, after) },
+    { matches: /\.ya?ml$/.test(path), describe: () => workflowDescription(before, after, reasons) },
+  ];
+  return formats.find(({ matches }) => matches)?.describe() ?? codeDescription(before, after, area);
+}
+
 /**
  * @param {FileChange[]} changes
  * @returns {Problem[]}
@@ -1044,13 +1529,20 @@ export function enforcementProblems(changes) {
 
       if (!guard) return [];
       const reasons = [...new Set(guard.judge(change))];
+      if (!reasons.length) return [];
+      const description = describeGuardedFile(change, guard.area, reasons);
 
       const shown =
         reasons.length > MAX_REASONS
           ? [...reasons.slice(0, MAX_REASONS), `and ${reasons.length - MAX_REASONS} more changes`]
           : reasons;
 
-      return shown.map((reason) => ({ path: change.path, area: guard.area, reason }));
+      return shown.map((reason) => ({
+        path: change.path,
+        area: guard.area,
+        reason,
+        ...description,
+      }));
     })
     .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
 }
@@ -1114,9 +1606,10 @@ const plainText = (text) =>
  */
 export function approvalLabel({ name, login, at }) {
   const handle = login.replace(/[^A-Za-z0-9-]/g, '');
-  const shown = plainText(name ?? '') || handle;
+  const shown =
+    login === 'BenSheridanEdwards' ? 'Ben Sheridan Edwards' : plainText(name ?? '') || handle;
 
-  return `<sub><i>Approved by ${shown} @${handle} on ${londonTime(at)}</i></sub>`;
+  return `<sub><i>ticked by ${shown} at ${londonTime(at)} (@${handle})</i></sub>`;
 }
 
 /**
@@ -1125,7 +1618,7 @@ export function approvalLabel({ name, login, at }) {
  * is not the gate's label and carries nothing.
  */
 const LABEL =
-  /^<sub><i>Approved by ([\p{L}\p{N} .'&#;-]{1,1100}) @([A-Za-z0-9-]{1,39}) on ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm))(?:; carried from `[0-9a-f]{7}`, whose guarded changes are identical)?<\/i><\/sub>$/u;
+  /^<sub><i>ticked by ([\p{L}\p{N} .'&#;-]{1,1100}) at ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm)) \(@([A-Za-z0-9-]{1,39})\)(?:; carried from `[0-9a-f]{7}`)?<\/i><\/sub>$/u;
 
 /**
  * The label for a sign-off carried from an earlier head, rebuilt from the
@@ -1134,7 +1627,22 @@ const LABEL =
  * @param {Carry} carry
  */
 const carriedLabel = ({ from, name, handle, time }) =>
-  `<sub><i>Approved by ${name} @${handle} on ${time}; carried from ${inert(from.slice(0, 7))}, whose guarded changes are identical</i></sub>`;
+  `<sub><i>ticked by ${name} at ${time} (@${handle}); carried from ${inert(from.slice(0, 7))}</i></sub>`;
+
+/** @param {string} body */
+const commentHead = (body) => {
+  const markers = [...body.matchAll(/^<!-- enforcement-head:([0-9a-f]{40}) -->$/gm)];
+
+  return markers.length === 1 ? markers[0][1] : undefined;
+};
+
+/** @param {string | null | undefined} body */
+const ranAtIn = (body) =>
+  body
+    ? normalise(body).match(
+        /^Ran at ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm)) on commit `[0-9a-f]{7}`\.$/m,
+      )?.[1]
+    : undefined;
 
 /**
  * The approver's checked label parts and the commit a labelled gate comment
@@ -1145,13 +1653,15 @@ const carriedLabel = ({ from, name, handle, time }) =>
  */
 function approvedIn(body) {
   const box = normalise(body).match(
-    /\n- \[x\] Approve these enforcement changes at `([0-9a-f]{40})` (<sub><i>[^\n]*<\/i><\/sub>)$/m,
+    /\n- \[x\] Approve these enforcement changes at `([0-9a-f]{7})` (<sub><i>[^\n]*<\/i><\/sub>)\n<!-- enforcement-head:[0-9a-f]{40} -->$/m,
   );
   const label = box?.[2].match(LABEL);
+  const head = commentHead(normalise(body));
 
-  if (!box || !label || label[2] !== APPROVER) return undefined;
+  if (!box || !label || label[3] !== APPROVER || !head || box[1] !== head.slice(0, 7))
+    return undefined;
 
-  return { head: box[1], name: label[1], handle: label[2], time: label[3] };
+  return { head, name: label[1], handle: label[3], time: label[2] };
 }
 
 /**
@@ -1182,42 +1692,60 @@ const REFUSAL_NOTE =
  * a note that names whose tick the gate just cleared, or ticked with the label
  * when the gate has just seen the approver tick it.
  *
- * @param {{ head: string, problems: Problem[], approval?: Approval, refusedBy?: string, carry?: Carry }} input
+ * @param {{ head: string, problems: Problem[], approval?: Approval, refusedBy?: string, carry?: Carry, ranAt?: string }} input
  */
-export function signoffComment({ head, problems, approval, refusedBy, carry }) {
+export function signoffComment({
+  head,
+  problems,
+  approval,
+  refusedBy,
+  carry,
+  ranAt = londonTime(new Date(Date.now())),
+}) {
   const label = carry ? carriedLabel(carry) : approval ? approvalLabel(approval) : null;
   const box = label
-    ? `- [x] ${APPROVAL_TEXT}${inert(head)} ${label}`
-    : `- [ ] ${APPROVAL_TEXT}${inert(head)}`;
+    ? `- [x] ${APPROVAL_TEXT}${inert(head.slice(0, 7))} ${label}`
+    : `- [ ] ${APPROVAL_TEXT}${inert(head.slice(0, 7))}`;
 
   const rows = [...Map.groupBy(problems, (problem) => problem.path).values()].map((group) => ({
     ...group[0],
-    reason: group
-      .map((problem) => problem.reason.charAt(0).toUpperCase() + problem.reason.slice(1))
-      .join('; '),
+    what: joined(
+      group.map(
+        (problem) =>
+          problem.what ?? problem.reason.charAt(0).toUpperCase() + problem.reason.slice(1),
+      ),
+    ),
+    effect: joined(
+      group.map(
+        (problem) => problem.effect ?? 'The named enforcement check changes and requires sign-off',
+      ),
+    ),
   }));
 
   const header = [
     COMMENT_MARKER,
     '## Enforcement sign-off',
     '',
-    'This PR loosens or rewrites what the gates enforce, or changes product intent:',
+    `Ran at ${ranAt} on commit ${inert(head.slice(0, 7))}.`,
     '',
-    '| File | Area | Change |',
+    'This PR changes gated enforcement or product intent, so it needs sign-off.',
+    '',
+    '| File | What changed | How it affects |',
     '| --- | --- | --- |',
   ];
   const footer = [
     '',
     ...(refusedBy === undefined ? [] : [refusalNote(refusedBy), '']),
-    `@${APPROVER} signs off by ticking the box below in GitHub. The tick covers the guarded changes listed above at commit ${inert(head)}. An update that leaves those changes identical keeps it; a push that changes them clears it, and a tick from any other account is cleared.`,
+    `@${APPROVER}: tick to approve.`,
     box,
+    `<!-- enforcement-head:${head} -->`,
     '',
   ];
   // A fixed row budget leaves space for the footer and keeps labelled and unticked rows identical.
   const budget = 48_000;
   const shown = rows.slice(0, MAX_ROWS).reduce(
     (state, problem) => {
-      const line = `| ${inert(problem.path)} | ${problem.area} | ${problem.reason} |`;
+      const line = `| ${inert(problem.path)} | ${problem.what} | ${problem.effect} |`;
       const bytes = Buffer.byteLength(`${line}\n`, 'utf8');
 
       return state.bytes + bytes <= budget
@@ -1236,7 +1764,7 @@ export function signoffComment({ head, problems, approval, refusedBy, carry }) {
   ].join('\n');
 }
 
-const CLEAR_BODY = `${COMMENT_MARKER}\nNothing in this PR loosens enforcement now, so it needs no sign-off.\n`;
+const CLEAR_BODY = `${COMMENT_MARKER}\nThis PR needs no enforcement or product intent sign-off.\n`;
 
 /** @param {string} body */
 const normalise = (body) => body.replaceAll('\r\n', '\n').trimEnd();
@@ -1269,13 +1797,16 @@ function isFreshTick({ event, unticked }) {
  * status for the head is the sign-off, so the text never shows or makes an
  * approval by itself.
  *
- * @param {string} body @param {string} unticked
+ * @param {string} body @param {string} head @param {Problem[]} problems
  */
-function isLabelled(body, unticked) {
-  const box = /\n- \[x\] (.*) <sub><i>Approved by [^<\n]*<\/i><\/sub>\n/;
+function isLabelled(body, head, problems) {
+  const box = /\n- \[x\] (.*) <sub><i>ticked by [^<\n]*<\/i><\/sub>\n/;
   const text = normalise(body);
+  const unticked = normalise(signoffComment({ head, problems, ranAt: ranAtIn(body) }));
 
-  return box.test(`${text}\n`) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked;
+  return (
+    Boolean(approvedIn(text)) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked
+  );
 }
 
 /**
@@ -1326,7 +1857,7 @@ const WAITING = {
  * @returns {Plan | undefined}
  */
 function planEdit({ head, problems, comment, event, fingerprint }) {
-  const unticked = signoffComment({ head, problems });
+  const unticked = signoffComment({ head, problems, ranAt: ranAtIn(event.from) });
 
   if (!isFreshTick({ event, unticked: normalise(unticked) })) {
     const refused = hasTick(event.to) && !isApprover(event.sender);
@@ -1334,7 +1865,7 @@ function planEdit({ head, problems, comment, event, fingerprint }) {
     return {
       commentBody: refused
         ? signoffComment({ head, problems, refusedBy: event.sender.login })
-        : unticked,
+        : signoffComment({ head, problems }),
       status: WAITING,
     };
   }
@@ -1393,15 +1924,13 @@ export function planApproval({
     event.kind === 'comment' && planEdit({ head, problems, comment, event, fingerprint });
 
   if (edit) return edit;
-  const unticked = signoffComment({ head, problems });
-
-  if (signedOff && comment && isLabelled(comment.body, normalise(unticked))) {
+  if (signedOff && comment && isLabelled(comment.body, head, problems)) {
     return { commentBody: comment.body, status: null };
   }
 
   return (
     carriedPlan({ head, problems, event, carry, fingerprint }) ?? {
-      commentBody: unticked,
+      commentBody: signoffComment({ head, problems }),
       status: WAITING,
     }
   );

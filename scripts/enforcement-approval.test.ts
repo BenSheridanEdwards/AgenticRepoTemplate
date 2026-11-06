@@ -20,11 +20,16 @@ import {
 const HEAD = 'a'.repeat(40);
 const NEXT = 'b'.repeat(40);
 const MERGE_BASE = 'c'.repeat(40);
+const NOW = Date.parse('2026-11-06T11:26:00Z');
+const clock = jest.spyOn(Date, 'now').mockReturnValue(NOW);
+afterAll(() => clock.mockRestore());
 
 interface Problem {
   path: string;
   area: string;
   reason: string;
+  what?: string;
+  effect?: string;
 }
 
 interface Editor {
@@ -49,7 +54,13 @@ const tick = (body: string, box = 'x') =>
   body.replace('\n- [ ] Approve these', `\n- [${box}] Approve these`);
 
 const PROBLEMS: Problem[] = [
-  { path: 'biome.json', area: 'Biome config', reason: 'sets `linter.enabled` to `false`' },
+  {
+    path: 'biome.json',
+    area: 'Biome config',
+    reason: 'sets `linter.enabled` to `false`',
+    what: 'Changes `linter.enabled` from `true` to `false`',
+    effect: 'Looser: Biome stops linting covered source files',
+  },
 ];
 
 const ben: Editor = { login: APPROVER, type: 'User' };
@@ -520,7 +531,9 @@ describe('readable workflow summaries', () => {
     expect(plan.status?.state).toBe('failure');
     expect(Buffer.byteLength(plan.commentBody ?? '', 'utf8')).toBeLessThan(65_536);
     expect(plan.commentBody).toMatch(/and \d+ more changes/i);
-    expect(plan.commentBody).toContain(`- [ ] Approve these enforcement changes at \`${HEAD}\``);
+    expect(plan.commentBody).toContain(
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
+    );
     expect(plan.commentBody).toBe(signoffComment({ head: HEAD, problems }));
   });
 
@@ -583,7 +596,7 @@ describe('readable workflow summaries', () => {
         .split('\n')
         .filter((line) => line.startsWith('| `biome.json`')),
     ).toEqual([
-      '| `biome.json` | Biome config | Sets `linter.enabled` to `false`; Sets `linter.recommended` to `false` |',
+      '| `biome.json` | Changes `linter.enabled` from `true` to `false`; Changes `linter.recommended` from `true` to `false` | Looser: Biome stops linting covered source files; Looser: recommended checks stop being enabled automatically |',
     ]);
   });
 
@@ -625,7 +638,7 @@ describe('readable workflow summaries', () => {
     expect(body).toContain(content);
     expect(body).not.toContain('\u200b');
     expect(body.split('\n').filter((line) => /^- \[[ x]\]/.test(line))).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     const rows = body.split('\n').filter((line) => line.startsWith('| '));
     expect(rows).toHaveLength(3);
@@ -996,6 +1009,175 @@ describe('Biome flags that turn checking off', () => {
 });
 
 describe('enforcementProblems', () => {
+  it('explains a disabled check and its effect without source-line summaries', () => {
+    const problems = enforcementProblems([
+      {
+        path: 'biome.json',
+        before: '{"linter":{"enabled":true}}',
+        after: '{"linter":{"enabled":false}}',
+      },
+    ]);
+    const body = signoffComment({ head: HEAD, problems });
+    expect(body).toContain('| File | What changed | How it affects |');
+    expect(body).toContain('`linter.enabled`');
+    expect(body).toContain('Biome stops linting');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('explains a guarded JSON rewrite even when no scalar setting changes', () => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([
+        { path: 'oxlint.config.json', before: '{"rules":{}}', after: '{\n  "rules": {}\n}\n' },
+      ]),
+    });
+    expect(body).toContain('JSON formatting or container structure');
+    expect(body).toContain('Scalar setting values are unchanged');
+    expect(body).not.toContain('|  |');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('explains hidden head binding, readable comments and unchanged approval checks', () => {
+    const authorization =
+      "const isApprover = (sender) => sender.type === 'User' && sender.login === APPROVER;\n";
+    const before = `${authorization}export function signoffComment({ head }) {\n  return \`Approve at \${head}\`;\n}\n`;
+    const after = `${authorization}export function signoffComment({ head }) {\n  return \`Ran at \${londonTime(new Date())} on commit \${head.slice(0, 7)}. <!-- enforcement-head:\${head} -->\`;\n}\n`;
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: 'scripts/enforcement-approval.mjs', before, after }]),
+    });
+    expect(body).toContain('seven-character');
+    expect(body).toContain('London');
+    expect(body).toContain('hidden');
+    expect(body).toContain('`isApprover`');
+    expect(body).toContain('unchanged');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('names changed test behaviours and explains that regressions fail the tooling gate', () => {
+    const before = "it('rejects another user', () => { expect(result.state).toBe('failure'); });\n";
+    const after = `${before}it('rejects a missing hidden head', () => { expect(result.state).toBe('failure'); });\n`;
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([
+        { path: 'scripts/enforcement-approval.test.ts', before, after },
+      ]),
+    });
+    expect(body).toContain('rejects a missing hidden head');
+    expect(body).toContain('tooling gate');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('explains that moving an exit before a hook check bypasses that check', () => {
+    const before = '#!/bin/sh\npnpm arch:gate\nexit 0\n';
+    const after = '#!/bin/sh\nexit 0\npnpm arch:gate\n';
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: '.husky/pre-commit', before, after }]),
+    });
+    expect(body).toContain('command order');
+    expect(body).toContain('`pnpm arch:gate`');
+    expect(body).toContain('unreachable');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it.each([
+    ['pnpm verify', 'pnpm verify || true', 'masks failures'],
+    ['pnpm verify || true', 'pnpm verify', 'exposes the original failure status'],
+  ])('explains hook failure handling from %s to %s without breaking the table', (before, after, effect) => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: '.husky/pre-push', before, after }]),
+    });
+    const row = body.split('\n').find((line) => line.startsWith('| `.husky/pre-push`'));
+    expect(row).toContain(effect);
+    expect(row?.split(/(?<!\\)\|/)).toHaveLength(5);
+    expect(row).toContain('\\|\\| true');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('handles a long unmasked hook command without inventing a failure mask', () => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([
+        {
+          path: '.husky/pre-push',
+          before: 'pnpm verify',
+          after: `pnpm verify${' '.repeat(100_000)}# explanation`,
+        },
+      ]),
+    });
+    expect(body).toContain('pnpm verify # explanation');
+    expect(body).not.toContain('masks failures');
+    expect(Buffer.byteLength(body)).toBeLessThan(65_536);
+  });
+
+  it('names a workflow condition even when another job keeps its own condition', () => {
+    const before =
+      'jobs:\n  quality:\n    if: true\n    steps:\n      - run: pnpm verify\n  tests:\n    if: true\n    steps:\n      - run: pnpm test\n';
+    const after = before.replace('if: true', 'if: false');
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: '.github/workflows/ci.yml', before, after }]),
+    });
+    expect(body).toContain('`jobs.quality.if`');
+    expect(body).toContain('from `"true"` to `"false"`');
+    expect(body).toContain('changes when the named job or step runs');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('does not describe a modified approver predicate as unchanged', () => {
+    const before =
+      "const isApprover = (sender) => sender.type === 'User' && sender.login === APPROVER;\n";
+    const after = 'const isApprover = (sender) => true;\n';
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: 'scripts/enforcement-approval.mjs', before, after }]),
+    });
+    expect(body).toContain('(sender) => true');
+    expect(body).toContain('Approval eligibility');
+    expect(body).not.toContain('These checks are unchanged');
+  });
+
+  it.each([
+    [
+      'oxlint.config.ts',
+      "export default { rules: { 'policy/no-let': 'error' } };",
+      "export default { rules: { 'policy/no-let': 'off' } };",
+      'policy/no-let',
+      'no longer report violations',
+    ],
+    [
+      'tooling/oxlint-plugin-policy.js',
+      'export default { rules: {} };',
+      "export default { ignorePatterns: ['**'], rules: {} };",
+      'ignorePatterns',
+      'bypass checking',
+    ],
+    [
+      'docs/prd/greeting.md',
+      '# Validation\nA blank name is rejected.\n',
+      '# Validation\nA blank name uses Guest.\n',
+      'A blank name uses Guest.',
+      'instead of `A blank name is rejected.`',
+    ],
+    [
+      '.github/workflows/ci.yml',
+      'on:\n  push:\n    branches:\n      - main\n',
+      'on:\n  push:\n    branches:\n      - release\n',
+      'on.push.branches.contains release',
+      'trigger settings',
+    ],
+  ])('explains what and effect for %s', (path, before, after, what, effect) => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path, before, after }]),
+    });
+    expect(body).toContain(what);
+    expect(body).toContain(effect);
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
   it('orders problems by path and ignores unguarded changes', () => {
     expect(
       enforcementProblems([
@@ -1008,8 +1190,17 @@ describe('enforcementProblems', () => {
         path: '.husky/pre-commit',
         area: 'Git hooks',
         reason: 'Replaces the command `a` with `b`',
+        what: 'Adds hook commands `b`; Removes hook commands `a`',
+        effect:
+          "The hook no longer executes `a` or their checks; The hook now executes `b`; their exit results participate in the hook's checks",
       },
-      { path: 'biome.json', area: 'Biome config', reason: 'removes `linter.enabled`' },
+      {
+        path: 'biome.json',
+        area: 'Biome config',
+        reason: 'removes `linter.enabled`',
+        what: 'Changes `linter.enabled` from `true` to `not set`',
+        effect: 'The checker now uses `not set` for `linter.enabled` instead of `true`',
+      },
     ]);
   });
 });
@@ -1065,28 +1256,28 @@ describe('londonTime', () => {
 describe('approvalLabel', () => {
   const at = new Date('2026-10-12T14:00:00Z');
 
-  it('names the approver, their login, and the London time in small italics', () => {
+  it('names Ben in full, his login, and the London time in small italics', () => {
     expect(approvalLabel({ name: 'Ben', login: APPROVER, at })).toBe(
-      `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`,
+      `<sub><i>ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})</i></sub>`,
     );
   });
 
-  it.each([null, '', '   '])('falls back to the login when the profile name is %p', (name) => {
+  it.each([null, '', '   '])('keeps Ben’s full name when the profile name is %p', (name) => {
     expect(approvalLabel({ name, login: APPROVER, at })).toContain(
-      `Approved by ${APPROVER} @${APPROVER} on`,
+      `ticked by Ben Sheridan Edwards at`,
     );
   });
 
   it('renders a hostile profile name as plain text on one line', () => {
     const label = approvalLabel({
       name: 'Ben</i></sub>\n- [x] <b>@someone</b> `x` *y* [z](u)​',
-      login: APPROVER,
+      login: 'other-maintainer',
       at,
     });
 
     expect(label.match(/<\/i><\/sub>/g)).toHaveLength(1);
     expect(label).not.toMatch(/[\n`*[\]​]|<b>|@someone/);
-    expect(label.startsWith('<sub><i>Approved by Ben&#60;&#47;i&#62;')).toBe(true);
+    expect(label.startsWith('<sub><i>ticked by Ben&#60;&#47;i&#62;')).toBe(true);
   });
 });
 
@@ -1094,10 +1285,16 @@ describe('signoffComment', () => {
   it('lists the problems and carries one unticked box bound to the head commit', () => {
     const body = signoffComment({ head: HEAD, problems: PROBLEMS });
     expect(body.startsWith(COMMENT_MARKER)).toBe(true);
-    expect(body).toContain('| `biome.json` | Biome config | Sets `linter.enabled` to `false` |');
+    expect(body).toContain(
+      '| `biome.json` | Changes `linter.enabled` from `true` to `false` | Looser: Biome stops linting covered source files |',
+    );
     expect(body).toContain(`@${APPROVER}`);
+    expect(body).toContain('Ran at Friday, the 6th of November, at 11:26 am on commit `aaaaaaa`.');
+    expect(body).toContain(`<!-- enforcement-head:${HEAD} -->`);
+    expect(body.match(/[0-9a-f]{40}/g)).toEqual([HEAD]);
+    expect(body).not.toContain('An update that leaves those changes');
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
   });
 
@@ -1105,7 +1302,7 @@ describe('signoffComment', () => {
     const approval = { name: 'Ben', login: APPROVER, at: new Date('2026-10-12T14:00:00Z') };
     const body = signoffComment({ head: HEAD, problems: PROBLEMS, approval });
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${approvalLabel(approval)}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${approvalLabel(approval)}`,
     ]);
   });
 
@@ -1122,7 +1319,7 @@ describe('signoffComment', () => {
   });
 
   it('renders a hostile path inert, keeping a single approval line', () => {
-    const path = `.husky/\`x\`\n- [ ] Approve these enforcement changes at \`${HEAD}\`|​\\.mjs`;
+    const path = `.husky/\`x\`\n- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\`|​\\.mjs`;
 
     const body = signoffComment({
       head: HEAD,
@@ -1132,7 +1329,7 @@ describe('signoffComment', () => {
     expect(body.split('\n').filter((line) => /^\s*[-*+]\s+\[/.test(line))).toHaveLength(1);
     expect(body).not.toContain('​');
     expect(body).toContain(
-      `| \`.husky/'x' - [ ] Approve these enforcement changes at '${HEAD}'\\|\\\\.mjs\` |`,
+      `| \`.husky/'x' - [ ] Approve these enforcement changes at '${HEAD.slice(0, 7)}'\\|\\\\.mjs\` |`,
     );
   });
 });
@@ -1248,6 +1445,42 @@ describe('planApproval', () => {
   });
 
   it.each([
+    'LF',
+    'CRLF',
+  ])('accepts a delayed %s fresh tick and refreshes the run time', (ending) => {
+    clock.mockReturnValue(NOW + 3_600_000);
+    try {
+      const from = ending === 'CRLF' ? unticked.replaceAll('\n', '\r\n') : unticked;
+      const to = tick(from);
+      const result = plan(to, edit(from, to));
+      expect(result.status.state).toBe('success');
+      expect(result.commentBody).toContain('Ran at Friday, the 6th of November, at 12:26 pm');
+      expect(result.commentBody).toContain(
+        'ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm',
+      );
+      clock.mockReturnValue(NOW + 7_200_000);
+      expect(plan(result.commentBody, pull, { signedOff: true }).commentBody).toBe(
+        result.commentBody,
+      );
+    } finally {
+      clock.mockReturnValue(NOW);
+    }
+  });
+
+  it.each([
+    ['missing', ''],
+    ['different', `<!-- enforcement-head:${NEXT} -->`],
+    ['same short prefix', `<!-- enforcement-head:${HEAD.slice(0, 7)}${'d'.repeat(33)} -->`],
+    ['short only', `<!-- enforcement-head:${HEAD.slice(0, 7)} -->`],
+    ['duplicate', `<!-- enforcement-head:${HEAD} -->\n<!-- enforcement-head:${HEAD} -->`],
+  ])('rejects a fresh tick or existing label with a %s hidden head', (_case, marker) => {
+    const forge = (body: string) => body.replace(`<!-- enforcement-head:${HEAD} -->`, marker);
+    const from = forge(unticked);
+    expect(plan(tick(from), edit(from, tick(from))).status.state).toBe('failure');
+    expect(plan(forge(approved), pull, { signedOff: true }).status.state).toBe('failure');
+  });
+
+  it.each([
     ['[X]', tick(unticked, 'X')],
     ['CRLF', tick(unticked).replaceAll('\n', '\r\n')],
     ['a trailing newline', `${tick(unticked)}\n`],
@@ -1255,9 +1488,9 @@ describe('planApproval', () => {
     expect(plan(ticked, edit(unticked, ticked)).status).toEqual(SIGNED);
   });
 
-  it('falls back to the login when the approver has no profile name', () => {
+  it('keeps Ben’s full name when his profile has no name', () => {
     const result = plan(tick(unticked), edit(unticked, tick(unticked), { ...benUser, name: null }));
-    expect(result.commentBody).toContain(`Approved by ${APPROVER} @${APPROVER} on`);
+    expect(result.commentBody).toContain(`ticked by Ben Sheridan Edwards at`);
   });
 
   it.each<[string, Sender]>([
@@ -1272,9 +1505,9 @@ describe('planApproval', () => {
     );
     expect(result.commentBody).toContain(`A tick by \`${sender.login}\` was cleared.`);
     expect(result.commentBody).toContain(
-      `\n- [ ] Approve these enforcement changes at \`${HEAD}\`\n`,
+      `\n- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\`\n`,
     );
-    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.commentBody).not.toContain('ticked by');
     expect(result.status).toEqual(FAILURE);
   });
 
@@ -1299,7 +1532,10 @@ describe('planApproval', () => {
   });
 
   it('clears a tick that rewrites the head commit in the box line', () => {
-    const forged = tick(unticked).replace(`\`${HEAD}\``, `\`${NEXT}\``);
+    const forged = tick(unticked).replace(
+      `at \`${HEAD.slice(0, 7)}\``,
+      `at \`${NEXT.slice(0, 7)}\``,
+    );
     const result = plan(forged, edit(unticked, forged));
     expect(result.commentBody).toBe(unticked);
     expect(result.status).toEqual(FAILURE);
@@ -1333,7 +1569,7 @@ describe('planApproval', () => {
     const untick = approved.replace('- [x] ', '- [ ] ');
     const result = plan(untick, edit(approved, untick));
     expect(result.commentBody).toBe(unticked);
-    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.commentBody).not.toContain('ticked by');
     expect(result.status).toEqual(FAILURE);
   });
 
@@ -1381,7 +1617,7 @@ describe('planApproval', () => {
   it('rewrites an approved comment for an earlier head unticked for the new head', () => {
     const result = plan(approved, pull, { head: NEXT, signedOff: true });
     expect(result.commentBody).toBe(signoffComment({ head: NEXT, problems: PROBLEMS }));
-    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.commentBody).not.toContain('ticked by');
     expect(result.status).toEqual(FAILURE);
   });
 
@@ -1601,9 +1837,12 @@ describe('run', () => {
       path: '.husky/pre-commit',
       area: 'Git hooks',
       reason: 'Replaces the command `npx lint-staged` with `true`',
+      what: 'Adds hook commands `true`; Removes hook commands `npx lint-staged`',
+      effect:
+        "The hook no longer executes `npx lint-staged` or their checks; The hook now executes `true`; their exit results participate in the hook's checks",
     },
   ];
-  const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`;
+  const LABEL = `<sub><i>ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})</i></sub>`;
 
   const boxLines = (body: string | undefined) =>
     (body ?? '').split('\n').filter((line) => line.startsWith('- ['));
@@ -1622,16 +1861,16 @@ describe('run', () => {
 
     await run({ github, context: pullRequestContext, core });
     expect(comments[0]?.body).toContain(
-      '| `docs/prd/greeting.md` | Product intent | Replaces `intent` with `updated intent` |',
+      '| `docs/prd/greeting.md` | Adds product requirements `updated intent`; Removes product requirements `intent` | Product intent now includes `updated intent` instead of `intent`; implementation and behaviour tests must follow the revised intent |',
     );
     await run({ github, context: editBy(ben, (body) => tick(body)), core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${LABEL}`,
     ]);
     state.head = NEXT;
     await run({ github, context: pullRequestContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.map((status) => [status.sha, status.state])).toEqual([
       [HEAD, 'failure'],
@@ -1662,7 +1901,7 @@ describe('run', () => {
     });
 
     await run({ github, context: pullRequestContext, core });
-    expect(comments[0]?.body).toContain('| `.husky/pre-push` | Git hooks | Adds this file |');
+    expect(comments[0]?.body).toContain('| `.husky/pre-push` | Adds hook commands `pnpm verify` |');
   });
 
   it('fails loudly when reading a file fails for any reason but absence', async () => {
@@ -1681,7 +1920,7 @@ describe('run', () => {
     await run({ github, context: pullRequestContext, core });
     await run({ github, context: editBy(ben, (body) => tick(body)), core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${LABEL}`,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: HEAD, state: 'success' }),
@@ -1716,7 +1955,7 @@ describe('run', () => {
     await run({ github, context: editBy(ben, (body) => body.replace('- [x] ', '- [ ] ')), core });
     await run({ github, context: tickContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
   });
@@ -1738,7 +1977,7 @@ describe('run', () => {
     );
     await run({ github, context: tickContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
   });
@@ -1792,13 +2031,13 @@ describe('run', () => {
     expect(comments).toHaveLength(1);
     expect(comments[0]?.body).toContain('A tick by `someone` was cleared.');
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
 
     await run({ github, context: editBy(ben, (body) => tick(body), '2026-10-12T14:00:00Z'), core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${LABEL}`,
     ]);
     expect(comments[0]?.body).not.toContain('was cleared');
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'success' }));
@@ -1840,7 +2079,7 @@ describe('run', () => {
     state.head = NEXT;
     await run({ github, context: pullRequestContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: NEXT, state: 'failure' }),
@@ -1854,7 +2093,7 @@ describe('run', () => {
     state.head = NEXT;
     await run({ github, context: tickContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.map((status) => [status.sha, status.state])).toEqual([
       [HEAD, 'failure'],
@@ -1871,7 +2110,7 @@ describe('run', () => {
     await run({ github, context: untick, core });
     await run({ github, context: retick, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
   });
@@ -1909,7 +2148,7 @@ describe('run', () => {
 
     const { github, comments, calls } = fakeGitHub({ files, contents: {} });
     await run({ github, context: pullRequestContext, core });
-    expect(comments[0]?.body).toContain('| `this PR` | Gate input |');
+    expect(comments[0]?.body).toContain('| `this PR` | Changes at least 3000 files');
     expect(calls.createCommitStatus).toEqual([expect.objectContaining({ state: 'failure' })]);
   });
 
@@ -2013,7 +2252,7 @@ describe('guard comment placement and approval carry-over', () => {
   };
   const expectCleared = (fake: ReturnType<typeof setup>) => {
     expect(boxes(fake.comments.at(-1)?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: NEXT, state: 'failure' }),
@@ -2034,7 +2273,7 @@ describe('guard comment placement and approval carry-over', () => {
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.calls.deleteComment).toEqual([first]);
     expect(fake.comments.at(-1)?.body).toContain(
-      `Approve these enforcement changes at \`${NEXT}\``,
+      `Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     );
     expect(fake.comments.filter((comment) => comment.user?.login === GATE_AUTHOR)).toHaveLength(1);
   });
@@ -2043,9 +2282,13 @@ describe('guard comment placement and approval carry-over', () => {
     const fake = setup();
     await approveThenMove(fake);
     const [box] = boxes(fake.comments.at(-1)?.body);
-    expect(box).toContain(`- [x] Approve these enforcement changes at \`${NEXT}\``);
-    expect(box).toContain(`Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm`);
-    expect(box).toContain('carried from `aaaaaaa`, whose guarded changes are identical');
+    expect(box).toContain(`- [x] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``);
+    expect(box).toContain(
+      `ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})`,
+    );
+    expect(box).toContain('carried from `aaaaaaa`');
+    expect(fake.comments.at(-1)?.body).toContain(`<!-- enforcement-head:${NEXT} -->`);
+    expect(fake.comments.at(-1)?.body.match(/[0-9a-f]{40}/g)).toEqual([NEXT]);
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({
         sha: NEXT,
@@ -2058,6 +2301,26 @@ describe('guard comment placement and approval carry-over', () => {
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.calls.createCommitStatus.at(-1)?.sha).toBe(NEXT);
     expect(boxes(fake.comments.at(-1)?.body)).toEqual([box]);
+  });
+
+  it.each([
+    ['missing marker', ''],
+    ['mismatched marker', `<!-- enforcement-head:${NEXT} -->`],
+    [
+      'same prefix, different full head',
+      `<!-- enforcement-head:${HEAD.slice(0, 7)}${'d'.repeat(33)} -->`,
+    ],
+    ['visible short hash only', `<!-- enforcement-head:${HEAD.slice(0, 7)} -->`],
+    ['duplicate marker', `<!-- enforcement-head:${HEAD} -->\n<!-- enforcement-head:${HEAD} -->`],
+  ])('never carries approval with a %s', async (_case, marker) => {
+    const fake = setup();
+    await run({ github: fake.github, context: pullRequestContext, core });
+    await run({ github: fake.github, context: fake.editBy(ben, tick), core });
+    const gate = fake.comments[0];
+    if (gate) gate.body = gate.body.replace(`<!-- enforcement-head:${HEAD} -->`, marker);
+    fake.state.head = NEXT;
+    await run({ github: fake.github, context: pullRequestContext, core });
+    expectCleared(fake);
   });
 
   it.each([
@@ -2083,8 +2346,8 @@ describe('guard comment placement and approval carry-over', () => {
       'a label the gate never signed off',
       (body: string) =>
         tick(body).replace(
-          /\n$/,
-          ` <sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>\n`,
+          /(\n- \[x\][^\n]*)\n/,
+          `$1 <sub><i>ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})</i></sub>\n`,
         ),
     ],
   ])('never carries %s', async (_case, forge) => {
@@ -2103,7 +2366,7 @@ describe('guard comment placement and approval carry-over', () => {
     await run({ github: fake.github, context: fake.editBy(ben, (body) => tick(body)), core });
     const gate = fake.comments[0];
     if (gate)
-      gate.body = gate.body.replace('Approved by Ben', 'Approved by Ben ![](https://x.test/p.png)');
+      gate.body = gate.body.replace('ticked by Ben', 'ticked by Ben ![](https://x.test/p.png)');
     fake.state.head = NEXT;
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.comments.at(-1)?.body).not.toContain('x.test');
@@ -2116,7 +2379,7 @@ describe('guard comment placement and approval carry-over', () => {
     fake.state.head = THIRD;
     await run({ github: fake.github, context: pullRequestContext, core });
     const [box] = boxes(fake.comments.at(-1)?.body);
-    expect(box).toContain(`- [x] Approve these enforcement changes at \`${THIRD}\``);
+    expect(box).toContain(`- [x] Approve these enforcement changes at \`${THIRD.slice(0, 7)}\``);
     expect(box).toContain('carried from `bbbbbbb`');
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: THIRD, state: 'success' }),
