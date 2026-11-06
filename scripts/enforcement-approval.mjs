@@ -1223,13 +1223,17 @@ function configurationDescription(before, after) {
   const changes = leafChanges(was, now);
 
   return {
-    what: joined(
-      changes.map(
-        (leaf) =>
-          `Changes ${inert(dotted(leaf.path))} from ${describedValue(leaf.before)} to ${describedValue(leaf.after)}`,
-      ),
-    ),
-    effect: joined(changes.map(settingEffect)),
+    what:
+      joined(
+        changes.map(
+          (leaf) =>
+            `Changes ${inert(dotted(leaf.path))} from ${describedValue(leaf.before)} to ${describedValue(leaf.after)}`,
+        ),
+      ) ||
+      `Changes JSON formatting or container structure: ${describedValue(was)} becomes ${describedValue(now)}`,
+    effect:
+      joined(changes.map(settingEffect)) ||
+      'Scalar setting values are unchanged; the guarded rewrite still requires sign-off for its formatting or container change',
   };
 }
 

@@ -1024,6 +1024,19 @@ describe('enforcementProblems', () => {
     expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
   });
 
+  it('explains a guarded JSON rewrite even when no scalar setting changes', () => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([
+        { path: 'oxlint.config.json', before: '{"rules":{}}', after: '{\n  "rules": {}\n}\n' },
+      ]),
+    });
+    expect(body).toContain('JSON formatting or container structure');
+    expect(body).toContain('Scalar setting values are unchanged');
+    expect(body).not.toContain('|  |');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
   it('explains hidden head binding, readable comments and unchanged approval checks', () => {
     const authorization =
       "const isApprover = (sender) => sender.type === 'User' && sender.login === APPROVER;\n";
