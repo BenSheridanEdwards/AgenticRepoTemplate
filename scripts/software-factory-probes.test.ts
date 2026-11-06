@@ -19,11 +19,15 @@ describe('software factory evidence replay', () => {
         path: 'tooling/oxlint-plugin-policy.js',
         area: 'Lint config',
         reason: 'Turns off the lint rule `policy/state-and-effects-in-hooks` from error to off',
+        what: 'Turns off the lint rule `policy/state-and-effects-in-hooks` from error to off',
+        effect: 'Looser: the named lint rules no longer report violations',
       },
       {
         path: 'tooling/oxlint-plugin-policy.js',
         area: 'Lint config',
         reason: '2 lines changed in all: 1 added, 1 removed',
+        what: 'Turns off the lint rule `policy/state-and-effects-in-hooks` from error to off',
+        effect: 'Looser: the named lint rules no longer report violations',
       },
     ]);
     expect(report.lint.proseControl).toEqual([]);
