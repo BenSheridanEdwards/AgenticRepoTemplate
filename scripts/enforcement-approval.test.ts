@@ -28,6 +28,8 @@ interface Problem {
   path: string;
   area: string;
   reason: string;
+  what?: string;
+  effect?: string;
 }
 
 interface Editor {
@@ -52,7 +54,13 @@ const tick = (body: string, box = 'x') =>
   body.replace('\n- [ ] Approve these', `\n- [${box}] Approve these`);
 
 const PROBLEMS: Problem[] = [
-  { path: 'biome.json', area: 'Biome config', reason: 'sets `linter.enabled` to `false`' },
+  {
+    path: 'biome.json',
+    area: 'Biome config',
+    reason: 'sets `linter.enabled` to `false`',
+    what: 'Changes `linter.enabled` from `true` to `false`',
+    effect: 'Looser: Biome stops linting covered source files',
+  },
 ];
 
 const ben: Editor = { login: APPROVER, type: 'User' };
@@ -588,7 +596,7 @@ describe('readable workflow summaries', () => {
         .split('\n')
         .filter((line) => line.startsWith('| `biome.json`')),
     ).toEqual([
-      '| `biome.json` | Biome config | Sets `linter.enabled` to `false`; Sets `linter.recommended` to `false` |',
+      '| `biome.json` | Changes `linter.enabled` from `true` to `false`; Changes `linter.recommended` from `true` to `false` | Looser: Biome stops linting covered source files; Looser: recommended checks stop being enabled automatically |',
     ]);
   });
 
@@ -1001,6 +1009,131 @@ describe('Biome flags that turn checking off', () => {
 });
 
 describe('enforcementProblems', () => {
+  it('explains a disabled check and its effect without source-line summaries', () => {
+    const problems = enforcementProblems([
+      {
+        path: 'biome.json',
+        before: '{"linter":{"enabled":true}}',
+        after: '{"linter":{"enabled":false}}',
+      },
+    ]);
+    const body = signoffComment({ head: HEAD, problems });
+    expect(body).toContain('| File | What changed | How it affects |');
+    expect(body).toContain('`linter.enabled`');
+    expect(body).toContain('Biome stops linting');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('explains hidden head binding, readable comments and unchanged approval checks', () => {
+    const authorization =
+      "const isApprover = (sender) => sender.type === 'User' && sender.login === APPROVER;\n";
+    const before = `${authorization}export function signoffComment({ head }) {\n  return \`Approve at \${head}\`;\n}\n`;
+    const after = `${authorization}export function signoffComment({ head }) {\n  return \`Ran at \${londonTime(new Date())} on commit \${head.slice(0, 7)}. <!-- enforcement-head:\${head} -->\`;\n}\n`;
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: 'scripts/enforcement-approval.mjs', before, after }]),
+    });
+    expect(body).toContain('seven-character');
+    expect(body).toContain('London');
+    expect(body).toContain('hidden');
+    expect(body).toContain('`isApprover`');
+    expect(body).toContain('unchanged');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('names changed test behaviours and explains that regressions fail the tooling gate', () => {
+    const before = "it('rejects another user', () => { expect(result.state).toBe('failure'); });\n";
+    const after = `${before}it('rejects a missing hidden head', () => { expect(result.state).toBe('failure'); });\n`;
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([
+        { path: 'scripts/enforcement-approval.test.ts', before, after },
+      ]),
+    });
+    expect(body).toContain('rejects a missing hidden head');
+    expect(body).toContain('tooling gate');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('explains that moving an exit before a hook check bypasses that check', () => {
+    const before = '#!/bin/sh\npnpm arch:gate\nexit 0\n';
+    const after = '#!/bin/sh\nexit 0\npnpm arch:gate\n';
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: '.husky/pre-commit', before, after }]),
+    });
+    expect(body).toContain('command order');
+    expect(body).toContain('`pnpm arch:gate`');
+    expect(body).toContain('unreachable');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('names a workflow condition even when another job keeps its own condition', () => {
+    const before =
+      'jobs:\n  quality:\n    if: true\n    steps:\n      - run: pnpm verify\n  tests:\n    if: true\n    steps:\n      - run: pnpm test\n';
+    const after = before.replace('if: true', 'if: false');
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: '.github/workflows/ci.yml', before, after }]),
+    });
+    expect(body).toContain('`jobs.quality.if`');
+    expect(body).toContain('from `"true"` to `"false"`');
+    expect(body).toContain('changes when the named job or step runs');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('does not describe a modified approver predicate as unchanged', () => {
+    const before =
+      "const isApprover = (sender) => sender.type === 'User' && sender.login === APPROVER;\n";
+    const after = 'const isApprover = (sender) => true;\n';
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: 'scripts/enforcement-approval.mjs', before, after }]),
+    });
+    expect(body).toContain('(sender) => true');
+    expect(body).toContain('Approval eligibility');
+    expect(body).not.toContain('These checks are unchanged');
+  });
+
+  it.each([
+    [
+      'oxlint.config.ts',
+      "export default { rules: { 'policy/no-let': 'error' } };",
+      "export default { rules: { 'policy/no-let': 'off' } };",
+      'policy/no-let',
+      'no longer report violations',
+    ],
+    [
+      'tooling/oxlint-plugin-policy.js',
+      'export default { rules: {} };',
+      "export default { ignorePatterns: ['**'], rules: {} };",
+      'ignorePatterns',
+      'bypass checking',
+    ],
+    [
+      'docs/prd/greeting.md',
+      '# Validation\nA blank name is rejected.\n',
+      '# Validation\nA blank name uses Guest.\n',
+      'A blank name uses Guest.',
+      'instead of `A blank name is rejected.`',
+    ],
+    [
+      '.github/workflows/ci.yml',
+      'on:\n  push:\n    branches:\n      - main\n',
+      'on:\n  push:\n    branches:\n      - release\n',
+      'on.push.branches.contains release',
+      'trigger settings',
+    ],
+  ])('explains what and effect for %s', (path, before, after, what, effect) => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path, before, after }]),
+    });
+    expect(body).toContain(what);
+    expect(body).toContain(effect);
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
   it('orders problems by path and ignores unguarded changes', () => {
     expect(
       enforcementProblems([
@@ -1013,8 +1146,17 @@ describe('enforcementProblems', () => {
         path: '.husky/pre-commit',
         area: 'Git hooks',
         reason: 'Replaces the command `a` with `b`',
+        what: 'Adds hook commands `b`; Removes hook commands `a`',
+        effect:
+          "The hook no longer executes `a` or their checks; The hook now executes `b`; their exit results participate in the hook's checks",
       },
-      { path: 'biome.json', area: 'Biome config', reason: 'removes `linter.enabled`' },
+      {
+        path: 'biome.json',
+        area: 'Biome config',
+        reason: 'removes `linter.enabled`',
+        what: 'Changes `linter.enabled` from `true` to `not set`',
+        effect: 'The checker now uses `not set` for `linter.enabled` instead of `true`',
+      },
     ]);
   });
 });
@@ -1099,7 +1241,9 @@ describe('signoffComment', () => {
   it('lists the problems and carries one unticked box bound to the head commit', () => {
     const body = signoffComment({ head: HEAD, problems: PROBLEMS });
     expect(body.startsWith(COMMENT_MARKER)).toBe(true);
-    expect(body).toContain('| `biome.json` | Biome config | Sets `linter.enabled` to `false` |');
+    expect(body).toContain(
+      '| `biome.json` | Changes `linter.enabled` from `true` to `false` | Looser: Biome stops linting covered source files |',
+    );
     expect(body).toContain(`@${APPROVER}`);
     expect(body).toContain('Ran at Friday, the 6th of November, at 11:26 am on commit `aaaaaaa`.');
     expect(body).toContain(`<!-- enforcement-head:${HEAD} -->`);
@@ -1649,6 +1793,9 @@ describe('run', () => {
       path: '.husky/pre-commit',
       area: 'Git hooks',
       reason: 'Replaces the command `npx lint-staged` with `true`',
+      what: 'Adds hook commands `true`; Removes hook commands `npx lint-staged`',
+      effect:
+        "The hook no longer executes `npx lint-staged` or their checks; The hook now executes `true`; their exit results participate in the hook's checks",
     },
   ];
   const LABEL = `<sub><i>ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})</i></sub>`;
@@ -1670,7 +1817,7 @@ describe('run', () => {
 
     await run({ github, context: pullRequestContext, core });
     expect(comments[0]?.body).toContain(
-      '| `docs/prd/greeting.md` | Product intent | Replaces `intent` with `updated intent` |',
+      '| `docs/prd/greeting.md` | Adds product requirements `updated intent`; Removes product requirements `intent` | Product intent now includes `updated intent` instead of `intent`; implementation and behaviour tests must follow the revised intent |',
     );
     await run({ github, context: editBy(ben, (body) => tick(body)), core });
     expect(boxLines(comments[0]?.body)).toEqual([
@@ -1710,7 +1857,7 @@ describe('run', () => {
     });
 
     await run({ github, context: pullRequestContext, core });
-    expect(comments[0]?.body).toContain('| `.husky/pre-push` | Git hooks | Adds this file |');
+    expect(comments[0]?.body).toContain('| `.husky/pre-push` | Adds hook commands `pnpm verify` |');
   });
 
   it('fails loudly when reading a file fails for any reason but absence', async () => {
@@ -1957,7 +2104,7 @@ describe('run', () => {
 
     const { github, comments, calls } = fakeGitHub({ files, contents: {} });
     await run({ github, context: pullRequestContext, core });
-    expect(comments[0]?.body).toContain('| `this PR` | Gate input |');
+    expect(comments[0]?.body).toContain('| `this PR` | Changes at least 3000 files');
     expect(calls.createCommitStatus).toEqual([expect.objectContaining({ state: 'failure' })]);
   });
 
