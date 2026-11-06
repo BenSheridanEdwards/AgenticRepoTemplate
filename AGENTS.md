@@ -15,14 +15,15 @@ pnpm bench            # measure cold, warm and one-change gates on 60 generated 
 pnpm ci:audit owner/repo # split recent CI jobs into waiting, setup and work (docs/ci-speed.md)
 pnpm typecheck        # bun check over each TypeScript program (ADR 0120)
 pnpm dev              # run web (http://localhost:5173) and api (:3001) together; Vite proxies /trpc
-pnpm lint:policy      # Oxlint: policy, React hooks, React Compiler and React Doctor rules
+pnpm lint:policy      # Oxlint: policy, Tailwind, React hooks, Compiler and Doctor rules
+pnpm lint:styles      # CSS and index.html: @repo/ui tokens only, no arbitrary values or colour literals
 pnpm lint:anti-slop   # Oxlint: vendored anti-slop gate rules; fails on any finding
 pnpm arch:check       # architecture gate, structure check, diagram freshness, API report freshness
 pnpm arch:diagram     # regenerate docs/architecture/roles.mmd and each result's architecture.mmd
 pnpm api:report       # regenerate each package's etc/*.api.md after an intended export change
 pnpm test:integration # exercise the real API server over HTTP in its own Jest project
 pnpm test:contract    # record the web consumer contract and verify the HTTP provider with Pact
-pnpm verify           # the full local gate suite (typecheck → biome → oxlint → react doctor → fallow → architecture → tests → build)
+pnpm verify           # the full local gate suite (typecheck → biome → oxlint → styles → react doctor → fallow → architecture → tests → build)
 pnpm e2e              # playwright test: every spec in each result's web/e2e/, with its api and web servers
 ```
 
@@ -65,6 +66,7 @@ the code-level rules and their checks.
 | Rule | Enforced by |
 | --- | --- |
 | Each in-scope source file has an architecture role; value imports between roles follow the table in [`project/ARCHITECTURE.md`](.agents/project/ARCHITECTURE.md). Type-only imports may cross roles except into `@repo/ui`, which imports no role, subject to slice isolation and route co-location: route value and type imports stay within their own folder, `@repo/ui`, the api-client public barrel and external npm packages ([ADR 0075](.agents/decisions/0075-canonical-colocated-routes.md)). Tests, E2E specs, configs, scripts and tooling sit outside the role table. | `pnpm lint:policy`, `pnpm arch:gate`, `pnpm fallow:audit`, `pnpm typecheck`; [North Star §2](docs/NORTH_STAR.md#2-layers-import-downward-slices-stand-alone-decisions-live-in-adrs) names the limits. |
+| Style with Tailwind classes on the theme scale and the `@repo/ui` design tokens. Use no arbitrary values (`w-[13px]`), inline styles or colour literals; add a token to the `@theme` block in `packages/ui/src/styles.css` instead. | `pnpm lint:policy` (`policy/no-arbitrary-styles`), `pnpm lint:styles` ([ADR 0114](.agents/decisions/0114-tailwind-on-the-ui-design-tokens.md)) |
 | Commits, PR titles, and branch names follow Conventional Commits. | commitlint on `commit-msg`; `PR quality` workflow |
 | Run every applicable hook. Common bypasses (`--no-verify`, `git commit -n`, `HUSKY=0`, and `core.hooksPath`, alias, or config-include overrides) are refused for the supported command forms. | `.agents/hooks/block-gate-bypass.sh` in Claude Code, trusted Codex Bash sessions and Cursor agents; [ADR 0027](.agents/decisions/0027-block-common-hook-bypasses.md) lists the gaps. CI re-runs every hook step (`pnpm gates:check` holds the parity); hosted required checks govern merging. |
 | A change that loosens or rewrites a gate (`.husky/**`, `.github/workflows/**`, `oxlint.config.ts`, `biome.json`, `commitlint.config.ts`, `tooling/oxlint-plugin-policy.js`, `scripts/check-suppressions.mjs`, `scripts/enforcement-approval.mjs`, `scripts/enforcement-approval.test.ts`), or any addition, edit, deletion or rename in `docs/prd/**` or of `docs/NORTH_STAR.md`, waits for the approver (repo variable `ENFORCEMENT_APPROVER`, default `BenSheridanEdwards`) to tick the sign-off for its guarded changes. A tick counts when it is made as that approver, and it carries to a new head only while those guarded changes stay identical ([ADR 0122](.agents/decisions/0122-sign-off-follows-the-guarded-changes.md)). | `enforcement-approval` status ([ADR 0023](.agents/decisions/0023-protect-only-the-files-that-run-the-gates.md), [ADR 0024](.agents/decisions/0024-sign-off-only-loosening-enforcement-changes.md), [ADR 0060](.agents/decisions/0060-product-intent-needs-sign-off.md)) |
@@ -76,6 +78,7 @@ the code-level rules and their checks.
 | Biome, Oxlint and React Doctor fail on a warning; a console warning or error fails a Jest test and a Playwright page. | Biome `--error-on-warnings`, Oxlint `--deny-warnings`, React Doctor `--blocking warning` ([ADR 0046](.agents/decisions/0046-fail-lint-on-warnings.md)); Jest setup and Playwright fixtures ([ADR 0086](.agents/decisions/0086-console-warnings-fail-tests.md)); Fallow has no warn-level rule. |
 | Each comment group in package TypeScript source keeps to four lines; longer reasoning goes in an ADR or doc. | Oxlint `policy/no-large-comments` ([ADR 0050](.agents/decisions/0050-anti-slop-lint-policies.md)) |
 | Every inline suppression (TypeScript, Biome, Oxlint, ESLint, Fallow, coverage pragma) fails the gate. An exception lives in `ALLOWED_SUPPRESSIONS` in `scripts/check-suppressions.mjs`, which needs sign-off. | `pnpm check:suppressions`, plus the structure check in result roots. |
+| Keep Tailwind classes ordered, known to the UI theme, conflict-free and current; compose class constants and conditional strings with `cn` from `@repo/ui`. Keep `@apply` in the UI theme file. | `pnpm lint:policy` (Oxlint), `pnpm lint:styles`; [ADR 0121](.agents/decisions/0121-tailwind-lint-through-oxlint.md) |
 | Generated files match their source. | `pnpm arch:check`, `pnpm gates:check`, `pnpm api:check` |
 | Gate and tooling scripts match a glob with `matchesGlob` from `node:path` or the tool's own file list. | `pnpm lint:policy` ([ADR 0041](.agents/decisions/0041-scripts-ask-the-tool-which-files-a-glob-covers.md)) |
 | A test's child process starts from the allowlisted environment in `scripts/jest-global-setup.mjs`; a test passes any other variable it needs in `env`. | Jest `globalSetup` and `scripts/jest-env.test.ts` ([ADR 0042](.agents/decisions/0042-test-child-processes-get-an-allowlisted-environment.md)) |

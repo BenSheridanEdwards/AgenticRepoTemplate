@@ -58,6 +58,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm check
       - run: pnpm lint:policy
+      - run: pnpm lint:styles
       - run: pnpm lint:anti-slop
       - run: pnpm react-doctor
 

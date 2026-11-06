@@ -5,7 +5,8 @@
 // One component per file, named like the file. A component only renders: it
 // takes state from its use* hook (server state through useTrpc(), form state
 // through use__Name__Form) and builds controls from @repo/ui. Functions it
-// defines start with `handle`; callback props start with `on`.
+// defines start with `handle`; callback props start with `on`. Style with
+// Tailwind classes on the theme scale and the @repo/ui tokens (ADR 0114).
 // See .agents/project/ARCHITECTURE.md.
 
 import { Button } from '@repo/ui';
@@ -23,7 +24,7 @@ export function __Name__({ on__Event__ }: __Name__Props) {
   }
 
   return (
-    <section className="__route-name__" aria-label="__Accessible name__">
+    <section className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-6" aria-label="__Accessible name__">
       {/* Render observable state. Keep every interactive element a real,
           labelled control so the behaviour map and a11y tooling can reach it. */}
       <Button onClick={handle__Action__}>__Action__</Button>

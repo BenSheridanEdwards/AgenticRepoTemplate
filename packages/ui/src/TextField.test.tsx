@@ -41,5 +41,5 @@ it('keeps the error tied to the input when the caller passes its own description
 it('adds a caller class name to its own', () => {
   render(<TextField label="Name" className="wide" />);
 
-  expect(screen.getByRole('textbox', { name: 'Name' })).toHaveClass('ui-text-field__input', 'wide');
+  expect(screen.getByRole('textbox', { name: 'Name' })).toHaveClass('border-line', 'wide');
 });

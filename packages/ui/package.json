@@ -8,6 +8,10 @@
     "./styles.css": "./src/styles.css"
   },
   "peerDependencies": {
-    "react": "^19.1.0"
+    "react": "^19.1.0",
+    "tailwindcss": "^4.3.3"
+  },
+  "dependencies": {
+    "tailwind-merge": "3.7.0"
   }
 }

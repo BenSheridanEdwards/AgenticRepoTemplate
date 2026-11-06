@@ -208,6 +208,7 @@ export const HOOK_STEPS = [
     'check:docs',
     'check:adr',
     'lint:policy',
+    'lint:styles',
     'react-doctor',
   ].map((script) => ({
     sources: ['package.json verify'],

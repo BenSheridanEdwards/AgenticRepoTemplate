@@ -264,7 +264,7 @@ console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntri
       const showcase = configs[index] ?? {};
       expect(showcase).toEqual(configs[index + 1]);
       const policy = Object.entries(showcase).filter(([rule]) => rule.startsWith('policy/'));
-      expect(policy).toHaveLength(20);
+      expect(policy).toHaveLength(21);
       expect(
         policy.filter(([, value]) => (Array.isArray(value) ? value[0] : value) !== 'error'),
       ).toEqual([]);
@@ -465,12 +465,16 @@ console.log(JSON.stringify(${JSON.stringify(paths)}.map(path => Object.fromEntri
     expect(gate.output).toContain(reported);
   });
 
-  it('passes the dependency gate and rejects copied CSS in the commit audit', () => {
+  it('passes the dependency gate and rejects hand-written CSS in the style check', () => {
     expect(run(['node', 'scripts/check-dependency-adr.mjs', 'main']).code).toBe(0);
-    const audit = run(['fallow', 'audit', '--base', 'main']);
-    expect(audit.code).toBe(1);
-    expect(audit.output).toContain('css-duplicate-block');
-    expect(audit.output).toContain('showcase/x/web/src/index.css');
+    expect(run(['node', 'scripts/check-styles.mjs']).code).toBe(0);
+    const checked = withSeed(
+      { 'showcase/x/web/src/index.css': '.app {\n  color: #e6e9f2;\n}\n' },
+      () => run(['node', 'scripts/check-styles.mjs']),
+    );
+    expect(checked.code).toBe(1);
+    expect(checked.output).toContain('showcase/x/web/src/index.css:2 colour literal `#e6e9f2`');
+    expect(checked.output).toContain('showcase/x/web/src/index.css:1 hand-written CSS `.app {`');
   });
 
   it('fails the dependency ADR check on a dependency no ADR names', () => {

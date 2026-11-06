@@ -941,6 +941,139 @@ const useUiPrimitives = {
   },
 };
 
+// A Tailwind arbitrary value, property or variant: `w-[13px]`, `[mask:none]`, `data-[open]:p-4`, `w-(--x)`.
+const ARBITRARY_CLASS = /\S*(?:\[[^\s\]]*\]|-\([^\s)]*\))\S*/g;
+const COLOUR_LITERAL =
+  /(?<![\w&])#(?:[\da-f]{8}|[\da-f]{6}|[\da-f]{3,4})(?![\w-])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi;
+
+/** The Tailwind arbitrary-value tokens in a class list. Pure; shared with `scripts/check-styles.mjs`. */
+export const arbitraryClasses = (text) => text.match(ARBITRARY_CLASS) ?? [];
+
+/** The hex and colour-function literals in a text. Pure; shared with `scripts/check-styles.mjs`. */
+export const colourLiterals = (text) => text.match(COLOUR_LITERAL) ?? [];
+
+const STYLE_MESSAGES = {
+  merge:
+    'Build class constants and compose complete strings with cn from @repo/ui; remove concatenation, interpolation and other helpers (ADR 0121).',
+  arbitrary:
+    'Replace the Tailwind arbitrary value `{{value}}` with a class on the theme scale or a `@repo/ui` token (ADR 0114).',
+  colour:
+    'Replace the colour literal `{{value}}` with a `@repo/ui` colour token class such as `bg-surface` or `text-ink` (ADR 0114).',
+  style:
+    'Style with Tailwind classes on the theme scale; remove the inline `style` prop (ADR 0114).',
+};
+
+/** Class-value nodes, excluding predicates and call targets. */
+const classChildren = (node) => {
+  if (node.type === 'ConditionalExpression') return [node.consequent, node.alternate];
+  if (node.type === 'LogicalExpression' && node.operator === '&&') return [node.right];
+  if (node.type === 'CallExpression')
+    return [
+      ...(node.callee.type === 'MemberExpression' ? [node.callee.object] : []),
+      ...node.arguments,
+    ];
+  return Object.entries(node)
+    .filter(([key]) => key !== 'parent')
+    .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
+    .filter((value) => typeof value?.type === 'string');
+};
+
+/** Both sides of || and ?? can yield a class value. */
+const descendants = (node) => [node, ...classChildren(node).flatMap(descendants)];
+
+const isStringLiteral = (node) => node.type === 'Literal' && typeof node.value === 'string';
+const classLiteral = (node) => {
+  if (isStringLiteral(node)) return [[node, node.value]];
+  return node.type === 'TemplateElement' ? [[node, node.value.cooked ?? '']] : [];
+};
+const isCnImport = (definition) =>
+  definition.type === 'ImportBinding' &&
+  definition.node.type === 'ImportSpecifier' &&
+  importedName(definition.node) === 'cn' &&
+  definition.parent.importKind !== 'type' &&
+  definition.node.importKind !== 'type';
+
+const isClassComposition = (node, isUiCn) =>
+  (node.type === 'BinaryExpression' && node.operator === '+') ||
+  (node.type === 'TemplateLiteral' && node.expressions.length > 0) ||
+  (node.type === 'CallExpression' && !isUiCn(node.callee));
+
+const noArbitraryStyles = {
+  meta: { type: 'problem', schema: [], messages: STYLE_MESSAGES },
+  create(context) {
+    if (isTestFile(context.filename) || API_SOURCE.test(repositoryPath(context))) {
+      return {};
+    }
+
+    const check = (node, text) => {
+      [
+        ...arbitraryClasses(text).map((value) => ({ messageId: 'arbitrary', value })),
+        ...colourLiterals(text).map((value) => ({ messageId: 'colour', value })),
+      ].forEach(({ messageId, value }) => {
+        context.report({ node, messageId, data: { value } });
+      });
+    };
+    const constants = new Map();
+    const classValues = [];
+
+    const isUiCn = (node) => {
+      if (node.type !== 'Identifier' || node.name !== 'cn') return false;
+      const reference = context.sourceCode
+        .getScope(node)
+        .references.find(({ identifier }) => identifier === node);
+      return (
+        reference?.resolved?.defs.some((definition) => {
+          const source = definition.parent?.source?.value;
+          if (!isCnImport(definition)) return false;
+          return (
+            source === '@repo/ui' ||
+            (repositoryPath(context).startsWith('packages/ui/') &&
+              source.startsWith('.') &&
+              posix
+                .normalize(posix.join(posix.dirname(repositoryPath(context)), source))
+                .replace(/\.ts$/, '') === 'packages/ui/src/cn')
+          );
+        }) ?? false
+      );
+    };
+
+    // Resolve class constants before deduplicating nodes shared by attributes and cn calls.
+    const classNodes = (node, seen) =>
+      descendants(node).flatMap((child) => {
+        if (child.type !== 'Identifier' || !constants.has(child.name) || seen.has(child.name))
+          return [child];
+        return [child, ...classNodes(constants.get(child.name), new Set([...seen, child.name]))];
+      });
+
+    return {
+      'VariableDeclaration[kind="const"] > VariableDeclarator[id.type="Identifier"]': (node) => {
+        if (node.init) constants.set(node.id.name, node.init);
+      },
+      'CallExpression[callee.name="cn"]': (node) => classValues.push(node),
+      JSXAttribute(node) {
+        if (node.name.name === 'style') context.report({ node, messageId: 'style' });
+        if (['className', 'class'].includes(node.name.name) && node.value) {
+          classValues.push(node.value);
+        }
+      },
+      'Program:exit': () => {
+        new Set(classValues.flatMap((value) => classNodes(value, new Set()))).forEach((node) => {
+          const constant = node.type === 'Identifier' && constants.get(node.name);
+          if (
+            isClassComposition(node, isUiCn) ||
+            (constant && (isStringLiteral(constant) || constant.type === 'TemplateLiteral'))
+          ) {
+            context.report({ node, messageId: 'merge' });
+          }
+          classLiteral(node).forEach(([literal, text]) => {
+            check(literal, text);
+          });
+        });
+      },
+    };
+  },
+};
+
 export default {
   meta: { name: 'policy' },
   rules: {
@@ -1085,6 +1218,7 @@ export default {
     'one-component-per-file': oneComponentPerFile,
     'no-large-comments': noLargeComments,
     'use-ui-primitives': useUiPrimitives,
+    'no-arbitrary-styles': noArbitraryStyles,
     'state-and-effects-in-hooks': stateAndEffectsInHooks,
     'handler-names': handlerNames,
     'callback-prop-names': callbackPropNames,
