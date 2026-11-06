@@ -1297,11 +1297,12 @@ function isFreshTick({ event, unticked }) {
  * status for the head is the sign-off, so the text never shows or makes an
  * approval by itself.
  *
- * @param {string} body @param {string} unticked
+ * @param {string} body @param {string} head @param {Problem[]} problems
  */
-function isLabelled(body, unticked) {
+function isLabelled(body, head, problems) {
   const box = /\n- \[x\] (.*) <sub><i>ticked by [^<\n]*<\/i><\/sub>\n/;
   const text = normalise(body);
+  const unticked = normalise(signoffComment({ head, problems, ranAt: ranAtIn(body) }));
 
   return (
     Boolean(approvedIn(text)) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked
@@ -1423,9 +1424,7 @@ export function planApproval({
     event.kind === 'comment' && planEdit({ head, problems, comment, event, fingerprint });
 
   if (edit) return edit;
-  const unticked = signoffComment({ head, problems, ranAt: ranAtIn(comment?.body) });
-
-  if (signedOff && comment && isLabelled(comment.body, normalise(unticked))) {
+  if (signedOff && comment && isLabelled(comment.body, head, problems)) {
     return { commentBody: comment.body, status: null };
   }
 

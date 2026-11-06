@@ -1103,7 +1103,7 @@ describe('signoffComment', () => {
     expect(body).toContain(`@${APPROVER}`);
     expect(body).toContain('Ran at Friday, the 6th of November, at 11:26 am on commit `aaaaaaa`.');
     expect(body).toContain(`<!-- enforcement-head:${HEAD} -->`);
-    expect(body.replace(/<!--[^\n]*-->/g, '')).not.toContain(HEAD);
+    expect(body.match(/[0-9a-f]{40}/g)).toEqual([HEAD]);
     expect(body).not.toContain('An update that leaves those changes');
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
       `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
@@ -2097,7 +2097,7 @@ describe('guard comment placement and approval carry-over', () => {
     );
     expect(box).toContain('carried from `aaaaaaa`');
     expect(fake.comments.at(-1)?.body).toContain(`<!-- enforcement-head:${NEXT} -->`);
-    expect(fake.comments.at(-1)?.body.replace(/<!--[^\n]*-->/g, '')).not.toContain(NEXT);
+    expect(fake.comments.at(-1)?.body.match(/[0-9a-f]{40}/g)).toEqual([NEXT]);
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({
         sha: NEXT,
