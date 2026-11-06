@@ -1,7 +1,9 @@
 <!-- enforcement-approval -->
 ## Enforcement sign-off
 
-This PR loosens or rewrites what the gates enforce, or changes product intent:
+Ran at Friday, the 6th of November, at 11:26 am on commit `aaaaaaa`.
+
+This PR changes gated enforcement or product intent, so it needs sign-off.
 
 | File | Area | Change |
 | --- | --- | --- |
@@ -12,5 +14,6 @@ This PR loosens or rewrites what the gates enforce, or changes product intent:
 | `biome.json` | Biome config | Sets `linter.enabled` to `false` |
 | `docs/NORTH_STAR.md` | Product intent | Edits 3 lines (adds 2, removes 1), starting with `old` → `new` |
 
-@maintainer signs off by ticking the box below in GitHub. The tick covers the guarded changes listed above at commit `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`. An update that leaves those changes identical keeps it; a push that changes them clears it, and a tick from any other account is cleared.
-- [ ] Approve these enforcement changes at `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
+@maintainer: tick to approve.
+- [ ] Approve these enforcement changes at `aaaaaaa`
+<!-- enforcement-head:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->

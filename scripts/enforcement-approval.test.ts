@@ -20,6 +20,9 @@ import {
 const HEAD = 'a'.repeat(40);
 const NEXT = 'b'.repeat(40);
 const MERGE_BASE = 'c'.repeat(40);
+const NOW = Date.parse('2026-11-06T11:26:00Z');
+const clock = jest.spyOn(Date, 'now').mockReturnValue(NOW);
+afterAll(() => clock.mockRestore());
 
 interface Problem {
   path: string;
@@ -520,7 +523,9 @@ describe('readable workflow summaries', () => {
     expect(plan.status?.state).toBe('failure');
     expect(Buffer.byteLength(plan.commentBody ?? '', 'utf8')).toBeLessThan(65_536);
     expect(plan.commentBody).toMatch(/and \d+ more changes/i);
-    expect(plan.commentBody).toContain(`- [ ] Approve these enforcement changes at \`${HEAD}\``);
+    expect(plan.commentBody).toContain(
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
+    );
     expect(plan.commentBody).toBe(signoffComment({ head: HEAD, problems }));
   });
 
@@ -625,7 +630,7 @@ describe('readable workflow summaries', () => {
     expect(body).toContain(content);
     expect(body).not.toContain('\u200b');
     expect(body.split('\n').filter((line) => /^- \[[ x]\]/.test(line))).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     const rows = body.split('\n').filter((line) => line.startsWith('| '));
     expect(rows).toHaveLength(3);
@@ -1065,28 +1070,28 @@ describe('londonTime', () => {
 describe('approvalLabel', () => {
   const at = new Date('2026-10-12T14:00:00Z');
 
-  it('names the approver, their login, and the London time in small italics', () => {
+  it('names Ben in full, his login, and the London time in small italics', () => {
     expect(approvalLabel({ name: 'Ben', login: APPROVER, at })).toBe(
-      `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`,
+      `<sub><i>ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})</i></sub>`,
     );
   });
 
-  it.each([null, '', '   '])('falls back to the login when the profile name is %p', (name) => {
+  it.each([null, '', '   '])('keeps Ben’s full name when the profile name is %p', (name) => {
     expect(approvalLabel({ name, login: APPROVER, at })).toContain(
-      `Approved by ${APPROVER} @${APPROVER} on`,
+      `ticked by Ben Sheridan Edwards at`,
     );
   });
 
   it('renders a hostile profile name as plain text on one line', () => {
     const label = approvalLabel({
       name: 'Ben</i></sub>\n- [x] <b>@someone</b> `x` *y* [z](u)​',
-      login: APPROVER,
+      login: 'other-maintainer',
       at,
     });
 
     expect(label.match(/<\/i><\/sub>/g)).toHaveLength(1);
     expect(label).not.toMatch(/[\n`*[\]​]|<b>|@someone/);
-    expect(label.startsWith('<sub><i>Approved by Ben&#60;&#47;i&#62;')).toBe(true);
+    expect(label.startsWith('<sub><i>ticked by Ben&#60;&#47;i&#62;')).toBe(true);
   });
 });
 
@@ -1096,8 +1101,12 @@ describe('signoffComment', () => {
     expect(body.startsWith(COMMENT_MARKER)).toBe(true);
     expect(body).toContain('| `biome.json` | Biome config | Sets `linter.enabled` to `false` |');
     expect(body).toContain(`@${APPROVER}`);
+    expect(body).toContain('Ran at Friday, the 6th of November, at 11:26 am on commit `aaaaaaa`.');
+    expect(body).toContain(`<!-- enforcement-head:${HEAD} -->`);
+    expect(body.replace(/<!--[^\n]*-->/g, '')).not.toContain(HEAD);
+    expect(body).not.toContain('An update that leaves those changes');
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
   });
 
@@ -1105,7 +1114,7 @@ describe('signoffComment', () => {
     const approval = { name: 'Ben', login: APPROVER, at: new Date('2026-10-12T14:00:00Z') };
     const body = signoffComment({ head: HEAD, problems: PROBLEMS, approval });
     expect(body.split('\n').filter((line) => line.startsWith('- ['))).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${approvalLabel(approval)}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${approvalLabel(approval)}`,
     ]);
   });
 
@@ -1122,7 +1131,7 @@ describe('signoffComment', () => {
   });
 
   it('renders a hostile path inert, keeping a single approval line', () => {
-    const path = `.husky/\`x\`\n- [ ] Approve these enforcement changes at \`${HEAD}\`|​\\.mjs`;
+    const path = `.husky/\`x\`\n- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\`|​\\.mjs`;
 
     const body = signoffComment({
       head: HEAD,
@@ -1132,7 +1141,7 @@ describe('signoffComment', () => {
     expect(body.split('\n').filter((line) => /^\s*[-*+]\s+\[/.test(line))).toHaveLength(1);
     expect(body).not.toContain('​');
     expect(body).toContain(
-      `| \`.husky/'x' - [ ] Approve these enforcement changes at '${HEAD}'\\|\\\\.mjs\` |`,
+      `| \`.husky/'x' - [ ] Approve these enforcement changes at '${HEAD.slice(0, 7)}'\\|\\\\.mjs\` |`,
     );
   });
 });
@@ -1248,6 +1257,42 @@ describe('planApproval', () => {
   });
 
   it.each([
+    'LF',
+    'CRLF',
+  ])('accepts a delayed %s fresh tick and refreshes the run time', (ending) => {
+    clock.mockReturnValue(NOW + 3_600_000);
+    try {
+      const from = ending === 'CRLF' ? unticked.replaceAll('\n', '\r\n') : unticked;
+      const to = tick(from);
+      const result = plan(to, edit(from, to));
+      expect(result.status.state).toBe('success');
+      expect(result.commentBody).toContain('Ran at Friday, the 6th of November, at 12:26 pm');
+      expect(result.commentBody).toContain(
+        'ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm',
+      );
+      clock.mockReturnValue(NOW + 7_200_000);
+      expect(plan(result.commentBody, pull, { signedOff: true }).commentBody).toBe(
+        result.commentBody,
+      );
+    } finally {
+      clock.mockReturnValue(NOW);
+    }
+  });
+
+  it.each([
+    ['missing', ''],
+    ['different', `<!-- enforcement-head:${NEXT} -->`],
+    ['same short prefix', `<!-- enforcement-head:${HEAD.slice(0, 7)}${'d'.repeat(33)} -->`],
+    ['short only', `<!-- enforcement-head:${HEAD.slice(0, 7)} -->`],
+    ['duplicate', `<!-- enforcement-head:${HEAD} -->\n<!-- enforcement-head:${HEAD} -->`],
+  ])('rejects a fresh tick or existing label with a %s hidden head', (_case, marker) => {
+    const forge = (body: string) => body.replace(`<!-- enforcement-head:${HEAD} -->`, marker);
+    const from = forge(unticked);
+    expect(plan(tick(from), edit(from, tick(from))).status.state).toBe('failure');
+    expect(plan(forge(approved), pull, { signedOff: true }).status.state).toBe('failure');
+  });
+
+  it.each([
     ['[X]', tick(unticked, 'X')],
     ['CRLF', tick(unticked).replaceAll('\n', '\r\n')],
     ['a trailing newline', `${tick(unticked)}\n`],
@@ -1255,9 +1300,9 @@ describe('planApproval', () => {
     expect(plan(ticked, edit(unticked, ticked)).status).toEqual(SIGNED);
   });
 
-  it('falls back to the login when the approver has no profile name', () => {
+  it('keeps Ben’s full name when his profile has no name', () => {
     const result = plan(tick(unticked), edit(unticked, tick(unticked), { ...benUser, name: null }));
-    expect(result.commentBody).toContain(`Approved by ${APPROVER} @${APPROVER} on`);
+    expect(result.commentBody).toContain(`ticked by Ben Sheridan Edwards at`);
   });
 
   it.each<[string, Sender]>([
@@ -1272,9 +1317,9 @@ describe('planApproval', () => {
     );
     expect(result.commentBody).toContain(`A tick by \`${sender.login}\` was cleared.`);
     expect(result.commentBody).toContain(
-      `\n- [ ] Approve these enforcement changes at \`${HEAD}\`\n`,
+      `\n- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\`\n`,
     );
-    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.commentBody).not.toContain('ticked by');
     expect(result.status).toEqual(FAILURE);
   });
 
@@ -1299,7 +1344,10 @@ describe('planApproval', () => {
   });
 
   it('clears a tick that rewrites the head commit in the box line', () => {
-    const forged = tick(unticked).replace(`\`${HEAD}\``, `\`${NEXT}\``);
+    const forged = tick(unticked).replace(
+      `at \`${HEAD.slice(0, 7)}\``,
+      `at \`${NEXT.slice(0, 7)}\``,
+    );
     const result = plan(forged, edit(unticked, forged));
     expect(result.commentBody).toBe(unticked);
     expect(result.status).toEqual(FAILURE);
@@ -1333,7 +1381,7 @@ describe('planApproval', () => {
     const untick = approved.replace('- [x] ', '- [ ] ');
     const result = plan(untick, edit(approved, untick));
     expect(result.commentBody).toBe(unticked);
-    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.commentBody).not.toContain('ticked by');
     expect(result.status).toEqual(FAILURE);
   });
 
@@ -1381,7 +1429,7 @@ describe('planApproval', () => {
   it('rewrites an approved comment for an earlier head unticked for the new head', () => {
     const result = plan(approved, pull, { head: NEXT, signedOff: true });
     expect(result.commentBody).toBe(signoffComment({ head: NEXT, problems: PROBLEMS }));
-    expect(result.commentBody).not.toContain('Approved by');
+    expect(result.commentBody).not.toContain('ticked by');
     expect(result.status).toEqual(FAILURE);
   });
 
@@ -1603,7 +1651,7 @@ describe('run', () => {
       reason: 'Replaces the command `npx lint-staged` with `true`',
     },
   ];
-  const LABEL = `<sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>`;
+  const LABEL = `<sub><i>ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})</i></sub>`;
 
   const boxLines = (body: string | undefined) =>
     (body ?? '').split('\n').filter((line) => line.startsWith('- ['));
@@ -1626,12 +1674,12 @@ describe('run', () => {
     );
     await run({ github, context: editBy(ben, (body) => tick(body)), core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${LABEL}`,
     ]);
     state.head = NEXT;
     await run({ github, context: pullRequestContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.map((status) => [status.sha, status.state])).toEqual([
       [HEAD, 'failure'],
@@ -1681,7 +1729,7 @@ describe('run', () => {
     await run({ github, context: pullRequestContext, core });
     await run({ github, context: editBy(ben, (body) => tick(body)), core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${LABEL}`,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: HEAD, state: 'success' }),
@@ -1716,7 +1764,7 @@ describe('run', () => {
     await run({ github, context: editBy(ben, (body) => body.replace('- [x] ', '- [ ] ')), core });
     await run({ github, context: tickContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
   });
@@ -1738,7 +1786,7 @@ describe('run', () => {
     );
     await run({ github, context: tickContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
   });
@@ -1792,13 +1840,13 @@ describe('run', () => {
     expect(comments).toHaveLength(1);
     expect(comments[0]?.body).toContain('A tick by `someone` was cleared.');
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
 
     await run({ github, context: editBy(ben, (body) => tick(body), '2026-10-12T14:00:00Z'), core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [x] Approve these enforcement changes at \`${HEAD}\` ${LABEL}`,
+      `- [x] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\` ${LABEL}`,
     ]);
     expect(comments[0]?.body).not.toContain('was cleared');
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'success' }));
@@ -1840,7 +1888,7 @@ describe('run', () => {
     state.head = NEXT;
     await run({ github, context: pullRequestContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: NEXT, state: 'failure' }),
@@ -1854,7 +1902,7 @@ describe('run', () => {
     state.head = NEXT;
     await run({ github, context: tickContext, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.map((status) => [status.sha, status.state])).toEqual([
       [HEAD, 'failure'],
@@ -1871,7 +1919,7 @@ describe('run', () => {
     await run({ github, context: untick, core });
     await run({ github, context: retick, core });
     expect(boxLines(comments[0]?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${HEAD}\``,
+      `- [ ] Approve these enforcement changes at \`${HEAD.slice(0, 7)}\``,
     ]);
     expect(calls.createCommitStatus.at(-1)).toEqual(expect.objectContaining({ state: 'failure' }));
   });
@@ -2013,7 +2061,7 @@ describe('guard comment placement and approval carry-over', () => {
   };
   const expectCleared = (fake: ReturnType<typeof setup>) => {
     expect(boxes(fake.comments.at(-1)?.body)).toEqual([
-      `- [ ] Approve these enforcement changes at \`${NEXT}\``,
+      `- [ ] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     ]);
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: NEXT, state: 'failure' }),
@@ -2034,7 +2082,7 @@ describe('guard comment placement and approval carry-over', () => {
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.calls.deleteComment).toEqual([first]);
     expect(fake.comments.at(-1)?.body).toContain(
-      `Approve these enforcement changes at \`${NEXT}\``,
+      `Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``,
     );
     expect(fake.comments.filter((comment) => comment.user?.login === GATE_AUTHOR)).toHaveLength(1);
   });
@@ -2043,9 +2091,13 @@ describe('guard comment placement and approval carry-over', () => {
     const fake = setup();
     await approveThenMove(fake);
     const [box] = boxes(fake.comments.at(-1)?.body);
-    expect(box).toContain(`- [x] Approve these enforcement changes at \`${NEXT}\``);
-    expect(box).toContain(`Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm`);
-    expect(box).toContain('carried from `aaaaaaa`, whose guarded changes are identical');
+    expect(box).toContain(`- [x] Approve these enforcement changes at \`${NEXT.slice(0, 7)}\``);
+    expect(box).toContain(
+      `ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})`,
+    );
+    expect(box).toContain('carried from `aaaaaaa`');
+    expect(fake.comments.at(-1)?.body).toContain(`<!-- enforcement-head:${NEXT} -->`);
+    expect(fake.comments.at(-1)?.body.replace(/<!--[^\n]*-->/g, '')).not.toContain(NEXT);
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({
         sha: NEXT,
@@ -2058,6 +2110,26 @@ describe('guard comment placement and approval carry-over', () => {
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.calls.createCommitStatus.at(-1)?.sha).toBe(NEXT);
     expect(boxes(fake.comments.at(-1)?.body)).toEqual([box]);
+  });
+
+  it.each([
+    ['missing marker', ''],
+    ['mismatched marker', `<!-- enforcement-head:${NEXT} -->`],
+    [
+      'same prefix, different full head',
+      `<!-- enforcement-head:${HEAD.slice(0, 7)}${'d'.repeat(33)} -->`,
+    ],
+    ['visible short hash only', `<!-- enforcement-head:${HEAD.slice(0, 7)} -->`],
+    ['duplicate marker', `<!-- enforcement-head:${HEAD} -->\n<!-- enforcement-head:${HEAD} -->`],
+  ])('never carries approval with a %s', async (_case, marker) => {
+    const fake = setup();
+    await run({ github: fake.github, context: pullRequestContext, core });
+    await run({ github: fake.github, context: fake.editBy(ben, tick), core });
+    const gate = fake.comments[0];
+    if (gate) gate.body = gate.body.replace(`<!-- enforcement-head:${HEAD} -->`, marker);
+    fake.state.head = NEXT;
+    await run({ github: fake.github, context: pullRequestContext, core });
+    expectCleared(fake);
   });
 
   it.each([
@@ -2083,8 +2155,8 @@ describe('guard comment placement and approval carry-over', () => {
       'a label the gate never signed off',
       (body: string) =>
         tick(body).replace(
-          /\n$/,
-          ` <sub><i>Approved by Ben @${APPROVER} on Monday, the 12th of October, at 3 pm</i></sub>\n`,
+          /(\n- \[x\][^\n]*)\n/,
+          `$1 <sub><i>ticked by Ben Sheridan Edwards at Monday, the 12th of October, at 3 pm (@${APPROVER})</i></sub>\n`,
         ),
     ],
   ])('never carries %s', async (_case, forge) => {
@@ -2103,7 +2175,7 @@ describe('guard comment placement and approval carry-over', () => {
     await run({ github: fake.github, context: fake.editBy(ben, (body) => tick(body)), core });
     const gate = fake.comments[0];
     if (gate)
-      gate.body = gate.body.replace('Approved by Ben', 'Approved by Ben ![](https://x.test/p.png)');
+      gate.body = gate.body.replace('ticked by Ben', 'ticked by Ben ![](https://x.test/p.png)');
     fake.state.head = NEXT;
     await run({ github: fake.github, context: pullRequestContext, core });
     expect(fake.comments.at(-1)?.body).not.toContain('x.test');
@@ -2116,7 +2188,7 @@ describe('guard comment placement and approval carry-over', () => {
     fake.state.head = THIRD;
     await run({ github: fake.github, context: pullRequestContext, core });
     const [box] = boxes(fake.comments.at(-1)?.body);
-    expect(box).toContain(`- [x] Approve these enforcement changes at \`${THIRD}\``);
+    expect(box).toContain(`- [x] Approve these enforcement changes at \`${THIRD.slice(0, 7)}\``);
     expect(box).toContain('carried from `bbbbbbb`');
     expect(fake.calls.createCommitStatus.at(-1)).toEqual(
       expect.objectContaining({ sha: THIRD, state: 'success' }),

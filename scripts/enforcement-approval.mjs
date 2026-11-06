@@ -1114,9 +1114,10 @@ const plainText = (text) =>
  */
 export function approvalLabel({ name, login, at }) {
   const handle = login.replace(/[^A-Za-z0-9-]/g, '');
-  const shown = plainText(name ?? '') || handle;
+  const shown =
+    login === 'BenSheridanEdwards' ? 'Ben Sheridan Edwards' : plainText(name ?? '') || handle;
 
-  return `<sub><i>Approved by ${shown} @${handle} on ${londonTime(at)}</i></sub>`;
+  return `<sub><i>ticked by ${shown} at ${londonTime(at)} (@${handle})</i></sub>`;
 }
 
 /**
@@ -1125,7 +1126,7 @@ export function approvalLabel({ name, login, at }) {
  * is not the gate's label and carries nothing.
  */
 const LABEL =
-  /^<sub><i>Approved by ([\p{L}\p{N} .'&#;-]{1,1100}) @([A-Za-z0-9-]{1,39}) on ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm))(?:; carried from `[0-9a-f]{7}`, whose guarded changes are identical)?<\/i><\/sub>$/u;
+  /^<sub><i>ticked by ([\p{L}\p{N} .'&#;-]{1,1100}) at ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm)) \(@([A-Za-z0-9-]{1,39})\)(?:; carried from `[0-9a-f]{7}`)?<\/i><\/sub>$/u;
 
 /**
  * The label for a sign-off carried from an earlier head, rebuilt from the
@@ -1134,7 +1135,22 @@ const LABEL =
  * @param {Carry} carry
  */
 const carriedLabel = ({ from, name, handle, time }) =>
-  `<sub><i>Approved by ${name} @${handle} on ${time}; carried from ${inert(from.slice(0, 7))}, whose guarded changes are identical</i></sub>`;
+  `<sub><i>ticked by ${name} at ${time} (@${handle}); carried from ${inert(from.slice(0, 7))}</i></sub>`;
+
+/** @param {string} body */
+const commentHead = (body) => {
+  const markers = [...body.matchAll(/^<!-- enforcement-head:([0-9a-f]{40}) -->$/gm)];
+
+  return markers.length === 1 ? markers[0][1] : undefined;
+};
+
+/** @param {string | null | undefined} body */
+const ranAtIn = (body) =>
+  body
+    ? normalise(body).match(
+        /^Ran at ([A-Z][a-z]+day, the \d{1,2}(?:st|nd|rd|th) of [A-Z][a-z]+, at \d{1,2}(?::\d{2})? (?:am|pm)) on commit `[0-9a-f]{7}`\.$/m,
+      )?.[1]
+    : undefined;
 
 /**
  * The approver's checked label parts and the commit a labelled gate comment
@@ -1145,13 +1161,15 @@ const carriedLabel = ({ from, name, handle, time }) =>
  */
 function approvedIn(body) {
   const box = normalise(body).match(
-    /\n- \[x\] Approve these enforcement changes at `([0-9a-f]{40})` (<sub><i>[^\n]*<\/i><\/sub>)$/m,
+    /\n- \[x\] Approve these enforcement changes at `([0-9a-f]{7})` (<sub><i>[^\n]*<\/i><\/sub>)\n<!-- enforcement-head:[0-9a-f]{40} -->$/m,
   );
   const label = box?.[2].match(LABEL);
+  const head = commentHead(normalise(body));
 
-  if (!box || !label || label[2] !== APPROVER) return undefined;
+  if (!box || !label || label[3] !== APPROVER || !head || box[1] !== head.slice(0, 7))
+    return undefined;
 
-  return { head: box[1], name: label[1], handle: label[2], time: label[3] };
+  return { head, name: label[1], handle: label[3], time: label[2] };
 }
 
 /**
@@ -1182,13 +1200,20 @@ const REFUSAL_NOTE =
  * a note that names whose tick the gate just cleared, or ticked with the label
  * when the gate has just seen the approver tick it.
  *
- * @param {{ head: string, problems: Problem[], approval?: Approval, refusedBy?: string, carry?: Carry }} input
+ * @param {{ head: string, problems: Problem[], approval?: Approval, refusedBy?: string, carry?: Carry, ranAt?: string }} input
  */
-export function signoffComment({ head, problems, approval, refusedBy, carry }) {
+export function signoffComment({
+  head,
+  problems,
+  approval,
+  refusedBy,
+  carry,
+  ranAt = londonTime(new Date(Date.now())),
+}) {
   const label = carry ? carriedLabel(carry) : approval ? approvalLabel(approval) : null;
   const box = label
-    ? `- [x] ${APPROVAL_TEXT}${inert(head)} ${label}`
-    : `- [ ] ${APPROVAL_TEXT}${inert(head)}`;
+    ? `- [x] ${APPROVAL_TEXT}${inert(head.slice(0, 7))} ${label}`
+    : `- [ ] ${APPROVAL_TEXT}${inert(head.slice(0, 7))}`;
 
   const rows = [...Map.groupBy(problems, (problem) => problem.path).values()].map((group) => ({
     ...group[0],
@@ -1201,7 +1226,9 @@ export function signoffComment({ head, problems, approval, refusedBy, carry }) {
     COMMENT_MARKER,
     '## Enforcement sign-off',
     '',
-    'This PR loosens or rewrites what the gates enforce, or changes product intent:',
+    `Ran at ${ranAt} on commit ${inert(head.slice(0, 7))}.`,
+    '',
+    'This PR changes gated enforcement or product intent, so it needs sign-off.',
     '',
     '| File | Area | Change |',
     '| --- | --- | --- |',
@@ -1209,8 +1236,9 @@ export function signoffComment({ head, problems, approval, refusedBy, carry }) {
   const footer = [
     '',
     ...(refusedBy === undefined ? [] : [refusalNote(refusedBy), '']),
-    `@${APPROVER} signs off by ticking the box below in GitHub. The tick covers the guarded changes listed above at commit ${inert(head)}. An update that leaves those changes identical keeps it; a push that changes them clears it, and a tick from any other account is cleared.`,
+    `@${APPROVER}: tick to approve.`,
     box,
+    `<!-- enforcement-head:${head} -->`,
     '',
   ];
   // A fixed row budget leaves space for the footer and keeps labelled and unticked rows identical.
@@ -1236,7 +1264,7 @@ export function signoffComment({ head, problems, approval, refusedBy, carry }) {
   ].join('\n');
 }
 
-const CLEAR_BODY = `${COMMENT_MARKER}\nNothing in this PR loosens enforcement now, so it needs no sign-off.\n`;
+const CLEAR_BODY = `${COMMENT_MARKER}\nThis PR needs no enforcement or product intent sign-off.\n`;
 
 /** @param {string} body */
 const normalise = (body) => body.replaceAll('\r\n', '\n').trimEnd();
@@ -1272,10 +1300,12 @@ function isFreshTick({ event, unticked }) {
  * @param {string} body @param {string} unticked
  */
 function isLabelled(body, unticked) {
-  const box = /\n- \[x\] (.*) <sub><i>Approved by [^<\n]*<\/i><\/sub>\n/;
+  const box = /\n- \[x\] (.*) <sub><i>ticked by [^<\n]*<\/i><\/sub>\n/;
   const text = normalise(body);
 
-  return box.test(`${text}\n`) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked;
+  return (
+    Boolean(approvedIn(text)) && normalise(`${text}\n`.replace(box, '\n- [ ] $1\n')) === unticked
+  );
 }
 
 /**
@@ -1326,7 +1356,7 @@ const WAITING = {
  * @returns {Plan | undefined}
  */
 function planEdit({ head, problems, comment, event, fingerprint }) {
-  const unticked = signoffComment({ head, problems });
+  const unticked = signoffComment({ head, problems, ranAt: ranAtIn(event.from) });
 
   if (!isFreshTick({ event, unticked: normalise(unticked) })) {
     const refused = hasTick(event.to) && !isApprover(event.sender);
@@ -1334,7 +1364,7 @@ function planEdit({ head, problems, comment, event, fingerprint }) {
     return {
       commentBody: refused
         ? signoffComment({ head, problems, refusedBy: event.sender.login })
-        : unticked,
+        : signoffComment({ head, problems }),
       status: WAITING,
     };
   }
@@ -1393,7 +1423,7 @@ export function planApproval({
     event.kind === 'comment' && planEdit({ head, problems, comment, event, fingerprint });
 
   if (edit) return edit;
-  const unticked = signoffComment({ head, problems });
+  const unticked = signoffComment({ head, problems, ranAt: ranAtIn(comment?.body) });
 
   if (signedOff && comment && isLabelled(comment.body, normalise(unticked))) {
     return { commentBody: comment.body, status: null };
@@ -1401,7 +1431,7 @@ export function planApproval({
 
   return (
     carriedPlan({ head, problems, event, carry, fingerprint }) ?? {
-      commentBody: unticked,
+      commentBody: signoffComment({ head, problems }),
       status: WAITING,
     }
   );
