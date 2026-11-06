@@ -1254,6 +1254,12 @@ function hookDescription(before, after) {
 
 /** @param {string[]} added @param {string[]} removed @param {string[]} skipped */
 function hookEffects(added, removed, skipped) {
+  const masked = added.filter((command) => withoutSuccessFallback(command) !== command);
+  const exposed = removed.filter(
+    (command) =>
+      command !== withoutSuccessFallback(command) &&
+      added.includes(withoutSuccessFallback(command)),
+  );
   return joined([
     skipped.length
       ? `Looser: ${listed(skipped)} become unreachable after the unconditional successful exit`
@@ -1262,14 +1268,23 @@ function hookEffects(added, removed, skipped) {
     added.length
       ? `The hook now executes ${listed(added)}; their exit results participate in the hook's checks`
       : '',
-    [...added, ...removed].some((command) => command.includes('|| true'))
-      ? 'A command followed by || true no longer blocks the hook on failure'
+    masked.length ? `Looser: ${listed(masked)} masks failures with ${inert('|| true')}` : '',
+    exposed.length
+      ? `Removing ${inert('|| true')} exposes the original failure status of ${listed(exposed.map(withoutSuccessFallback))}`
       : '',
     skipped.length + added.length + removed.length === 0
       ? 'Changes which check runs first and which later checks a failure can prevent'
       : '',
   ]);
 }
+
+/** @param {string} command */
+const withoutSuccessFallback = (command) => {
+  const operator = command.lastIndexOf('||');
+  return operator >= 0 && command.slice(operator + 2).trim() === 'true'
+    ? command.slice(0, operator).trimEnd()
+    : command;
+};
 
 /** @param {string} before @param {string} after @returns {Description} */
 function productDescription(before, after) {

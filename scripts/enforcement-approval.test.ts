@@ -1068,6 +1068,37 @@ describe('enforcementProblems', () => {
     expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
   });
 
+  it.each([
+    ['pnpm verify', 'pnpm verify || true', 'masks failures'],
+    ['pnpm verify || true', 'pnpm verify', 'exposes the original failure status'],
+  ])('explains hook failure handling from %s to %s without breaking the table', (before, after, effect) => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([{ path: '.husky/pre-push', before, after }]),
+    });
+    const row = body.split('\n').find((line) => line.startsWith('| `.husky/pre-push`'));
+    expect(row).toContain(effect);
+    expect(row?.split(/(?<!\\)\|/)).toHaveLength(5);
+    expect(row).toContain('\\|\\| true');
+    expect(body).not.toMatch(/Edits \d+ lines|starting with|lines changed in all/);
+  });
+
+  it('handles a long unmasked hook command without inventing a failure mask', () => {
+    const body = signoffComment({
+      head: HEAD,
+      problems: enforcementProblems([
+        {
+          path: '.husky/pre-push',
+          before: 'pnpm verify',
+          after: `pnpm verify${' '.repeat(100_000)}# explanation`,
+        },
+      ]),
+    });
+    expect(body).toContain('pnpm verify # explanation');
+    expect(body).not.toContain('masks failures');
+    expect(Buffer.byteLength(body)).toBeLessThan(65_536);
+  });
+
   it('names a workflow condition even when another job keeps its own condition', () => {
     const before =
       'jobs:\n  quality:\n    if: true\n    steps:\n      - run: pnpm verify\n  tests:\n    if: true\n    steps:\n      - run: pnpm test\n';
